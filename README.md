@@ -39,6 +39,28 @@ editable in place:
 Working from elsewhere is fine too, but a mod won't be live in-game until it's symlinked
 or copied into the real `mods` folder.
 
+## Branches
+
+One branch per Factorio generation. Both are permanent trunks, and both require pull
+requests from anyone other than the repository owner.
+
+| Branch | Factorio | Role |
+|---|---|---|
+| `main` | 2.1 | Where new work happens. The default branch. |
+| `legacy/2.0` | 2.0 | The 2.0 build of every mod here, kept while 2.0 is the stable release. |
+
+A mod zip declares exactly one `factorio_version`, so supporting both games means two
+builds and two uploads of the same mod — the portal serves each game only the releases
+matching it. Version numbers come from a single sequence shared by both branches, so a
+release number says nothing about which game it targets; the changelog entry does.
+
+Only a mod's own source differs between the branches. The docs, `.claude/` and each mod's
+notes are kept identical, so `git diff main` from the `legacy/2.0` side should only ever
+list the files a port genuinely changes.
+
+Released versions are marked with annotated `<mod-name>_<version>` tags, per mod, on
+whichever branch shipped them.
+
 ## Development
 
 This repo is developed with [Claude Code](https://claude.com/claude-code); `CLAUDE.md`

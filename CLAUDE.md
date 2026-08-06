@@ -69,11 +69,28 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
 - A `.gitignore` negation cannot rescue a file inside an ignored *directory*. `exemples/**/README.md` stays ignored because `exemples/` itself is excluded.
 - **Never run `git clean -x`** (or `-X`) here. Almost everything in this folder is ignored-but-precious: it would delete the downloaded mods, `exemples/`, and the game's own settings.
 - **Annotated tags `<name>_<version>` mark published releases** — created and pushed only as part of an authorised release, never unprompted. No tag for the version in a mod's `info.json` means that version is still **open**: changelog work belongs in its existing top section, not a new one. The decision procedure is in the `factorio-release` skill.
-- **`main` is protected on the remote.** Pull requests are required, and force-pushes and
-  branch deletion are blocked. The repository admin bypasses all three, so the owner still
-  pushes to `main` directly while anyone else branches and opens a PR. This is the remote's
+- **`main` and `legacy/2.0` are both protected on the remote**, under identical rules: pull
+  requests are required, and force-pushes and branch deletion are blocked. `enforce_admins` is
+  off, so the owner pushes to either branch directly while anyone else branches and opens a PR.
+  **That bypass covers the pull-request rule only** — a force-push is refused even for an admin
+  (`remote: - Cannot force-push to this branch`, verified 2026-08-07). Rewriting published
+  history therefore means flipping `allow_force_pushes` through `gh api`, pushing, and putting
+  it straight back; capture the current protection JSON first and diff it afterwards, because
+  the PUT replaces the whole object and silently drops any field left out. This is the remote's
   floor, not permission — the committing rule below still governs.
-- **`main` is Factorio 2.1.** A mod that also ships for 2.0 keeps that build on a `legacy/2.0` branch, checked out as a worktree **outside this directory** — the mods folder is the live install, not a place for a second copy of a mod. Path in `CLAUDE.local.md`; workflow in the `factorio-multiversion` skill.
+- **`main` is Factorio 2.1; `legacy/2.0` is Factorio 2.0.** Both are long-lived trunks, not a
+  branch and a one-off side branch: `legacy/2.0` is where *every* 2.0 build of *every* mod in
+  this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
+  and the 2.0 track stops getting work. It is checked out as a worktree **outside this
+  directory** — the mods folder is the live install, not a place for a second copy of a mod.
+  Path in `CLAUDE.local.md`; workflow in the `factorio-multiversion` skill.
+- **Only a mod's own source may differ between the two branches.** `CLAUDE.md`, `README.md`,
+  everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
+  cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
+  files are `info.json`, `changelog.txt`, `README.md`, `prototypes/modules/definitions.lua`,
+  `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else.
+  `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
+  is drift, and the fix is to bring it back in line rather than to leave the branches guessing.
 
 Git identity is set **locally only**, in `.git/config` — values in `CLAUDE.local.md`. Never `git config --global` it, and never let a real email address into a commit here. An empty `user.email` is the default position — git accepts it and commits are authored `Name <>`, publishing nothing; a forge `<username>@users.noreply.<host>` address is the fallback when something needs a syntactically valid one, and keeps commits linked to the account without exposing a real address.
 
