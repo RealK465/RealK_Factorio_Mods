@@ -23,7 +23,7 @@ On first use, copy `CLAUDE.local.md.example` to `CLAUDE.local.md` and fill it in
 
 Tracked unpacked folders are this repo's own mods:
 
-- **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. Nothing published yet. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
+- **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 

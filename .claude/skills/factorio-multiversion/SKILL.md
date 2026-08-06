@@ -45,26 +45,32 @@ game the newest one matching its major version; the in-game browser never shows 
 
 ### Version numbering
 
-The **minor digit mirrors the game's minor digit**. A mod at major 1 releases `1.1.4` for
-Factorio 2.1 and `1.0.4` for Factorio 2.0; a future 2.2 track would take `1.2.x`.
+**One sequential version line, shared across both tracks.** A version string is unique per mod
+on the portal no matter which game it targets, so both tracks draw from a single sequence:
+whatever ships next takes the next free number, whichever game it is for. Pure Modules is the
+worked example — `1.0.0` for Factorio 2.0, then `1.0.1` for Factorio 2.1, both on 2026-08-06.
 
-- **major** — still what `factorio-release` says: a save-breaking prototype rename or removal.
-  It bumps on both tracks together, so `1.1.7` → `2.1.0` and `1.0.4` → `2.0.0`.
-- **minor** — the game generation. Not a semver minor any more; that meaning moves down to the
-  patch digit, and the changelog categories already carry additive-vs-fix.
-- **patch** — every release inside a band, feature or fix alike.
+- **major** — a save-breaking prototype rename or removal, as `factorio-release` says. Bumps
+  on both tracks.
+- **minor / patch** — ordinary semver, graded against the *previous release of this mod*,
+  whichever track that happened to be.
 
-The band exists to keep **the newer game's track numerically above the older one**, because the
-one journey players actually make is 2.0 → 2.1, carrying a save. Migrations themselves are safe
-either way — they are recorded per save *by file name*, not by version comparison — but
-everything else assumes forward motion: the save records the mod version it was made with,
-version-named migration files stop reading in order, and any of our own code comparing
-`mods["<name>"]` reasons backwards. `1.0.x < 1.1.x` makes a game upgrade always a mod upgrade
-too, which is the only shape worth reasoning about.
+**A release number therefore says nothing about which game it is for.** `factorio_version`
+inside the zip is the only thing that does, and the portal serves each game only the releases
+matching it, so a 2.0 player never sees the 2.1 numbers or vice versa. Say which game a
+release targets in its changelog section instead — see `factorio-changelog`.
 
-The portal itself does not care about order — it rejects only a version string that mod has
-already used. Publishing `1.0.5` after `1.1.2` exists is fine, and is what a backport track does
-routinely: `planet-muluna` ships `2.2.x` builds for 2.0 in between its `2.6.x` releases for 2.1.
+The cost, worth knowing before picking this scheme: the tracks interleave, so a 2.0 release can
+sit numerically above a 2.1 one. That only matters where something compares mod versions across
+a game upgrade — our own `mods["<name>"]` checks, or reading the mod version a save recorded.
+Migrations are unaffected: they are applied per save **by file name**, never by version
+comparison. Keep version comparisons out of cross-track logic and the interleaving is harmless.
+
+The alternative is a **band**, reserving the minor digit for the game generation (`1.1.x` for
+2.1, `1.0.x` for 2.0) so the newer game always reads as newer — `planet-muluna` ships `2.2.x`
+builds for 2.0 between its `2.6.x` releases for 2.1. **This repo does not use bands.** Do not
+"correct" an existing sequence onto one; version numbers are the repo owner's call, and the
+published ones can never be changed.
 
 ## The legacy branch
 
