@@ -5,11 +5,13 @@
 -- single cost, more power and a little more pollution. Quality modules carry
 -- no penalty at all.
 --
--- Penalties do not scale with quality, and that is the engine's doing rather
--- than ours: consumption_quality_multiplier and pollution_quality_multiplier
--- default to 0.0 when their effect is positive (a penalty) and 1.0 when it is
--- negative. So a legendary Pure module's bonus grows while its power draw and
--- pollution stay exactly where they are.
+-- Penalties DO scale with quality on 2.0, and nothing here can stop them:
+-- consumption_quality_multiplier and pollution_quality_multiplier are 2.1-only
+-- properties. A legendary Pure speed module therefore draws 2.5x the power and
+-- makes 2.5x the pollution along with its 2.5x speed. The 2.1 build gets flat
+-- penalties for free from those properties' defaults -- which is why the flat
+-- penalty is claimed only on that track, in neither this changelog nor the
+-- portal description here.
 --
 -- beacon_tint: the colours live in shared/beacon-tints.lua, keyed by the same
 -- category name used here, because data-final-fixes hands the vanilla entries
@@ -68,10 +70,13 @@ if mods["quality"] then
     parent_tech = "quality-module-3",
     color_hint = "Q",
     order = "d[quality]-d[pure-quality-module]",
-    -- 0.04 so a legendary one reaches exactly 10%. Module quality scales by
-    -- the quality prototype's default_multiplier, 1 + 0.3 * level, and
+    -- 0.4 so a legendary one reaches exactly 10%. On 2.0 a quality effect is
+    -- multiplied by the current quality's next_probability, 0.1, to reach the
+    -- actual chance, so every written value is ten times its 2.1 counterpart
+    -- -- vanilla's own quality-module-3 is 0.25 here and 0.025 there. Module
+    -- quality then scales by default_multiplier, 1 + 0.3 * level, and
     -- legendary is level 5 -- not 4 -- so the factor is 2.5.
-    effect = { quality = 0.04 },
+    effect = { quality = 0.4 },
     module_ingredients = {
       { "quality-module-3", 4 },
       { "speed-module-3", 2 },

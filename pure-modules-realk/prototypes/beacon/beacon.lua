@@ -172,8 +172,9 @@ local recipe = aquilo.restrict({
   type = "recipe",
   name = "pure-beacon",
   enabled = false,
-  -- Space Age lets the vanilla beacon be made in an electromagnetic plant.
-  categories = space_age and { "crafting", "electromagnetics" } or nil,
+  -- Space Age moves the vanilla beacon into "electronics", a category both the
+  -- assemblers and the electromagnetic plant carry.
+  category = space_age and "electronics" or nil,
   energy_required = 30,
   ingredients = ingredients,
   results = { { type = "item", name = "pure-beacon", amount = 1 } },

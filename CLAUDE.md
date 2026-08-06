@@ -118,12 +118,6 @@ Never run unprompted: `fmtk publish`, `fmtk upload`, `fmtk details`, or any dire
 
 **Updating `changelog.txt` is part of the change, not a follow-up task.** After work a player could notice — prototypes, recipes, balance, graphics, locale, settings, bugfixes — adapt the mod's changelog in the same session, unprompted, through the `factorio-changelog` skill; its open-section rules and the `factorio-release` skill's "Published or open?" check decide whether entries join the open section or a new one opens. Purely internal work gets no entry: refactors with no visible effect, `.ai-support/`, `assets/`, skills and repo docs. In doubt whether a player would notice, they usually would — write the entry.
 
-## Player-facing text
-
-Everything a player reads is written in the mod's voice, not the agent's. **No AI signature, tagline, or generated-with credit** — no "Made with Claude Code", "AI-generated", "Built with an LLM", or similar, in any of: `info.json` `title`/`description`, `changelog.txt`, `README.md`/`description.md`/FAQ and anything else synced to the portal, locale strings, `thumbnail.png` and in-game graphics.
-
-This is about the product reading as a mod, the same reason it carries no build-tool credits. It says nothing about commit messages or `.ai-support/` notes — those stay as they are.
-
 ## Code style
 
 Write it the way a Factorio modder would.

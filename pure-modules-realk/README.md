@@ -16,8 +16,8 @@ above the vanilla progression rather than replacing it.
 - **Productivity** — more output than tier 3, without the speed hit.
 - **Quality** — better quality than tier 3, with no drawback at all.
 
-The bonus grows with a module's own quality; the cost doesn't — a legendary Pure module
-runs no more expensive than a normal one, for noticeably more effect.
+A module's own quality scales what it does, so a legendary Pure module is markedly
+stronger than a normal one.
 
 There's no Pure efficiency module — tier 3 already has no drawback left to remove. The
 Pure quality module needs the Quality expansion; the other two work without it.

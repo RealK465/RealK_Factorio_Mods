@@ -52,7 +52,6 @@ Anything else is accepted but sorts last. Prefer `Bugfixes` / `Changes` / `Featu
 - Full sentences, capitalised, ending in a period. Bugfixes conventionally start with "Fixed that …".
 - Prefix entries that only apply with another mod active: `- [space-age] Blacklisted molten metals from the flare stack.`
 - This is a different document from the git log, with a different audience. **Never copy a commit subject into it, and never copy changelog prose into a commit.**
-- It is player-facing text: no AI signature, tagline or generated-with credit. See `CLAUDE.md` → Player-facing text.
 
 ## The open section
 

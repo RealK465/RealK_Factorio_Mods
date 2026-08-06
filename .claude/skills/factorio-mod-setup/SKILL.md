@@ -58,8 +58,6 @@ Mandatory: `name`, `version`, `title`, `author`. Effectively mandatory: `factori
 - **`package`** — fmtk config, ignored by the game. **The `ignore` list is not optional** — `CLAUDE.md` is not a dotfile and would otherwise ship to the mod portal. See the `factorio-release` skill.
 - **license** — not a field here; there is no `info.json` key for it. Every mod in this repo is GPLv3 (repo `CLAUDE.md` → License). The license travels as a `LICENSE` file at the mod root instead — copy it from the repo root's `LICENSE` — plus the mod portal's own license selector at publish time (`factorio-release` skill).
 
-`title` and `description` are player-facing text: no AI signature or generated-with credit. See `CLAUDE.md` → Player-facing text.
-
 ## Dependencies
 
 Format is `"<prefix> mod-name <operator> <version>"`, e.g. `"? flib >= 0.16.2"`. Operators: `<`, `<=`, `=`, `>=`, `>`.
@@ -133,8 +131,6 @@ heat-exchanger-tower=Heat exchanger tower
 `[mod-name]` and `[mod-description]` are keyed by the mod's `name` and override `info.json`; the setting categories are keyed by the setting's `name`. Prototype categories follow `[<prototype-kind>-name]` / `[<prototype-kind>-description]`.
 
 A missing key renders in-game as `Unknown key: "…"` rather than failing — grep `factorio-current.log` after adding prototypes.
-
-Locale strings are player-facing text: no AI signature or generated-with credit.
 
 ## Mod settings
 

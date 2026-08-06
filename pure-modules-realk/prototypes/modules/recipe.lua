@@ -1,10 +1,15 @@
 local defs = require("prototypes.modules.definitions")
 local aquilo = require("prototypes.shared.aquilo")
 
--- Space Age puts every vanilla module recipe into the electromagnetic plant's
--- category alongside the assembler's, and does the same for the beacon. A Pure
--- module that could only be made in an assembler would be the odd one out.
-local categories = mods["space-age"] and { "crafting", "electromagnetics" } or nil
+-- Space Age moves every vanilla module recipe -- and the beacon -- into the
+-- "electronics" category, and hands that category to the assemblers too, so
+-- both they and the electromagnetic plant can make them. A Pure module that
+-- could only be made in an assembler would be the odd one out.
+--
+-- 2.0 gives a recipe one category. The 2.1 build writes categories =
+-- { "crafting", "electromagnetics" } instead, which is the same reach by the
+-- other route.
+local category = mods["space-age"] and "electronics" or nil
 
 -- Merge rather than append: a recipe must not list the same ingredient twice,
 -- and without the quality expansion the speed module's substitute is an
@@ -44,7 +49,7 @@ for _, def in pairs(defs) do
     type = "recipe",
     name = def.name,
     enabled = false,
-    categories = categories and table.deepcopy(categories) or nil,
+    category = category,
     energy_required = 90,
     ingredients = ingredients,
     results = { { type = "item", name = def.name, amount = 1 } },
