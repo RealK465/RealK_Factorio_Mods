@@ -15,19 +15,20 @@ technology, full animated graphics and icons, an Aquilo frost overlay, remnants 
 explosion. Design notes live in `.ai-support/pure-beacon-design.md`. Four startup settings
 govern where the tier can be built and what the beacon will carry — see **Settings** below.
 
-**Published 2026-08-06, on two tracks.** `1.0.0` for Factorio 2.0 (branch `legacy/2.0`, tag
-`pure-modules-realk_1.0.0`) and `1.0.1` for Factorio 2.1 (`main`, tag
-`pure-modules-realk_1.0.1`). Both changelog sections are dated, so both versions are spent:
-new work opens a **new** section and takes the next free number in the sequence the two tracks
-share, whichever track it ships on — `factorio-multiversion` → Version numbering.
+**Published, on two tracks** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`.
+Run the `factorio-release` skill's "Published or open?" check rather than trusting a number
+written here: `git tag -l 'pure-modules-realk_*'` is what has shipped, and a changelog section
+still stamped `Date: ????` is what has not. Both tracks draw from one shared version sequence,
+so new work takes the next free number whichever track it ships on — `factorio-multiversion`
+→ Version numbering.
 
 **The two tracks differ on purpose, in three files.** The 2.0 build cannot hold module penalties
 flat across quality — `consumption_quality_multiplier` and `pollution_quality_multiplier` are
 2.1-only, so on 2.0 quality scales the penalties along with the bonuses and no property exists
-to stop it. That claim is therefore absent from `legacy/2.0`'s `changelog.txt` and `README.md`
-and present on main's, and `definitions.lua` differs too (`quality = 0.4` there against `0.04`
-here, because 2.0 quality values are ten times 2.1's). **Do not reconcile those files by
-syncing them** — the divergence is the port.
+to stop it. So the flat-penalty claim appears in `main`'s `changelog.txt` and `README.md` and
+is absent from `legacy/2.0`'s; and `definitions.lua` carries `quality = 0.04` on `main` against
+`0.4` on `legacy/2.0`, because a 2.0 quality value is ten times its 2.1 counterpart.
+**Do not reconcile those three files by syncing them** — the divergence is the port.
 
 Efficiency is deliberately absent. Vanilla's efficiency module already has no drawback, so a
 Pure version would carry the tier's whole identity on a +0.05 consumption bonus. Adding it is a
