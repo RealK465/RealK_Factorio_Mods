@@ -15,11 +15,19 @@ technology, full animated graphics and icons, an Aquilo frost overlay, remnants 
 explosion. Design notes live in `.ai-support/pure-beacon-design.md`. Four startup settings
 govern where the tier can be built and what the beacon will carry — see **Settings** below.
 
-**Nothing has been published.** No `pure-modules-realk_*` release tag exists and the single
-1.0.0 changelog section is stamped `Date: ????` — the open-section markers of the
-`factorio-release` skill's "Published or open?" check. Work done now belongs *in* that
-section rather than in a new one, and the version does not need bumping until something
-actually ships.
+**Published 2026-08-06, on two tracks.** `1.0.0` for Factorio 2.0 (branch `legacy/2.0`, tag
+`pure-modules-realk_1.0.0`) and `1.0.1` for Factorio 2.1 (`main`, tag
+`pure-modules-realk_1.0.1`). Both changelog sections are dated, so both versions are spent:
+new work opens a **new** section and takes the next free number in the sequence the two tracks
+share, whichever track it ships on — `factorio-multiversion` → Version numbering.
+
+**The two tracks differ on purpose, in three files.** The 2.0 build cannot hold module penalties
+flat across quality — `consumption_quality_multiplier` and `pollution_quality_multiplier` are
+2.1-only, so on 2.0 quality scales the penalties along with the bonuses and no property exists
+to stop it. That claim is therefore absent from `legacy/2.0`'s `changelog.txt` and `README.md`
+and present on main's, and `definitions.lua` differs too (`quality = 0.4` there against `0.04`
+here, because 2.0 quality values are ten times 2.1's). **Do not reconcile those files by
+syncing them** — the divergence is the port.
 
 Efficiency is deliberately absent. Vanilla's efficiency module already has no drawback, so a
 Pure version would carry the tier's whole identity on a +0.05 consumption bonus. Adding it is a
@@ -205,9 +213,13 @@ anything else. It is tracked in git: the shots are of a specific build and are w
 with it. Names are hyphenated and describe the shot (`factoriopedia-pure-beacon.jpg`,
 `showcase-beacons-in-line.jpg`) — the portal shows filenames, and the originals had spaces.
 
-Nothing here is uploaded by any of it. Putting these on the portal is `fmtk details` / the
-gallery step, which is a **public write** and needs the repo owner's explicit approval for
-that specific release — the rule in the repo `CLAUDE.md` and the `factorio-release` skill.
+**The gallery went live 2026-08-06**, five images in this order: `showcase-beacons-in-line`
+first, then the four `factoriopedia-*` shots. `beacon-on-aquilo.jpg` is deliberately *not* in
+it — it stays the source crop for `thumbnail.png`. The gallery has no fmtk surface; it is the
+v2 `images/add` + `images/edit` API written up in the `factorio-release` skill, and the id list
+handed to `images/edit` **is** the gallery, so an id left out of it is removed. Uploading or
+reordering is a **public write** and needs the repo owner's explicit approval for that specific
+release — the rule in the repo `CLAUDE.md` and the `factorio-release` skill.
 
 ## Decided
 
@@ -503,7 +515,8 @@ Beacon and release questions now; the module side is settled.
 - The skill table in `../CLAUDE.md` applies unchanged; invoke them before the work, not after.
 - Commit scope is `pure-modules-realk`, e.g. `feat(pure-modules-realk): add pure speed module`.
 - `README.md` and the `info.json` / locale descriptions are player-facing and go to the mod
-  portal. Keep them in the mod's voice — no build-tool or AI credits.
+  portal — `README.md` becomes the portal description verbatim, via `fmtk details --readme`.
+  So a claim that is only true on one track has to be checked against the branch it ships from.
 - `LICENSE` at the mod root is the GNU GPLv3 text, copied verbatim from the repo root's
   `LICENSE` — see the repo `CLAUDE.md` → License. Keep the two in sync if the root copy is
   ever refreshed.

@@ -1,6 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2026-08-06
+  Changes:
+    - Releasing 1.0.0 for Factorio 2.1. Version 1.0.0 itself is the Factorio 2.0 build of
+      the same mod.
+  Features:
+    - Module penalties no longer scale with quality while the bonuses do, so a legendary
+      Pure module draws no more power than a normal one.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.0
-Date: ????
+Date: 2026-08-06
   Major Features:
     - Initial release.
     - Added the Pure speed module: +70% speed with no loss of quality, for +50% energy and
@@ -15,8 +24,6 @@ Date: ????
       space science at the end of the tech tree.
     - Each Pure module is built from six tier 3 modules, an efficiency module 3, processing
       units and low density structures.
-    - Module penalties do not scale with quality while the bonuses do, so a legendary Pure
-      module draws no more power than a normal one.
     - Added a technology for the Pure beacon, the prerequisite for all three Pure module
       technologies. It's built from four ordinary beacons, processing units and refined
       concrete.

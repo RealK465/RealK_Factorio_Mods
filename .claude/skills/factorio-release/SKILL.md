@@ -141,3 +141,60 @@ Underlying API, if fmtk ever needs bypassing — two steps, `Authorization: Bear
 
 - New mod: POST `https://mods.factorio.com/api/v2/mods/init_publish` → POST the zip as multipart form-data to the returned `upload_url`.
 - New release: POST `https://mods.factorio.com/api/v2/mods/releases/init_upload` → same multipart POST.
+
+## The first publish of a new mod name
+
+**`fmtk upload` cannot do it.** It only ever calls `init_upload`, which requires the mod to
+already exist, so on a never-published name it fails with `Error: Unknown Mod` and exit 1
+(verified on fmtk 2.1.8). Nothing is wrong with the zip or the key — that path simply does not
+create mods. `fmtk publish` would, but it also commits, tags and pushes git in the same run.
+
+To publish the first release without the git chain, drive the two-step API directly. The form
+field for the zip is `file`; the token in `upload_url` carries the authorisation, so the second
+POST needs no header:
+
+```powershell
+$k = $env:FACTORIO_UPLOAD_API_KEY
+$init = Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/init_publish" -Method Post `
+  -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"}
+curl.exe -s -X POST -F "file=@<name>_<version>.zip" $init.upload_url
+```
+
+`{"success":true,...}` means it is live. Every release *after* the first is an ordinary
+`fmtk upload <zip> <name>`.
+
+## The portal page after a first publish
+
+A newly created mod does **not** inherit anything from `info.json` beyond name, title, summary
+and the release itself. Verified on a real first publish: `license` defaults to **`mit`**,
+`category` to **`no-category`**, and both the description and the gallery are empty. MIT is
+wrong for every mod in this repo — leaving it published is a licensing error, not a cosmetic
+one. Fix all of it in the same session as the first upload.
+
+`fmtk details` only takes `--readme` and `--faq`. License, category and gallery have no fmtk
+surface at all and need the v2 API:
+
+```powershell
+# license + category (GPLv3 is `default_gnugplv3`; a mod adding content is `content`)
+Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/edit_details" -Method Post `
+  -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"; license="default_gnugplv3"; category="content"}
+
+# gallery: per image, init then POST it with the field name `image`, keeping the returned id
+$init = Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/images/add" -Method Post `
+  -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"}
+curl.exe -s -X POST -F "image=@<file>.jpg" $init.upload_url     # -> {"id": "..."}
+
+# then set display order in one call; the list IS the gallery, so an id left out is removed
+Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/images/edit" -Method Post `
+  -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"; images="<id1>,<id2>,<id3>"}
+```
+
+The first image in that list is the one the portal leads with — pick the hero shot
+deliberately. All of this is a **public write** and needs the repo owner's explicit approval
+for that release, exactly like the upload.
+
+**Reading the page back is CDN-cached.** `GET /api/mods/<name>/full` served the *pre-edit*
+values immediately after three successful writes — license still `mit`, images `0`,
+description empty — which reads exactly like the writes silently failing. Add a cache-buster
+before concluding anything: `…/full?cb=<random>`. Trust the `{"success":true}` from the write
+over a stale read.
