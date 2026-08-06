@@ -1,0 +1,11 @@
+{
+  "name": "pure-modules-realk",
+  "version": "1.0.0",
+  "title": "Pure Modules",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods",
+  "description": "A top tier of modules above tier 3, stronger and only costing power and a little pollution: no speed penalty, no quality penalty. Comes with a wide-area beacon built for the tier, taking speed and efficiency modules of any grade and stacking up to three per machine. Optional Quality and Space Age support.",
+  "dependencies": ["base >= 2.1.0", "? quality", "? space-age"],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**"] }
+}

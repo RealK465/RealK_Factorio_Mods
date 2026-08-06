@@ -1,0 +1,67 @@
+# CLAUDE.local.md
+
+Template. Copy to `CLAUDE.local.md` and fill in — that file is git-ignored and
+holds everything specific to one machine. `CLAUDE.md` stays portable.
+
+    cp CLAUDE.local.md.example CLAUDE.local.md
+
+## This install
+
+- **Mods directory (this repo):** `<path>`
+  - Windows `%APPDATA%\Factorio\mods` · macOS `~/Library/Application Support/factorio/mods` · Linux `~/.factorio/mods`
+- **Game install:** `<path>`
+  - Windows (Steam) `C:\Program Files (x86)\Steam\steamapps\common\Factorio`
+  - macOS `/Applications/factorio.app/Contents`
+  - Linux (Steam) `~/.steam/steam/steamapps/common/Factorio`
+- **Factorio version:** `<e.g. base 2.1.12>` — read it from `<install>/data/base/info.json`
+- **Expansions installed:** `<space-age, quality, elevated-rails, …>`
+- **User-data folder:** `<path>` — holds `factorio-current.log` and `script-output/`
+
+Headless validation, fully expanded for this machine:
+
+```
+<install>/bin/x64/factorio --dump-data --mod-directory <isolated-dir>
+```
+
+## Git identity
+
+Set locally in `.git/config` — never `--global`:
+
+```
+user.name  = <name>
+user.email =
+```
+
+Remote is `origin` → `<url>`.
+
+Leave `user.email` empty unless something needs an address: git accepts it and
+commits are authored `<name> <>`, publishing nothing. Where an address is
+required, use the forge's `<username>@users.noreply.<forge>` form, which keeps
+commits linked to the account without exposing a real one. Never a real address.
+
+Default `author` for new mods: `<name>`. Default `homepage`: `<url>`.
+
+## Tooling
+
+- **fmtk** (`factoriomod-debug`) `<version>` — `npm install -g factoriomod-debug`
+- **Node** `<version>` (fmtk requires ≥ 22.7.0)
+- **Blender** `<version>`, if doing graphics work
+- Anything else the agent should not have to probe for
+
+## Mod portal API key
+
+`<not configured | stored in the OS credential store | FACTORIO_UPLOAD_API_KEY>`
+
+Created at https://factorio.com/profile by the account owner — an agent cannot.
+**Never write the key itself into this file.**
+
+## Local-only folders
+
+Git-ignored, so not in a fresh clone. List what exists here:
+
+- **`exemples/`** — extracted reference mods, if built. See `CLAUDE.md` → `exemples/`.
+- **`<third-party-mod-folder>/`** — unpacked mods from other authors. Do not read or modify.
+
+## Notes and scratch material
+
+- `<paths to design notes, render logs, etc. kept outside the repo>`

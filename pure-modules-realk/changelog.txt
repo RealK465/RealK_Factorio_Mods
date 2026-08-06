@@ -1,0 +1,42 @@
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: ????
+  Major Features:
+    - Initial release.
+    - Added the Pure speed module: +70% speed with no loss of quality, for +50% energy and
+      +25% pollution.
+    - Added the Pure productivity module: +15% productivity with no slowdown, for +50% energy
+      and +25% pollution.
+    - Added the Pure beacon: a wide-area beacon built for the tier, with a supply area of
+      21x21 tiles against the ordinary beacon's 9x9. Takes speed and efficiency modules of
+      any grade, vanilla or Pure.
+  Features:
+    - Added a technology for each Pure module, costing 3000. Without Space Age they follow
+      space science at the end of the tech tree.
+    - Each Pure module is built from six tier 3 modules, an efficiency module 3, processing
+      units and low density structures.
+    - Module penalties do not scale with quality while the bonuses do, so a legendary Pure
+      module draws no more power than a normal one.
+    - Added a technology for the Pure beacon, the prerequisite for all three Pure module
+      technologies. It's built from four ordinary beacons, processing units and refined
+      concrete.
+    - Stacking Pure beacons on one machine caps at three: a fourth transmits nothing extra,
+      trading a wall of beacons for one wide ring instead.
+    - Added two startup settings: restrict Pure modules to the Pure beacon, on by default,
+      and let the beacon transmit productivity, off by default.
+  Graphics:
+    - Added full animated graphics for the Pure beacon: counter-rotating containment rings,
+      a bobbing crystal core, and electric arcs while it's transmitting.
+  Compatibility:
+    - [quality] Added the Pure quality module: +4% quality, with no drawback at all. A
+      legendary one reaches +10%.
+    - [quality] Added a startup setting to let the Pure beacon transmit quality, off by
+      default.
+    - [space-age] Pure module research follows the quantum processor, and their recipes call
+      for quantum processors.
+    - [space-age] Everything in this mod builds on Aquilo by default, the same deal Vulcanus
+      gives the foundry; once built, modules and the beacon work anywhere. A startup setting
+      lifts the restriction.
+    - [space-age] The Pure beacon's recipe asks for one item from every planet: tungsten,
+      carbon fibre, a supercapacitor and a quantum processor.
+    - [space-age] The Pure beacon frosts over on Aquilo like other machinery there.

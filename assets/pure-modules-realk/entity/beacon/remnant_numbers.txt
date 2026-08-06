@@ -1,0 +1,1 @@
+remnants: width=438 height=432 shift=util.by_pixel(3.0, -9.5) variations=2 sheet=438x864

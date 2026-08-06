@@ -1,0 +1,445 @@
+---
+name: factorio-graphics
+description: Use when designing, creating, rendering, or exporting any Factorio art — entity sprites, animations, shadows, item and technology icons, thumbnail.png — when setting up, driving or debugging Blender for Factorio work, or when a sprite or render looks too simple, flat, clean, toy-like or otherwise unlike vanilla. Covers the vanilla design language and render conventions needed to make art indistinguishable from vanilla Factorio 2.1, plus the known failure modes of this specific Blender + MCP rig. Read it before opening Blender or authoring a sprite — the design work happens before modelling, and a wrong camera, scale or colour setting is invisible until the sprite is in game.
+---
+
+# Factorio graphics — vanilla-matching conventions
+
+Goal: art that sits next to base-game entities on the same belt and reads as first-party.
+
+The pipeline order matters: **design (`references/design-language.md`) → model → materials (`references/materials.md`) → render → post**. Most failed sprites failed at the first step, not the last.
+
+Graphics are produced in Blender via the **Blender MCP**. Inspect the scene before changing it, follow existing naming, never destructively modify objects without asking.
+
+## Confidence — read this first
+
+Two very different tiers of information live in this file. Don't confuse them.
+
+- **Trustworthy:** anything measured from the game's own `data/base` (Factorio 2.1.x) — sprite sizes, px/tile, layer structure, icon dimensions, shadow direction. These are facts read off Wube's shipped assets. The same goes for `references/design-language.md`: it is sourced from Wube's own FFF write-ups and a direct audit of the shipped 2.1 + Space Age sprites, not from taste.
+- **NOT trustworthy:** the lighting/material/colour numbers from the 2026-08-04 assembler-4 run. **That output was ugly and did not look like Factorio.** Those values are *escapes from specific failure modes* (pure black, blown white) — they are the boundaries of "not obviously broken", not a validated vanilla look. Treat them as starting points to move away from, not targets.
+
+The full log of that run is kept outside the repo; `CLAUDE.local.md` records its path if it is available on this machine.
+
+**The only real ground truth is vanilla itself.** Before and after every render, open the actual PNGs in `data/base/graphics/entity/...` under the game install and compare side by side at the same zoom. If it doesn't survive that comparison, no config in this file will save it.
+
+### Measure vanilla, don't eyeball it
+
+Colour is the one thing you can settle numerically, and doing so beats judgement every time. Sample the vanilla PNG, convert sRGB to linear, and use that as the material's base colour; then re-sample your own render and compare the same statistic. Matching the lit chassis of a vanilla module this way landed on `(70,140,190)` — byte-identical to Wube's — after several rounds of eyeballing had produced grey.
+
+Two cautions learned the hard way:
+
+- **Pick a statistic that means the same thing on both images.** The most common mid-tone lands on the lit deck for one entity and the shadowed side of another, purely because their poses show different amounts of face. That reported "matching" for an icon that was four times too dark. Bloom haze and near-white speculars will also masquerade as chassis if you average brightness naively. An automated comparator written during this session gave confident wrong numbers three different ways and was deleted; **side-by-side visual comparison is what actually converges.**
+- **Confirm a prototype field exists before treating its absence as a default.** `beacon_tint` looks like the game's own answer for module colour, but only speed and efficiency define one — productivity and quality have none. Reading it "from the game" therefore produced invented values: orange for a glow the art draws yellow, purple for one it draws red. A missing field is not a neutral field.
+
+## Design before Blender
+
+The sprites that came out "simple and unnatural" were designed *inside* Blender — primitives arranged until they looked plausible, then lit. Vanilla art is designed on paper first and modelled second; Wube goes line art → concept (inactive and active states) → 3D → paint-over.
+
+**Before any geometry, write the design plan defined in `references/design-language.md`** — hero working part, family resemblance to a vanilla entity, silhouette, a component list with a stated purpose per part (power in / material through / heat out / human service), 4–6 material zones, a wear map, a busy/calm map, and the working state. That file is the anatomy of a vanilla entity — greeble vocabulary, colour discipline, the tells that make sprites read amateur — measured off the shipped sprites and Wube's own FFF posts. A design that skips it cannot be rescued by camera, lighting or materials downstream.
+
+## Why the first attempt looked wrong
+
+The assembler-4 model was generated by a Python script from primitives with flat coloured materials. That approach cannot reach vanilla, regardless of lighting:
+
+- **No design.** Silhouette, functional greebles and the machine's story are decided before modelling — see `references/design-language.md`.
+- **Sharp 90° primitive edges.** Vanilla catches a bright highlight along every edge — bevel every hard edge. The edge-wear mask in `references/materials.md` also needs the bevel to exist in geometry.
+- **Flat single colours.** Panel seams, dirt maps, edge wear, colour variation across a single surface — a uniform Principled BSDF colour is the single biggest tell.
+- **No baked ambient occlusion** darkening every crevice and joint.
+
+So when the output looks wrong, **fix design and modelling first, then materials.** Lighting tweaks are the last 10%, not the first. Script-generating geometry is fine for blockout and iteration, but design, detail and texturing have to happen on top of it.
+
+## Where the files live
+
+The `.blend` and every other unshipped source (textures, HDRIs, reference boards, generator scripts) belong in **`assets/<mod-name>/`** at the repo root. Only the exported PNGs and their `.lua` sidecars go into the mod's `graphics/`.
+
+```
+assets/pure-modules-realk/
+  entity/beacon/       beacon.blend, textures, vanilla refs
+  icons/
+pure-modules-realk/
+  graphics/entity/beacon/beacon-base.png
+```
+
+The split is structural, not cosmetic: `fmtk package` zips the mod folder, so a source kept outside it *cannot* be shipped by accident and `package.ignore` never has to be maintained for art. Subdivide `assets/<mod-name>/` by subject once a mod outgrows a couple of files, mirroring the `graphics/` path the renders land in.
+
+`assets/` is tracked in git and pushed — **commit the `.blend` along with the PNGs it produced**, so the render is reproducible instead of a one-off. `.blend1`/`.blend2` autosaves are ignored.
+
+Blender saves to wherever it was last pointed, which is almost never here — pass an **absolute path** under `assets/<mod-name>/` when saving over MCP, and check the result rather than assuming. Same for renders: `render_viewport_to_path` ignores the path you give it (see below), so move the output into place yourself.
+
+## Environment
+
+- **Blender 4.4+** (`CLAUDE.local.md` records the version installed here). Recent enough to matter: since 4.4, actions are *slotted* and `action.fcurves` is **gone**. Use a compatibility helper:
+  ```python
+  act.fcurves                                 # Blender < 4.4
+  strip.channelbag(ad.action_slot).fcurves    # Blender 4.4+  (layers > strips > channelbag)
+  ```
+- **Rendering does not need the MCP bridge, and shouldn't use it.** Drive Blender headless instead:
+  ```
+  blender -b -P assets/<mod-name>/<subject>/render_*.py -- <out_dir>
+  ```
+  Have that script build the scene from the generator rather than opening the `.blend`, so a render is reproducible from source and survives the `.blend` being edited by hand. This is strictly better than the bridge — no GUI, scriptable, repeatable — and it keeps working while the user has Blender open or closed.
+- **The bridge is for interactive work**: inspecting a scene, screenshots, poking at objects mid-session. It must be started from inside Blender — nothing external can start it — so if port 9876 is dead, ask the user to run `bpy.ops.blmcp.server_start()` in Blender's Python console (UI: `Edit > Preferences > Add-ons > MCP > Start MCP Bridge Server`). **A dead bridge never blocks a render**; switch to headless and carry on.
+- **Headless starts from Blender's startup file, so the default cube is there.** A generator that only purges its own prefixed objects will render that cube straight through the middle of the model. Call `bpy.ops.wm.read_factory_settings(use_empty=True)` first.
+- **`blender_factorio_utils` add-on** provides `bpy.ops.factorio.setup_environment()`, `bpy.ops.factorio.create_shadow_catcher()`, `render_animations`, and a `factorio_utils_rotator` empty.
+- **Poly Haven (CC0 textures/HDRIs): no add-on, no MCP tool — script it.** This rig's Blender MCP is not the ahujasid build; it has no Poly Haven functions, so don't search for them. The public API is verified reachable (no key) from both Blender's Python and system Python — use `scripts/polyhaven.py` (CLI or `import polyhaven`). Downloads cache in `assets/third-party/polyhaven/<slug>/`, git-ignored; details in `references/materials.md`.
+- Pillow is expected to be present. Don't probe for it with `Image.__module__` — that raises on a module object and gives a false negative.
+- `render_viewport_to_path` **ignores the path you pass it** and writes into Blender's temp dir. Read the real path out of the tool result.
+
+## Rig gotchas — hit these once already
+
+- **`to_track_quat("-Z", "Y")` takes the LOOK direction** — target minus
+  position. Passing the offset *from* the target aims the camera (or sun)
+  exactly backwards and renders blank. Cost one empty render to find.
+
+- **Never parent the model to `factorio_utils_rotator`.** That empty carries the **camera and lights**; it orbits a *stationary* model to render directions. Parenting the model to it produces N identical frames. Model sits unparented at the world origin.
+- **Do parent any extra fill light to the rotator**, so every rendered direction is lit identically.
+- **`setup_environment()` deletes more than it says.** It's documented to remove the object named `Light`; driven headlessly over MCP its internal `select_all(action='DESELECT')` doesn't take effect, so the following delete also eats the active object. **Explicitly deselect everything before calling it.**
+- Generator scripts should be **idempotent**: delete only your own prefixed objects (`AM4_*`) and rebuild. And make `make_material()` *re-apply* values to an existing datablock rather than early-returning — otherwise palette edits silently do nothing.
+
+## The one rule that matters most
+
+Vanilla has **no single consistent camera angle**. Wube prioritises how a thing looks on the tile grid over mathematical consistency — measured angles off vanilla sprites range ~38° to ~53°, and the oil refinery is four separate models rather than one rotated one.
+
+Don't chase a magic number. Match, in priority order:
+1. **Footprint alignment** — the entity sits exactly on its tile footprint.
+2. **Lighting and shadow direction** — what makes art read "vanilla" at a glance.
+3. **Material grime and paint** — vanilla is worn painted industrial, never clean, never bare chrome.
+4. Camera angle — start at 45°, adjust until 1 and 3 look right.
+
+## What the camera can actually see
+
+At a 45° pitch with no yaw, exactly two surfaces of a building face the
+camera: the **top/deck** and the **front (−Y) wall**. The side walls sit
+edge-on and render as a one-pixel line, and anything behind a tall central
+mass is simply gone. Measured repeatedly on the pure-modules-realk beacon: a control
+console placed on the right flank was invisible behind a manifold; a whole
+pass that migrated hardware out to the rear quadrants changed 5.6% of the
+sprite's pixels; side-wall detail never appeared at all.
+
+- Budget detail where the camera looks. The front half and the top carry the
+  greeble; rear hardware only reads if it breaks the skyline above the tallest
+  central element.
+- A brief asking to "engage all four quadrants" is in tension with a tall
+  centrepiece. Either raise the rear hardware until it clears the silhouette,
+  or accept that the ring exists for the model and not for the sprite.
+- Decide this by rendering, never by reasoning about the 3D scene. Two parts
+  0.3 tiles apart in depth can sit exactly on top of each other on screen.
+
+## Clearance between parts
+
+Props that share volume fuse into one blob at sprite scale. Audit it
+mechanically rather than by eye —
+`assets/pure-modules-realk/entity/beacon/audit_overlaps.py` is the working example:
+it BVH-tests every static part against every other, filters parts of the same
+assembly and a whitelist of deliberate junctions, and reports worst-first.
+
+**When the sprite comes out too big, measure which objects are doing it** —
+do not squint at the render. Evaluate every object, transform its vertices by
+`matrix_world`, and rank them by the quantity the sprite's edges actually
+depend on. At a 45° pitch with the aspect compensation, screen row =
+`centre − 64·(y + z)`, so **`y + z` is the axis to sort on** for the top and
+bottom edges, and plain `x` for the sides:
+
+```python
+me = obj.evaluated_get(dg).to_mesh()
+pts = [obj.matrix_world @ v.co for v in me.vertices]
+rows.append((obj.name, max(p.y + p.z for p in pts), min(p.y + p.z for p in pts)))
+```
+
+Two bugs on the beacon's remnant were invisible in the render and instant in
+that report: curved shell panels generated as an arc *around their own origin*
+floated a full radius into the air and were the tallest thing in the sprite,
+and a fallen arm modelled along +X was rotated by another 90° so it pointed
+straight **down**, 1.5 tiles underground, with only its top showing.
+
+**Build the BVH from world-space polygons.** `BVHTree.FromObject` works in the
+object's *local* space, so every primitive centred on its own origin overlaps
+every other one and the whole report is noise — that cost a full round of
+fixing phantom collisions. Take `to_mesh()` on the evaluated object, transform
+its vertices by `matrix_world`, and feed `BVHTree.FromPolygons`.
+
+Where two parts are *meant* to touch, model the junction — flange, collar,
+clamp, gland — instead of opening a gap. A uniform gap everywhere reads as
+floating props; a fitting reads as engineering.
+
+## Scale
+
+- 1 Blender unit = 1 Factorio tile.
+- 1 tile = **32 px in-game**, rendered at **64 px in source art**, declared `scale = 0.5`.
+- The add-on's stock rig is `ortho_scale = 8.0` over 256 px = 32 px/tile (**low res — don't ship this**).
+- **Use `ortho_scale = 5.0` over 320 px = 64 px/tile**, then `scale = 0.5`. (This one *is* sound — it's arithmetic against the measured vanilla px/tile, not a look judgement.)
+- The general rule is **px/tile = `resolution_x` / `ortho_scale`**, so a canvas has to be resized in step with the scale or the whole sprite silently changes size. Growing a canvas from 512 to 576 for more headroom means `ortho_scale` 8.0 → 9.0. Re-run the footprint gate after any such change — it is the only thing that catches it.
+- Camera orthographic at `(0, -60, 60)`, rotated 45°, targeting the world origin.
+- Because the camera targets the origin and that *is* the entity's position, `shift = {0, 0}`. Only add shift when the art deliberately overhangs.
+
+**Footprint check before any final render:** render a plane the size of the entity's tile footprint. It must come out square at exactly `tiles × 64` px. The ground in Factorio is drawn top-down while buildings are pseudo-3D, so a naive 45° pitch foreshortens the footprint — the working compensation (beacon-validated): **`pixel_aspect_x = 1.41421` (1/cos 45°) with `sensor_fit = 'HORIZONTAL'`** on the 45°-pitch ortho camera. That renders the ground plane square *and* world-Z heights at exactly 64 px/unit. Verified by an automated gate: 5×5 plane → 320×320 px at ≥50% alpha.
+
+## Lighting
+
+Vanilla-verified direction: `assembling-machine-1-shadow` is shifted **+44.5 px in X**, so shadows fall **right**, essentially level in Y. Light comes from the **upper left**. If your shadow falls left or strongly down, the sun is wrong.
+
+- Sun rotation **X 0°, Y −39.3°, Z 5°**. The sign matters and the community value has it backwards for this rig: +39.3° casts shadows LEFT (verified the hard way on the beacon); −39.3° puts the sun upper-left with shadows falling right.
+- **The stock rig leaves the camera-facing side black** — it creates one key sun behind-left only. Add sky ambient plus a soft front fill sun, parented to the rotator.
+- **Validated set (pure-modules-realk beacon, 2026-08-05, user-approved in game): key 5.2 / front fill 1.2 / world ambient 0.22, rendered in Cycles.** Start here, not from the older assembler-4 escape values (key 3.6 / fill 1.15 / ambient 0.26 — those were merely "not broken").
+- **Render entities in Cycles, not EEVEE.** EEVEE was tried and rejected on the beacon: no AO or contact shadows, so parts read flat and detached no matter the lighting. Cycles' GI is what makes crevices dark and assemblies sit together — and the shadow pass needs it anyway. ~96 samples denoised is enough at this resolution.
+
+## Colour management — the blowout trap
+
+Factorio requires **View Transform: Standard**. Blender 4.x/5.x defaults to **AgX**, which washes art out relative to vanilla.
+
+- View Transform: **Standard**
+- Look: **None** was used on the assembler-4 run; a forum guide suggests **Medium High Contrast + exposure −0.150**. Since that run looked wrong, the contrast option is worth trying — vanilla art is high-contrast, and Look None may be part of why the output read flat.
+- Film: **transparent**
+
+**Standard clips hard.** This is the single easiest way to ruin a render: emission strengths of 5–8 blow straight to pure white and you lose the colour entirely. **Keep emission ~1.8–2.2** to avoid total blowout — but that alone does not keep the *hue*: at 1.9 a cyan glow still clipped to white on the beacon. To keep a glow coloured, the **max emitted channel (colour × strength) must stay ≈ 1.0–1.1**; the low off-channels are the colour.
+
+## Materials — vanilla feel
+
+**How to actually build them is in `references/materials.md`** — the
+validated scripted node-graph stack (base mottle → grime streaks → AO rust →
+per-object jitter → pointiness edge wear, reference implementation
+`worn_metal()` in the beacon generator) plus the verified Poly Haven CC0
+texture/HDRI route. A flat single-colour Principled BSDF is never acceptable
+on a shipped sprite; read that file before authoring any material.
+
+- Factorio machines are **painted metal**, not bare metal. Metallic 0.75+ on a body renders near-black, because a metal surface with a dim world has nothing to reflect.
+  - **Body: metallic 0.15–0.45.** Trim/gold accents only: 1.0.
+- Muted steel, oxidised iron, olive/khaki, dark grey plastics.
+- Saturated colour used **sparingly and functionally** — status indicators, pipes, a single accent band. Never large body panels.
+- Edge wear, grime in crevices, surface variation. Clean flat surfaces read as non-vanilla instantly.
+- Emissives are small and belong in the `-status-light` layer, not baked into the base.
+- Keep glowing parts **actually visible** — an emissive core fully enclosed in an opaque shell shows nothing. Use collars/struts and leave the core exposed.
+- Sanity-check geometry with a bounding-box read: pipes poking through their own flanges is easy to miss in viewport.
+
+## Shadows
+
+Vanilla shadows are a **separate sprite**, pure black + transparent, no gradients.
+
+**EEVEE has no shadow catcher — the shadow pass needs Cycles.** Use `bpy.ops.factorio.create_shadow_catcher()`. Skipping this is why an otherwise-good machine reads as floating.
+
+Two view layers:
+1. **Entity layer** — model, transparent background, shadow catcher off.
+2. **Shadow layer** — shadow-catcher ground plane, material override black, model excluded from colour output.
+
+Filter the shadow layer in compositing to hard black/alpha — no soft grey gradient; Factorio tints and blends it itself. Measured off vanilla: shadow alpha is essentially binary, so threshold the catcher output (~alpha ≥ 110 → 255, else 0) plus a 1 px blur for edge AA. Declare with `draw_as_shadow = true`.
+
+**Bake shadows of static geometry only.** A static shadow of an animated or floating part (a spinning ring, a hovering crystal) lands displaced by its height, detached from the building, and stays frozen while the part moves — it reads as a wrong dark blob on the ground (found in game on the beacon). Vanilla either ships an animated `draw_as_shadow` sheet or omits the shadow for such parts; omitting is the cheap correct default.
+
+**The shadow must not overlap the entity's own base sprite.** Shadows composite ABOVE `floor-mechanics` and `lower-object` (the layer name `lower-object-above-shadow` is the tell), so if the body sprite lives on one of those layers, every shadow pixel under the building silhouette darkens the entity's own surface in game at ~50% — invisible in the PNGs, obvious on the map (found in game on the beacon: 80% of the sprite was self-shadowed). Mask the baked shadow by the base sprite's alpha so only the cast shadow on open ground remains; the beacon's `make_sheets.py` does this.
+
+## Entity sprite layer structure
+
+Vanilla splits an entity into separate PNGs, composited as `layers`:
+
+| Suffix | Purpose | Prototype flags |
+|---|---|---|
+| `-base` | static body | `repeat_count` matching the anim frame count |
+| `-anim` | only the moving part | `frame_count = 64` |
+| `-shadow` | shadow pass | `draw_as_shadow = true` |
+| `-status-light` | working/status glow | `draw_as_glow = true`, `blend_mode = "additive"` |
+
+Keep the animated part in its own smaller sprite instead of re-rendering the whole body per frame — vanilla `-anim` sheets are far smaller than the body for this reason.
+
+**Animation: vanilla is 64 frames at `line_length = 8` (8×8 grid).** A 32-frame 8×4 sheet works but is below vanilla smoothness — match 64 for tier-parity with base entities.
+
+**A tinted mask must be a shaded greyscale render, never flat white.** Any
+layer with `apply_tint` / `apply_module_tint` is *multiplied* by the tint, so a
+flat sprite can only ever produce a flat patch of colour. Vanilla's
+`beacon-module-mask-box` spans luminance 26–255 with a mean near 146; a mask
+built from an emission-only material measured 249/254/255 and read as a pastel
+rectangle pasted onto the machine. Render masks with ordinary lit materials in
+neutral grey and let the tint land on real form.
+
+**An overlay layer must not redraw what the base sprite already contains.**
+Duplicated geometry across layers is not just wasted work: the overlay draws
+above the base and silently occludes whatever else was there. The beacon's
+module-slot sprite redrew a socket housing the base already had, and covered
+13 rows of the front lip under each of four slots. Every individual PNG looked
+correct, because no single file can show one layer covering another. Composite
+the layers at their prototype shifts and diff against the base alone to find
+it:
+
+```python
+diff = ImageChops.difference(base_only.convert("RGB"), with_overlays.convert("RGB"))
+# changed rows outside the overlay's intended footprint = occlusion
+```
+
+**Re-render only the layers a change touches.** The animated sheets are the
+expensive part (64 frames each); a deck or hull edit only invalidates `base`
+and `shadow`. Keep the frame directory around and rebuild the sheets from it.
+
+**Status lights do not survive a deepcopy.** If you derive an entity from a vanilla one, its `working_visualisations` glow sprite is positioned for *that* shape. Re-author it or drop it deliberately.
+
+## Remnants (corpses)
+
+A wreck follows almost none of the entity rules above, and measuring vanilla settles
+every question. Two incompatible styles ship in 2.1 — pick by the entity's era:
+
+- **Base 1.x art** (`beacon-remnants`) — a near-plan-view *nest of guts*: hull gone,
+  copper windings and hoses tangled inside a broken rim.
+- **Space Age 2.0 art** (`cryogenic-plant-remnants`) — the machine *comes apart into
+  recognisable panels* that lie flat and overlap in a low pile, identity paint surviving
+  in patches under heavy rust. **This is the one to match for anything modern.**
+
+Measured off base and Space Age, and none of it is guesswork:
+
+- **No `draw_as_shadow`, anywhere.** Zero hits across every vanilla remnant. The ground
+  shadow is composited into the colour sprite as soft grey. One flat RGBA per variation:
+  no layers, no glow, no animation.
+- **Zero emissives.** The cryogenic plant's bright windows are dark holes in its wreck.
+- **Mean luminance 63–67** over opaque pixels — cryo 67.1, reactor 65.8, beacon 62.9.
+  A wreck is burnt and unlit and sits well below the machine it came from. This is the
+  easiest thing to get wrong: a first pass that simply re-materialled a model with the
+  *entity's* validated rig measured 93 and read as a lit pile of scrap. Dim the material
+  palette; do not touch a rig that is already validated for the entity.
+- **Size is roughly the building, not a debris field.** 5×5 entities: cryogenic plant
+  370×354 source px (5.8 tiles), nuclear reactor 410×396 (6.4). Debris thrown out to
+  4 tiles is wrong — the machine collapsed in place.
+- **The soft fringe past the pieces is DARK, not pale.** Measured over the
+  semi-transparent band (alpha 6–170): cryogenic plant **(20,16,11)**, nuclear reactor
+  **(3,3,2)**, beacon **(14,12,10)**, at mean alpha 67–76 and covering 15–51% as many
+  pixels as the wreck itself. It is scorch and shadow spill, not dust.
+  **This is a trap worth naming**: opened on a white background, a vanilla remnant's dark
+  soft edge *looks* like pale grey haze, and building an ash halo to that misreading
+  produced a light ring that glowed around the whole silhouette the moment it sat on the
+  game's dark ground. Generate the fringe in post from the wreck's own alpha (dilate →
+  subtract silhouette → speckle) and colour it near-black.
+- **Judge a remnant composited on the ground colour**, roughly `(58,54,44)`, never on
+  white or on a transparency checker. Everything above about value and fringe is
+  invisible otherwise.
+- **Variations** are stacked vertically in one PNG and selected with a `y` offset —
+  what base's `make_rotated_animation_variations_from_sheet` does. Two is typical.
+- Prototype: `type = "corpse"`, `tile_width`/`tile_height` matching the entity,
+  `selectable_in_game = false`, `hidden_in_factoriopedia = true`,
+  `final_render_layer = "remnants"`, `expires = false`,
+  `time_before_removed = 60 * 60 * 15`. Wire it with `entity.corpse = "<name>"`.
+  **No locale key** — vanilla defines none for its own remnants, and the corpse is
+  unselectable and hidden, so the name never renders.
+
+Two traps found building one:
+
+- **Threshold the shadow catcher before softening it.** Cycles returns a faint ambient
+  wash across the *entire* catcher plane. Left in, it greys the whole tile and — being
+  non-zero everywhere — drags the sprite's crop box out to the full canvas. Same fix the
+  entity's shadow pass uses: hard-threshold, then blur 1–2 px for edge AA.
+- **Apply an alpha floor before computing the crop.** Ash grains and antialiasing at
+  alpha 1–7 are invisible in game and still grow the sprite; a 410 px wreck cropped to
+  500 px purely on pixels nobody can see.
+
+Reuse of an entity's generator is the cheap way in: keep its helpers and part vocabulary,
+and swap the **material dict's values under the same keys** so every reused part builder
+renders dead without being edited. Missing one emissive key leaves a lit LED in a
+burnt-out machine and nothing in the render flags it.
+
+## Frozen patches (Aquilo)
+
+`graphics_set.frozen_patch` (and `LabPrototype::frozen_patch`, `inserter.platform_frozen`, …)
+is a **single overlay sprite drawn on top of the normal art while the entity is frozen** —
+transparent wherever the machine still shows. It is never a re-render of the machine. The
+entity only ever *reaches* the frozen state if `heating_energy` is set, which the `freezing`
+feature flag gates — see the repo `CLAUDE.md`. Without it the patch is dead weight.
+
+Measured across all four Space Age patches (beacon, centrifuge, electric furnace, lab):
+
+- **Colour** is a cool blue-white, always R < G < B at saturation 0.10–0.17. Opaque mean
+  (157,174,183)–(196,209,216); bright caps (222,229,233)–(232,237,239); packed ice in the
+  recesses (83,107,121)–(149,172,185).
+- **Never dark.** Not one opaque pixel of any vanilla patch falls below luminance 60, and the
+  1st percentile sits at 73. This is the easiest thing to get wrong, and the worst: the patch
+  draws *over* the entity, so dark snow paints soot blotches on the machine.
+- **Coverage, measured against the machine's own opaque area** (not the sprite box — box
+  percentages are not comparable between entities): solid alpha 12–20%, everything above
+  alpha 8 about 35–42%. **The shape matters more than the totals — vanilla's solid band
+  outweighs its faintest band.** A patch with that ratio inverted is a translucent film over
+  the whole hull rather than drifts sitting on it, and reads in game as the machine going
+  pale. Every colour statistic can be in range while this is inverted, so check it explicitly.
+- Snow sits on up-facing surfaces and convex edges, patchy, with bare metal showing through.
+  Flat vertical walls stay bare.
+
+The cheap way to author one: render the same geometry as the base layer with a **material
+override** whose alpha is driven by world normal Z, pointiness and noise, and whose colour
+mixes between an ice tone and a snow tone by an Ambient Occlusion term — so recesses go
+blue-grey and exposed caps go white, which is exactly vanilla's split. Drive coverage and
+colour from *separate* curves off that AO: one curve for both leaves the crevices bare instead
+of icy. `snow_override()` in the pure-modules-realk beacon generator is the worked example, and
+`make_frozen.py` beside it gates the result against every number above.
+
+If the patch covers animated parts, set `reset_animation_when_frozen = true` and render it at
+frame 0 — vanilla's centrifuge does this so the ice lands on its drums rather than beside them.
+
+**The trap that costs an afternoon: Cycles' transparent bounce limit.** A material override
+turns every surface semi-transparent, so a camera ray crossing a detailed model meets far more
+than the default 8 transparent surfaces. Past the limit Cycles gives up on the ray and returns
+**opaque black** — which lands as soot blotches over exactly the densest greeble, looks like a
+shading bug, and is invisible in any per-material check. Set
+`scn.cycles.transparent_max_bounces = 128`. Two related consequences once it is raised:
+
+- **`AddShader` emission accumulates per layer.** A constant emission "floor" added under the
+  lit result gets summed once per surface the ray crosses, and stacked geometry saturates to
+  pure white. Floor the value with albedo and lighting instead.
+- **Mask back faces** (`Geometry > Backfacing`) and undersides. Otherwise the inside of every
+  shell is snowed too and composites into the pixel, so the sprite goes white where the model
+  is *thickest* rather than where the drifts are.
+
+And the ordinary blowout rule still applies hardest here: snow albedo near 0.7 linear clips
+straight to flat 255 under this rig's 5.2 key sun. The picked colours sit well below where the
+snow lands.
+
+## Sprite metadata sidecars
+
+Vanilla puts a `.lua` beside each PNG, loaded by `util.sprite_load`:
+
+```lua
+-- thing-base.lua
+return { width = 198, height = 184, shift = util.by_pixel(0.0, 4.0), line_length = 1 }
+```
+```lua
+util.sprite_load("__mod__/graphics/entity/thing/thing-base",
+  { priority = "high", repeat_count = 64, scale = 0.5 })
+```
+
+Keeps pixel dimensions next to the art. Use it, or declare `width`/`height`/`shift`/`scale` inline — but be consistent within a mod. `shift` is in pixels via `util.by_pixel`, relative to entity centre.
+
+## Icons
+
+Rendered separately from the entity, usually a more head-on 3/4 view so the item reads at 32 px in the toolbar.
+
+| Kind | Logical size | Vanilla file size (mipmap strip) |
+|---|---|---|
+| Item / recipe / entity icon | 64×64 | **120×64** (64 + 32 + 16 + 8, horizontal) |
+| Technology icon | 256×256 | **480×256** (256 + 128 + 64 + 32) |
+
+Mipmaps are optional but vanilla-standard — they stop icons shimmering when scaled in the UI. A plain 64×64 / 256×256 works and is what the assembler-4 test shipped. Test the silhouette at 32 px before committing to a design.
+
+**Everything above this section is written for entity sprites, and most of it does not apply to icons** — icons have no shadow sprite, no layers, no animation, and are not locked to the tile grid, so the `ortho_scale` and footprint rules are irrelevant to them. Before rendering an icon, read **`references/icons.md`**: the camera and lighting that actually worked, why bloom has to be applied after the render rather than in the compositor, and the drop shadow that technology icons carry and item icons don't.
+
+## Before calling a sprite done
+
+- [ ] **Opened a real vanilla PNG from `data\base\graphics\entity\` and compared side by side at the same zoom.** Nothing else on this list matters if this fails.
+- [ ] Design plan written per `references/design-language.md` and the render reviewed against it
+- [ ] Silhouette broken on at least two sides, asymmetric, front elevation visible (not plan view) — and it still reads clearly at 32 px
+- [ ] At least 8 distinct kinds of functional greeble on a production machine (fewer on a utility entity), each with a visible purpose — power in, material through, heat out, human service
+- [ ] At least 4 material zones; identity paint desaturated and confined to housing; one semantic accent colour
+- [ ] Wear placed by physics — edges chipped clean, crevices grimed, soot at heat exits, rust at feet — never uniform noise
+- [ ] One busy hero zone against calm hulls; sprite tested tiled in rows and next to vanilla neighbours, not only as a lone render
+- [ ] Edges are bevelled; surfaces are not flat single colours; crevices are dark
+- [ ] Footprint test plane renders square at exactly `tiles × 64` px
+- [ ] `ortho_scale 5.0` / 320 px per 5 tiles, `scale = 0.5` in the prototype
+- [ ] View Transform **Standard**, Look **None**, film transparent
+- [ ] Emission ≤ ~2.2 — check nothing clipped to white
+- [ ] Body metallic ≤ 0.45 — check nothing rendered near-black
+- [ ] Detail sits where the camera looks — nothing important on a side wall or
+      buried behind a tall centrepiece
+- [ ] Tinted masks are shaded greyscale, not flat white
+- [ ] Overlay layers composited over the base and diffed — no unintended occlusion
+- [ ] Interpenetration audited in world space; deliberate contacts have a fitting
+- [ ] Base / anim / shadow / status-light exported as separate PNGs
+- [ ] **Shadow layer actually rendered** (Cycles pass) — not skipped
+- [ ] Remnants: shadow baked into the colour sprite, no emissives, mean luminance
+      near vanilla's 63–67 — measured, not eyeballed
+- [ ] Frozen patch: nothing below luminance 60, solid alpha band ≥ faint band,
+      coverage measured against the machine's area — and transparent_max_bounces raised
+- [ ] Front-facing side is lit; fill light parented to the rotator
+- [ ] Model unparented from the rotator; directions are genuinely different
+- [ ] `.blend` saved under `assets/<mod-name>/`, PNGs exported into the mod's `graphics/` — no source files inside the mod folder
+- [ ] Validated with `--dump-data` (see CLAUDE.md), then **placed on a real map** — data-stage exit 0 is not proof it looks right

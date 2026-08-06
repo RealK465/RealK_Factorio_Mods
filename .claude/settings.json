@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(mod-list.json)",
+      "Edit(mod-settings.dat)",
+      "Edit(mod-settings.json)",
+      "Edit(*.zip)",
+      "Edit(**/*.zip)",
+      "Edit(exemples/**)",
+      "Edit(robotworld-continued_2.1.0/**)",
+      "Read(./.claude/settings.local.json)",
+      "Read(**/settings.local.json)",
+      "Edit(./.claude/settings.local.json)",
+      "Edit(**/settings.local.json)",
+      "Bash(printenv*)",
+      "Bash(env)",
+      "PowerShell(Get-ChildItem Env:*)",
+      "PowerShell(gci Env:*)"
+    ]
+  }
+}

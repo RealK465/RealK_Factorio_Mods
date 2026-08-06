@@ -1,0 +1,7 @@
+require("prototypes.modules.category")
+require("prototypes.modules.item")
+require("prototypes.modules.recipe")
+require("prototypes.modules.technology")
+require("prototypes.beacon.beacon")
+require("prototypes.beacon.remnants")
+require("prototypes.beacon.explosion")

@@ -1,0 +1,61 @@
+# This repo lives inside a live Factorio mods directory, so the default is to
+# ignore everything the game or another author put here and track only the mods
+# developed in this repo.
+
+# Downloaded mods — other authors' work, and huge.
+*.zip
+
+# Game-managed. Editing or restoring these from git breaks the install.
+mod-list.json
+mod-settings.dat
+mod-settings.json
+
+# Local reference material — extracted mods kept for study. Machine-local; a
+# fresh clone won't have it.
+/exemples/
+
+# Unpacked third-party mods. Machine-local: each clone adds its own here, since
+# only *.zip is covered automatically.
+/robotworld-continued_2.1.0/
+
+# Machine-specific paths, git identity and tool versions. CLAUDE.md, .claude/
+# and .ai-support/ are tracked; this is the deliberate local-only escape hatch.
+# CLAUDE.local.md.example is tracked as its template.
+CLAUDE.local.md
+
+# Headless --dump-data leftovers.
+data-raw-dump.json
+*.log
+
+# CC0 texture/HDRI downloads (Poly Haven). Re-fetchable by slug via the
+# factorio-graphics skill's scripts/polyhaven.py, so the slug in a generator
+# script is the tracked source; the binaries stay out of git.
+/assets/third-party/
+
+# Blender autosaves. The .blend files under assets/ are tracked deliberately;
+# these rolling backups are noise.
+*.blend1
+*.blend2
+
+# Python bytecode from the asset render scripts under assets/.
+__pycache__/
+*.pyc
+
+# Nearest-neighbour blowups written by make_thumbnail.py --preview. Judging aids
+# for a 144px image, regenerable in a second; the 512px master beside them is tracked.
+/assets/*/thumbnail/preview-*.png
+
+# Windows / editor noise.
+Thumbs.db
+desktop.ini
+*.tmp
+*~
+
+# Third-party reference screenshots dropped into any mod's .ai-support stay
+# local; the design docs beside them remain tracked.
+*/.ai-support/*.jpg
+*/.ai-support/*.png
+
+# Local Claude Code settings. Holds secrets (API tokens read by MCP servers),
+# so it must never be committed — .claude/ is otherwise tracked.
+/.claude/settings.local.json
