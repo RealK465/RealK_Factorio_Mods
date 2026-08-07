@@ -177,8 +177,46 @@ the legacy branch's file is the legacy track's history: its own `1.0.x` sections
 history from before the split. Do not paste `1.1.x` sections into it — a player on 2.0 cannot
 install those, and the numbers would read as a downgrade.
 
-A backported fix earns an entry on both tracks, worded the same, under each track's own version
-number. Format rules are unchanged: see `factorio-changelog`.
+### Shipping one change to both games
+
+The usual case: work that is not version-specific goes out on both tracks. It ships as **two
+releases, and only the first one carries the detail.**
+
+1. **Release the 2.0 build first, on the lower number.** Its changelog section describes the
+   work — the full entries, in the usual categories.
+2. **Then bump and release the 2.1 build.** Its section does **not** repeat those entries. It
+   records what that release actually is:
+
+   ```
+   ---------------------------------------------------------------------------------------------------
+   Version: 1.0.3
+   Date: 2026-08-07
+     Changes:
+       - Version 1.0.2, rebuilt for Factorio 2.1.
+   ```
+
+**Copying the entry list into both sections is the mistake to avoid.** No player ever sees both
+— the portal serves each game only its own track — so the duplicate buys nothing, and the two
+files start drifting the moment either is edited. It also misdescribes the second release: 2.1
+players are receiving the 1.0.2 work, and a section that says so is truer than one written as
+though the work were done twice.
+
+Pure Modules 1.0.2 / 1.0.3 shipped exactly that way on 2026-08-07 — four identical `Graphics:`
+entries in both, differing only in the trailing line. Both are published and cannot be
+corrected; the pattern above is what the next pair uses.
+
+**Anything genuinely exclusive to one track still earns a real entry there**, alongside the
+pointer. Pure Modules 1.0.1 is the worked example: it points back at 1.0.0 for Factorio 2.1
+*and* records the flat-quality-penalty feature, which only the 2.1 build has.
+
+### A fix that reaches the tracks separately
+
+Different case, opposite rule. A fix released on 2.1 and **backported weeks later** is two
+unrelated events, and both sections carry the entry, worded the same, under each track's own
+version number. The test is whether the two releases are a pair going out together or two
+separate pieces of news.
+
+Format rules are unchanged: see `factorio-changelog`.
 
 ## Sharing code between the tracks
 

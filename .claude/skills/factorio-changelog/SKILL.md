@@ -83,6 +83,14 @@ own file and a player only sees the one they installed.
   never tells a player which game a release was for. Say it: `- Releasing 1.0.0 for Factorio
   2.1.` Do not renumber an existing section to stand in for the new release — the version that
   shipped under the old number is real and keeps its own record.
+- **Only the first of a paired release carries the detail.** When one change ships to both
+  games it goes out as two releases, 2.0 first with the full entries, and the 2.1 release that
+  follows gets a section that says only which build it is — `- Version 1.0.2, rebuilt for
+  Factorio 2.1.` Copying the entry list into both is the mistake to avoid: no player sees both
+  sections, so the duplicate buys nothing and the two files drift apart as soon as either is
+  edited. Pure Modules 1.0.2 / 1.0.3 shipped that way on 2026-08-07 and cannot be corrected.
+  Full rule, and the opposite case of a fix backported later: `factorio-multiversion` →
+  Changelog across two tracks.
 - **A section must describe the build that actually shipped under that number**, not the
   mod in general. Where the tracks genuinely differ, the entry belongs to whichever release
   introduced it and must be *absent* from the other. Pure Modules 1.0.0 (Factorio 2.0) cannot
