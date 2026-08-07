@@ -1,8 +1,11 @@
 # Headless render driver for the Pure beacon entity sprites.
 #
-#   blender -b -P render_entity.py -- <out_dir> [--layers base,anim,arcs,shadow,frozen,footprint] [--frames N]
+#   blender -b -P render_entity.py -- <out_dir> [--layers base,anim,arcs,shadow,frozen,footprint]
+#                                    [--frames N] [--only 3,8,55]
 #
 # Writes <out_dir>/<layer>/f####.png. Static layers render frame 0 only.
+# --only renders just those frames of the loop, still numbered for their
+# place in it -- for eyeballing one beat without paying for all 64.
 #
 # Rig: 64 px/tile "military projection" -- ortho camera pitched 45 deg with
 # pixel_aspect_x = sqrt(2), which renders the ground plane square (footprint
@@ -26,6 +29,10 @@ LAYER_COLLS = {
     "base": ("PB_Base",),
     "anim": ("PB_Moving",),
     "arcs": ("PB_Arcs",),
+    # deck plant that moves: holographic glyphs, cryo vapour, the shard's
+    # pulse. Its own loop and its own crop box -- re-rendering the rings for
+    # a vapour puff would cost 64 frames of the far larger anim sheet.
+    "deck": ("PB_Deck",),
     "footprint": ("PB_Footprint",),
     # static geometry ONLY: a baked shadow of the floating rings/crystal lands
     # ~2 tiles right of the building as a detached, frozen blob (found in game)
@@ -37,6 +44,10 @@ LAYER_COLLS = {
     # reset_animation_when_frozen: a frozen beacon is pinned to that pose, so
     # the ice on the rings lands where the rings actually are. Vanilla's
     # centrifuge does exactly this for its drums.
+    # PB_Deck is deliberately absent: the frozen layer swaps every material
+    # for the snow shader, and the deck plant's animated parts are a
+    # hologram, vapour and cable light -- none of which ice over. Their
+    # static bodies are in PB_Base and do get frosted.
     "frozen": ("PB_Base", "PB_Moving"),
 }
 STATIC_LAYERS = {"base", "shadow", "footprint", "slot-box", "slot-lights", "frozen"}
@@ -45,7 +56,10 @@ STATIC_LAYERS = {"base", "shadow", "footprint", "slot-box", "slot-lights", "froz
 # layers whose content only covers the moving region -- saves ~70% per frame.
 BORDERS = {
     "anim": (0.20, 0.52, 0.80, 1.0),
-    "arcs": (0.20, 0.40, 0.80, 1.0),
+    # the arcs layer now runs the full height of the electrodes, from the
+    # induction coil at the foot of a pylon to the core, so its region has to
+    # reach down past the front pylon roots -- clipping it is silent
+    "arcs": (0.16, 0.28, 0.84, 1.0),
 }
 
 
@@ -56,6 +70,7 @@ def parse_args():
     out_dir = argv[0]
     layers = ["base", "anim"]
     frames = 1
+    only = None
     i = 1
     while i < len(argv):
         if argv[i] == "--layers":
@@ -64,9 +79,12 @@ def parse_args():
         elif argv[i] == "--frames":
             frames = int(argv[i + 1])
             i += 2
+        elif argv[i] == "--only":
+            only = [int(v) for v in argv[i + 1].split(",")]
+            i += 2
         else:
             raise SystemExit("unknown arg: " + argv[i])
-    return out_dir, layers, frames
+    return out_dir, layers, frames, only
 
 
 def set_engine(scn):
@@ -153,7 +171,7 @@ def set_border(layer):
          scn.render.border_max_x, scn.render.border_max_y) = border
 
 
-def render_layer(layer, out_dir, frames):
+def render_layer(layer, out_dir, frames, only=None):
     import beacon_gen
     scn = bpy.context.scene
     show_only(layer)
@@ -165,8 +183,8 @@ def render_layer(layer, out_dir, frames):
         beacon_gen.snow_override() if layer == "frozen" else None)
     layer_dir = os.path.join(out_dir, layer)
     os.makedirs(layer_dir, exist_ok=True)
-    count = 1 if layer in STATIC_LAYERS else frames
-    for f in range(count):
+    todo = [0] if layer in STATIC_LAYERS else (only or list(range(frames)))
+    for f in todo:
         scn.frame_set(f)
         if layer == "arcs":
             beacon_gen.update_arcs(f, frames)
@@ -200,15 +218,17 @@ def render_shadow(out_dir, frames):
 
 
 def main():
-    out_dir, layers, frames = parse_args()
+    out_dir, layers, frames, only = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     import beacon_gen
     objs = beacon_gen.build_scene()
     # The frozen layer needs the moving parts keyed even when it is the only
     # layer being rendered, so frame 0 is the same pose the anim sheet opens on
     # rather than wherever build_scene happened to leave them.
-    if frames > 1 or "frozen" in layers:
-        beacon_gen.animate(objs, frames=frames if frames > 1 else 64)
+    # Always pose the scene, even for a one-frame test: the deck plant's
+    # vapour and cable pulses are keyframed, so an unanimated frame 0 leaves
+    # every puff stacked on the vent mouth.
+    beacon_gen.animate(objs, frames=frames if frames > 1 else 64)
     rig()
     scn = bpy.context.scene
     set_engine(scn)
@@ -216,7 +236,7 @@ def main():
         if layer == "shadow":
             render_shadow(out_dir, frames)
         else:
-            render_layer(layer, out_dir, frames)
+            render_layer(layer, out_dir, frames, only)
     print("RENDER DONE:", ",".join(layers), "->", out_dir)
 
 

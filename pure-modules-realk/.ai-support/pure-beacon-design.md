@@ -100,9 +100,10 @@ value.
 
 Idle: rings frozen, arcs absent, LEDs and canisters still lit (a beacon with no modules is
 powered, not dead). Working: rings counter-rotate (outer +90°, inner −120° per loop), core
-bobs ±3 px, plasma arcs fire tip → core on a three-beat schedule, ring seams carry a
-scrolling sheen. 64-frame perfect loop, `draw_animation_when_idle = false` — see the
-mod's `CLAUDE.md` for the open question over what that flag actually does on this entity.
+bobs ±3 px, ring seams carry a scrolling sheen, and the discharge runs its beat — charge
+climbs an electrode from its induction coil, the tip flashes, the arc fires into the core.
+64-frame perfect loop, `draw_animation_when_idle = false` — see the mod's `CLAUDE.md` for
+the open question over what that flag actually does on this entity.
 
 | Element | Per loop | Why it loops |
 |---|---|---|
@@ -110,10 +111,71 @@ mod's `CLAUDE.md` for the open question over what that flag actually does on thi
 | Inner ring | −120° | 3-fold symmetry |
 | Crystal bob | 1 sine cycle, ±3 px (source px) | integer cycle count |
 | Crystal yaw | +60° | 6-fold facet symmetry |
-| Arcs | 2–3 flicker bursts, pylon tip → crystal | burst pattern authored per frame |
+| Climb | 12 pylon-beats, 6 frames each, coil → tip | schedule authored per frame |
+| Arcs | the same 12 beats, 7 frames each, tip → crystal | schedule authored per frame |
+| Sparks | shed at each tip flash and along each arc | ages wrap modulo the loop |
+| Motes | 5 adrift in the containment volume | integer turn and bob counts |
+
+The beat order is diagonal, other diagonal, a wave round all four, then all four at once —
+`ARC_BEATS` in the generator. Six frames of the loop carry neither a climb nor an arc, which
+is the machine breathing rather than strobing. The climbing bolt is held on the
+camera-facing side of its pylon on purpose: the arcs layer renders with the base collection
+hidden, so a bolt routed round the back has nothing to occlude it and would composite
+straight through the electrode.
 
 Layer flags, shift and scale numbers are the render pipeline's own measured output, not
-restated here — see `prototypes/beacon/graphics.lua`.
+restated here — see `prototypes/beacon/graphics.lua`. The arcs sheet no longer shares the
+rings' crop box; the discharge reaches the foot of each pylon and carries its own.
+
+## Deck plant
+
+Added after the animation passes above, so it is absent from the tables there. The platform
+floor carries four small devices and the cabling that feeds them, all of it support plant for
+the core rather than anything that competes with it.
+
+- **Holographic readout** — a projection standing off an emitter bar between two lit rails.
+  The glyphs are a brick texture used as an *alpha* mask, so the plane is mostly transparent
+  and only the strokes emit; a flat emissive plate was tried first and read exactly like the
+  pastel sticker the graphics skill warns about.
+- **Cryogenic vent** — a rimed ribbed stack with a dark mouth, breathing vapour. Aquilo said
+  out loud, and the deck's only moving fluid.
+- **Sensor array** — a dish turned to face the camera (dark inside, lit rim) plus two unequal
+  whips. Deliberately small: the left walkway slot is about 0.3 tiles wide.
+- **Floor shard** — a chip of the core's own mineral through a cracked, rimed collar. Its glow
+  is a third of the core's; the tell that it is the same substance is the colour, not the
+  brightness.
+
+**Placement was measured, not designed.** A first pass placed all four off the deck occupancy
+map and three came out occluded — the walkway flanks look open in plan and are criss-crossed by
+the chamber hoses overhead, and the whole rear deck sits behind the amphitheater. What settled
+it was a ray-cast visibility map (cast every candidate point toward the camera and see what is
+in the way) plus a full AABB dump of both front quadrants. The pockets they sit in are named in
+the generator's comments.
+
+**The cables are short, and that is a constraint rather than a choice.** The clear floor is a
+band roughly 0.25 tiles wide between the pedestal at r=1.12 and a continuous ring of plant —
+rim pipe, both manifolds, the coolant skid, the capacitor bank, the bus bar, the flank tanks.
+Routing to a corner drum was attempted with a search over start angle and one waypoint; the
+best line on every corner still crossed 28-40 of 40 sample points through the radiator, the
+manifolds or the tanks. So each device takes a short service run off the chamber instead, and
+the electrodes keep the cable they already have up from their own drum. The hologram is fed
+from the bus bar's end lug, which is what a power rail is for.
+
+**Animation** is a fourth sheet, `beacon-deck.png`, 64 frames at animation_speed 0.5 like the
+others and `always_draw` like the rings. The glyphs hold still and a scan band sweeps and wraps
+(scrolling them would not loop — the brick pattern is random per row, so after N rows of travel
+the image is not the one it started on); vapour puffs rise, spread and thin on staggered
+phases; and a charge runs out the cryo and holo cables timed to arrive as their electrode
+starts to climb, off the same `ARC_BEATS` schedule. Only those two cables pulse: the deck layer
+renders with the base hidden, so a bead has nothing to hide behind, and both of those runs are
+on open walkway.
+
+A latent bug surfaced doing this and is worth recording: the four rim beams used to cross at
+full length, putting two **coincident outer faces** at every corner. `worn_metal`'s ambient
+occlusion term reads a face's own coplanar twin as total occlusion and renders a hard-edged
+black rectangle there — and which face wins depends on BVH order, so it appeared and vanished
+as unrelated geometry was added elsewhere on the deck. The audit never reported it because
+`("Rim", "Rim")` is whitelisted. The side beams now butt into the front and back pair.
 
 ## Aquilo frost overlay
 

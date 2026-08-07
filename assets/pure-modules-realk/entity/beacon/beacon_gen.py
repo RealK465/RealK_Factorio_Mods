@@ -27,13 +27,30 @@ TIP_POSITIONS = []
 # a pylon can be evaluated on the curve instead of guessing at the chord.
 PYLON_CURVES = []
 
-# Arc burst schedule over the 64-frame loop: {arc index: frame range}.
-# Two opposite pylons fire, then the other two, then all four.
-ARC_BURSTS = [
-    (range(4, 10), (0, 3)),
-    (range(26, 34), (1, 2)),
-    (range(50, 56), (0, 1, 2, 3)),
+# One beat of the discharge cycle: charge climbs an electrode from its
+# induction coil to the tip, the tip flashes, then it fires into the core.
+# Both counts are frames of the 64-frame loop.
+CLIMB_FRAMES = 6
+ARC_FRAMES = 7
+CLIMB_T0 = 0.06        # where on the pylon curve the charge enters
+
+# (start frame, pylon indices). Pylons are indexed +x+y, +x-y, -x+y, -x-y, so
+# (0, 3) and (1, 2) are the two diagonals and 0-1-3-2 walks the square.
+# Diagonal, other diagonal, a wave round all four, then all four together.
+ARC_BEATS = [
+    (0, (0, 3)),
+    (16, (1, 2)),
+    (30, (0,)), (32, (1,)), (34, (3,)), (36, (2,)),
+    (51, (0, 1, 2, 3)),
 ]
+
+# Direction from the entity toward the camera. The climbing bolt is held on
+# this side of the pylon because the arcs layer renders with the base
+# collection hidden: nothing would occlude a bolt routed behind the pipe, so
+# it would composite straight through the electrode instead of behind it.
+VIEW_DIR = Vector((0, -1, 1)).normalized()
+
+PYLON_R0 = 0.19        # pylon pipe bevel_depth, halved at the tip by the taper
 
 CYAN = (0.55, 0.85, 1.0)
 
@@ -701,6 +718,114 @@ def coolant_fluid(name="coolant_fluid", color=None, half_height=0.31):
     return m
 
 
+HOLO_ROWS = 7.0
+HOLO_SCAN_BOOST = 0.30     # peak = strength * 1.30; above ~1.35 the blue clips
+
+
+def holo_glyphs(name="holo_glyph", strength=0.92, rows=HOLO_ROWS, width=0.17):
+    # Rows of unequal blocks: alien text, not a lit rectangle. A flat emissive
+    # plate is the classic tell -- it reads as a pastel sticker pasted onto
+    # the machine, which is exactly what the first pass of this panel did --
+    # so the plane is mostly TRANSPARENT and only the strokes emit. A brick
+    # texture is the cheap way there: random per-brick value, unequal widths
+    # from the squash, and mortar gaps that become the spaces between glyphs.
+    m = _get_mat(name)
+    nt, out = _reset_nodes(m)
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    mapping = nt.nodes.new("ShaderNodeMapping")
+    mapping.name = "HoloScroll"      # animate() keyframes its Location
+    nt.links.new(coord.outputs["Generated"], mapping.inputs["Vector"])
+    brick = nt.nodes.new("ShaderNodeTexBrick")
+    brick.offset = 0.35
+    brick.offset_frequency = 2
+    brick.squash = 1.7
+    brick.squash_frequency = 3
+    brick.inputs["Scale"].default_value = 1.0
+    brick.inputs["Color1"].default_value = (1, 1, 1, 1)
+    brick.inputs["Color2"].default_value = (0.24, 0.24, 0.24, 1)
+    brick.inputs["Mortar"].default_value = (0, 0, 0, 1)
+    brick.inputs["Mortar Size"].default_value = 0.055
+    brick.inputs["Bias"].default_value = -0.15
+    brick.inputs["Brick Width"].default_value = width
+    brick.inputs["Row Height"].default_value = 1.0 / rows
+    nt.links.new(mapping.outputs["Vector"], brick.inputs["Vector"])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*ARC_OUTER, 1.0)
+
+    # A readout that SCROLLED would not loop: the brick pattern is random per
+    # row, so after N rows of travel the image is not the one it started on.
+    # So the glyphs hold still and a scan band sweeps them and wraps, which is
+    # seamless by construction -- and a flicker rides on top at a whole number
+    # of cycles per loop for the same reason.
+    scan_t = nt.nodes.new("ShaderNodeValue")
+    scan_t.name = "HoloScanT"
+    flicker = nt.nodes.new("ShaderNodeValue")
+    flicker.name = "HoloFlicker"
+    flicker.outputs[0].default_value = 1.0
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(mapping.outputs["Vector"], sep.inputs["Vector"])
+
+    def mth(op, a=None, b=None, c=None):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        for i, v in enumerate((a, b, c)):
+            if v is None:
+                continue
+            if hasattr(v, "default_value") or hasattr(v, "links"):
+                nt.links.new(v, n.inputs[i])
+            else:
+                n.inputs[i].default_value = v
+        return n.outputs[0]
+
+    swept = mth("ADD", sep.outputs["Y"], scan_t.outputs[0])
+    wrapped = mth("WRAP", swept, 1.0, 0.0)
+    dist = mth("ABSOLUTE", mth("SUBTRACT", wrapped, 0.5))
+    band = mth("LESS_THAN", dist, 0.07)
+    gain = mth("ADD", 1.0, mth("MULTIPLY", band, HOLO_SCAN_BOOST))
+    nt.links.new(mth("MULTIPLY", mth("MULTIPLY", gain, flicker.outputs[0]), strength),
+                 em.inputs["Strength"])
+
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(brick.outputs["Color"], mix.inputs["Fac"])
+    nt.links.new(tr.outputs["BSDF"], mix.inputs[1])
+    nt.links.new(em.outputs["Emission"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+    return m
+
+
+def vapor_puff(name="vapor_puff"):
+    # Cryogenic exhaust: pale, cold and mostly not there. Alpha is driven by
+    # facing so the silhouette of each puff softens at its rim instead of
+    # ending on a hard edge, which is what separates vapour from a sphere.
+    m = _get_mat(name)
+    nt, out = _reset_nodes(m)
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = (0.33, 0.40, 0.46, 1.0)
+    bsdf.inputs["Metallic"].default_value = 0.0
+    bsdf.inputs["Roughness"].default_value = 0.95
+    bsdf.inputs["Emission Color"].default_value = (*FROST, 1.0)
+    bsdf.inputs["Emission Strength"].default_value = 0.12
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.42
+    # facing the camera -> thin; grazing -> the puff is deep, so denser
+    alpha = nt.nodes.new("ShaderNodeMapRange")
+    alpha.inputs["To Min"].default_value = 0.46
+    alpha.inputs["To Max"].default_value = 0.05
+    nt.links.new(lw.outputs["Facing"], alpha.inputs["Value"])
+    # animate_deck keyframes this so a puff dissipates instead of popping
+    fade = nt.nodes.new("ShaderNodeValue")
+    fade.name = "VaporFade"
+    fade.outputs[0].default_value = 1.0
+    dim = nt.nodes.new("ShaderNodeMath")
+    dim.operation = "MULTIPLY"
+    nt.links.new(alpha.outputs["Result"], dim.inputs[0])
+    nt.links.new(fade.outputs[0], dim.inputs[1])
+    nt.links.new(dim.outputs[0], bsdf.inputs["Alpha"])
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    return m
+
+
 def etched_plate():
     # Faint glyph traces lit from inside the plating. Voronoi's distance to
     # cell edge is the cheapest thing that reads as etched circuitry.
@@ -1134,6 +1259,14 @@ def build_materials():
                        wear=0.4, rust=0.1, frost=0.10),
             color=ARC_OUTER, strength=0.22),
         "hose": rubber("hose_rubber"),
+        # armoured conduit: light enough to read as a separate run against the
+        # deck paint, where a second black rubber line just merges with the
+        # first. Metal, so the key catches its top and gives it a round
+        # section at 4 px wide.
+        "conduit": worn_metal("conduit_braid", (0.115, 0.128, 0.135),
+                              (0.070, 0.079, 0.085), metallic=0.45,
+                              rough_lo=0.34, rough_hi=0.56, wear=0.4,
+                              rust=0.22, frost=0.10, grain=0.18),
         "cable": rubber("cable_rubber", (0.021, 0.020, 0.019)),
         "crystal": crystal_quantum(),
         "core": plain("crystal_core", PLASMA_HOT, metallic=0.0, rough=0.3,
@@ -1149,6 +1282,13 @@ def build_materials():
         "glow_hot": plain("glow_hot", (0.10, 0.24, 0.36), metallic=0.0, rough=0.3,
                           emission=PLASMA_LIT, strength=1.2),
         "arc": arc_plasma(),
+        # sparks and motes: a couple of pixels each, so only the hue survives
+        # -- kept just under the clip point rather than pushed white
+        "spark": emission_only("spark", srgb("#7FE3FF"), 1.05),
+        # cable pulse: dimmer than a spark and stretched along the run, so it
+        # reads as light moving THROUGH the cable rather than an orb resting
+        # on top of it
+        "pulse": emission_only("cable_pulse", ARC_OUTER, 0.72),
         "glass": canister_glass(),
         "fluid_hot": coolant_fluid("coolant_hot", COOLANT_HOT),
         "fluid_cold": coolant_fluid("coolant_cold", COOLANT_COLD),
@@ -1197,6 +1337,25 @@ def build_materials():
                            emission=HEAT_ORANGE, strength=0.7),
         "hatch_lid": dark_paint("hatch_lid", decal=(2, 2)),
         "strip": emission_only("strip_light", ARC_OUTER, 0.5),
+        # Holographic projection. Emission only and deliberately UNDER the
+        # core's own strength: the containment crystal keeps the emissive
+        # budget, and a second cyan light source that competes with it flattens
+        # the hero. Max channel stays at 1.0 so Standard does not clip the hue
+        # to white -- the low red and green ARE the colour.
+        "holo": holo_glyphs(),
+        "holo_rail": emission_only("holo_rail", ARC_OUTER, 0.55),
+        # projector lens: dark glass that only lights at its rim
+        "lens": add_energy_sheen(
+            plain("holo_lens", (0.02, 0.05, 0.07), metallic=0.0, rough=0.22),
+            color=ARC_OUTER, strength=0.75),
+        # Cryo exhaust. Albedo well under the snow value that clips to flat
+        # 255 under this rig's 5.2 key sun, and mostly transparent so a puff
+        # reads as vapour rather than as a white blob stuck to the deck.
+        "vapor": vapor_puff(),
+        # the floor shard's interior: the same plasma as the core but a third
+        # of the brightness, so it reads as a chip off it and not a rival
+        "shard_core": plain("shard_core", (0.08, 0.20, 0.30), metallic=0.0,
+                            rough=0.3, emission=PLASMA_LIT, strength=0.42),
         "vent_glow": plain("vent_glow", (0.04, 0.09, 0.12), metallic=0.0,
                            rough=0.6, emission=ARC_OUTER, strength=0.34),
         "radiator": plain("radiator_hot", (0.10, 0.045, 0.02), metallic=0.1, rough=0.5,
@@ -1213,7 +1372,8 @@ def build_materials():
 # --------------------------------------------------------------------------
 # equipment helpers -- the vocabulary the amphitheater is assembled from
 
-def pipe_run(base, mats, name, pts, radius, mat_key="copper", flange_ts=(), rings=0):
+def pipe_run(base, mats, name, pts, radius, mat_key="copper", flange_ts=(), rings=0,
+             ring_key="iron"):
     # smooth NURBS pipe through pts; optional cast-iron flange tori along it
     # and ribbed rings (hose look)
     curve = bpy.data.curves.new(PREFIX + name + "C", "CURVE")
@@ -1252,7 +1412,7 @@ def pipe_run(base, mats, name, pts, radius, mat_key="copper", flange_ts=(), ring
         fl.name = PREFIX + name + "F%d" % j
         fl.rotation_mode = "QUATERNION"
         fl.rotation_quaternion = quat
-        fl.data.materials.append(mats["iron"])
+        fl.data.materials.append(mats[ring_key])
         smooth(fl)
         link_to(fl, base)
     return obj
@@ -1678,6 +1838,23 @@ def deck_survey(base, z_lo=0.86, margin=0.06):
     for obj in base.objects:
         if obj.type not in ("MESH", "CURVE"):
             continue
+        # A run traced by many points gets a keep-out that follows the cable;
+        # boxing its extents instead covers most of a quadrant and blanks the
+        # scatter around it. Coarse curves (2-4 points) keep the AABB, so the
+        # pylons and the older hoses survey exactly as they always did.
+        if obj.type == "CURVE" and obj.data.bevel_depth:
+            pts = [p for spl in obj.data.splines
+                   for p in (spl.bezier_points if spl.type == "BEZIER" else spl.points)]
+            if len(pts) >= 10:
+                rad = obj.data.bevel_depth + margin
+                for p in pts:
+                    w = obj.matrix_world @ Vector(p.co[:3])
+                    top = w.z + obj.data.bevel_depth
+                    if top >= z_lo:
+                        obstacles.append((w.x - rad, w.y - rad, w.x + rad, w.y + rad))
+                    elif top > 0.76:
+                        surfaces.append((w.x - rad, w.y - rad, w.x + rad, w.y + rad, top))
+                continue
         corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
         top = max(c.z for c in corners)
         xs = [c.x for c in corners]
@@ -2161,7 +2338,486 @@ def build_heat_run(base, mats):
     link_to(tip, base)
 
 
-def build_deck(base, mats):
+# --------------------------------------------------------------------------
+# deck plant -- floor cabling and the alien-tech props it feeds
+#
+# Everything in this section is support hardware for the containment core and
+# all of it is deliberately low: the deck may get busier, but the core stays
+# the only thing breaking the skyline. Heights are sampled off the deck with
+# surface_z rather than assumed -- a prop at a fixed z floats wherever there
+# is no panel under it, and a 2 px gap shows at 64 px/tile.
+
+def _cable_saddles(base, mats, name, pts, radius, saddles, key="holmium"):
+    # A floor run is pinned down every so often, and the clamp is what stops
+    # it reading as a line drawn on the plate. Holmium, not iron: a dark clamp
+    # on a dark cable on a dark deck is three values of nothing.
+    n = len(pts)
+    for j, t in enumerate(saddles):
+        f = t * (n - 1)
+        i = min(int(f), n - 2)
+        p0, p1 = Vector(pts[i]), Vector(pts[i + 1])
+        pos = p0.lerp(p1, f - i)
+        ang = math.atan2(p1.y - p0.y, p1.x - p0.x)
+        sad = cube("%sSaddle%d" % (name, j),
+                   (radius * 1.4, radius * 3.8, radius * 2.4),
+                   (pos.x, pos.y, pos.z - radius * 0.34), (0, 0, ang), mats[key])
+        bevel(sad, width=radius * 0.24, segments=2)
+        link_to(sad, base)
+
+
+def _cable_lat(t, amp, waves, phase):
+    # The meander, tapered to nothing at both ends so a run still lands on its
+    # glands however hard the middle wanders. Shared with the router: checking
+    # the straight anchor line instead let the built cable wander into a tank
+    # the route had cleared.
+    return amp * math.sin(2 * math.pi * waves * t + phase) * math.sin(math.pi * t)
+
+
+def _polyline_at(anchors, t):
+    # Position and local direction a fraction t along a polyline, by length.
+    # Waypoints are what let a run bow around the flank tanks instead of
+    # driving through them.
+    segs = [(Vector(anchors[i]), Vector(anchors[i + 1]))
+            for i in range(len(anchors) - 1)]
+    lens = [(b - a).length for a, b in segs]
+    total = sum(lens) or 1.0
+    d = t * total
+    for k, ((a, b), L) in enumerate(zip(segs, lens)):
+        if d <= L or k == len(segs) - 1:
+            return a.lerp(b, min(d / L, 1.0) if L else 0.0), (b - a).normalized()
+        d -= L
+    a, b = segs[-1]
+    return b, (b - a).normalized()
+
+
+def floor_cable(base, mats, name, anchors, surfaces, waves=1.4, amp=0.20,
+                radius=0.05, mat_key="hose", saddles=(0.34, 0.68), n=20,
+                hump=0.022, phase=0.0, ribs=0, ring_key="copper"):
+    # A run that LIES on the deck instead of spanning it. The slack is
+    # horizontal: a cable resting on a floor meanders in plan, and only
+    # bellies upward between saddles -- a catenary here would read as a hoop
+    # standing off the plate. The small hump matters more than it sounds: a
+    # run pressed flat to the deck catches no key light and disappears into
+    # the plate it lies on.
+    #
+    # Resting height follows whatever is underneath, so a run crossing the
+    # walkway ring and stepping down onto bare plinth stays in contact with
+    # both.
+    a0, b0 = Vector(anchors[0]), Vector(anchors[-1])
+    pts = []
+    for k in range(n):
+        t = k / (n - 1)
+        p, tang = _polyline_at(anchors, t)
+        side = Vector((-tang.y, tang.x, 0))
+        side = side.normalized() if side.length > 1e-4 else Vector((1, 0, 0))
+        q = p + side * _cable_lat(t, amp, waves, phase)
+        rest = surface_z(q.x, q.y, surfaces) + radius * 0.92
+        if t < 0.18:
+            u = t / 0.18
+            z = a0.z + (rest - a0.z) * (u * u * (3 - 2 * u))
+        elif t > 0.82:
+            u = (1 - t) / 0.18
+            z = b0.z + (rest - b0.z) * (u * u * (3 - 2 * u))
+        else:
+            z = rest + hump * math.sin(math.pi * (t - 0.18) / 0.64)
+        pts.append((q.x, q.y, z))
+    obj = pipe_run(base, mats, name, pts, radius, mat_key=mat_key,
+                   rings=ribs, ring_key=ring_key)
+    _cable_saddles(base, mats, name, pts, radius, saddles)
+    return pts, obj
+
+
+def cable_gland(base, mats, name, pos, ang, r=0.075):
+    # Where a run meets a wall it gets a fitting, not a gap.
+    bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=r * 0.36,
+                                     major_segments=16, minor_segments=8,
+                                     location=pos,
+                                     rotation=(0, math.radians(90), ang))
+    g = bpy.context.object
+    g.name = PREFIX + name
+    g.data.materials.append(mats["iron"])
+    smooth(g)
+    link_to(g, base)
+    return g
+
+
+def junction_box(base, mats, name, pos, ang, size=(0.20, 0.16, 0.13)):
+    # Where a spur leaves a feeder. Gives the run a reason to change
+    # direction and puts one light-valued block down on the walkway.
+    box = cube(name, size, (pos[0], pos[1], pos[2] + size[2] * 0.42),
+               (0, 0, ang), mats["holmium_label"])
+    bevel(box, width=0.018, segments=2)
+    link_to(box, base)
+    lid = cube(name + "Lid", (size[0] * 0.70, size[1] * 0.46, 0.018),
+               (pos[0], pos[1], pos[2] + size[2] * 1.02), (0, 0, ang), mats["gunmetal"])
+    link_to(lid, base)
+    return box
+
+
+# The four feeders from the containment pedestal out to the corner electrodes.
+#
+# Angles are chosen off the render, not off the model. At a 45 deg pitch the
+# walkway FLANKS (either side of the chamber, around y = -0.4) are the open
+# floor this camera actually sees; the lane straight across the front sits
+# directly behind the console screen and brow, and a trunk routed through it
+# rendered completely invisible -- 1.6% of the sprite changed for a full
+# cable system. So the two front feeders are the heavy, detailed ones and
+# leave the pedestal out into those flanks, while the rear pair is thinner
+# and routed mainly so the machine is wired rather than to be looked at.
+#
+# (name, corner x sign, corner y sign, radius, waves, amp, phase, saddles,
+#  material, ribs). The route itself is searched, not written down -- see
+# _route_feeder. Everything else is deliberately unequal: four identical
+# sweeps at 90 deg to each other read as a stamped pattern, and the two the
+# camera looks straight at are the heavy, detailed ones.
+FEEDER_SPECS = [
+    ("FL", -1, -1, 0.072, 1.15, 0.20, 0.4, (0.26, 0.55, 0.82), "conduit", 7),
+    ("FR", 1, -1, 0.062, 1.45, 0.17, 2.4, (0.30, 0.62, 0.88), "hose", 9),
+    ("BL", -1, 1, 0.046, 1.30, 0.12, 1.2, (0.34, 0.72), "hose", 0),
+    ("BR", 1, 1, 0.041, 1.60, 0.10, 3.0, (0.38, 0.76), "conduit", 0),
+]
+
+
+# Device placements, taken off a ray-cast visibility map of the deck (cast
+# every candidate point toward the camera and see what is in the way) rather
+# than off the layout. The difference is not small: a first pass placed these
+# by reading the occupancy map, and three of the four came out occluded --
+# the walkway flanks look open in plan and are criss-crossed by the chamber
+# hoses overhead, and the whole rear deck sits behind the amphitheater.
+#
+# What is actually clear is the front-left and front-right of the walkway,
+# plus the shelf edge ahead of the coolant skid. All four go there, which is
+# also where the camera looks.
+# Each of these is a pocket read off a full AABB map of the front quadrants,
+# not a guess: holo between the bus bar (y >= -1.16) and the capacitor bank
+# (y <= -1.62), inboard of the front-right pylon cap (x >= 1.25) and outboard
+# of the fuel bay (x <= 0.74); shard between the chamber lamp hood (x <= 0.52)
+# and the bus bar (x >= 0.79); vent and sensor on the left walkway, clear of
+# the grate, the radiator (y <= -1.28) and the flank tank (y >= 0.12).
+HOLO_POS, HOLO_ANG = (1.00, -1.34), math.radians(-6.0)
+CRYO_POS, CRYO_ANG = (-1.13, -0.83), math.radians(-140.0)
+SENSOR_POS, SENSOR_ANG = (-1.22, -0.25), math.radians(-104.0)
+SHARD_POS = (0.66, -1.13)
+VENT_PUFFS = 4
+
+PULSE_LEN = 8           # frames a charge takes to run out along a feeder
+PULSE_T0, PULSE_T1 = 0.06, 0.72
+# The deck layer renders with the base collection hidden, so a pulse bead has
+# nothing to hide behind. Both runs it travels are on open walkway, which is
+# what makes that safe. Values are the pylon each feeder's charge precedes.
+PULSE_FEEDERS = {"cryo": 3, "holo": 1}
+
+
+def build_holo_panel(base, deck, mats, pos, ang, surfaces):
+    # A projected readout standing off its emitter, not a screen bolted to a
+    # bracket -- the one piece of hardware on the deck that is obviously not
+    # ordinary industrial plant. Kept low and thin so it never competes with
+    # the containment chamber behind it.
+    x, y = pos
+    z = surface_z(x, y, surfaces)
+    c, s = math.cos(ang), math.sin(ang)
+
+    def at(lx, ly, lz):
+        return (x + lx * c - ly * s, y + lx * s + ly * c, z + lz)
+
+    body = cube("HoloBase", (0.34, 0.24, 0.085), at(0, 0, 0.042), (0, 0, ang),
+                mats["holmium_label"])
+    bevel(body, width=0.018, segments=2)
+    link_to(body, base)
+    # emitter bar: the thing the projection visibly comes out of
+    bar = cube("HoloEmitter", (0.28, 0.055, 0.030), at(0, -0.055, 0.10),
+               (0, 0, ang), mats["gunmetal"])
+    bevel(bar, width=0.008, segments=2)
+    link_to(bar, base)
+    for k, lx in enumerate((-0.085, 0.085)):
+        lens = cylinder("HoloLens%d" % k, 0.022, 0.014, at(lx, -0.055, 0.118),
+                        material=mats["lens"], verts=10)
+        smooth(lens)
+        link_to(lens, base)
+    # two raked posts framing the projection volume
+    for k, lx in enumerate((-0.155, 0.155)):
+        post = cube("HoloPost%d" % k, (0.030, 0.030, 0.20),
+                    at(lx, 0.045, 0.16), (math.radians(-9), 0, ang), mats["gunmetal"])
+        bevel(post, width=0.007, segments=2)
+        link_to(post, base)
+    led_cluster(base, mats, "HoloLed", at(0.115, 0.085, 0.095),
+                ("led_cyan", "led_green"), rot=ang, pitch=0.055, r=0.020)
+    # Two lit rails bracket the projection volume, so the glyphs read as
+    # something being thrown between them rather than a panel hanging in air.
+    for k, lz in enumerate((0.148, 0.318)):
+        rail = cube("HoloRail%d" % k, (0.26, 0.016, 0.010), at(0, 0.010, lz),
+                    (0, 0, ang), mats["holo_rail"])
+        link_to(rail, base)
+
+    # The projection itself is animated, so it lives in the deck layer. A
+    # plate tilted +48 about X faces this camera; -48 renders its back.
+    glyph = cube("HoloGlyph", (0.255, 0.165, 0.004),
+                 at(0, 0.010, 0.233), (math.radians(48), 0, ang), mats["holo"])
+    link_to(glyph, deck)
+    return glyph, None
+
+
+def build_cryo_vent(base, deck, mats, pos, ang, surfaces):
+    # Aquilo's own hardware, said out loud: a low-pressure cryogenic exhaust,
+    # rimed solid, breathing vapour onto a deck that is already frozen.
+    x, y = pos
+    z = surface_z(x, y, surfaces)
+    flange = cylinder("CryoFlange", 0.155, 0.030, (x, y, z + 0.015),
+                      material=mats["iron"], verts=20)
+    smooth(flange)
+    link_to(flange, base)
+    stack = cylinder("CryoStack", 0.098, 0.30, (x, y, z + 0.175),
+                     material=mats["frosty"], verts=20)
+    smooth(stack)
+    link_to(stack, base)
+    for k, h in enumerate((0.09, 0.19, 0.27)):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.107, minor_radius=0.018,
+                                         major_segments=20, minor_segments=8,
+                                         location=(x, y, z + h))
+        rib = bpy.context.object
+        rib.name = PREFIX + "CryoRib%d" % k
+        rib.data.materials.append(mats["frosty"])
+        smooth(rib)
+        link_to(rib, base)
+    mouth = cylinder("CryoMouth", 0.078, 0.020, (x, y, z + 0.328),
+                     material=mats["socket_dark"], verts=18)
+    smooth(mouth)
+    link_to(mouth, base)
+    # feed line dropping into the deck, and a hand valve on it
+    pipe_run(base, mats, "CryoFeed",
+             [(x + 0.13 * math.cos(ang), y + 0.13 * math.sin(ang), z + 0.09),
+              (x + 0.26 * math.cos(ang), y + 0.26 * math.sin(ang), z + 0.055),
+              (x + 0.34 * math.cos(ang), y + 0.34 * math.sin(ang), z + 0.02)],
+             0.026, mat_key="copper", flange_ts=(0.5,))
+    wheel = cylinder("CryoValve", 0.052, 0.014,
+                     (x + 0.13 * math.cos(ang), y + 0.13 * math.sin(ang), z + 0.145),
+                     material=mats["rusty"], verts=14)
+    smooth(wheel)
+    link_to(wheel, base)
+    indicator_lamp(base, mats, "CryoLed", (x - 0.10 * math.sin(ang),
+                                           y + 0.10 * math.cos(ang), z + 0.21),
+                   "led_cyan", w=0.075, h=0.036, ang=ang)
+
+    # the puffs are animated, so they belong to the deck layer -- and each
+    # gets its own material so it can fade on its own schedule
+    puffs = []
+    for k in range(VENT_PUFFS):
+        p = sphere("CryoPuff%d" % k, 0.075, (x, y, z + 0.40),
+                   vapor_puff("vapor_puff%d" % k), subdiv=2)
+        smooth(p)
+        link_to(p, deck)
+        puffs.append(p)
+    return puffs, (x, y, z + 0.34)
+
+
+def build_sensor_array(base, mats, pos, ang, surfaces):
+    # Sensing, the flow the deck did not have: a steerable dish and a rod
+    # array, aimed off-axis so the pair reads as tracking something rather
+    # than as decoration bolted down square.
+    x, y = pos
+    z = surface_z(x, y, surfaces)
+    c, s = math.cos(ang), math.sin(ang)
+
+    def at(lx, ly, lz):
+        return (x + lx * c - ly * s, y + lx * s + ly * c, z + lz)
+
+    skid = cube("SensorSkid", (0.34, 0.23, 0.050), at(0, 0, 0.026), (0, 0, ang),
+                mats["steel_dark"])
+    bevel(skid, width=0.014, segments=2)
+    link_to(skid, base)
+    yoke = cube("SensorYoke", (0.065, 0.065, 0.14), at(-0.075, 0, 0.115),
+                (0, 0, ang), mats["gunmetal"])
+    bevel(yoke, width=0.012, segments=2)
+    link_to(yoke, base)
+    # A dish only reads as a dish if the camera can see INTO it. The wide end
+    # goes at +Z and the whole cone is tipped 44 deg about X, which is what
+    # aims the opening down the view axis; the first pass had it edge-on and
+    # rendered a bright holmium blade. Dark inside, lit rim -- the contrast
+    # between the two is the entire read at 24 px across.
+    bpy.ops.mesh.primitive_cone_add(vertices=26, radius1=0.042, radius2=0.152,
+                                    depth=0.060, location=at(-0.070, 0, 0.215),
+                                    rotation=(math.radians(44), 0, ang))
+    dish = bpy.context.object
+    dish.name = PREFIX + "SensorDish"
+    dish.data.materials.append(mats["gunmetal"])
+    smooth(dish)
+    link_to(dish, base)
+    axis = dish.matrix_world.to_3x3() @ Vector((0, 0, 1))
+    rim_at = Vector(dish.location) + axis * 0.038
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.152, minor_radius=0.014,
+                                     major_segments=26, minor_segments=8,
+                                     location=rim_at,
+                                     rotation=(math.radians(44), 0, ang))
+    rim = bpy.context.object
+    rim.name = PREFIX + "SensorRim"
+    rim.data.materials.append(mats["holmium"])
+    smooth(rim)
+    link_to(rim, base)
+    # feed horn on three struts, standing out of the dish toward the camera
+    feed_at = Vector(dish.location) + axis * 0.105
+    for k in range(3):
+        a = math.radians(90 + 120 * k)
+        edge = rim_at + (dish.matrix_world.to_3x3() @
+                         Vector((0.12 * math.cos(a), 0.12 * math.sin(a), 0)))
+        pipe_run(base, mats, "SensorStrut%d" % k,
+                 [tuple(edge), tuple(edge.lerp(feed_at, 0.5)), tuple(feed_at)],
+                 0.008, mat_key="gunmetal")
+    horn = cylinder("SensorHorn", 0.021, 0.045, feed_at,
+                    (math.radians(44), 0, ang), mats["iron"], verts=12)
+    smooth(horn)
+    link_to(horn, base)
+    tip = sphere("SensorHornTip", 0.022, feed_at + axis * 0.030,
+                 mats["led_cyan"], subdiv=1)
+    smooth(tip)
+    link_to(tip, base)
+    # the rod array: two unequal whips, so it is an array and not a comb
+    for k, (lx, h) in enumerate(((0.105, 0.21), (0.155, 0.150))):
+        rod = cylinder("SensorRod%d" % k, 0.011, h, at(lx, 0.02, 0.055 + h / 2),
+                       (math.radians(5 * (2 * k - 1)), 0, ang), mats["gunmetal"], verts=8)
+        link_to(rod, base)
+        bead = sphere("SensorBead%d" % k, 0.021, at(lx, 0.02, 0.055 + h),
+                      mats["led_amber" if k else "led_cyan"], subdiv=1)
+        link_to(bead, base)
+    led_cluster(base, mats, "SensorLed", at(0.015, -0.078, 0.056),
+                ("led_green", "led_cyan"), rot=ang, pitch=0.048, r=0.017)
+    return skid
+
+
+def build_floor_shard(base, deck, mats, pos, surfaces):
+    # A chip of the same mineral the core is made of, left in the deck where
+    # it grew. Its glow is a third of the core's: the tell that it is the
+    # same substance is the colour, not the brightness.
+    x, y = pos
+    z = surface_z(x, y, surfaces)
+    # cracked collar where it came through the plate
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.098, minor_radius=0.024,
+                                     major_segments=18, minor_segments=8,
+                                     location=(x, y, z + 0.012))
+    collar = bpy.context.object
+    collar.name = PREFIX + "ShardCollar"
+    collar.scale = (1, 1, 0.6)
+    collar.data.materials.append(mats["iron"])
+    smooth(collar)
+    link_to(collar, base)
+    rime = cylinder("ShardRime", 0.122, 0.016, (x, y, z + 0.008),
+                    material=mats["frosty"], verts=18)
+    smooth(rime)
+    link_to(rime, base)
+    # the shard: a 6-sided pyramid, raked over so it is not a spike on end
+    bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.082, radius2=0.0,
+                                    depth=0.30, location=(x, y, z + 0.135),
+                                    rotation=(math.radians(17), 0, math.radians(24)))
+    shard = bpy.context.object
+    shard.name = PREFIX + "Shard"
+    shard.data.materials.append(mats["crystal"])
+    link_to(shard, base)
+    for k, (dx, dy, sc, rot) in enumerate(((-0.10, 0.045, 0.42, 40),
+                                           (0.095, -0.035, 0.30, -25))):
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.082 * sc, radius2=0.0,
+                                        depth=0.30 * sc,
+                                        location=(x + dx, y + dy, z + 0.135 * sc),
+                                        rotation=(math.radians(30), 0, math.radians(rot)))
+        sp = bpy.context.object
+        sp.name = PREFIX + "ShardSplinter%d" % k
+        sp.data.materials.append(mats["crystal"])
+        link_to(sp, base)
+    # the lit interior lives in the deck layer so it can breathe with the core
+    core = sphere("ShardCore", 0.042, (x, y, z + 0.105), mats["shard_core"], subdiv=2)
+    smooth(core)
+    link_to(core, deck)
+    return core
+
+
+# Service cables, one per device: (device, pedestal angle, radius, waves,
+# amp, phase, saddles, material, ribs).
+#
+# They are SHORT, and that is a measured constraint rather than a stylistic
+# choice. The clear floor on this deck is a band about 0.25 tiles wide between
+# the pedestal wall at r=1.12 and a continuous ring of plant starting near
+# r=1.5, so there is nowhere for a long run to go: routing to a corner drum
+# was tried and the best line on every corner still crossed 28-40 of 40
+# sample points through the radiator, the manifolds or the flank tanks. Each
+# electrode keeps the cable it already has, up from its own drum.
+#
+# The pedestal angle is set a little off the device's own bearing so the run
+# arrives across the walkway rather than radially, which is what gives it
+# something to sag over.
+# Angles are chosen off the AABB map, and two of them matter:
+#  - cryo leaves at 232 deg, below the sensor. At 194 it ran straight through
+#    the sensor skid and both its whips on the way past.
+#  - holo is fed from the BUS BAR's end lug instead of the chamber. The bar
+#    spans x 0.79..1.45 across y -1.16..-0.77, squarely between the pedestal
+#    and the holo pocket, and no line from the pedestal reaches the panel
+#    without crossing it. Tapping a device off a power rail is what a power
+#    rail is for, so this is the better drawing anyway.
+SERVICE_SPECS = [
+    ("cryo", 232.0, None, 0.058, 0.85, 0.10, 0.4, (0.45,), "conduit", 4),
+    ("holo", None, (1.36, -1.12, 0.93), 0.050, 0.80, 0.07, 2.4, (0.45,), "hose", 5),
+    ("sensor", 168.0, None, 0.036, 0.75, 0.06, 1.1, (0.5,), "hose", 0),
+    ("shard", -58.0, None, 0.030, 0.70, 0.05, 2.9, (0.5,), "conduit", 0),
+]
+
+# how far back from a device's centre its gland sits, so the run lands on the
+# housing rather than in the air beside it
+DEVICE_INSET = {"cryo": 0.17, "holo": 0.20, "sensor": 0.21, "shard": 0.11}
+
+
+def _device_pos(dev):
+    return {"cryo": CRYO_POS, "holo": HOLO_POS,
+            "sensor": SENSOR_POS, "shard": SHARD_POS}[dev]
+
+
+def build_deck_cables(base, mats):
+    _, surfaces = deck_survey(base)
+    runs = {}
+    for dev, deg, src_pt, rad, waves, amp, phase, saddles, key, ribs in SERVICE_SPECS:
+        if src_pt is None:
+            a = math.radians(deg)
+            start = (1.12 * math.cos(a), 1.12 * math.sin(a), 0.97)
+        else:
+            start = src_pt
+            a = math.atan2(_device_pos(dev)[1] - start[1],
+                           _device_pos(dev)[0] - start[0])
+        tx, ty = _device_pos(dev)
+        d = Vector((tx - start[0], ty - start[1], 0))
+        n = d.normalized() if d.length > 1e-4 else Vector((1, 0, 0))
+        inset = DEVICE_INSET[dev]
+        end = (tx - n.x * inset, ty - n.y * inset, 0.86)
+        pts, _ = floor_cable(base, mats, "DeckFeed" + dev.capitalize(),
+                             [start, end], surfaces, radius=rad, waves=waves,
+                             amp=amp, phase=phase, saddles=saddles,
+                             mat_key=key, ribs=ribs, n=14)
+        cable_gland(base, mats, "DeckFeedGland" + dev.capitalize(), start, a,
+                    r=rad * 1.6)
+        cable_gland(base, mats, "DeckFeedEnd" + dev.capitalize(), end,
+                    math.atan2(n.y, n.x), r=rad * 1.7)
+        runs[dev] = (pts, surfaces)
+    return surfaces, runs
+
+
+def build_prop_spurs(base, mats, runs, surfaces):
+    # Nothing further to lay: every device is already fed directly. Kept as
+    # the hook the scene assembly calls, so the ordering stays explicit.
+    return
+
+
+def build_deck_props(base, deck, mats, surfaces):
+    glyph, _ = build_holo_panel(base, deck, mats, HOLO_POS, HOLO_ANG, surfaces)
+    puffs, vent_mouth = build_cryo_vent(base, deck, mats, CRYO_POS, CRYO_ANG, surfaces)
+    build_sensor_array(base, mats, SENSOR_POS, SENSOR_ANG, surfaces)
+    shard_core = build_floor_shard(base, deck, mats, SHARD_POS, surfaces)
+    beads = {}
+    for tag in PULSE_FEEDERS:
+        b = sphere("Pulse" + tag.capitalize(), 0.048, (0, 0, 0.85),
+                   mats["pulse"], subdiv=2)
+        smooth(b)
+        link_to(b, deck)
+        beads[tag] = b
+    return {"glyph": glyph, "puffs": puffs, "beads": beads,
+            "vent_mouth": vent_mouth, "shard_core": shard_core}
+
+
+def build_deck(base, mats, deck):
     deck_ring(base, mats)
     # outer plates: different sizes, a few degrees off square, seams offset so
     # nothing lines up into a grid
@@ -2198,6 +2854,8 @@ def build_deck(base, mats):
                rot=math.radians(2))
     seam_light(base, mats, "SeamLightLeft", (-1.72, 0.86, 0.812), 0.5,
                rot=math.radians(90))
+    _, surfaces = deck_survey(base)
+    return build_deck_props(base, deck, mats, surfaces)
 
 
 # --------------------------------------------------------------------------
@@ -2216,8 +2874,16 @@ def build_plinth(base, mats):
     bevel(slab, width=0.12)
     link_to(slab, base)
 
-    # rim beams framing the deck
-    for i, (sx, sy, sz) in enumerate([(4.7, 0.34, 0.22), (0.34, 4.7, 0.22)]):
+    # Rim beams framing the deck. The side pair BUTTS into the front and back
+    # pair (4.70 - 2*0.34) instead of crossing it. Full-length beams both ways
+    # put two coincident outer faces at each corner, and worn_metal's ambient
+    # occlusion term reads a face's own coplanar twin as total occlusion --
+    # which renders a hard-edged BLACK rectangle over the corner. It is not
+    # stable, either: which face wins depends on BVH order, so it appears and
+    # vanishes as unrelated geometry is added elsewhere on the deck, and the
+    # audit never reported it because ("Rim", "Rim") is whitelisted. The
+    # outline is unchanged -- every beam still reaches +-2.35 on its long axis.
+    for i, (sx, sy, sz) in enumerate([(4.7, 0.34, 0.22), (0.34, 4.02, 0.22)]):
         for j, off in enumerate((-2.18, 2.18)):
             loc = (0, off, 0.82) if i == 0 else (off, 0, 0.82)
             beam = cube("Rim%d%d" % (i, j), (sx, sy, sz), loc, material=mats["steel"])
@@ -2439,14 +3105,10 @@ def build_pylons(base, mats):
 
         # copper induction windings: a heavy one at the foot, a fine one just
         # under the tip, so each pylon reads as an electrode feeding the field
-        def pipe_radius(t, r0=curve.bevel_depth):
-            # matches the taper object above: full width at the foot, half at the tip
-            return r0 * (1.0 - 0.5 * t)
-
         helix_on_bezier(base, mats, "PylonCoil%d" % i, ctrl, 0.05, 0.34,
-                        turns=4.5, wire=0.036, radius_at=pipe_radius)
+                        turns=4.5, wire=0.036, radius_at=pylon_radius)
         helix_on_bezier(base, mats, "PylonTipCoil%d" % i, ctrl, 0.70, 0.83,
-                        turns=3.0, wire=0.024, radius_at=pipe_radius, phase=0.6)
+                        turns=3.0, wire=0.024, radius_at=pylon_radius, phase=0.6)
         base_ring = cylinder("PylonCoilSeat%d" % i, 0.26, 0.07, bezier_pt(ctrl, 0.03),
                              material=mats["iron"])
         smooth(base_ring)
@@ -2743,16 +3405,23 @@ def build_scene():
     base = coll("Base")
     moving = coll("Moving")
     arcs = coll("Arcs")
+    deck = coll("Deck")
     footprint = coll("Footprint")
 
     mats = build_materials()
 
     build_plinth(base, mats)
-    build_deck(base, mats)
+    props = build_deck(base, mats, deck)
     build_dish(base, mats)
     build_amphitheater(base, mats)
     build_pylons(base, mats)
     build_sockets(base, mats)
+    # Cabling LAST. The feeders route around whatever else is on the deck and
+    # the deck survey is how they find out what that is, so every prop, tank
+    # and manifold has to exist before they are laid.
+    surfaces, runs = build_deck_cables(base, mats)
+    build_prop_spurs(base, mats, runs, surfaces)
+    props["runs"] = runs
     scatter_greebles(base, mats)
 
     crystal = build_crystal(moving, mats)
@@ -2772,7 +3441,8 @@ def build_scene():
 
     bpy.context.view_layer.update()
     return {
-        "base": base, "moving": moving, "arcs": arcs, "footprint": footprint,
+        "base": base, "moving": moving, "arcs": arcs, "deck": deck,
+        "footprint": footprint, "props": props,
         "ring_outer": ring_outer, "ring_inner": ring_inner, "crystal": crystal,
     }
 
@@ -2803,13 +3473,117 @@ def animate(objs, frames=64):
         for obj in (outer, inner, crystal):
             obj.keyframe_insert("rotation_euler", frame=f)
         crystal.keyframe_insert("location", frame=f)
+    animate_deck(objs["props"], frames)
 
 
-def arc_frame_arcs(frame):
-    for frames_range, arc_ids in ARC_BURSTS:
-        if frame in frames_range:
-            return arc_ids
-    return ()
+def _path_at(pts, t):
+    f = max(0.0, min(t, 1.0)) * (len(pts) - 1)
+    i = min(int(f), len(pts) - 2)
+    return Vector(pts[i]).lerp(Vector(pts[i + 1]), f - i)
+
+
+def _key_value(node, value, frame):
+    node.outputs[0].default_value = value
+    node.outputs[0].keyframe_insert("default_value", frame=frame)
+
+
+def animate_deck(props, frames=64):
+    # The deck plant runs its own loop at the same length and speed as the
+    # rings. Nothing here is keyed off the ring pose -- Factorio draws each
+    # animation_list element independently -- but matching 64 frames at
+    # animation_speed 0.5 keeps the two compatible, and lets the cable pulses
+    # land on the discharge schedule instead of drifting against it.
+    holo = bpy.data.materials[PREFIX + "holo_glyph"].node_tree.nodes
+    scan_t, flicker = holo["HoloScanT"], holo["HoloFlicker"]
+    shard_mat = bpy.data.materials[PREFIX + "shard_core"]
+    shard_em = shard_mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"]
+    mouth = Vector(props["vent_mouth"])
+
+    # which frames a feeder is carrying a charge, from the discharge schedule
+    windows = {tag: [(s - PULSE_LEN) % frames for p, s in _beats() if p == pylon]
+               for tag, pylon in PULSE_FEEDERS.items()}
+
+    for f in range(frames + 1):
+        t = (f % frames) / frames
+
+        # hologram: band sweeps and wraps; flicker at 3 whole cycles per loop
+        _key_value(scan_t, t, f)
+        _key_value(flicker, 0.90 + 0.10 * math.sin(2 * math.pi * 3 * t), f)
+
+        # cryo vapour: staggered puffs, each rising, spreading and thinning
+        for k, puff in enumerate(props["puffs"]):
+            ph = ((f % frames) / frames + k / len(props["puffs"])) % 1.0
+            puff.location = (mouth.x + 0.045 * math.sin(6.0 * ph + k),
+                             mouth.y - 0.02 * ph,
+                             mouth.z + 0.02 + 0.43 * ph)
+            s = 0.34 + 1.15 * ph
+            puff.scale = (s, s, s * 0.86)
+            puff.keyframe_insert("location", frame=f)
+            puff.keyframe_insert("scale", frame=f)
+            fade = puff.data.materials[0].node_tree.nodes["VaporFade"]
+            # zero at both ends, so the loop closes with nothing on screen
+            _key_value(fade, math.sin(math.pi * ph) ** 0.7, f)
+
+        # cable pulses: a charge runs out the feeder and arrives as its
+        # electrode starts to climb
+        for tag, bead in props["beads"].items():
+            pts = props["runs"][tag][0]
+            live = None
+            for start in windows[tag]:
+                d = (f - start) % frames
+                if d <= PULSE_LEN:
+                    live = d / PULSE_LEN
+                    break
+            if live is None:
+                bead.scale = (0.0, 0.0, 0.0)
+            else:
+                u = PULSE_T0 + (PULSE_T1 - PULSE_T0) * live
+                p = _path_at(pts, u)
+                ahead = _path_at(pts, min(u + 0.02, 1.0))
+                bead.location = (p.x, p.y, p.z + 0.010)
+                bead.rotation_euler = (0, 0, math.atan2(ahead.y - p.y, ahead.x - p.x))
+                s = math.sin(math.pi * live) ** 0.6
+                bead.scale = (s * 2.1, s * 0.9, s * 0.9)
+                bead.keyframe_insert("location", frame=f)
+                bead.keyframe_insert("rotation_euler", frame=f)
+            bead.keyframe_insert("scale", frame=f)
+
+        # the shard breathes with the core: two cycles a loop, shallow
+        core = props["shard_core"]
+        s = 1.0 + 0.10 * math.sin(2 * math.pi * 2 * t)
+        core.scale = (s, s, s)
+        core.keyframe_insert("scale", frame=f)
+        shard_em.default_value = 0.42 * (0.78 + 0.22 * math.sin(2 * math.pi * 2 * t))
+        shard_em.keyframe_insert("default_value", frame=f)
+
+
+def _beats():
+    # (pylon, start frame) for every beat in the loop
+    return [(p, start) for start, pylons in ARC_BEATS for p in pylons]
+
+
+def climb_at(pylon, frame):
+    # 0..1 progress of the charge climbing this pylon, or None
+    for p, start in _beats():
+        if p == pylon and start <= frame < start + CLIMB_FRAMES:
+            return (frame - start + 1) / CLIMB_FRAMES
+    return None
+
+
+def arc_at(pylon, frame):
+    # 0..1 progress through this pylon's discharge, or None
+    for p, start in _beats():
+        fire = start + CLIMB_FRAMES
+        if p == pylon and fire <= frame < fire + ARC_FRAMES:
+            return (frame - fire) / (ARC_FRAMES - 1)
+    return None
+
+
+def pylon_radius(t):
+    # Matches the taper object in build_pylons: full width at the foot, half
+    # at the tip. Shared, so the windings and the climbing bolt sit on the
+    # same surface rather than on two guesses at it.
+    return PYLON_R0 * (1.0 - 0.5 * t)
 
 
 def build_socket_sprites(mats):
@@ -2861,46 +3635,245 @@ def build_socket_sprites(mats):
         link_to(capsule, lights)
 
 
+# --------------------------------------------------------------------------
+# discharge: climbing bolts, tip flashes, tip -> core arcs, sparks
+#
+# Nothing in the PB_Arcs collection is keyframed. update_arcs() rewrites the
+# whole collection for one frame and the render driver calls it per frame,
+# which is what lets an arc be re-jittered rather than interpolated -- a
+# discharge tweened between two poses reads as a wobbling wire.
+
+SPARK_LIFE = 5
+
+_SPARK_EVENTS = []
+_MOTES = []
+_SPARK_POOL = 0
+
+
+def _tangent_frame(ctrl, t):
+    # Basis on the pylon surface at t: front faces the camera, side runs
+    # around the pipe. Both are perpendicular to the curve.
+    tan = bezier_tan(ctrl, t)
+    front = VIEW_DIR - tan * VIEW_DIR.dot(tan)
+    if front.length < 1e-4:
+        front = Vector((0, -1, 0))
+    front.normalize()
+    return tan, front, tan.cross(front).normalized()
+
+
+def _climb_points(ctrl, head_t, anchor, phase, rng, n=11):
+    # A comet of current hugging the electrode. The swing stays inside 43
+    # degrees either side of the camera-facing line, so the bolt never rounds
+    # the pipe into the half of it the sprite cannot show.
+    #
+    # The last stretch converges on `anchor`, the tip electrode: t=1 is only
+    # the top of the pipe, so a bolt left on the pipe surface parks short of
+    # the tip and the head reads as a second blob beside the flash.
+    tail_t = max(CLIMB_T0, head_t - 0.28)
+    pts = []
+    for k in range(n):
+        u = k / (n - 1)
+        t = tail_t + (head_t - tail_t) * u
+        _, front, side = _tangent_frame(ctrl, t)
+        swing = 0.75 * math.sin(2 * math.pi * 1.7 * t + phase)
+        r = pylon_radius(t) + 0.045
+        j = 0.024 * (1 - abs(2 * u - 1))  # jitter pinched at both ends
+        p = (bezier_pt(ctrl, t)
+             + (front * math.cos(swing) + side * math.sin(swing)) * r
+             + side * rng.uniform(-j, j) + front * rng.uniform(-j, j))
+        if t > 0.84:
+            p = p.lerp(anchor, min(1.0, (t - 0.84) / 0.16))
+        pts.append(p)
+    return pts
+
+
+def _arc_points(start, target, rng, n=13, amp=0.11):
+    axis = (target - start).normalized()
+    side = axis.cross(Vector((0, 0, 1)))
+    if side.length < 0.1:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    up = axis.cross(side)
+    pts = []
+    for k in range(n):
+        t = k / (n - 1)
+        p = start.lerp(target, t)
+        a = amp * math.sin(math.pi * t)  # pinned at both ends
+        pts.append(p + side * rng.uniform(-a, a) + up * rng.uniform(-a, a))
+    return pts
+
+
+def _fork(pts, rng):
+    # A short branch dying in mid-air. Real discharges fork, and one extra
+    # spline is most of what separates an arc from a drawn line.
+    i = rng.randrange(3, len(pts) - 3)
+    o = pts[i]
+    along = (pts[i + 1] - pts[i - 1]).normalized()
+    perp = along.cross(Vector((rng.uniform(-1, 1), rng.uniform(-1, 1),
+                               rng.uniform(-1, 1))))
+    if perp.length < 1e-3:
+        perp = Vector((1, 0, 0))
+    perp.normalize()
+    step = along * 0.10 + perp * 0.11
+    out, radii = [o], [0.8]
+    for k in range(1, 5):
+        out.append(o + step * k + perp * rng.uniform(-0.03, 0.03))
+        radii.append(0.8 * (1 - k / 4.5))
+    return out, radii
+
+
+def _add_spline(curve, pts, radii):
+    spl = curve.splines.new("POLY")
+    spl.points.add(len(pts) - 1)
+    for k, p in enumerate(pts):
+        spl.points[k].co = (p.x, p.y, p.z, 1)
+        spl.points[k].radius = radii[k]
+
+
+def _flash_scale(pylon, frame):
+    # The tip swells as the charge arrives and decays through the discharge.
+    c = climb_at(pylon, frame)
+    if c is not None:
+        return 0.30 + 1.15 * c ** 3
+    a = arc_at(pylon, frame)
+    if a is not None:
+        return 1.45 * (1.0 - a) ** 1.5
+    return 0.0
+
+
+def _build_spark_events(frames=64):
+    # Emission schedule for the whole loop, computed once. Ages wrap, so a
+    # spark born at frame 62 is still alive at frame 2 and the loop closes.
+    # Depends on TIP_POSITIONS, so it runs after build_pylons.
+    global _SPARK_EVENTS, _MOTES
+    _SPARK_EVENTS = []
+    core = Vector((0, 0, 2.55))
+    for p, start in _beats():
+        tip = TIP_POSITIONS[p]
+        rng = random.Random(4093 + p * 131 + start)
+        # thrown off the electrode as the charge lands on it
+        for _ in range(3):
+            vel = Vector((rng.uniform(-0.045, 0.045), rng.uniform(-0.045, 0.045),
+                          rng.uniform(0.015, 0.065)))
+            _SPARK_EVENTS.append(((start + CLIMB_FRAMES - 1) % frames, tip.copy(),
+                                  vel, SPARK_LIFE, rng.uniform(0.024, 0.038)))
+        # shed off the discharge itself, part-way along its path
+        for _ in range(2):
+            f = (start + CLIMB_FRAMES + rng.randrange(0, ARC_FRAMES - 1)) % frames
+            vel = Vector((rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05),
+                          rng.uniform(-0.02, 0.05)))
+            _SPARK_EVENTS.append((f, tip.lerp(core, rng.uniform(0.2, 0.8)), vel,
+                                  SPARK_LIFE - 1, rng.uniform(0.020, 0.030)))
+
+    # Motes adrift in the containment volume, lit the whole time the beacon
+    # works. Turn and bob counts are integers so the loop closes on itself.
+    _MOTES = []
+    for k in range(5):
+        rng = random.Random(9001 + k)
+        _MOTES.append((rng.uniform(0.55, 1.30),          # orbit radius
+                       rng.uniform(2.15, 3.15),          # height
+                       rng.choice((-2, -1, 1, 2)),       # turns per loop
+                       rng.uniform(0, 2 * math.pi),      # phase
+                       rng.uniform(0.06, 0.16),          # bob
+                       rng.uniform(0.019, 0.030)))       # radius
+
+
+def sparks_at(frame, frames=64):
+    out = []
+    for emit, origin, vel, life, r0 in _SPARK_EVENTS:
+        age = (frame - emit) % frames
+        if age >= life:
+            continue
+        p = origin + vel * age - Vector((0, 0, 0.004 * age * age))
+        out.append((p, r0 * (1.0 - 0.7 * age / life)))
+    t = frame / frames
+    for r, z0, turns, phase, bob, rad in _MOTES:
+        a = phase + 2 * math.pi * turns * t
+        out.append((Vector((r * math.cos(a), r * math.sin(a),
+                            z0 + bob * math.sin(2 * math.pi * 2 * t + phase))),
+                    rad * (0.7 + 0.3 * math.sin(2 * math.pi * 3 * t + 2 * phase))))
+    return out
+
+
 def build_arcs(arcs_coll, mats):
+    global _SPARK_POOL
     arc_mat = mats["arc"]
     for i in range(4):
-        curve = bpy.data.curves.new(PREFIX + "ArcC%d" % i, "CURVE")
-        curve.dimensions = "3D"
-        curve.bevel_depth = 0.030
-        curve.bevel_resolution = 2
-        obj = bpy.data.objects.new(PREFIX + "Arc%d" % i, curve)
-        obj.data.materials.append(arc_mat)
-        obj.hide_render = True
-        bpy.context.scene.collection.objects.link(obj)
-        link_to(obj, arcs_coll)
+        for kind, depth in (("Arc", 0.030), ("Climb", 0.032)):
+            curve = bpy.data.curves.new(PREFIX + "%sC%d" % (kind, i), "CURVE")
+            curve.dimensions = "3D"
+            curve.bevel_depth = depth
+            curve.bevel_resolution = 2
+            obj = bpy.data.objects.new(PREFIX + "%s%d" % (kind, i), curve)
+            obj.data.materials.append(arc_mat)
+            obj.hide_render = True
+            bpy.context.scene.collection.objects.link(obj)
+            link_to(obj, arcs_coll)
+        for kind, r in (("TipFlash", 0.055), ("ClimbHead", 0.034)):
+            ball = sphere("%s%d" % (kind, i), r, TIP_POSITIONS[i], arc_mat)
+            smooth(ball)
+            ball.hide_render = True
+            link_to(ball, arcs_coll)
+
+    # Sparks are one unit-radius sphere each, scaled per frame -- sizing the
+    # pool off the busiest frame keeps the object count honest.
+    _build_spark_events()
+    _SPARK_POOL = max(len(sparks_at(f)) for f in range(64))
+    for k in range(_SPARK_POOL):
+        s = sphere("Spark%d" % k, 1.0, (0, 0, 0), mats["spark"], subdiv=1)
+        s.hide_render = True
+        link_to(s, arcs_coll)
 
 
 def update_arcs(frame, frames=64):
-    # Rebuild each visible arc's polyline with deterministic per-frame jitter
+    # Rebuild the discharge for one frame with deterministic per-frame jitter
     # (no wall-clock randomness -- the same frame always renders the same).
-    live = arc_frame_arcs(frame)
-    target = Vector((0, 0, bob_z(frame, frames) - 0.25))
+    core = Vector((0, 0, bob_z(frame, frames) - 0.25))
     for i in range(4):
-        obj = bpy.data.objects.get(PREFIX + "Arc%d" % i)
-        obj.hide_render = i not in live
-        if i not in live:
-            continue
-        start = TIP_POSITIONS[i]
+        ctrl = PYLON_CURVES[i]
         rng = random.Random(frame * 7919 + i * 131)
-        curve = obj.data
-        curve.splines.clear()
-        spl = curve.splines.new("POLY")
-        n = 9
-        spl.points.add(n - 1)
-        axis = (target - start).normalized()
-        side = axis.cross(Vector((0, 0, 1)))
-        if side.length < 0.1:
-            side = Vector((1, 0, 0))
-        side.normalize()
-        up = axis.cross(side)
-        for k in range(n):
-            t = k / (n - 1)
-            p = start.lerp(target, t)
-            amp = 0.10 * math.sin(math.pi * t)  # pinned at both ends
-            p += side * rng.uniform(-amp, amp) + up * rng.uniform(-amp, amp)
-            spl.points[k].co = (p.x, p.y, p.z, 1)
+        climb, fire = climb_at(i, frame), arc_at(i, frame)
+
+        bolt = bpy.data.objects[PREFIX + "Climb%d" % i]
+        head = bpy.data.objects[PREFIX + "ClimbHead%d" % i]
+        bolt.hide_render = head.hide_render = climb is None
+        if climb is not None:
+            pts = _climb_points(ctrl, CLIMB_T0 + (1.0 - CLIMB_T0) * climb,
+                                TIP_POSITIONS[i], i * 1.9, rng)
+            bolt.data.splines.clear()
+            # thin tail, fat head: the comet is what reads as travel. The tail
+            # keeps a third of the width -- taper it away entirely and only the
+            # head survives the downscale, which reads as a bead, not a bolt.
+            _add_spline(bolt.data, pts,
+                        [0.45 + 0.55 * (k / (len(pts) - 1)) ** 2
+                         for k in range(len(pts))])
+            head.location = pts[-1]
+            hs = 0.7 + 0.5 * climb
+            head.scale = (hs, hs, hs)
+
+        arc = bpy.data.objects[PREFIX + "Arc%d" % i]
+        arc.hide_render = fire is None
+        if fire is not None:
+            # strike hard, thin out as it dies
+            arc.data.bevel_depth = 0.017 + 0.017 * math.sin(
+                math.pi * (0.14 + 0.86 * fire))
+            arc.data.splines.clear()
+            pts = _arc_points(TIP_POSITIONS[i], core, rng)
+            _add_spline(arc.data, pts, [1.0] * len(pts))
+            if rng.random() < 0.65:
+                _add_spline(arc.data, *_fork(pts, rng))
+
+        flash = bpy.data.objects[PREFIX + "TipFlash%d" % i]
+        s = _flash_scale(i, frame)
+        flash.hide_render = s < 0.05
+        flash.location = TIP_POSITIONS[i]
+        flash.scale = (s, s, s)
+
+    live = sparks_at(frame, frames)
+    for k, (p, r) in enumerate(live):
+        spark = bpy.data.objects[PREFIX + "Spark%d" % k]
+        spark.hide_render = False
+        spark.location = p
+        spark.scale = (r, r, r)
+    for k in range(len(live), _SPARK_POOL):
+        bpy.data.objects[PREFIX + "Spark%d" % k].hide_render = True

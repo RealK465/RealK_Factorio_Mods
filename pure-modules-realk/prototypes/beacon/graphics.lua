@@ -51,16 +51,20 @@ local function socket(shift)
   }
 end
 
-local anim_frames = {
-  width = 220, height = 230,
+-- The arcs sheet carries its own crop box rather than the rings'. The
+-- discharge now starts at the induction coil at the foot of each electrode,
+-- so it covers most of the machine's height, and packing it to the rings'
+-- box would have grown the far larger anim sheet to match.
+local arc_frames = {
+  width = 284, height = 384,
   frame_count = 64, line_length = 8,
   animation_speed = 0.5,
   scale = 0.5,
-  shift = util.by_pixel(0.0, -87.5),
+  shift = util.by_pixel(0.0, -59.5),
 }
 
 local function arcs_layer(extra)
-  local a = table.deepcopy(anim_frames)
+  local a = table.deepcopy(arc_frames)
   a.filename = g .. "beacon-arcs.png"
   a.blend_mode = "additive"
   for k, v in pairs(extra or {}) do a[k] = v end
@@ -96,6 +100,33 @@ local set = {
             draw_as_shadow = true,
           },
         },
+      },
+    },
+    -- Deck plant: the holographic readout cycling, cryo vapour off the vent
+    -- and the charge running out the two front feeder cables. Its own loop,
+    -- same 64 frames at the same speed as the rings -- Factorio draws each
+    -- animation_list element independently, so this does not have to be
+    -- synced to them, but matching the length is what lets the cable pulses
+    -- land on the discharge beat instead of drifting against it.
+    --
+    -- always_draw, like the rings: an idle beacon is powered, not dead, so
+    -- the readout and the vent keep running. It freezes on frame 0, where
+    -- both cable pulses are at zero scale -- so an idle beacon shows the
+    -- hologram and the vapour but no charge in the cables, which is exactly
+    -- the idle state.
+    --
+    -- Plain alpha rather than additive: the vapour has to cover what is
+    -- behind it, which an additive layer cannot do.
+    {
+      render_layer = "object",
+      always_draw = true,
+      animation = {
+        filename = g .. "beacon-deck.png",
+        width = 176, height = 88,
+        frame_count = 64, line_length = 8,
+        animation_speed = 0.5,
+        scale = 0.5,
+        shift = util.by_pixel(2.0, -7.5),
       },
     },
     -- rings + crystal, frozen while idle
