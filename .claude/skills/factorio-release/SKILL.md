@@ -67,13 +67,20 @@ unasked; the repo owner decides version numbers, open ones included.
 
 A release is one atomic change: bump `info.json`, add the changelog section, rename the folder if it carries a version suffix. **All three must agree.**
 
-**The minor digit is reserved for the game generation.** A mod supporting both live Factorio
-versions releases `<major>.1.x` for 2.1 and `<major>.0.x` for 2.0, which keeps the newer game's
-track numerically above the older one — the journey players make is 2.0 → 2.1 carrying a save,
-and it should never look like a mod downgrade. That takes the semver minor away, so
-additive-and-save-safe work bumps the patch digit and says what it is in the changelog. Major is
-unchanged and bumps on both tracks together. Backporting, the legacy branch and the second
-release track are the `factorio-multiversion` skill.
+**Two release tracks share one version sequence, and no digit is reserved for the game.** This
+repo does not use version bands: whatever ships next takes the next free number, whichever game
+it targets. Pure Modules is the worked example — 1.0.0 for 2.0, 1.0.1 for 2.1, 1.0.2 for 2.0,
+1.0.3 for 2.1. So **the number says nothing about which game a release is for**;
+`factorio_version` inside the zip is the only thing that does, and the portal serves each game
+only the releases matching it. Say which game a release targets in its changelog section
+instead. (An earlier version of this skill claimed the minor digit was reserved for the game
+generation — `<major>.1.x` for 2.1, `<major>.0.x` for 2.0. That contradicted
+`factorio-multiversion` and the shipped numbering; it is wrong for this repo.)
+
+**Ship a pair 2.0 first, and only the first release's changelog carries the detail** — the 2.1
+release that follows records that it is the same build rebuilt for the other game rather than
+repeating the entries. `factorio-multiversion` → Changelog across two tracks has the shape and
+the mistake it prevents. Backporting and the legacy branch are that skill too.
 
 ## Sequence
 
