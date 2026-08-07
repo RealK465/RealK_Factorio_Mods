@@ -37,7 +37,7 @@ local defs = {
     effect = { speed = 0.70, consumption = PENALTY.consumption, pollution = PENALTY.pollution },
     module_ingredients = {
       { "speed-module-3", 4 },
-      { speed_partner, 2 },
+      { speed_partner, 1 },
     },
     beacon_tint = bt.complete(bt.by_category["pure-speed"]),
   },
@@ -51,7 +51,7 @@ local defs = {
     effect = { productivity = 0.15, consumption = PENALTY.consumption, pollution = PENALTY.pollution },
     module_ingredients = {
       { "productivity-module-3", 4 },
-      { "speed-module-3", 2 },
+      { "speed-module-3", 1 },
     },
     beacon_tint = bt.complete(bt.by_category["pure-productivity"]),
   },
@@ -74,7 +74,7 @@ if mods["quality"] then
     effect = { quality = 0.04 },
     module_ingredients = {
       { "quality-module-3", 4 },
-      { "speed-module-3", 2 },
+      { "speed-module-3", 1 },
     },
     beacon_tint = bt.complete(bt.by_category["pure-quality"]),
   }

@@ -300,6 +300,11 @@ Names are prefixed `pure-modules-realk-`; the setting namespace is global across
 
 The values themselves are in `definitions.lua` and `technology.lua`. What isn't visible there:
 
+- **A module recipe is four parents plus two correctives.** Four tier 3 modules of the same
+  kind carry the bonus across; one `efficiency-module-3` stands for the power the tier adds,
+  and one module of the partnering kind — a quality module for Pure speed, a speed module for
+  the other two — stands for the penalty it drops. **One of each corrective, not two**, since
+  1.0.4; the parents are what set the cost.
 - **Research gates on `quantum-processor` under Space Age**, and that is sufficient on its own.
   It requires `cryogenic-science-pack`, whose unit already costs all ten packs, so it
   transitively requires Aquilo and every other planet. Adding the four `planet-discovery-*`
