@@ -74,8 +74,10 @@ check before touching this file**, because it decides everything below:
 
 ### Two release tracks
 
-A mod with a second release track has a second changelog, on its branch: each zip carries its
-own file and a player only sees the one they installed.
+A mod with a second release track still has **one** changelog, kept identical on both branches
+and listing every released version whichever game it targeted. Each zip carries a copy — but the
+mod portal renders exactly one of them, so a section missing from that copy is invisible to
+everyone who is not already running the other build.
 
 - **Every published version gets its own section** — including a release whose only change is
   the game it targets, which is a normal thing to ship. Numbers are drawn from one sequence
@@ -83,20 +85,22 @@ own file and a player only sees the one they installed.
   never tells a player which game a release was for. Say it: `- Releasing 1.0.0 for Factorio
   2.1.` Do not renumber an existing section to stand in for the new release — the version that
   shipped under the old number is real and keeps its own record.
-- **Only the first of a paired release carries the detail.** When one change ships to both
-  games it goes out as two releases, 2.0 first with the full entries, and the 2.1 release that
-  follows gets a section that says only which build it is — `- Version 1.0.2, rebuilt for
-  Factorio 2.1.` Copying the entry list into both is the mistake to avoid: no player sees both
-  sections, so the duplicate buys nothing and the two files drift apart as soon as either is
-  edited. Pure Modules 1.0.2 / 1.0.3 shipped that way on 2026-08-07 and cannot be corrected.
-  Full rule, and the opposite case of a fix backported later: `factorio-multiversion` →
-  Changelog across two tracks.
+- **A paired release writes two sections, and both live in the same file.** When one change
+  ships to both games it goes out as two releases: the 2.0 one carries the real entries, and the
+  2.1 one that follows says it is that build ported — `- Version 1.0.4, ported to Factorio 2.1.`
+  Neither section is a per-track secret; both belong in **both** branches' `changelog.txt`,
+  because the portal renders a single file and a reader has to find the work *and* the port in
+  it. Do not copy the entry list into the second section, and do not leave the first section out
+  of the second track's file. Full rule, both ways it has gone wrong here, and the opposite case
+  of a fix backported later: `factorio-multiversion` → Changelog across two tracks.
 - **A section must describe the build that actually shipped under that number**, not the
   mod in general. Where the tracks genuinely differ, the entry belongs to whichever release
   introduced it and must be *absent* from the other. Pure Modules 1.0.0 (Factorio 2.0) cannot
   hold module penalties flat across quality — the properties are 2.1-only — so that entry sits
   in 1.0.1 (Factorio 2.1) alone. Repeating it in 1.0.0 would promise 2.0 players a feature
-  their build does not have.
+  their build does not have. With one shared file a 2.0 player does *see* the 1.0.1 section, and
+  that is fine — it names Factorio 2.1 as its target. Naming the game in the section is what
+  keeps a shared changelog honest; withholding sections is not.
 - Check the mod's `README.md` for the same claim before shipping it: it becomes the portal
   description, so a 2.1-only promise left in it is published against a 2.0 build.
 - A backported fix earns an entry on both tracks, worded the same, under each track's own

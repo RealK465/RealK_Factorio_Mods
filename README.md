@@ -54,8 +54,8 @@ builds and two uploads of the same mod — the portal serves each game only the 
 matching it. Version numbers come from a single sequence shared by both branches, so a
 release number says nothing about which game it targets; the changelog entry does.
 
-Only a mod's own source differs between the branches. The docs, `.claude/` and each mod's
-notes are kept identical, so `git diff main` from the `legacy/2.0` side should only ever
+Only a mod's own source differs between the branches. The docs, `.claude/`, each mod's
+notes and its `changelog.txt` are kept identical, so `git diff main` from the `legacy/2.0` side should only ever
 list the files a port genuinely changes.
 
 Released versions are marked with annotated `<mod-name>_<version>` tags, per mod, on
