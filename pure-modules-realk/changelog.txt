@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.4
+Date: 2026-08-07
+  Balancing:
+    - Pure modules are cheaper to craft: each recipe now takes one tier 3
+      module of the supporting kind instead of two.
+  Changes:
+    - Releasing for Factorio 2.0. Version 1.0.5 is the Factorio 2.1 build of the
+      same mod.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.2
 Date: 2026-08-07
   Graphics:
