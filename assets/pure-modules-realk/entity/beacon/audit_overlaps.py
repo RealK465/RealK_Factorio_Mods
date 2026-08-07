@@ -25,6 +25,18 @@ sys.path.insert(0, HERE)
 
 # (pattern, pattern) pairs whose contact is the point of the geometry
 INTENTIONAL = [
+    # deck plant: a spur is meant to meet both the feeder it leaves and the
+    # device it feeds, and every run enters the pedestal wall through a gland
+    # a service cable is MEANT to land on the device it feeds, and to leave
+    # through a gland in the pedestal wall or the bus bar lug
+    ("DeckFeed", "Holo"), ("DeckFeed", "Cryo"), ("DeckFeed", "Sensor"),
+    ("DeckFeed", "Shard"), ("DeckFeed", "BusBar"), ("DeckFeed", "Grate"),
+    ("Spur", "Holo"), ("Spur", "Cryo"), ("Spur", "Shard"), ("Spur", "Panel"),
+    ("Spur", "Plinth"), ("Spur", "DeckRing"), ("DeckFeed", "Pedestal"),
+    ("DeckFeed", "DeckRing"), ("DeckFeed", "Plinth"), ("DeckFeed", "Panel"),
+    ("DeckFeed", "Corner"), ("Shard", "Panel"), ("Cryo", "Panel"),
+    ("Cryo", "DeckRing"), ("Holo", "Panel"), ("Holo", "DeckRing"),
+    ("Sensor", "Panel"), ("Shard", "DeckRing"), ("Sensor", "Plinth"),
     ("Greeble", "Panel"), ("Greeble", "DeckRing"), ("Greeble", "Plinth"),
     ("Riv", "Panel"), ("Riv", "Rim"), ("Riv", "Plinth"),
     ("Seam", "DeckRing"), ("Mark", "Panel"), ("Label", "Rim"),

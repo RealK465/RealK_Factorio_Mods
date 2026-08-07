@@ -113,12 +113,17 @@ for k in speed productivity quality; do
 done
 ```
 
-**Iterating on the deck or hull costs one layer, not seven.** Only `base` and
-`shadow` depend on them, so render `--layers base --frames 1` (~45 s) while
-working, keep the frame directory, and run `make_sheets.py` against it at the
-end — the cached 64-frame `anim`/`arcs` frames rebuild into the sheets
-untouched. `make_stencils.py` regenerates the decal atlas in `textures/` and
-only needs running when a mark changes.
+**Iterating costs one layer, not seven.** Every layer is cropped independently
+and carries its own shift, and `make_sheets.py` **skips any layer with no frames
+in the directory** — leaving that sheet on disk and carrying its numbers over from
+`sheet_numbers.txt`. So a deck or hull edit is `--layers base,shadow`, an arc edit
+is `--layers arcs`, and neither disturbs the other's sheet. `render_entity.py
+--only 3,8,55` renders just those frames of the loop for eyeballing one beat
+(~1 s per arc frame) without paying for all 64. `deck` is a fourth sheet — the
+deck plant's hologram, cryo vapour and cable pulses, 64 frames of a small crop at
+~7 s each, independent of `anim` and `arcs`; a device or cable edit is
+`--layers base,shadow,deck`. `make_stencils.py` regenerates the
+decal atlas in `textures/` and only needs running when a mark changes.
 
 `export_icon.py` does the bloom, the downscale and the mipmap strip. Bloom happens there and
 not in Blender's compositor because the glow has to extend the PNG's **alpha** — otherwise the
@@ -129,7 +134,7 @@ saved snapshot, not the source of truth:
 
 ```bash
 blender -b -P assets/pure-modules-realk/entity/beacon/render_entity.py -- <out_dir> \
-  --layers base,anim,arcs,shadow,slot-box,slot-lights --frames 64
+  --layers base,anim,arcs,deck,shadow,slot-box,slot-lights --frames 64
 python assets/pure-modules-realk/entity/beacon/make_sheets.py <out_dir> pure-modules-realk/graphics/entity/beacon
 python assets/pure-modules-realk/entity/beacon/make_slots.py <out_dir> pure-modules-realk/graphics/entity/beacon
 # re-check sheet_numbers.txt / slot_numbers.txt against prototypes/beacon-graphics.lua
