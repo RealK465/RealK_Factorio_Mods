@@ -22,13 +22,18 @@ still stamped `Date: ????` is what has not. Both tracks draw from one shared ver
 so new work takes the next free number whichever track it ships on — `factorio-multiversion`
 → Version numbering.
 
-**The two tracks differ on purpose, in three files.** The 2.0 build cannot hold module penalties
+**The two tracks differ on purpose, in two files.** The 2.0 build cannot hold module penalties
 flat across quality — `consumption_quality_multiplier` and `pollution_quality_multiplier` are
 2.1-only, so on 2.0 quality scales the penalties along with the bonuses and no property exists
-to stop it. So the flat-penalty claim appears in `main`'s `changelog.txt` and `README.md` and
-is absent from `legacy/2.0`'s; and `definitions.lua` carries `quality = 0.04` on `main` against
-`0.4` on `legacy/2.0`, because a 2.0 quality value is ten times its 2.1 counterpart.
-**Do not reconcile those three files by syncing them** — the divergence is the port.
+to stop it. So the flat-penalty claim appears in `main`'s `changelog.txt` and is absent from
+`legacy/2.0`'s; and `definitions.lua` carries `quality = 0.04` on `main` against `0.4` on
+`legacy/2.0`, because a 2.0 quality value is ten times its 2.1 counterpart.
+**Do not reconcile those two files by syncing them** — the divergence is the port.
+
+`README.md` was a third until 1.0.2/1.0.3. The rewrite that shipped with them dropped the
+sentence about a module's cost not growing with its quality — the only 2.1-only claim it
+carried — so both tracks now ship the same README, and it is the same text the mod portal
+serves as the description.
 
 Efficiency is deliberately absent. Vanilla's efficiency module already has no drawback, so a
 Pure version would carry the tier's whole identity on a +0.05 consumption bonus. Adding it is a
