@@ -172,38 +172,57 @@ authors**.
 
 ## Changelog across two tracks
 
-Each zip carries its own `changelog.txt` and a player only ever sees the one they installed, so
-the legacy branch's file is the legacy track's history: its own `1.0.x` sections plus the shared
-history from before the split. Do not paste `1.1.x` sections into it — a player on 2.0 cannot
-install those, and the numbers would read as a downgrade.
+**One changelog serves both tracks, kept identical on `main` and `legacy/2.0`.** It lists every
+released version of the mod, newest first, whichever game each targeted, and every section names
+its game.
+
+That is forced by the portal rather than chosen for tidiness. `GET /api/mods/<name>/full`
+returns a **single** top-level `changelog` field and no per-release one, so the website's
+changelog page is one release's file — the newest uploaded. Anything written only into the other
+track's copy reaches nobody but the players already running that build. Verified 2026-08-07:
+after Pure Modules shipped 1.0.4 (Factorio 2.0) and 1.0.5 (Factorio 2.1), the public page listed
+1.0.5, 1.0.3, 1.0.1 and 1.0.0 — both 2.0-track sections absent, and with them the only
+description of what 1.0.4 changed.
+
+So `changelog.txt` belongs with `CLAUDE.md` and `README.md` in the set kept identical across the
+branches, not with the files a port legitimately forks. When a release ships on one track, write
+its section into **both** branches in the same change.
 
 ### Shipping one change to both games
 
-The usual case: work that is not version-specific goes out on both tracks. It ships as **two
-releases, and only the first one carries the detail.**
+The usual case: work that is not version-specific goes out on both tracks, as **two releases and
+two sections — both of which live in the one shared file.**
 
-1. **Release the 2.0 build first, on the lower number.** Its changelog section describes the
-   work — the full entries, in the usual categories.
-2. **Then bump and release the 2.1 build.** Its section does **not** repeat those entries. It
-   records what that release actually is:
+1. **Release the 2.0 build first, on the lower number.** Its section describes the work — the
+   full entries, in the usual categories.
+2. **Then bump and release the 2.1 build.** Its section does not repeat those entries; it
+   records what that release is and leans on the section below it, which is in the same file:
 
    ```
    ---------------------------------------------------------------------------------------------------
-   Version: 1.0.3
+   Version: 1.0.5
    Date: 2026-08-07
      Changes:
-       - Version 1.0.2, rebuilt for Factorio 2.1.
+       - Version 1.0.4, ported to Factorio 2.1.
+   ---------------------------------------------------------------------------------------------------
+   Version: 1.0.4
+   Date: 2026-08-07
+     Balancing:
+       - <the actual work, in the usual categories>
    ```
 
-**Copying the entry list into both sections is the mistake to avoid.** No player ever sees both
-— the portal serves each game only its own track — so the duplicate buys nothing, and the two
-files start drifting the moment either is edited. It also misdescribes the second release: 2.1
-players are receiving the 1.0.2 work, and a section that says so is truer than one written as
-though the work were done twice.
+**Two ways this goes wrong, and this repo has now shipped both.**
 
-Pure Modules 1.0.2 / 1.0.3 shipped exactly that way on 2026-08-07 — four identical `Graphics:`
-entries in both, differing only in the trailing line. Both are published and cannot be
-corrected; the pattern above is what the next pair uses.
+- **Copying the entry list into both sections.** Pure Modules 1.0.2 / 1.0.3, 2026-08-07 — four
+  identical `Graphics:` entries, differing only in the trailing line. The duplicate reads as
+  though the work were done twice, and the two copies drift the moment either is edited.
+- **Keeping each section only in its own track's file.** Pure Modules 1.0.4 / 1.0.5, the same
+  day. The pointer shipped in the file the portal renders and the detail shipped in the file it
+  does not, so the public changelog announced a release that appeared to change nothing. This is
+  the worse of the two: the first repeats information, this one loses it.
+
+Both pairs are published and cannot be corrected. The shape above is what avoids each — one
+file, two sections, exactly one of them carrying the entries.
 
 **Anything genuinely exclusive to one track still earns a real entry there**, alongside the
 pointer. Pure Modules 1.0.1 is the worked example: it points back at 1.0.0 for Factorio 2.1

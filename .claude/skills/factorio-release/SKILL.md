@@ -77,10 +77,12 @@ instead. (An earlier version of this skill claimed the minor digit was reserved 
 generation — `<major>.1.x` for 2.1, `<major>.0.x` for 2.0. That contradicted
 `factorio-multiversion` and the shipped numbering; it is wrong for this repo.)
 
-**Ship a pair 2.0 first, and only the first release's changelog carries the detail** — the 2.1
-release that follows records that it is the same build rebuilt for the other game rather than
-repeating the entries. `factorio-multiversion` → Changelog across two tracks has the shape and
-the mistake it prevents. Backporting and the legacy branch are that skill too.
+**Ship a pair 2.0 first, and keep both sections in one shared `changelog.txt`** — the 2.0
+release's section carries the entries, the 2.1 release's says it is that build ported, and the
+file stays identical on both branches. The portal renders one changelog per mod, taken from the
+newest uploaded release, so a section left out of that file is invisible on the website.
+`factorio-multiversion` → Changelog across two tracks has the shape and the two ways it has gone
+wrong here. Backporting and the legacy branch are that skill too.
 
 ## Sequence
 

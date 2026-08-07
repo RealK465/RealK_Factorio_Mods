@@ -22,13 +22,21 @@ still stamped `Date: ????` is what has not. Both tracks draw from one shared ver
 so new work takes the next free number whichever track it ships on — `factorio-multiversion`
 → Version numbering.
 
-**The two tracks differ on purpose, in two files.** The 2.0 build cannot hold module penalties
+**The two tracks differ on purpose, in the Lua.** The 2.0 build cannot hold module penalties
 flat across quality — `consumption_quality_multiplier` and `pollution_quality_multiplier` are
 2.1-only, so on 2.0 quality scales the penalties along with the bonuses and no property exists
-to stop it. So the flat-penalty claim appears in `main`'s `changelog.txt` and is absent from
-`legacy/2.0`'s; and `definitions.lua` carries `quality = 0.04` on `main` against `0.4` on
-`legacy/2.0`, because a 2.0 quality value is ten times its 2.1 counterpart.
-**Do not reconcile those two files by syncing them** — the divergence is the port.
+to stop it; the flat-penalty claim therefore belongs to a 2.1 changelog section and to no 2.0
+one. `definitions.lua` carries `quality = 0.04` on `main` against `0.4` on `legacy/2.0`, because
+a 2.0 quality value is ten times its 2.1 counterpart, and `recipe.lua` and `beacon.lua` fork on
+the category and ingredient forms 2.0 understands.
+**Do not reconcile those files by syncing them** — the divergence is the port.
+
+**`changelog.txt` is not one of them, since 2026-08-07.** One file, shared by both branches,
+listing every release with its game named in the section. The portal renders a single changelog
+per mod, so the 1.0.4 entries — written only on `legacy/2.0` — never reached the website at all,
+and the 1.0.5 section the website *does* show says only that it is the port. The two copies are
+still out of line from before that decision and get reconciled at the next release; see the repo
+`CLAUDE.md` → Git and `factorio-multiversion` → Changelog across two tracks.
 
 `README.md` was a third until 1.0.2/1.0.3. The rewrite that shipped with them dropped the
 sentence about a module's cost not growing with its quality — the only 2.1-only claim it
@@ -224,13 +232,26 @@ anything else. It is tracked in git: the shots are of a specific build and are w
 with it. Names are hyphenated and describe the shot (`factoriopedia-pure-beacon.jpg`,
 `showcase-beacons-in-line.jpg`) — the portal shows filenames, and the originals had spaces.
 
-**The gallery went live 2026-08-06**, five images in this order: `showcase-beacons-in-line`
-first, then the four `factoriopedia-*` shots. `beacon-on-aquilo.jpg` is deliberately *not* in
-it — it stays the source crop for `thumbnail.png`. The gallery has no fmtk surface; it is the
+**The gallery went live 2026-08-06 and was refreshed for 1.0.4/1.0.5 on 2026-08-07**: six
+images, in this order — `showcase-beacons-in-line`, `factoriopedia-pure-beacon`, the three
+module shots in item order (speed, productivity, quality), and `mod-settings` last.
+`beacon-on-aquilo.jpg` is deliberately *not* in it — it stays the source crop for
+`thumbnail.png`. The gallery has no fmtk surface; it is the
 v2 `images/add` + `images/edit` API written up in the `factorio-release` skill, and the id list
 handed to `images/edit` **is** the gallery, so an id left out of it is removed. Uploading or
 reordering is a **public write** and needs the repo owner's explicit approval for that specific
 release — the rule in the repo `CLAUDE.md` and the `factorio-release` skill.
+
+Two things the 1.0.4 refresh found, both of which cost a live gallery:
+
+- **An image id is a content hash**, so re-uploading a byte-identical file returns the id it
+  already had. That is how an existing gallery entry maps back to a local file when the portal
+  reports nothing but opaque ids — upload the file again and compare.
+- **`images/add` can return a response with no `id`**, and did on the first two calls of that
+  refresh. Combined with the rule above — the list *is* the gallery — an empty id silently
+  drops that image, so the two unchanged shots disappeared from the live page until the full
+  list was re-sent. Check every id is non-empty *before* calling `images/edit`, and read the
+  gallery back afterwards with a cache-buster.
 
 ## Decided
 

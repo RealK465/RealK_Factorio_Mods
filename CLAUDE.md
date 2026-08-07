@@ -87,11 +87,17 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
 - **Only a mod's own source may differ between the two branches.** `CLAUDE.md`, `README.md`,
   everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
-  files are `info.json`, `changelog.txt`, `prototypes/modules/definitions.lua`,
+  files are `info.json`, `prototypes/modules/definitions.lua`,
   `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else.
   `README.md` used to be on that list and no longer is: the 1.0.2/1.0.3 rewrite dropped the
   claim that a module's cost does not grow with its quality, which was the only 2.1-only
   sentence in it, so both tracks now ship the same file.
+  **`changelog.txt` came off that list on 2026-08-07** and is kept identical too. The mod portal
+  renders one changelog per mod, from the newest uploaded release, so a section living only on
+  the other branch never reaches the website — the rule and the evidence are in the
+  `factorio-multiversion` skill. The two copies are still out of line from before that decision
+  (`main` has no 1.0.2 or 1.0.4 section, `legacy/2.0` no 1.0.3 or 1.0.5); published zips cannot
+  be changed, so they get reconciled the next time either track is released.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
   is drift, and the fix is to bring it back in line rather than to leave the branches guessing.
 
