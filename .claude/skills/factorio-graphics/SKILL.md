@@ -94,6 +94,24 @@ Blender saves to wherever it was last pointed, which is almost never here — pa
 - **Never parent the model to `factorio_utils_rotator`.** That empty carries the **camera and lights**; it orbits a *stationary* model to render directions. Parenting the model to it produces N identical frames. Model sits unparented at the world origin.
 - **Do parent any extra fill light to the rotator**, so every rendered direction is lit identically.
 - **`setup_environment()` deletes more than it says.** It's documented to remove the object named `Light`; driven headlessly over MCP its internal `select_all(action='DESELECT')` doesn't take effect, so the following delete also eats the active object. **Explicitly deselect everything before calling it.**
+- **Two shells sharing an exactly coplanar face render OPAQUE BLACK in Cycles.**
+  Measured on the Modern Belts splitter: a housing box and a roof plate both
+  topping out at the same z rendered **64% black** over the part; dropping the
+  box by 0.004 fixed it to 0%. It looks like a shading or normals bug and is
+  neither — bevel, subdivision and winding were each ruled out first, one
+  render at a time. Any time two boxes are meant to sit flush, offset one by a
+  few thousandths. The same applies to the **shadow catcher**: a catcher plane
+  exactly at the model's ground level is coplanar with every foot plate, so
+  drop it ~0.003 below.
+
+- **Winding follows the caller, and `sgn * a, sgn * b` reverses it.** Bounds
+  written as `rect(u0, u1, sgn * inner, sgn * outer)` run the polygon backwards
+  for `sgn = -1`, inverting every normal on that side of a symmetric part.
+  Normalise the bounds inside the builder rather than fixing it downstream:
+  `bmesh.ops.recalc_face_normals` is *not* the escape hatch, because it flips
+  faces on intersecting closed shells — which is what a machine assembled from
+  overlapping boxes in one mesh is.
+
 - Generator scripts should be **idempotent**: delete only your own prefixed objects (`AM4_*`) and rebuild. And make `make_material()` *re-apply* values to an existing datablock rather than early-returning — otherwise palette edits silently do nothing.
 
 ## The one rule that matters most
@@ -222,6 +240,24 @@ Two view layers:
 2. **Shadow layer** — shadow-catcher ground plane, material override black, model excluded from colour output.
 
 Filter the shadow layer in compositing to hard black/alpha — no soft grey gradient; Factorio tints and blends it itself. Measured off vanilla: shadow alpha is essentially binary, so threshold the catcher output (~alpha ≥ 110 → 255, else 0) plus a 1 px blur for edge AA. Declare with `draw_as_shadow = true`.
+
+**A cast shadow can erase the very thing the design is about.** An entity that
+reads as raised does so because you can see ground *under* it — and a
+physically correct shadow from a deck 0.34 tiles up lands straight in that gap
+and fills it. Measured on the Modern Belts belt: 1–2 px of ground survived
+across the entire fascia, so on terrain the structure and its shadow merged
+into one dark bar and the belt read as lying flat. Casting from the legs alone
+still threw spikes out past the tile. What worked is what vanilla does — no
+cast shadow, just a small contact shadow generated in post from the feet's own
+alpha, offset a few px and confined below the deck line. **Gate it with a
+number**: count transparent pixels per row in the gap and require most of it to
+be open.
+
+**Judge every sprite on the terrain it will sit on, not on a neutral grey.**
+The ground colour `(58,54,44)` this file recommends for remnants is a dark
+neutral, and dark structure on dark ground hides exactly the mistakes that
+scream on Nauvis dirt (roughly `(150,96,45)`). A fascia that looked articulated
+on the test background was a solid black bar in game.
 
 **Bake shadows of static geometry only.** A static shadow of an animated or floating part (a spinning ring, a hovering crystal) lands displaced by its height, detached from the building, and stays frozen while the part moves — it reads as a wrong dark blob on the ground (found in game on the beacon). Vanilla either ships an animated `draw_as_shadow` sheet or omits the shadow for such parts; omitting is the cheap correct default.
 
@@ -384,6 +420,25 @@ shading bug, and is invisible in any per-material check. Set
 And the ordinary blowout rule still applies hardest here: snow albedo near 0.7 linear clips
 straight to flat 255 under this rig's 5.2 key sun. The picked colours sit well below where the
 snow lands.
+
+## Tiling sprites: clip to empty, don't reorder
+
+A sprite that has to tile seamlessly (belts, walls, pipes) is usually generated
+by laying a world-locked pattern down and clipping it to the tile. Clipping
+produces an **empty** range whenever a feature falls entirely outside — and an
+empty range is `hi < lo`, which looks exactly like "bounds given backwards".
+
+Normalising it is a trap. On Modern Belts a `min`/`max` helper that swapped
+reversed bounds turned every clipped-away chevron into a valid range *in the
+overhang*, so each tile drew a phantom fragment onto its neighbour. In game the
+arrow spacing alternated 29.5 / 34.5 px instead of a constant 32, which reads
+as "every tile is different" — and no single sprite looks wrong, so it is
+invisible until the run is tiled.
+
+Swap only the axes where reversal is meaningful (an across-the-run pair written
+`sgn * inner, sgn * outer` genuinely reverses for `sgn = -1`); let the clipped
+axis fall through to the empty guard. Then verify by tiling: concatenate the
+tile's own columns several times and assert the feature spacing is constant.
 
 ## Sprite metadata sidecars
 
