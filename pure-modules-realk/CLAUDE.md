@@ -34,8 +34,10 @@ the category and ingredient forms 2.0 understands.
 **`changelog.txt` is not one of them, since 2026-08-07.** One file, shared by both branches,
 listing every release with its game named in the section. The portal renders a single changelog
 per mod, so the 1.0.4 entries — written only on `legacy/2.0` — never reached the website at all,
-and the 1.0.5 section the website *does* show says only that it is the port. The two copies are
-still out of line from before that decision and get reconciled at the next release; see the repo
+and the 1.0.5 section the website *does* show says only that it is the port. **The two copies
+were reconciled in the 1.0.6 / 1.0.7 pair on 2026-08-08** — one identical file on both branches
+carrying every section from 1.0.0 to 1.0.7, confirmed rendering all eight on the live site. The
+zips published before that still carry the split copies and cannot be corrected; see the repo
 `CLAUDE.md` → Git and `factorio-multiversion` → Changelog across two tracks.
 
 `README.md` was a third until 1.0.2/1.0.3. The rewrite that shipped with them dropped the
@@ -232,9 +234,10 @@ anything else. It is tracked in git: the shots are of a specific build and are w
 with it. Names are hyphenated and describe the shot (`factoriopedia-pure-beacon.jpg`,
 `showcase-beacons-in-line.jpg`) — the portal shows filenames, and the originals had spaces.
 
-**The gallery went live 2026-08-06 and was refreshed for 1.0.4/1.0.5 on 2026-08-07**: six
-images, in this order — `showcase-beacons-in-line`, `factoriopedia-pure-beacon`, the three
-module shots in item order (speed, productivity, quality), and `mod-settings` last.
+**The gallery went live 2026-08-06, was refreshed for 1.0.4/1.0.5 on 2026-08-07, and had its
+beacon shot replaced for 1.0.6/1.0.7 on 2026-08-08**: six images, in this order —
+`showcase-beacons-in-line`, `factoriopedia-pure-beacon`, the three module shots in item order
+(speed, productivity, quality), and `mod-settings` last.
 `beacon-on-aquilo.jpg` is deliberately *not* in it — it stays the source crop for
 `thumbnail.png`. The gallery has no fmtk surface; it is the
 v2 `images/add` + `images/edit` API written up in the `factorio-release` skill, and the id list
@@ -242,11 +245,22 @@ handed to `images/edit` **is** the gallery, so an id left out of it is removed. 
 reordering is a **public write** and needs the repo owner's explicit approval for that specific
 release — the rule in the repo `CLAUDE.md` and the `factorio-release` skill.
 
-Two things the 1.0.4 refresh found, both of which cost a live gallery:
+Three things these refreshes found, all of which cost a live gallery:
 
-- **An image id is a content hash**, so re-uploading a byte-identical file returns the id it
-  already had. That is how an existing gallery entry maps back to a local file when the portal
-  reports nothing but opaque ids — upload the file again and compare.
+- **Re-uploading an unchanged file no longer works, and this replaces the old advice here.**
+  The note used to say an id is a content hash, so re-uploading a byte-identical file returns
+  the id it already had, and that this was how to map an entry back to a local file. As of
+  **2026-08-08** the portal answers that call with
+  `{"error":"InvalidRequest","message":"Image already exists"}` and **no id at all** — so the
+  old recipe now walks straight into the empty-id trap below and would wipe the entries it was
+  meant to identify. Only ever upload the file that actually changed.
+- **Map the gallery by comparing pixels instead.** Download each id from
+  `https://assets-mod.factorio.com/assets/<id>.png`, decode it and the local `images/*.jpg`
+  with Pillow, and match on size plus mean absolute difference. The portal re-encodes to PNG
+  but does not resample, so an unchanged shot scores **exactly 0.0000** against its local
+  file — an unambiguous mapping. The one portal image matching nothing is the one being
+  replaced, and its position is where the new id goes. Used on 2026-08-08 to confirm the
+  beacon shot sits at slot 2 before touching anything.
 - **`images/add` can return a response with no `id`**, and did on the first two calls of that
   refresh. Combined with the rule above — the list *is* the gallery — an empty id silently
   drops that image, so the two unchanged shots disappeared from the live page until the full
@@ -343,29 +357,73 @@ The values themselves are in `definitions.lua` and `technology.lua`. What isn't 
   recipe cannot contain a Pure module — the first draft's did, and that is now circular. The
   order is also the honest reading of the tier: the beacon is what made a module this clean
   worth building, and it pays for itself the moment it is researched by holding the tier 3
-  modules already in hand over 21x21 tiles.
+  modules already in hand over 25x25 tiles.
 - **Transmission is capped at three beacons, by arithmetic rather than a special case.**
-  `distribution_effectivity` is 1.0 and `profile` is `{1, 0.625, 0.5, 1.5/4, 1.5/5, ...}`, so
-  N beacons transmit `N * 1.0 * profile[N]` = 1.00x, 1.25x, 1.50x, then 1.50x forever. A
-  fourth beacon costs its full power and adds nothing. Verified in a `-KeepDump` run rather
-  than reasoned about — the multiplication is the engine's, not ours.
-- **Reach is what is sold instead of stacking.** `supply_area_distance = 8` covers 21x21
-  tiles against vanilla's 9x9. The cap is what makes that safe to give away: a wide area
-  with no way to multiply it is one ring of beacons over a bank of machines, not a way to
-  reach a bigger number.
-- **`distribution_effectivity_bonus_per_quality_level` is 0.1, not vanilla's 0.2.** Vanilla's
-  0.2 sits on a base of 1.5, so legendary transmits 1.67x normal. 0.1 on a base of 1.0 keeps
-  that ratio at 1.5x rather than doubling it, which 0.2 would have done — inheriting the
-  vanilla number through the deepcopy would have been the silent mistake here.
-- **Power is 4 MW and climbs with what the beacon may carry**: +2 MW for productivity, +1 MW
-  for quality, so 4/5/6/7 MW. The floor is set above the foundry's 2.5 MW, the heaviest draw
-  in the game, so the reach has a standing cost even before a module goes in. Productivity
-  costs more than quality because beaconed productivity is the larger swing.
+  `distribution_effectivity` is 1.25 and `profile` is `{1, 0.75, 0.75, 2.25/4, 2.25/5, ...}`,
+  so N beacons transmit `N * 1.25 * profile[N]` = 1.25x, 1.875x, 2.8125x, then 2.8125x
+  forever. A fourth beacon costs its full power and adds nothing. The flatness comes from
+  the `2.25/N` tail and holds for *any* `distribution_effectivity`, since that is a constant
+  multiplier on every term — so the two numbers tune independently. Verified in a
+  `-KeepDump` run rather than reasoned about — the multiplication is the engine's, not
+  ours.
+- **The cap is set against a wall of vanilla beacons, in module-equivalents.** The
+  comparable figure is `slots * N * effectivity * profile[N]` — how many modules' worth of
+  effect land on one machine. Vanilla's two slots reach 8.49 at eight beacons and 10.39 at
+  twelve, its geometric maximum; three Pure beacons reach `4 * 2.8125` = **11.25**. So this
+  is deliberately **past the vanilla ceiling** rather than merely competitive with it — the
+  strongest transmission available in the game, and the power and pollution are what it is
+  charged for that. **The 1.5x cap that shipped through 1.0.5 put it at 6.00** — below
+  *four* vanilla beacons — so the tier's beacon lost to the beacon it is built out of, and
+  the strongest play was to keep the wall and add Pure beacons on top of it. 1.0.6 fixes
+  that in two steps: 2.25x beats an eight-beacon wall, 2.8125x beats anything.
+- **Reach is sold alongside the strength now, not instead of it.**
+  `supply_area_distance = 10` covers 25x25 tiles against vanilla's 9x9 — 625 tiles to its
+  81. The three-beacon cap is what keeps that safe: a wide area with a hard ceiling is one
+  ring over a bank of machines, not a way to reach a bigger number by adding beacons.
+- **Reach is *not* in the power exchange rate, and that is the one soft spot.** A beacon's
+  power is a fixed sum divided across every machine it covers, so widening the area quietly
+  makes it cheaper per machine — 6 MW over 21x21 was 13.6 kW/tile, 7.5 MW over 25x25 is
+  12.0, against vanilla's 5.9. Still about twice vanilla, but the direction is downward.
+  **Any further widening should move the power number, not just the cap.**
+- **`distribution_effectivity_bonus_per_quality_level` is 0.35, against vanilla's 0.2.**
+  Factoriopedia labels this figure **"Beacon transmission strength"** (`core.cfg`) and lists
+  it per quality level. 0.35 on a base of 1.25 lands legendary on **3.0**, against the 2.5
+  vanilla's `1.5 + 5 * 0.2` reaches. Three legendary Pure beacons transmit **6.75x**, or 27
+  module-equivalents. Quality is the axis the three-beacon cap deliberately does not close,
+  so it is where the ceiling keeps rising once a fourth beacon stops paying. It was 0.1
+  through 1.0.5 and 0.3 mid-way through the 1.0.6 pass; the number has to be set
+  deliberately either way — inheriting vanilla's 0.2 through the deepcopy sits it on a
+  different base and would be the silent mistake.
+- **Power is 7.5 MW and climbs with what the beacon may carry**: +4 MW for productivity,
+  +2 MW for quality, so 7.5/9.5/11.5/13.5 MW. **The base tracks the transmission cap** —
+  1.5x / 2.25x / 2.8125x against 4 / 6 / 7.5 MW — so the beacon costs what it always did per
+  unit of effect transmitted. The two adders are rounded to whole megawatts rather than
+  tracking that factor exactly, because a 3.75 MW rung reads as arithmetic left in by
+  accident. The floor sits at three times the foundry's 2.5 MW, the heaviest *crafting
+  machine* in the game (the rocket silo's `active_energy_usage` is 3.99 MW and a fusion
+  reactor draws 10 MW, so "heaviest draw in the game", as this file used to say, was
+  wrong). Productivity costs twice what quality does because beaconed productivity is the
+  larger swing. Written in kilowatts in the Lua, because 9.5 MW is a rung and vanilla
+  writes its own big machines that way too.
+- **The beacon pollutes, and no other beacon anywhere does.** `emissions_per_minute` on the
+  energy source at 2 per megawatt — 15/min at the base draw, up to 27/min with both settings
+  on. Not one beacon in base, quality, Space Age, Krastorio 2, Space Exploration, maraxsis or
+  any beacon mod surveyed emits any, so there is no precedent to copy and the anchors are
+  machines instead: foundry and oil refinery 6, biolab 8, big mining drill 40, heating tower
+  100. A beacon runs whether or not the machines under it do, so it is dirty for as long as
+  it is powered — which is the argument for putting part of the cost here rather than all of
+  it in watts.
+- **Only Nauvis has `pollutant_type = "pollution"`.** Vulcanus, Fulgora and Aquilo have none
+  and Gleba has `spores`, so `{pollution = N}` costs nothing off-world. That is vanilla's own
+  behaviour — the foundry emits 6 and Vulcanus absorbs none of it — rather than a gap to
+  paper over with a second pollutant. The agricultural tower is the only thing that emits
+  spores, and its own comment says that is for attack-group pathfinding, not balance.
 - **That power argument is a normal-quality argument only.** `QualityPrototype` carries
   `beacon_power_usage_multiplier`, and `quality/prototypes/quality.lua` sets it to 5/6, 4/6,
-  3/6 and **1/6** — so a legendary Pure beacon costs **667 kW** while its
-  `distribution_effectivity` has risen to 1.5. Three of them transmit 2.25x for 2 MW total.
-  The vanilla beacon takes the same discount, so this is Wube's balance rather than ours, but
+  3/6 and **1/6** — so a legendary Pure beacon costs **1.25 MW** while its
+  `distribution_effectivity` has risen to 3.0. Three of them transmit 6.75x for 3.75 MW
+  total — 27 module-equivalents for less power than two normal-quality ones. The vanilla
+  beacon takes the same discount, so this is Wube's balance rather than ours, but
   the tier's players are all past normal quality and the standing-cost framing does not
   survive there.
 - **The Space Age recipe asks for one item off every planet** — tungsten (Vulcanus), carbon
@@ -429,12 +487,30 @@ Most of these fail quietly rather than erroring — check them before assuming a
   beacon prototype. Pure beacons diminish among themselves separately from vanilla beacons,
   so ringing one machine with both types sidesteps the Pure cap. That is **kept on purpose**:
   the vanilla beacon is `"same_type"` too and nothing can make it count ours back, so
-  `"total"` would only penalise this beacon one-sidedly. The escape hatch costs floor space
-  and beacon power — **not** quality. An earlier draft of this file and of the README claimed
-  it cost quality; it does not. `EffectTypeLimitation` says the listed effects restrict "both
-  effects from modules and from surrounding beacons", and the vanilla beacon's list has no
-  `quality` in it, so `speed-module-3`'s −2.5% never leaves the beacon it sits in. Beaconed
-  speed has never cost quality in any version of the game; only in-machine speed does.
+  `"total"` would only penalise this beacon one-sidedly. Worth writing the ceiling down,
+  though: three Pure beacons (2.8125x) plus eight vanilla ones (4.24x) transmit **7.06x**,
+  against vanilla's own twelve-beacon maximum of 5.20x. The hatch costs floor space,
+  beacon power and — see the next bullet — quality.
+- **A beacon's own `allowed_effects` does not filter what it transmits, and this file used to
+  claim it did.** The property is documented as *"the types of modules that a player can
+  place inside of the beacon"* — a placement filter, nothing more. The transmission filter is
+  the **receiver's** `allowed_effects`, worded *"the modules and beacon effects that are
+  allowed to be used on this machine"*, and every crafting machine, lab and mining drill
+  lists `quality` in it. So `speed-module-3`'s −2.5% **does** leave the beacon it sits in,
+  multiplied by the whole transmission figure on the way out. Read straight out of 2.1.14's
+  `prototype-api.json`; the old claim here and in `beacon.lua` was the exact opposite and was
+  wrong. **This is the tier's strongest selling point rather than a footnote:** four
+  `speed-module-3` in a Pure beacon at the 2.8125x cap would transmit −28.1% quality to
+  every machine in 25x25 tiles, and four Pure speed modules transmit none — so the Pure beacon is
+  the only way to run a machine hard and still farm quality on it.
+- **Two things about the pollution are not verified in a running game.** A `--dump-data` run
+  proves the prototype loads carrying the value and nothing else. (1) No beacon anywhere
+  emits, so whether the engine actually applies an energy source's `emissions_per_minute` to
+  a `BeaconPrototype` has no precedent to point at — it is the kind of thing that would fail
+  silently. (2) Pollution is documented as the figure *"at full energy consumption"*, and
+  `beacon_power_usage_multiplier` cuts a legendary beacon's draw to 1/6, so a legendary Pure
+  beacon plausibly emits 2/min rather than 12 — the same discount quality already gives on
+  power. Both want one look at the entity tooltip on a real map.
 - **Quality scaling fields exist and default off**: `quality_affects_supply_area_distance`,
   `quality_affects_module_slots` on the beacon, and the `*_quality_multiplier` fields on
   the module. Leaving them unset is a choice, not neutral — supply area and slot count
@@ -513,7 +589,7 @@ Beacon and release questions now; the module side is settled.
 
 - **Nothing is in game yet.** Every number below the data stage is verified from a
   `-KeepDump` run and nothing else: the animation, the socket tints, the frost patch, the
-  supply-area overlay at radius 8 and the alt-mode icon row have never been looked at on a
+  supply-area overlay at radius 10 and the alt-mode icon row have never been looked at on a
   real map. That is the one check left that cannot be automated.
 - **`water_reflection` is vanilla's, scaled.** The 3x3 beacon's reflection sprite with
   `scale` taken 5 → 8 and its shift with it. Proportionally right, visually unverified, and

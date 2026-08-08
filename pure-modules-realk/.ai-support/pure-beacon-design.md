@@ -25,7 +25,7 @@ choice below resolves against that anchor.
 
 ## Function, hero & family
 
-Transmits module effects over `supply_area_distance = 8` (21×21 tiles). The hero is the
+Transmits module effects over `supply_area_distance = 10` (25×25 tiles). The hero is the
 containment assembly — core plus the two counter-rotating rings — and it keeps the entire
 emissive budget. Everything else on the platform is support plant explaining how the core
 is fed and kept cold.

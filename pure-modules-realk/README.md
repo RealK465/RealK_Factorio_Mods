@@ -20,7 +20,10 @@ There's no Pure efficiency module — tier 3 already has no drawback left to rem
 
 A dedicated high-tech beacon with the capacity to carry the power of the Pure modules.
 
-It has a big range, but its stacking effect is limited.
+It has a big range, and three of them on one machine transmit more than twelve ordinary
+beacons. Three is the cap — a fourth adds nothing.
+
+It pays for that in power, and it is the only beacon in the game that pollutes.
 
 **There are mod settings for configuring which modules the beacon supports.**
 
