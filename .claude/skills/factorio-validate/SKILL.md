@@ -1,6 +1,6 @@
 ---
 name: factorio-validate
-description: Use to verify a Factorio mod's data stage actually loads — after editing prototypes or data.lua, before packaging a release, or when a mod fails to load, doesn't appear in game, or logs an error in factorio-current.log. Runs the game headless against an isolated mod directory using a bundled script, and can dump the resulting prototypes to confirm their final values. Prefer running it over reasoning about whether a prototype change is valid.
+description: Use to verify a Factorio mod's data stage actually loads — after editing prototypes or data.lua, before packaging a release, or when a mod fails to load, doesn't appear in game, or logs an error in factorio-current.log. Runs the game headless against an isolated mod directory using a bundled script, can dump the resulting prototypes to confirm their final values, and can lint for prototype properties the engine silently ignored. Prefer running it over reasoning about whether a prototype change is valid.
 ---
 
 # Headless data-stage validation
@@ -145,12 +145,57 @@ only that whichever branch ran was structurally valid.
 
 Delete the dump afterwards. It matches `.gitignore`, so it will not be committed, but it is 28 MB of churn in the user-data folder.
 
+## Catching properties the engine silently ignores
+
+Add **`--check-unused-prototype-data`** to the same run. It prints a warning for every
+prototype value the loader never read, which is how a misspelled or misplaced property gets
+found — the data stage does not reject an unknown key, it ignores it, so `max_healht = 999`
+loads clean and does nothing forever.
+
+```
+factorio.exe --config <scratch>\config.ini --mod-directory <scratch>\mods \
+  --dump-data --check-unused-prototype-data
+```
+
+```
+Warning PrototypeLoader.cpp:200: Value ROOT.lamp.my-lamp.max_healht was not used.
+Warning PrototypeLoader.cpp:200: Value ROOT.lamp.my-lamp.energy_usag was not used.
+Warning PrototypeLoader.cpp:200: Value ROOT.lamp.my-lamp.bogus_field was not used.
+   Finished checking unused prototype data in 0.022 seconds. Number of properties that were used: 702689
+```
+
+Measured on 2.1.14, 2026-08-08, all four expansions loaded:
+
+- **It costs nothing** — 0.02–0.03 s on top of a run that already takes about 4 s.
+- **Vanilla is silent.** base, space-age, quality, elevated-rails and recycler produce zero
+  warnings between them, and so does `pure-modules-realk` (704,265 properties read, no
+  output). There is no baseline noise to filter, so **any warning is the mod under test**.
+- **It really fires**, verified with a throwaway mod carrying two misspellings of real
+  properties and one invented field: three warnings, each naming the exact
+  `ROOT.<type>.<prototype>.<property>` path.
+
+Two things to know before trusting it:
+
+- **The exit code stays 0.** These are warnings, not errors — a run full of them still
+  reports success. Grep the log; do not read the exit code as an all-clear on this.
+- **"Not accessed" is not identical to "invalid."** The check reports what the loader did not
+  read in *this* configuration, so a property only consumed on some path could in principle
+  surface on a `-Disable` run without being a mistake. Every warning seen so far has been a
+  real error; treat one as a strong lead and confirm the spelling against
+  `prototype-api.json` before changing anything.
+
+**Not wired into `validate.ps1`** — pass the flag on a hand-built run for now. Worth turning
+into a switch on the script once a mod is large enough to want it on every validation.
+
 ## What this does and does not prove
 
 A clean data stage means the prototypes are structurally valid and every **prototype reference** resolves — a recipe naming an item that doesn't exist fails loudly, with the exact `ROOT.recipe.<name>.ingredients[0].name` path.
 
 It says **nothing** about:
 
+- **Whether every property you wrote was understood.** An unknown or misspelled key is
+  ignored, not rejected, so the run is clean either way — unless you add
+  `--check-unused-prototype-data`, above.
 - **Graphics paths.** Sprites are not loaded in headless mode, so a missing or misspelled `icon` / `filename` passes clean. Verified: a non-existent icon path exits 0. Only the real game catches these.
 - **The mod checksum, for art changes.** It is computed over what the data
   stage reads, so replacing a PNG leaves `Checksum of <name>:` byte-identical.

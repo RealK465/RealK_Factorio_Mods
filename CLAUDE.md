@@ -25,6 +25,10 @@ Tracked unpacked folders are this repo's own mods:
 
 - **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
 
+- **`space-forge/`** — Space Forge. A large overhaul, in early development; nothing is implemented yet. **Unpublished**, Factorio 2.1 only. Ships as a pair with the mod below, and the two carry independent version sequences. Scope, art direction and compatibility stance are all still open — the mod's `CLAUDE.md` and `.ai-support/design.md` are where decisions get recorded.
+
+- **`space-forge-graphics/`** — Space Forge Graphics. The art half of the mod above: sprites, icons and sounds, **and no Lua at all**. Splitting art out keeps a balance patch small for players; the rule that keeps it working is that this mod never gains a data stage. Same pattern as `space-exploration-graphics` and `Krastorio2Assets`. **Unpublished.**
+
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
 A mod folder must be named `<name>` or `<name>_<version>`, matching its `info.json` exactly, or Factorio silently won't load it.

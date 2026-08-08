@@ -1,0 +1,11 @@
+{
+  "name": "space-forge",
+  "version": "0.1.0",
+  "title": "Space Forge",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/space-forge",
+  "description": "A large overhaul mod, in early development. Not yet playable.",
+  "dependencies": ["base >= 2.1.0", "space-forge-graphics >= 0.1.0"],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**"] }
+}
