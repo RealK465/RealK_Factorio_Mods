@@ -108,9 +108,12 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   **`changelog.txt` came off that list on 2026-08-07** and is kept identical too. The mod portal
   renders one changelog per mod, from the newest uploaded release, so a section living only on
   the other branch never reaches the website — the rule and the evidence are in the
-  `factorio-multiversion` skill. The two copies are still out of line from before that decision
-  (`main` has no 1.0.2 or 1.0.4 section, `legacy/2.0` no 1.0.3 or 1.0.5); published zips cannot
-  be changed, so they get reconciled the next time either track is released.
+  `factorio-multiversion` skill. **The two copies were reconciled on 2026-08-08**, in the
+  1.0.6 / 1.0.7 pair: both branches now carry one identical file listing every released
+  section, 1.0.0 through 1.0.7, each naming the game it targets. Verified against the live
+  site — `GET /api/mods/<name>/full` returns all eight sections where it previously returned
+  five. Published zips still carry whichever copy shipped with them and cannot be corrected;
+  the reconciliation applies from 1.0.6 onward.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
   is drift, and the fix is to bring it back in line rather than to leave the branches guessing.
 

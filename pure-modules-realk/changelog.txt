@@ -1,4 +1,30 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.7
+Date: 2026-08-08
+  Changes:
+    - Version 1.0.6, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.6
+Date: 2026-08-08
+  Balancing:
+    - Three Pure beacons now transmit more than twelve ordinary ones.
+    - Three is still the cap. A fourth adds nothing.
+    - The Pure beacon's supply area grows from 21x21 tiles to 25x25.
+    - Its power draw rises from 4 MW to 7.5 MW.
+    - It now pollutes, 15 per minute. No other beacon does.
+    - The productivity setting now adds 4 MW instead of 2 MW.
+    - [quality] A legendary Pure beacon transmits at 300%, an ordinary one at 250%.
+    - [quality] The quality setting now adds 2 MW instead of 1 MW.
+  Changes:
+    - Releasing for Factorio 2.0. Version 1.0.7 is the Factorio 2.1 build of the
+      same mod.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.5
+Date: 2026-08-07
+  Changes:
+    - Releasing for Factorio 2.1. Version 1.0.4 is the Factorio 2.0 build of the
+      same mod.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.4
 Date: 2026-08-07
   Balancing:
@@ -6,6 +32,22 @@ Date: 2026-08-07
       module of the supporting kind instead of two.
   Changes:
     - Releasing for Factorio 2.0. Version 1.0.5 is the Factorio 2.1 build of the
+      same mod.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.3
+Date: 2026-08-07
+  Graphics:
+    - The Pure beacon now shows electricity climbing its four corner pylons
+      before each discharge into the crystal.
+    - The beacon arcs more often, its bolts fork as they fire, and sparks drift
+      around the crystal while it works.
+    - The Pure beacon's platform is busier: cable runs snake across its deck from
+      the containment chamber to a holographic readout, a cryogenic vent, a
+      sensor dish and a second crystal shard set into the floor.
+    - Vapour drifts from the beacon's cryogenic vent, its holographic readout
+      scans, and a charge runs out along the deck cables as each electrode fires.
+  Changes:
+    - Releasing for Factorio 2.1. Version 1.0.2 is the Factorio 2.0 build of the
       same mod.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.2
@@ -23,6 +65,15 @@ Date: 2026-08-07
   Changes:
     - Releasing for Factorio 2.0. Version 1.0.3 is the Factorio 2.1 build of the
       same mod.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2026-08-06
+  Changes:
+    - Releasing 1.0.0 for Factorio 2.1. Version 1.0.0 itself is the Factorio 2.0 build of
+      the same mod.
+  Features:
+    - Module penalties no longer scale with quality while the bonuses do, so a legendary
+      Pure module draws no more power than a normal one.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.0
 Date: 2026-08-06
