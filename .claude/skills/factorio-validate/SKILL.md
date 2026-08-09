@@ -106,6 +106,60 @@ turns a failure into a readable value instead of aborting the run, and a global
 counter incremented at module scope proves whether a file executed once or
 twice. Delete the mod afterwards.
 
+## Map generation: this skill does not cover it at all
+
+**A clean `--dump-data` says nothing about a noise expression.** They compile when *map generation
+settings* change, which headless validation never does, so a malformed `probability_expression`
+validates clean and fails at world creation. Two harnesses cover the gap, and they answer
+different questions — the first was reporting a perfect score on a mod that was deleting cliffs.
+
+**Sampling the fields — `surface.calculate_tile_properties(names, positions)`.** Evaluates *any*
+named noise expression at any list of positions, so a probe mod calling it from `on_init` plus
+`factorio.exe --create <save> --map-gen-seed <n>` dumps a grid of every intermediate in seconds
+(640,000 points across ~12 named expressions, about 12 s measured on 2.1.14). Notes:
+
+- It takes **named expressions**, not just documented tile properties — including a mod's own, and
+  including hyphenated ones like `default-iron-ore-patches`. Unrecognised names are silently
+  skipped, so count what came back rather than assuming.
+- Declaring several *variants* as named expressions in the probe mod turns one run into a whole
+  parameter sweep, without touching the mod under test.
+- `helpers.write_file` builds the path verbatim, so a name containing `:` (e.g.
+  `entity:iron-ore:probability`) fails on Windows with `Invalid argument`. Sanitise the filename.
+
+**Checking the consequences — generate the world twice and diff the entities.** Run map generation
+with the feature on and with its autoplace control set to `size = 0`, record every entity of the
+types that matter, and compare the sets. This is the only thing that answers *"does this destroy
+anything the player would otherwise have had"*, because a tile that blocks placement does not
+error — the cliff or the ore patch simply never appears. Measured worth: a field-level check
+reported zero overlaps on a map where the diff found 21 cliffs missing. Compare against **unmodded
+vanilla** as well as against the feature switched off; the two are not the same claim.
+
+**Seeing the world — automated screenshots need `--benchmark-graphics`.** Plain `--benchmark`
+runs headless: a probe mod's `game.take_screenshot` silently writes nothing while its
+`helpers.write_file` output appears, which looks exactly like a screenshot bug and is not.
+`--benchmark-graphics <save> --benchmark-ticks N` runs the same save with the renderer, ticks
+events normally, and exits — a probe mod that generates chunks, finds the feature, screenshots it
+and calls `game.set_wait_for_screenshots_to_finish()` turns it into a headless-ish visual
+harness. Three Windows/Steam facts, each measured the hard way (2.1.14, Steam build):
+
+- **The Steam build refuses to start any graphics mode while the game is already running** —
+  instant exit, code 0 or 1, and *no log written*, because the failure happens before logging.
+  A run that leaves `factorio-current.log` untouched never started; check
+  `Get-Process factorio` before diagnosing anything else. Headless modes (`--dump-data`,
+  `--create`, `--benchmark`, `--generate-map-preview`) run fine alongside the open game.
+  **The escape hatch is a standalone (DRM-free) install** — it launches graphically alongside
+  the running Steam game without complaint. The 2.0.77 installs in `CLAUDE.local.md` served as
+  a live render farm for a 2.1 mod's tile art: tile-transition semantics are identical across
+  2.0/2.1, so a throwaway 2.0 probe mod (tile + transitions + a `set_tiles` arena in
+  `control.lua`) verified sheets the Steam 2.1 install could not, while the owner kept playing.
+- **`factorio.exe` is a GUI-subsystem executable**: PowerShell's `&` returns immediately without
+  waiting and `$LASTEXITCODE` stays null. Use `Start-Process -Wait -PassThru`.
+- **`--map-preview-scale` no longer exists in 2.1** — an unknown option prints the help text and
+  exits 1 without a log. `--generate-map-preview PATH --map-preview-size N` is the surviving
+  form, renders the true per-tile map colours in under a second, and is the cheap way to judge a
+  tile's `map_color` against real terrain: composite candidate recolours onto one render instead
+  of re-running the game per candidate.
+
 ## Validating against another game version
 
 `-FactorioPath` points the run at any install, which is how a 2.0 backport gets validated while

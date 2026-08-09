@@ -440,6 +440,58 @@ Swap only the axes where reversal is meaningful (an across-the-run pair written
 axis fall through to the empty guard. Then verify by tiling: concatenate the
 tile's own columns several times and assert the feature spacing is constant.
 
+## Terrain tile transitions — the edge is the art
+
+A tile's edge against a different tile (water shore, lava ledge, void rim) is not part of the
+tile's own variants: it is a **transition spritesheet**, defined on the *neighbouring ground*
+tile and drawn on the target tile. Measured off base's out-of-map sheets and Space Age's
+foundation (2.1.14), and verified by rebuilding the system for a mod:
+
+- **One sheet, three bands**: overlay (drawn above both tiles), background (the wall/bed, drawn
+  in the target's layer group), mask. Band x-offsets and block y-offsets come from a layout
+  constant — reuse base's (`tile_spritesheet_layout.transition_4_4_8_1_1` etc. from
+  `__base__/prototypes/tile/tile-graphics`) and mimic its geometry exactly rather than
+  inventing one.
+- **Blocks per piece kind** — inner corner, outer corner, side, u, o — variants along x, and
+  **4 rotation rows per block, ordered CLOCKWISE from north by where the ground sits**:
+  row 0 ground-north (the visible wall face), row 1 ground-east, row 2 ground-south (a rim
+  only — that wall faces away from the camera), row 3 ground-west. Corner rows follow the same
+  step: inner row 0 = ground N+E, u row 0 = open south. **Decoded, not read off art**: a sheet
+  of solid colour codes (block in R, rotation in G, piece-row in B) rendered by the engine over
+  a set_tiles arena of canonical shapes — reading vanilla art suggested counterclockwise and
+  shipped every east/west wall mirrored.
+- **Anchoring**: a `tile_height = 2` piece has its top 1x1 tile centred on the tile being drawn
+  and hangs one tile south (the docs' one load-bearing sentence). Masks and o-pieces are forced
+  to height 1.
+- **Masks are luminance-coded on opaque pixels**, not alpha: white means "draw the ground
+  tile's own texture here". This is what makes one sheet correct against every terrain —
+  grass tears as grass, concrete as concrete, painted by the engine.
+- **Only near-dark may touch a piece border.** Where the rim turns a corner, the neighbouring
+  tile carries no face piece, so a bright feature ending on the border reads as a razor cut.
+  Vanilla keeps bright detail in mid-piece clumps; force edge columns dim — and inside corner
+  and u pieces, *taper* the face toward each side that carries ground (shorter, dimmer columns
+  over the last ~26 px) so the wall turns instead of stopping. Never taper an open side: the
+  neighbouring tile's face continues across it.
+- **A mask lip eats whatever hugs the same edge.** The narrow wall slivers on east/west/south
+  boundaries sit in exactly the band the ground lip covers; a 10–30 px lip erased them
+  entirely in the engine. Give the face edge a deep lip and every other edge a shallow one
+  (~5–14 px), and keep slivers wider than the lip above them.
+- **A winding edge is almost never straight.** In a real 100x64 map sample the longest straight
+  north rim was one tile — corners and side slivers carry the look. Judge art on a real
+  boundary shape, not on a straight test strip.
+- Patching transitions onto vanilla tiles is a data-stage loop with two traps: base **shares
+  one transitions table between several tiles** (all four grasses), so guard every append with
+  a has-it-already check or the engine dies on a duplicate pair; and transition group ids are a
+  tiny shared namespace (0-2 base, 3 Space Age lava) — declare yours
+  `my_group_id = my_group_id or N` so mods can cooperate.
+
+Everything above was established on a working implementation (a chasm tile with cliff-style
+walls, since removed from the repo). **Verify transition art in a real engine, never by an
+offline mockup** — a compositor built on careful art-reading still got the rotation order and
+two art-interaction rules wrong; the `factorio-validate` skill's `--benchmark-graphics`
+harness (on a DRM-free standalone install if the Steam game is open) is cheap and tells the
+truth.
+
 ## Sprite metadata sidecars
 
 Vanilla puts a `.lua` beside each PNG, loaded by `util.sprite_load`:

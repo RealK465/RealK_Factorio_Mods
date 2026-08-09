@@ -181,6 +181,55 @@ everything with a short mod tag (`kr-`, `se-`, `pm-`) — community convention, 
 `data.raw` surgery on a well-behaved mod is predictable. Names accept alphanumerics, dashes and
 underscores only.
 
+**8. Noise expressions are never checked by `--dump-data`.** They compile when *map generation
+settings* change, which headless data-stage validation never does. A malformed
+`probability_expression` therefore passes validation clean and fails at world creation.
+`factorio.exe --create <save> --map-gen-seed <n>` is what actually exercises one; adding a
+throwaway mod that counts tiles in `on_init` turns it into a measurement. See
+`factorio-validate`.
+
+**9. An autoplace control set to "none" is still evaluated, with size 0.** It is not skipped, so
+the expression runs and whatever it returns is placed. Any term the coverage slider does not
+multiply survives — `4 * control:x:size + 3 * noise` still yields positive widths at size 0.
+Verified on 2.1.14: an additive wobble left 4007 tiles on a 1280×1280 map at coverage none, and
+making the slider multiply the whole term (`size * (4 + 3 * noise)`) took it to zero while leaving
+the default-settings output byte-identical. Multiply, don't add — and generate a map at "none" to
+prove it, because nothing else will.
+
+**10. A `noise-function`'s `x` / `y` parameters do not reach a nested *named* expression.** They
+are ordinary parameters, so they only affect sub-expressions that consume them **as arguments**.
+`basis_noise{x = x, y = y, ...}` inside the function shifts correctly; a bare reference to
+`elevation`, `cliff_elevation` or any other named expression reads the **ambient** coordinates and
+returns the same value no matter what the function was called with. Verified on 2.1.14: a function
+whose whole body was `cliff_elevation`, called at `(x + 1000, y)`, came back byte-identical to
+`cliff_elevation` sampled at `(x, y)`, while the same test on `basis_noise` matched the shifted
+field exactly.
+
+This is what makes **finite differences on a vanilla field impossible** — every offset sample
+returns the same number, so the gradient comes out as exactly zero and whatever divides by it
+silently produces garbage rather than an error. Only a field you build yourself, out of primitives
+taking `x` and `y` as arguments, can be differentiated. Anything a contour or distance estimate
+depends on has to live inside that same function for the same reason: a term added to the result
+afterwards is invisible to the gradient.
+
+**11. Reading a field's value is not the same as reading where the engine acts on it.** Several
+map-gen decisions are evaluated per *cell* rather than per tile, so a per-tile read of the
+governing field disagrees with what actually gets placed. Measured on 2.1.14: cliffs are gated on
+a four-tile grid, and cliff entities routinely stand on tiles where `cliffiness` reads 0 — a mod
+that treated "cliffiness is 0 here" as "no cliff can be here" put tiles through 13 real cliffs in a
+1024-tile square. The general form: **a veto must not depend on the scale, or on the resolution, of
+a field it does not own.** The only way to find this class of bug is to generate the world twice,
+with the feature on and off, and diff the entities — see `factorio-validate`.
+
+**12. Base shares one sub-table between several prototypes.** `data.raw` surgery that appends to
+a table found inside a vanilla prototype may be appending to a table *other prototypes hold by
+reference* — base hands all four grasses the same `transitions_between_transitions` table, one
+`sand_transitions` to every sand, and the pattern is general. A loop that patches each tile
+therefore hits the shared table once per holder; the engine then rejects the duplicate
+("Transition between transition groups 0 and 4 already exists") or, worse, applies the patch
+twice without a word. Guard every append with a has-it-already check — idempotent patching is
+the only shape that survives shared tables, and it costs two lines.
+
 ## Working method
 
 1. **Look at how vanilla or `exemples/` does it before inventing.** `data/base/` is Wube's own
