@@ -16,14 +16,70 @@ On first use, copy `CLAUDE.local.md.example` to `CLAUDE.local.md` and fill it in
 
 - **`*.zip`** — other authors' mods, downloaded for play runs. Never edit, unzip in place, delete, or rename them. Reading one (e.g. extracting to a scratch directory) is fine as reference only.
 - **`mod-list.json`**, **`mod-settings.dat`** — managed by the game. Editing these breaks the install. This is also why `--mod-directory` and `fmtk mods` must never be pointed at this folder.
-- **Unpacked third-party mod folders** — any folder here that isn't one of this repo's own mods. `CLAUDE.local.md` lists the ones present locally. Don't read or modify them unless asked.
+- **Frozen vendor mod folders** — other authors' unpacked mods, present only so the game loads them. Don't read or modify them unless asked. **Not every untracked folder is one of these** — see *Folder classes* below, and note that this rule is enforced by `permissions.deny` in `.claude/settings.json`, not by this line alone.
 - Anything under the game install directory — read-only reference.
+
+## Folder classes
+
+Factorio requires every mod folder to sit at this directory's root, so they cannot be grouped
+into subfolders — a declaration is the only thing separating a deliverable from another author's
+mod. There are five classes, and the trap is that **"not in git" does not mean "do not touch"**:
+two of the five are edited routinely and tracked by nothing.
+
+| Class | Ours | In git | Agent may edit | Ships to portal |
+|---|---|---|---|---|
+| **Deliverable** | yes | tracked | yes | yes |
+| **Local mod** | yes | ignored | yes | never |
+| **Patched vendor** | no | ignored | yes | never |
+| **Frozen vendor** | no | ignored | **no** | n/a |
+| **Reference** | no | ignored | read-only | n/a |
+
+- **Deliverable** — what this repo exists to publish, plus `assets/` and the docs. Listed under
+  *Mods in this repo* below.
+- **Local mod** — our own mod, deliberately untracked because it exists for one playthrough and
+  is never published. Editing it is normal work; committing it is not.
+- **Patched vendor** — another author's mod, unpacked here and modified in place for a
+  playthrough. Editable, but **never committed and never re-uploaded**: the source belongs to
+  someone else, and a mod that ships no `LICENSE` cannot be redistributed at all. Only a diff of
+  our own changes could ever be tracked, never the mod.
+- **Frozen vendor** — another author's mod, present only so the game loads it.
+- **Reference** — read-only study material: `exemples/`, and the game install. Read freely,
+  never write.
+
+The classes are portable and live here; **which** local folder is in which class is
+machine-specific and lives in `CLAUDE.local.md`.
+
+### Adding a folder
+
+The class decides how many places need updating, and getting it wrong is silent — it surfaces
+later as an accidental commit, or as an edit to someone else's mod.
+
+| Class | `.gitignore` | `settings.json` deny | `CLAUDE.local.md` | own `CLAUDE.md` |
+|---|---|---|---|---|
+| Deliverable | — tracked | — | — | yes |
+| Local mod | yes | — | yes | yes |
+| Patched vendor | yes | — | yes | yes |
+| Frozen vendor | yes | **yes** | yes | no — never write into it |
+| Reference | yes | **yes** | yes | no |
+
+A deny rule needs **both** `Edit(<folder>/**)` and `Write(<folder>/**)`; they are separate tools
+and denying one leaves the other open. Neither constrains Bash, so `sed -i` or `cp` still reaches
+a frozen folder — the deny list raises the cost of a mistake, it does not make one impossible.
+
+`.claude/scripts/check-folder-scope.ps1` checks all four columns against what is on disk. Run it
+after adding a folder. It exists because all three lists had already drifted: a frozen-vendor mod
+was sitting in `.gitignore` with no deny rule and no mention in `CLAUDE.local.md`, and a patched
+one was in none of them.
 
 ## Mods in this repo
 
 Tracked unpacked folders are this repo's own mods:
 
 - **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
+
+- **`space-forge/`** — Space Forge. A large overhaul, in early development; nothing is implemented yet. **Unpublished**, Factorio 2.1 only. Ships as a pair with the mod below, and the two carry independent version sequences. Scope, art direction and compatibility stance are all still open — the mod's `CLAUDE.md` and `.ai-support/design.md` are where decisions get recorded.
+
+- **`space-forge-graphics/`** — Space Forge Graphics. The art half of the mod above: sprites, icons and sounds, **and no Lua at all**. Splitting art out keeps a balance patch small for players; the rule that keeps it working is that this mod never gains a data stage. Same pattern as `space-exploration-graphics` and `Krastorio2Assets`. **Unpublished.**
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 

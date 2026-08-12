@@ -57,10 +57,34 @@ Created at https://factorio.com/profile by the account owner — an agent cannot
 
 ## Local-only folders
 
-Git-ignored, so not in a fresh clone. List what exists here:
+Git-ignored, so not in a fresh clone. Group by `CLAUDE.md` -> Folder classes, because
+**git-ignored does not mean hands-off** — two of the classes are edited routinely, and the
+class is what decides. `.claude/scripts/check-folder-scope.ps1` verifies this list against
+what is actually on disk.
 
-- **`exemples/`** — extracted reference mods, if built. See `CLAUDE.md` → `exemples/`.
-- **`<third-party-mod-folder>/`** — unpacked mods from other authors. Do not read or modify.
+### Reference — read freely, never write
+
+- **`exemples/`** — extracted reference mods, if built. See `CLAUDE.md` -> `exemples/`.
+
+### Frozen vendor — do not read or modify unless asked
+
+Each entry also needs `Edit(<folder>/**)` **and** `Write(<folder>/**)` deny rules in
+`.claude/settings.json`.
+
+- **`<third-party-mod-folder>/`** — unpacked mod from another author, present only so the game
+  loads it. Note the author.
+
+### Patched vendor — editable, never committed, never re-uploaded
+
+- **`<forked-mod-folder>/`** — another author's mod, modified in place for a playthrough. Note
+  the author and whether it ships a `LICENSE`; without one the source cannot be redistributed
+  at all. Give it its own `CLAUDE.md` recording what was changed — with no baseline on disk,
+  that file is the only history the edits have.
+
+### Local mod — ours, editable, never published
+
+- **`<local-mod-folder>/`** — our own mod that exists for one playthrough. Give it its own
+  `CLAUDE.md`.
 
 ## Notes and scratch material
 
