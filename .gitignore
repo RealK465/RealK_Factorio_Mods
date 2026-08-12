@@ -18,6 +18,10 @@ mod-settings.json
 # only *.zip is covered automatically.
 /robotworld-continued_2.1.0/
 
+# Personal play-through tweaks. Own mod, but deliberately untracked: it retunes other
+# authors' prototypes for one save and is never published, so it is not a repo deliverable.
+/realk-tweaks/
+
 # Machine-specific paths, git identity and tool versions. CLAUDE.md, .claude/
 # and .ai-support/ are tracked; this is the deliberate local-only escape hatch.
 # CLAUDE.local.md.example is tracked as its template.
