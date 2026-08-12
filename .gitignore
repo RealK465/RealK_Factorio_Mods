@@ -10,17 +10,23 @@ mod-list.json
 mod-settings.dat
 mod-settings.json
 
-# Local reference material — extracted mods kept for study. Machine-local; a
-# fresh clone won't have it.
+# Folder classes below follow CLAUDE.md -> Folder classes. Being listed here means
+# "not a repo deliverable" — it does NOT mean "do not touch". Two of these classes are
+# edited routinely; only Frozen vendor and Reference are hands-off, and those are the
+# ones that also need a deny rule in .claude/settings.json.
+
+# Reference — extracted mods kept for study. Machine-local; a fresh clone won't have it.
 /exemples/
 
-# Unpacked third-party mods. Machine-local: each clone adds its own here, since
-# only *.zip is covered automatically.
+# Frozen vendor — other authors' unpacked mods, present only so the game loads them.
+# Each clone adds its own here, since only *.zip is covered automatically. Every entry
+# here also needs Edit + Write deny rules in .claude/settings.json.
 /robotworld-continued_2.1.0/
 /VoidChestInstant_2.8.0/
+/whats_a_spoilage/
 
-# Personal play-through tweaks. Own mod, but deliberately untracked: it retunes other
-# authors' prototypes for one save and is never published, so it is not a repo deliverable.
+# Local mod — ours, but deliberately untracked: it retunes other authors' prototypes for
+# one save and is never published, so it is not a repo deliverable.
 /realk-tweaks/
 
 # Machine-specific paths, git identity and tool versions. CLAUDE.md, .claude/
