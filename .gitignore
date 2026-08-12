@@ -17,6 +17,7 @@ mod-settings.json
 # Unpacked third-party mods. Machine-local: each clone adds its own here, since
 # only *.zip is covered automatically.
 /robotworld-continued_2.1.0/
+/VoidChestInstant_2.8.0/
 
 # Personal play-through tweaks. Own mod, but deliberately untracked: it retunes other
 # authors' prototypes for one save and is never published, so it is not a repo deliverable.
