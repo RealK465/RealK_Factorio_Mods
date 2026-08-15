@@ -4,7 +4,9 @@ Pick an item and a target quality. Upcycler Architect designs the whole upcyclin
 machines, recyclers, quality modules, filtered inserters and the belting between them — and
 places it in the world as ghosts for your bots to build.
 
-**Not playable yet.** This is scaffolding, not a release: the mod loads and does nothing.
+**Unreleased, in development.** The first version works end to end — shortcut, planner
+modal, and ghost placement — but it has not yet seen enough real play to call stable, so it
+is not on the mod portal yet.
 
 ## The idea
 
