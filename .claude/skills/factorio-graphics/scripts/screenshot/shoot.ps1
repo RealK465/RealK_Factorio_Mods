@@ -36,6 +36,18 @@ param(
   # Full form: a JSON file describing groups (see the README section below).
   [string] $SpecJson,
 
+  # Which times of day to shoot, comma separated. 0 is noon; 0.5 is midnight,
+  # which is the ONLY way to check a draw_as_light / additive layer -- it
+  # renders in the light pass and is simply absent at noon and in any offline
+  # composite.
+  #
+  # A STRING, split below, not [double[]]. Windows PowerShell binds a typed
+  # array parameter from `-File` by taking a single value and dropping the
+  # rest: `-Daytimes 0,0.5` arrives as one element 0.5, and `-Daytimes 0 0.5`
+  # as one element 0. Nothing errors -- the run just quietly shoots one time
+  # of day and reports success.
+  [string] $Daytimes = '0',
+
   [string] $Out = 'shots',
   [string] $FactorioPath = 'C:\Program Files (x86)\Steam\steamapps\common\Factorio',
   [int]    $Ticks = 120,
@@ -43,6 +55,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$daytimeList = @($Daytimes -split ',' | ForEach-Object { [double] $_.Trim() })
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # --- build the spec ------------------------------------------------------
@@ -63,7 +76,8 @@ if ($SpecJson) {
     surface = 'nauvis'
     groups  = @(
       @{ label = 'row'; center = @(0, 0); radius = 24; zooms = @(1, 2)
-         resolution = @(1400, 900); alt_mode = $true; entities = $entities }
+         resolution = @(1400, 900); alt_mode = $true; entities = $entities
+         daytimes = $daytimeList }
     )
   }
 } else {

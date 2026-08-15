@@ -153,10 +153,17 @@ end
 
 local function shoot(group)
   local surf = surface()
+  -- Night is not cosmetic here: draw_as_light and blend_mode "additive" only
+  -- resolve in the light pass, so a layer that glows after dark is invisible
+  -- at noon and cannot be checked offline at all. A group asking for several
+  -- daytimes shoots each one.
+  local times = group.daytimes or { group.daytime or 0 }
   for _, zoom in pairs(group.zooms or { 1 }) do
+    for _, dt in pairs(times) do
     for _, alt in pairs(group.alt_mode and { false, true } or { false }) do
-      local name = string.format("%s-z%s%s.png", group.label, tostring(zoom),
-                                 alt and "-alt" or "")
+      local suffix = (dt ~= 0) and string.format("-d%s", tostring(dt)) or ""
+      local name = string.format("%s-z%s%s%s.png", group.label, tostring(zoom),
+                                 suffix, alt and "-alt" or "")
       game.take_screenshot {
         surface = surf,
         position = group.center or { 0, 0 },
@@ -166,13 +173,14 @@ local function shoot(group)
         show_gui = false,
         show_entity_info = alt,
         anti_alias = true,       -- renders at double resolution and downscales
-        daytime = 0,             -- noon: no night tint confusing a colour check
+        daytime = dt,            -- 0 = noon; 0.5 = midnight, for light layers
         hide_clouds = true,
         hide_fog = true,
         water_tick = 0,
         allow_in_replay = true,
       }
       note("shot %s", name)
+    end
     end
   end
 end

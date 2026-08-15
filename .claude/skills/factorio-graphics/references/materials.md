@@ -49,6 +49,42 @@ Cautions:
   (see "Measure vanilla, don't eyeball it" in the skill body). The wear stack
   modulates a correct base; it does not rescue a wrong one.
 
+## Saturation is the palette gate, and grey is the failure mode
+
+Match a vanilla entity's colour *distribution*, not one sampled swatch. Three
+numbers separate a Factorio machine from a CG render, measured over opaque
+pixels:
+
+| sprite | pixels with sat ≥ 0.12 | mean sat | dominant hue |
+|---|---|---|---|
+| `cryogenic-plant-main` | 80% | 0.27 | warm 83% @ 0.34 |
+| `beacon-bottom` | 83% | 0.44 | warm 99% @ 0.44 |
+| `lab` | 77% | 0.30 | **blue 53% @ 0.45** |
+| this repo's beacon, before | **47%** | **0.16** | teal 45% @ **0.20** |
+
+**A cold-dominant machine is perfectly vanilla — the lab is 53% blue.** What is
+not vanilla is a *washed-out* one. This beacon's identity teal sat at 0.20 where
+the lab's blue sits at 0.45, and over half the sprite was effectively greyscale
+against vanilla's 17–23%. The instinct to fix that by covering more of the
+machine in the identity colour is backwards: it was already on 29% of the
+sprite and still read monochrome. Saturation is what makes an identity colour
+survive at 64 px/tile, not coverage.
+
+The other half of the fix is that **vanilla has no neutral mass at all.** Bin
+saturation by value and it runs *inverse* to it — the cryogenic plant measures
+0.35 in its darkest band falling to 0.14 in its highlights, because crevices
+fill with warm rust and bounce while speculars go white. A palette whose dark
+materials are neutral greys (this one's gunmetal, cast iron and dark paint were,
+and owned ~40% of the sprite between them) flattens the whole machine no matter
+what the identity colour does. Warm oxidised tones there, plus a raised `rust`
+term so the AO-seeded crevices actually pick up colour, reproduces the ramp.
+
+Watch for double-counting once `post.form_contrast` is in the chain: pushing
+values apart carries chroma with it, so a `saturation` multiplier above 1.0 in
+the preset on top of a corrected palette overshoots. Colour belongs in the
+material, where it can be matched to a sampled vanilla value; the preset should
+sit at 1.0.
+
 ## Node gotchas that cost a render each
 
 Validated on the pure-modules-realk beacon (2026-08-06); each of these produced a

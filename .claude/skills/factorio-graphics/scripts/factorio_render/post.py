@@ -69,13 +69,30 @@ KEY_DIR = (-0.72, -0.69)
 PRESETS = {
     # Entity sprites: seen at 32-64 px/tile in play, on dark ground, next to
     # vanilla neighbours. Wants real mid-frequency shaping.
-    "entity": dict(contrast_radius=7.0, contrast_amount=0.60,
+    #
+    # `form_amount` carries most of the contrast and `contrast_amount` was cut
+    # from 0.60 to match. The old preset hit its luminance-sd target purely
+    # through the unsharp, which measured well and looked wrong: it lifted
+    # 1-2 px grain at the expense of form, taking this repo's beacon from a
+    # form/grain energy ratio of 1.32 in the raw render down to 0.64, where
+    # every vanilla 5x5 entity measures 1.70 (cryogenic plant) to 3.27 (lab).
+    # These values put this repo's beacon at luminance sd 54.5 with a ratio of
+    # 2.90 and 0.005% clipped -- just under the cryogenic plant's 55.2 and well
+    # above the lab's 51.6, so inside `gates.contrast`'s 43-56 band rather than
+    # over the top of it, which 1.45 was.
+    "entity": dict(form_radius=11.0, form_amount=1.25,
+                   contrast_radius=7.0, contrast_amount=0.35,
                    crevice_radius=1.8, crevice_amount=0.36,
                    rim_amount=0.26, rim_radius=1.2,
-                   alpha_gamma=1.18, saturation=1.20, value=1.0),
+                   # 1.0, not the old 1.20: form_contrast pushes values apart
+                   # and chroma rides along with them, so a post-hoc boost on
+                   # top double-counts. Colour belongs in the material, where
+                   # it can be matched to a sampled vanilla value.
+                   alpha_gamma=1.18, saturation=1.0, value=1.0),
     # Icons live at 32-64 px total and are already rendered with a harder
     # key; they need edge definition more than volume shaping.
-    "icon": dict(contrast_radius=4.0, contrast_amount=0.42,
+    "icon": dict(form_radius=5.0, form_amount=0.55,
+                 contrast_radius=4.0, contrast_amount=0.42,
                  crevice_radius=1.2, crevice_amount=0.30,
                  rim_amount=0.22, rim_radius=0.9,
                  alpha_gamma=1.10, saturation=1.10, value=1.0),
@@ -83,7 +100,8 @@ PRESETS = {
     # (beacon), 67.0 (nuclear reactor), 68.5 (cryogenic plant) over opaque
     # pixels; this mod's measured 78 before `value` existed, which reads as a
     # lit pile of scrap rather than a burnt one. 0.85 lands it at 65.5.
-    "remnant": dict(contrast_radius=6.0, contrast_amount=0.45,
+    "remnant": dict(form_radius=9.0, form_amount=0.80,
+                    contrast_radius=6.0, contrast_amount=0.30,
                     crevice_radius=1.6, crevice_amount=0.32,
                     rim_amount=0.0, rim_radius=1.0,
                     alpha_gamma=1.10, saturation=1.0, value=0.85),
@@ -158,6 +176,34 @@ def local_contrast(rgb, alpha, radius=7.0, amount=0.42):
         return rgb
     low = alpha_blur(rgb, alpha, radius)
     return _soft_clip(rgb + (rgb - low) * amount)
+
+
+def form_contrast(rgb, alpha, radius=10.0, amount=0.55, pivot=None):
+    """Push whole FORMS apart in value, leaving fine detail exactly as rendered.
+
+    `local_contrast` below is an unsharp mask, so it lifts every frequency
+    ABOVE its radius -- on a densely greebled sprite that means it buys total
+    contrast by converting form energy into 1-2 px grain. Measured on this
+    repo's beacon: the raw render carried a form(>12 px)/grain(<3 px) variance
+    ratio of 1.32, already inside vanilla's range, and the `entity` preset's
+    unsharp pass took it to 0.64. Vanilla 5x5 entities measure 1.70
+    (cryogenic plant) and 3.27 (lab); nothing shipped measures below 0.7.
+
+    This applies the gain to the low-pass and adds the untouched residual back,
+    so a hull face separates from the hull face beside it while the rivets on
+    both stay where the render put them. That is what Wube's Photoshop
+    paint-over actually does -- whole faces darkened and lightened by hand,
+    not an edge filter.
+    """
+    if amount <= 0:
+        return rgb
+    low = alpha_blur(rgb, alpha, radius)
+    detail = rgb - low
+    m = alpha > 0.5
+    if pivot is None:
+        pivot = float(np.median(_lum(low)[m])) if m.any() else 0.5
+    lifted = low + (low - pivot) * amount
+    return _soft_clip(np.clip(lifted, 0.0, None) + detail)
 
 
 def crevice_deepen(rgb, alpha, radius=1.8, amount=0.34, ao=None):
@@ -239,6 +285,8 @@ def paint_over(im, preset="entity", ao=None, normal=None, **overrides):
         return im.copy()
 
     rgb = crevice_deepen(rgb, alpha, cfg["crevice_radius"], cfg["crevice_amount"], ao)
+    rgb = form_contrast(rgb, alpha, cfg.get("form_radius", 10.0),
+                        cfg.get("form_amount", 0.0))
     rgb = local_contrast(rgb, alpha, cfg["contrast_radius"], cfg["contrast_amount"])
     rgb = rim_light(rgb, alpha, cfg["rim_amount"], cfg["rim_radius"], normal=normal)
     rgb = saturate(rgb, cfg["saturation"])

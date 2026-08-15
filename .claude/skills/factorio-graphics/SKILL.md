@@ -232,7 +232,8 @@ Wube duplicate every render twice in Photoshop, set the copies to Multiply and S
 - **It is calibrated against vanilla, not chosen by eye.** Vanilla source art at 64 px/tile measures luminance sd **43.0** (beacon-bottom), **46.8** (beacon-top), **51.6** (lab). This repo's raw beacon render measured **31.6** — flat against all three, and that gap is the most reliable "render, not Factorio sprite" signal there is. **Target band for an entity body: sd 43–52**, checked by `gates.contrast`.
 - **Run it per frame, before packing.** Every operator has a radius; over an assembled sheet it bleeds frame N into frame N−1.
 - **Not every layer wants it.** A shadow is already pure black; an additive glow layer gets eaten by crevice deepening; a layer carrying translucent vapour needs `alpha_gamma=1.0` or the softness it is made of gets thinned away.
-- **It sharpens what the render got right; it cannot add what the palette lacks.** Vanilla bodies measure saturation 0.30–0.38, the beacon's palette 0.11, and a global saturate only reaches 0.16 before looking artificial. The rest is copper/rust/paint *zones* — a materials fix.
+- **Luminance sd alone will mislead you — check WHERE the contrast sits.** Split the variance into form (>12 px) and grain (<3 px). Vanilla 5×5 entities run form/grain **1.70** (cryogenic plant) to **3.27** (lab); this repo's beacon rendered at 1.32 and the paint-over's unsharp pass pushed it *down* to 0.64 while hitting its sd target, because an unsharp mask lifts every frequency above its radius and most of a greebled sprite's energy is 1–3 px wide. `post.form_contrast` applies the gain to the low-pass instead, so whole faces separate and the rivets stay put. Numbers and the preset split: `references/pipeline.md`.
+- **It sharpens what the render got right; it cannot add what the palette lacks.** Vanilla bodies measure saturation 0.27–0.44 with 77–83% of pixels above sat 0.12; this beacon measured 0.16 with only 47% — over half the sprite effectively greyscale. No post setting fixes that. The rest is copper/rust/paint *zones* — a materials fix, and `references/materials.md` has the measured targets.
 
 ## Alpha: never resize RGBA directly
 
@@ -569,6 +570,8 @@ Mipmaps are optional but vanilla-standard — they stop icons shimmering when sc
 
 - [ ] **Built the `vanilla.contact_sheet` A/B — your layers and a real vanilla entity's, on Nauvis dirt, at 1× and 3× — and looked at it.** Nothing else on this list matters if this fails.
 - [ ] `gates.check_all` run and green: contrast, clipping, crop waste, shadow, tint masks, and whichever of remnant / frozen apply
+- [ ] Form/grain ratio checked against a vanilla entity of the **same footprint**, and saturation distribution against `references/materials.md`
+- [ ] Object-ID render run — nothing the design depends on is buried inside another object (`references/pipeline.md`)
 - [ ] Paint-over applied per frame before packing; no layer that shouldn't have it did
 - [ ] Every resize went through `imaging`, not `Image.resize`
 - [ ] Drawn size against the entity's footprint checked with `area_vs_footprint`

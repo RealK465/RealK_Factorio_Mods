@@ -105,6 +105,7 @@ entities better"*. FFF-432 confirms it is still true for Space Age.
 
 | operator | what it is |
 |---|---|
+| form contrast | whole faces pushed apart in value — the actual paint-over |
 | local contrast | the Multiply/Screen pair — mid-frequency shaping, volume not sharpness |
 | crevice deepen | the dark line where two parts meet |
 | rim light | the bright catch along an edge facing the key sun |
@@ -118,6 +119,40 @@ source PNGs at 64 px/tile: `beacon-bottom` luminance sd **43.0**,
 "this is a render, not a Factorio sprite" signal there is. `contrast_amount
 0.60` lands it at 43.4 with nothing clipped. **Target band for an entity body:
 luminance sd 43-52** (`gates.contrast`).
+
+### Luminance sd alone is not enough — check WHERE the contrast is
+
+Hitting the sd band says how much contrast a sprite has, not what kind, and the
+two are easy to confuse. Split the luminance variance into bands by differencing
+successive alpha-weighted gaussians and compare **form** (>12 px) against
+**grain** (<3 px):
+
+| sprite | luminance sd | grain <3 px | form >12 px | form/grain |
+|---|---|---|---|---|
+| `cryogenic-plant-main` (5×5) | 0.217 | 21.3% | 36.2% | **1.70** |
+| `lab` (5×5) | 0.202 | 16.0% | 52.4% | **3.27** |
+| `beacon-bottom` (3×3) | 0.169 | 27.0% | 19.1% | 0.71 |
+| this repo's beacon, raw render | 0.122 | 23.1% | 30.5% | 1.32 |
+| the same frame after `contrast_amount 0.60` | 0.167 | 33.0% | 20.7% | **0.64** |
+
+The raw render was already inside vanilla's range and the paint-over took it
+out. `local_contrast` is an unsharp mask, so it lifts *every* frequency above
+its radius; on a densely greebled sprite most of the energy sits at 1–3 px, so
+it buys its sd target by converting form into sizzle. It measured correct and
+looked wrong — the sprite read as uniformly busy where vanilla alternates calm
+hulls against strong boundaries, which is the same thing `design-language.md`
+calls "one busy hero zone against calm hulls".
+
+`post.form_contrast()` applies the gain to the low-pass and adds the untouched
+residual back, so a hull face separates from the face beside it while the
+rivets on both stay where the render put them. That is what a hand paint-over
+actually does. The `entity` preset now carries most of its contrast there
+(`form_amount 1.45`, radius 11) with `contrast_amount` cut 0.60 → 0.35, which
+lands sd 0.207 at ratio 3.31 with nothing clipped.
+
+**A 3×3 entity legitimately measures lower** — the beacon's 0.71 is not a
+defect, there simply is not room for 12 px forms on a 96 px sprite. Compare
+against a vanilla entity of the same footprint.
 
 Three rules the pass has to obey, each of which breaks it if ignored:
 
@@ -227,6 +262,38 @@ entity's tiles — vanilla's beacon draws at 1.08x / 1.05x its 3x3 footprint;
 anything several times its footprint is a different visual weight class from
 the entity it sits beside, which is invisible in the PNG and obvious the moment
 both are on ground.
+
+## What is actually on screen — the ID render
+
+A sprite is the only thing that ships, and a model can be full of geometry that
+never reaches it. Swap every material for a flat emission carrying an index,
+render one frame to **OpenEXR** (32-bit, so the index survives — an 8-bit PNG
+goes through the sRGB transfer curve and quantises the low indices together),
+and count pixels per index. Two things fall out that nothing else reports:
+
+- **Buried features.** On this repo's beacon the containment well — the design
+  document's whole subject, and the thing a comment in the generator described
+  in detail — measured **0 visible pixels**, with its four aperture bars at
+  2, 2, 2 and 0. `Dish` was a solid cylinder and the well lived inside it. The
+  render looked plausible, the PNG looked plausible, and the feature had never
+  once been on screen. Fixing it needed an annulus, not a lighting change.
+- **Where the sprite's area actually goes.** The same pass put that one plain
+  cylinder face at **8.0% of all visible pixels** — the largest and emptiest
+  object in the entity, which is exactly where added detail pays. Guessing
+  from the render had pointed at the wrong place twice.
+
+It also lists geometry that costs render time for nothing: 146 of 645 objects
+drew zero pixels, almost all of them rivets below the ~3 px legibility floor
+(`greeble.legibility`). Read that as a hint, not an order — a rivet hidden in
+the base layer may be doing its job in the frozen or remnant pass.
+
+Count inside Blender (`img.pixels.foreach_get`) rather than reading the EXR
+back with Pillow, which has no EXR reader in a default install.
+
+**Build the scene the way the real driver does.** An analysis script that calls
+`build_scene()` straight from Blender's startup file inherits the default cube,
+which duly showed up owning 1.4% of the sprite and is not a real finding. The
+shipping driver calls `read_factory_settings(use_empty=True)` first.
 
 ## Gates
 
@@ -460,6 +527,35 @@ Four things it exists to get right, each found by testing:
   plus the engine's own `helpers.json_to_table` has neither problem.
 
 Also: `LuaEntity.minable` is read-only in 2.1.
+
+### Shoot at night too — it is the only way to check a light layer
+
+`shoot.ps1 -Daytimes '0,0.5'` shoots each time of day (0 noon, 0.5 midnight)
+and suffixes the midnight files `-d0.5`. **A `draw_as_light` /
+`blend_mode = "additive"` layer renders in the light pass and is simply absent
+at noon** — and no offline composite can show it either, because the darkness
+it is added to does not exist in the PNGs. A beacon core that glows after dark
+is invisible in every check except this one.
+
+Pass it as a **quoted string**, and note why the parameter is typed `[string]`
+rather than `[double[]]`: Windows PowerShell binds a typed array parameter from
+`-File` by taking one value and dropping the rest. `-Daytimes 0,0.5` arrives as
+a single element 0.5 and `-Daytimes 0 0.5` as a single element 0, with no error
+either way — the run shoots one time of day and reports success. The script
+splits the string itself for that reason.
+
+### Gates measure quantity; shape needs the eye
+
+Worth stating plainly because it cost a round trip here. The frozen-patch gate
+checks colour bands, coverage against the machine's own area, and the
+solid-outweighs-faint rule — and a patch passed **every one of them** while
+still reading as the machine going pale, because the snow was the right colour
+in the right quantity spread evenly instead of gathered into drifts. Numbers
+cannot see that. What found it was compositing the patch over the base on
+Aquilo ground beside the cryogenic plant's and looking.
+
+The same caution applies to the contrast gate: hitting luminance sd says how
+much contrast there is, not where it sits (see the form/grain split above).
 
 ### `game.take_screenshot`, the parameters that matter
 
