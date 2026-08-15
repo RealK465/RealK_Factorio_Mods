@@ -155,10 +155,26 @@ mods support. Use the matching vanilla install, or `-Disable space-age quality`,
 no-expansion path; the vanilla install is the stronger of the two, since `-Disable` only
 switches expansion data off rather than removing it.
 
-**`-FactorioPath` is required here even though it is optional elsewhere.** The script otherwise
-defaults to the install the repo lives in, which is the 2.1 one — so a 2.0 backport validated
-without the flag silently exercises the wrong game and passes. Read the `Install:` line the
-script prints and confirm the `base` version on it before believing the result.
+**Which `validate.ps1` you invoke decides the game — not which mod you point it at.** The script
+resolves the install four levels above *itself*, so:
+
+```powershell
+# From inside the legacy worktree: self-locates to the 2.0 install. No flag needed.
+cd <legacy-worktree>
+.\.claude\skills\factorio-validate\validate.ps1 -ModPath .\<mod>
+
+# From the main repo, pointed at a legacy mod: self-locates to the 2.1 install.
+# WRONG GAME - and it exits 0, so it reads as a pass.
+.\.claude\skills\factorio-validate\validate.ps1 -ModPath <legacy-worktree>\<mod>   # no
+```
+
+Each worktree carries its own copy of the skill, sitting in its own install, so **using the
+script next to the mod is the whole discipline** — `-FactorioPath` is then only for reaching a
+*third* install, such as the vanilla one. Verified 2026-08-15: run from the 2.0 worktree with no
+flag, exit 0 against `base 2.0.77` with `Checksum of pure-modules-realk` present.
+
+Whichever way it is invoked, read the `Install:` line it prints and confirm the `base` version
+before believing the result.
 
 A standalone (zip) install keeps its write-data in its own folder rather than a system directory;
 the script detects that and switches itself to scratch-folder mode, so the 2.0 run never writes
@@ -171,10 +187,15 @@ Exit 0 proves the data stage loads. It says nothing about classes 2 and 3.
 `scripts/compare-dumps.py` compares one mod's prototypes across two `--dump-data` runs and
 prints every property that differs, appears or vanishes. It is how class 2 gets caught.
 
+Run each side with **its own** worktree's script, so each self-locates to its own install. Both
+runs write `%TEMP%\data-raw-dump-<mod>.json`, so the `Move-Item` between them is not optional —
+skip it and the second run overwrites the first, and the diff comes out empty and looks like
+"nothing changed".
+
 ```powershell
-.\validate.ps1 -ModPath <mod> -KeepDump                        # 2.1, the default install
+<main-repo>\.claude\skills\factorio-validate\validate.ps1     -ModPath <main-repo>\<mod> -KeepDump
 Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-2.1.json
-.\validate.ps1 -ModPath <legacy>\<mod> -FactorioPath "<2.0 install>" -KeepDump
+<legacy-worktree>\.claude\skills\factorio-validate\validate.ps1 -ModPath <legacy-worktree>\<mod> -KeepDump
 Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-2.0.json
 python scripts\compare-dumps.py dump-2.0.json dump-2.1.json --prefix <mod-prefix>
 ```
