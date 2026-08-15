@@ -11,6 +11,9 @@
     ignored + deny rules          -> Frozen vendor / Reference  (hands-off)
     ignored + no deny rules       -> Local mod / Patched vendor (editable, must self-declare)
 
+  Only folders at THIS repo's root are checked. Anything kept elsewhere on disk is invisible
+  here, so if it matters it has to be written down in CLAUDE.local.md, where nothing verifies it.
+
   Exit 0 = consistent. Exit 1 = at least one problem.
 #>
 

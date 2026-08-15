@@ -208,10 +208,10 @@ exercise a non-default value is to flip `default_value` in `settings.lua`, run, 
   -Disable space-age,quality,elevated-rails,recycler
 ```
 
-Add `-KeepDump` and read `script-output/data-raw-dump.json` to confirm resulting values rather
-than trusting the source; delete the 28 MB dump afterwards. **The game must be closed** — a
-running instance holds `.lock` and the run fails with "Couldn't create lock file", which is an
-environment failure, not a mod error.
+Add `-KeepDump` and read the resulting dump to confirm values rather than trusting the source;
+delete the 28 MB file afterwards. The script runs in scratch write-data mode, so `-KeepDump`
+leaves it at `%TEMP%\data-raw-dump-pure-modules-realk.json` and there is nothing to clean up in
+the install. Nothing has to be closed first — the dev install holds its own lock.
 
 ## Portal images
 
@@ -220,7 +220,8 @@ Two different things, and only one of them ships.
 **`thumbnail.png` at the mod root ships.** 144x144 — the size
 `doc-html/auxiliary/mod-structure.html` asks for — shown both on the portal and in the
 in-game mod browser. It is a crop of `images/beacon-on-aquilo.jpg` with the title set in
-Titillium Web Bold, the game's own UI face, from the install's `data/core/fonts/`.
+Titillium Web Bold, the game's own UI face, which `make_thumbnail.py` reads from the dev
+install's `data/core/fonts/`.
 Regenerate it rather than editing the PNG:
 
 ```bash

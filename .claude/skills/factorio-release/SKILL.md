@@ -107,7 +107,7 @@ npm install -g factoriomod-debug
 
 ### `fmtk mods` — hazard
 
-`fmtk mods enable|disable|install|adjust` defaults `--modsPath` to **the live mods directory** — i.e. this repo — and rewrites `mod-list.json`, which the "Do not touch" rule puts off-limits. Don't use these subcommands here. Managing the play install is the game's job.
+`fmtk mods enable|disable|install|adjust` defaults `--modsPath` to **the live mods directory** and rewrites `mod-list.json`, which the "Do not touch" rule puts off-limits. Don't use these subcommands, and don't point `--modsPath` at any real mods folder. Enabling a mod is the game's job.
 
 ## What goes in the zip
 

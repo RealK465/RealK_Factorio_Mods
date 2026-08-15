@@ -5,7 +5,9 @@
 # Downloaded mods — other authors' work, and huge.
 *.zip
 
-# Game-managed. Editing or restoring these from git breaks the install.
+# Game-managed. Editing or restoring these from git breaks the install. Note that
+# these land in the repo root under BOTH layouts: a standalone install's write-data
+# is the install root, so its mods/ - this folder - is still where they are written.
 mod-list.json
 mod-settings.dat
 mod-settings.json
@@ -21,13 +23,15 @@ mod-settings.json
 # Frozen vendor — other authors' unpacked mods, present only so the game loads them.
 # Each clone adds its own here, since only *.zip is covered automatically. Every entry
 # here also needs Edit + Write deny rules in .claude/settings.json.
-/robotworld-continued_2.1.0/
-/VoidChestInstant_2.8.0/
-/whats_a_spoilage/
+#
+# Empty since 2026-08-15: this repo moved into a dedicated dev install, and every
+# third-party folder stayed behind in the play install. They are listed under
+# "Folders outside this repo" in CLAUDE.local.md. Kept as a section, not deleted,
+# because a clone sharing a folder with the play install still needs it.
 
 # Local mod — ours, but deliberately untracked: it retunes other authors' prototypes for
-# one save and is never published, so it is not a repo deliverable.
-/realk-tweaks/
+# one save and is never published, so it is not a repo deliverable. Also empty since the
+# split — realk-tweaks/ stayed with the play install, which is the only place it loads.
 
 # Machine-specific paths, git identity and tool versions. CLAUDE.md, .claude/
 # and .ai-support/ are tracked; this is the deliberate local-only escape hatch.

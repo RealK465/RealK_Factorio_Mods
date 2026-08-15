@@ -22,9 +22,8 @@ OUT = REPO / "pure-modules-realk" / "thumbnail.png"
 MASTER = Path(__file__).resolve().parent / "thumbnail-512.png"
 
 # Titillium Web is Factorio's own UI face — the game ships it in data/core/fonts.
-FONT = Path(
-    r"C:\Program Files (x86)\Steam\steamapps\common\Factorio\data\core\fonts\TitilliumWeb-Bold.ttf"
-)
+# REPO.parent is the dev install this repo sits in; no other install is consulted.
+FONT = REPO.parent / "data/core/fonts/TitilliumWeb-Bold.ttf"
 
 # Square crop on the source, measured off the platform.
 #

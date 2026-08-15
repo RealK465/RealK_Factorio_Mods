@@ -10,14 +10,13 @@
 #
 # Three things this script exists to get right, each found by testing:
 #
-#  * **SteamAppId=427520 lets a graphics mode run while the game is open.**
-#    Without it the Steam build prints "Steam requires game restart,
-#    restarting..." and exits **0** -- a pass that photographed nothing. That
-#    deceptive exit code is why the run is verified by counting PNGs, not by
-#    trusting $LASTEXITCODE.
+#  * **A graphics mode can exit 0 having photographed nothing**, so the run is
+#    verified by counting PNGs, not by trusting $LASTEXITCODE. (Known cause: a
+#    DRM check on Steam builds. SteamAppId=427520 below defuses it and is a
+#    no-op on the DRM-free dev installs -- kept as cheap insurance.)
 #  * **Scratch write-data.** The .lock, the log and script-output all follow
-#    write-data, so relocating it via config.ini keeps the run clear of the
-#    open game and out of %APPDATA%\Factorio entirely.
+#    write-data, so relocating it via config.ini keeps the run out of the
+#    install's own user-data folder entirely.
 #  * **mod-list.json must be BOM-free**, or Factorio silently ignores it and
 #    loads its own defaults -- so the mod under test never loads and the run
 #    "passes" having shot vanilla.
@@ -49,7 +48,11 @@ param(
   [string] $Daytimes = '0',
 
   [string] $Out = 'shots',
-  [string] $FactorioPath = 'C:\Program Files (x86)\Steam\steamapps\common\Factorio',
+
+  # Defaults to the install this repo lives in -- when the repo is a dev install's
+  # mods/ folder the root is six levels above this script. A standalone (DRM-free)
+  # install is also what makes this script work with the game open; see the header.
+  [string] $FactorioPath,
   [int]    $Ticks = 120,
   [switch] $Keep
 )
@@ -57,6 +60,20 @@ param(
 $ErrorActionPreference = 'Stop'
 $daytimeList = @($Daytimes -split ',' | ForEach-Object { [double] $_.Trim() })
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+if (-not $FactorioPath) {
+  # <install>/mods/.claude/skills/factorio-graphics/scripts/screenshot/ -> <install>
+  $selfInstall = (Resolve-Path -LiteralPath (Join-Path $here '..\..\..\..\..\..')).Path
+  $FactorioPath = @($env:FACTORIO_PATH, $selfInstall) |
+    Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\x64\factorio.exe')) } |
+    Select-Object -First 1
+  # No fallback to a play install on purpose: this script launches a graphics mode
+  # and writes screenshots, which is not something to do against someone's game.
+  if (-not $FactorioPath) {
+    throw "No dev install found at $selfInstall - pass -FactorioPath or set FACTORIO_PATH (see CLAUDE.local.md)."
+  }
+}
+Write-Host "Install: $FactorioPath"
 
 # --- build the spec ------------------------------------------------------
 if ($SpecJson) {
