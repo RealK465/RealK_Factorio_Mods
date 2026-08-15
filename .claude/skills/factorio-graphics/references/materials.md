@@ -143,3 +143,33 @@ Wiring image maps (Cycles):
 Verified-available slugs worth knowing (from the `metal` category, 25 total):
 `metal_plate`, `metal_plate_02`, `corrugated_iron_02`, `rusty_painted_metal`,
 `green_metal_rust`, `factory_wall`, `metal_grate_rusty`, `blue_metal_plate`.
+
+## ambientCG — the other CC0 source, and the bigger one
+
+`scripts/ambientcg.py`, same shape as `polyhaven.py`, same no-key public API,
+same git-ignored cache (`assets/third-party/ambientcg/<id>/`) with the id in
+the generator as the tracked source.
+
+```
+python .claude/skills/factorio-graphics/scripts/ambientcg.py search metal
+python .claude/skills/factorio-graphics/scripts/ambientcg.py fetch Metal032 --res 1K
+```
+
+The two libraries genuinely differ and it is worth knowing which to reach for.
+Poly Haven's texture set is small and photographic. ambientCG runs to 2000+ and
+is far stronger on exactly the flat industrial surfaces a Factorio machine is
+made of — tread and diamond plate, corrugated sheet, painted and rusted metal,
+concrete aprons, chain-link. Its `CorrugatedSteel*` and `Metal*` families are
+the first place to look for the panel grain a procedural noise cannot fake.
+
+Two differences that bite:
+
+- **Map names differ.** ambientCG ships `Color` / `Roughness` / `NormalGL` /
+  `AmbientOcclusion` / `Metalness`, Poly Haven ships `Diffuse` / `Rough` /
+  `nor_gl` / `AO`. `ambientcg.py` accepts the friendly aliases either way.
+- **Not every asset has every map** — plenty have no AO at all. Check the dict
+  the fetch returns rather than assuming four files landed; an unwired AO map
+  silently does nothing anyway, so a missing one is not fatal.
+
+`NormalGL`, never `NormalDX` — GL is the convention Blender's Normal Map node
+expects, exactly as with Poly Haven's `nor_gl`.

@@ -1,0 +1,9 @@
+{
+  "name": "gfx-probe",
+  "version": "1.0.0",
+  "title": "Graphics probe",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "description": "Places entities on a real surface and screenshots them through the game's own renderer. Staged into a scratch mod directory by shoot.ps1; never installed.",
+  "dependencies": ["base"]
+}
