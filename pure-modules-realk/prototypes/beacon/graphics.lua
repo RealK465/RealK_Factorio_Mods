@@ -28,7 +28,7 @@ local function socket(shift)
       render_layer = "lower-object",
       pictures = {
         filename = g .. "beacon-module-mask-box.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
       },
     },
     {
@@ -36,7 +36,7 @@ local function socket(shift)
       render_layer = "lower-object-above-shadow",
       pictures = {
         filename = g .. "beacon-module-mask-lights.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
       },
     },
     {
@@ -44,7 +44,7 @@ local function socket(shift)
       render_layer = "lower-object-above-shadow",
       pictures = {
         filename = g .. "beacon-module-lights.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
         draw_as_light = true,
       },
     },
@@ -56,11 +56,11 @@ end
 -- so it covers most of the machine's height, and packing it to the rings'
 -- box would have grown the far larger anim sheet to match.
 local arc_frames = {
-  width = 284, height = 384,
+  width = 276, height = 378,
   frame_count = 64, line_length = 8,
   animation_speed = 0.5,
   scale = 0.5,
-  shift = util.by_pixel(0.0, -59.5),
+  shift = util.by_pixel(0.5, -60.0),
 }
 
 local function arcs_layer(extra)
@@ -90,12 +90,12 @@ local set = {
         layers = {
           {
             filename = g .. "beacon-base.png",
-            width = 308, height = 450, scale = 0.5,
+            width = 306, height = 448, scale = 0.5,
             shift = util.by_pixel(0.0, -35.0),
           },
           {
             filename = g .. "beacon-shadow.png",
-            width = 412, height = 326, scale = 0.5,
+            width = 410, height = 324, scale = 0.5,
             shift = util.by_pixel(25.5, 1.5),
             draw_as_shadow = true,
           },
@@ -126,7 +126,7 @@ local set = {
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 0.5,
-        shift = util.by_pixel(2.0, -7.5),
+        shift = util.by_pixel(2.5, -7.5),
       },
     },
     -- rings + crystal, frozen while idle
@@ -135,11 +135,11 @@ local set = {
       always_draw = true,
       animation = {
         filename = g .. "beacon-anim.png",
-        width = 220, height = 230,
+        width = 218, height = 222,
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 0.5,
-        shift = util.by_pixel(0.0, -87.5),
+        shift = util.by_pixel(0.0, -86.5),
       },
     },
     -- electric arcs, only while working, tinted by the module
@@ -185,8 +185,8 @@ local set = {
 if feature_flags["freezing"] then
   set.frozen_patch = {
     filename = g .. "beacon-frozen.png",
-    width = 308, height = 442, scale = 0.5,
-    shift = util.by_pixel(0.0, -36.5),
+    width = 306, height = 438, scale = 0.5,
+    shift = util.by_pixel(0.0, -37.0),
   }
   -- The rings and crystal are in the patch too, and the ice on them was
   -- rendered against animation frame 0. Pinning the animation there while

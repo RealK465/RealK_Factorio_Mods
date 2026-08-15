@@ -1,12 +1,20 @@
 # Assembles rendered frames into Factorio sheets and prints the Lua numbers.
 #
-#   python make_sheets.py <frames_dir> <mod_graphics_dir>
+#   python make_sheets.py <frames_dir> <mod_graphics_dir> [--no-post]
 #
 # Every layer is cropped independently and carries its own shift, so editing
 # one of them re-renders and re-packs only that one -- the anim sheet is 64
 # Cycles frames of the rings and there is no reason to redo it for an arc
 # change. Layers with no frames in <frames_dir> are left alone on disk and
 # their numbers carry over from sheet_numbers.txt.
+#
+# Between the render and the sheet sits the paint-over pass -- the step Wube
+# do in Photoshop and never skip (FFF-146: duplicate the render, Multiply and
+# Screen with masks, "to enforce contrast, make edges clearer, define shape of
+# entities better"). It runs PER FRAME, before packing: every filter in it has
+# a radius, and over an assembled sheet it would bleed each frame into its
+# neighbour. Calibrated against vanilla -- the raw beacon render measures
+# luminance sd 31.6 where vanilla's own beacon-bottom is 43.0.
 #
 # Also bakes a soft glow under the arc bolts (the 1-2 px bevel core alone
 # vanishes at in-game scale) and forces the shadow to pure black + alpha,
@@ -17,49 +25,73 @@ import glob
 
 from PIL import Image, ImageFilter
 
+def _skill_scripts(start=None):
+    """Find .claude/skills/factorio-graphics/scripts by walking up.
+
+    Not a fixed number of "..": these scripts are run headless by Blender, by
+    python, and by exec() from Blender's console, and only some of those give
+    __file__ a real value.
+    """
+    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
+    if os.path.isfile(d):
+        d = os.path.dirname(d)
+    while True:
+        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
+        if os.path.isdir(c):
+            return c
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise RuntimeError("factorio-graphics scripts not found above " + str(start))
+        d = parent
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _skill_scripts())
+
+from factorio_render import imaging, post
+
 CANVAS = (512, 640)
 COLS = 8
 ORDER = ("base", "shadow", "anim", "arcs", "deck")
 
+# Which paint-over preset each layer gets, and what it must not do.
+#   shadow  pure black + alpha already; contrast on it is meaningless
+#   arcs    an additive glow layer -- deepening its "crevices" would eat it
+#   deck    carries translucent vapour, so the alpha tightening is turned off
+#           (gamma 1.18 thins exactly the soft edges the effect is made of)
+POST = {
+    "base": dict(preset="entity"),
+    "anim": dict(preset="entity"),
+    "deck": dict(preset="entity", alpha_gamma=1.0),
+    "shadow": None,
+    "arcs": None,
+}
+
+
+def paint(layer, im):
+    cfg = POST.get(layer)
+    if cfg is None or "--no-post" in sys.argv:
+        return im
+    cfg = dict(cfg)
+    return post.paint_over(im, cfg.pop("preset"), **cfg)
+
 
 def even_box(bb):
-    if bb is None:
-        raise SystemExit("no content in layer")
-    x0, y0, x1, y1 = (max(bb[0] - 2, 0), max(bb[1] - 2, 0),
-                      min(bb[2] + 2, CANVAS[0]), min(bb[3] + 2, CANVAS[1]))
-    # even width/height so scale=0.5 stays pixel-aligned in game
-    if (x1 - x0) % 2:
-        x1 += 1
-    if (y1 - y0) % 2:
-        y1 += 1
-    return (x0, y0, x1, y1)
+    return imaging.even_box(bb, CANVAS, pad=2)
 
 
 def union_bbox(images):
-    bb = None
-    for im in images:
-        b = im.getbbox()
-        if b:
-            bb = b if bb is None else (min(bb[0], b[0]), min(bb[1], b[1]),
-                                       max(bb[2], b[2]), max(bb[3], b[3]))
-    return even_box(bb)
+    return imaging.union_box(images, CANVAS, alpha_floor=8, pad=2)
 
 
 def sheet(images, box, cols=COLS):
-    w, h = box[2] - box[0], box[3] - box[1]
-    rows = (len(images) + cols - 1) // cols
-    out = Image.new("RGBA", (w * cols, h * rows))
-    for i, im in enumerate(images):
-        out.paste(im.crop(box), ((i % cols) * w, (i // cols) * h))
-    return out
+    return imaging.pack_sheet(images, box, cols)
 
 
 def lua_shift(box):
     # util.by_pixel takes display px (= source px / 2 at scale 0.5); the
     # camera targets the entity centre, which sits at the canvas centre
-    cx = (box[0] + box[2]) / 2 - CANVAS[0] / 2
-    cy = (box[1] + box[3]) / 2 - CANVAS[1] / 2
-    return cx / 2, cy / 2
+    return imaging.shift_by_pixel(box, CANVAS, 0.5)
 
 
 def add_arc_glow(img):
@@ -77,18 +109,13 @@ def add_arc_glow(img):
 def blacken_shadow(img, base_img):
     # Vanilla shadows are hard black/alpha (measured: essentially binary).
     # Threshold kills the soft ambient-occlusion haze the catcher picks up;
-    # the 1 px blur restores edge anti-aliasing.
-    a = img.getchannel("A").point(lambda v: 255 if v >= 110 else 0)
-    a = a.filter(ImageFilter.GaussianBlur(1))
-    # Erase every shadow pixel the building itself covers. The base draws on
+    # the 1 px blur restores edge anti-aliasing. Erasing every shadow pixel
+    # the building itself covers is the other half: the base draws on
     # floor-mechanics, BELOW the game's shadow plane, so any overlap makes
     # the entity darken its own surface in game (measured: 80% of the sprite
     # was self-shadowed). Only the cast shadow on open ground may remain.
-    building = base_img.getchannel("A").point(lambda v: 0 if v >= 32 else 255)
-    a = Image.composite(a, Image.new("L", a.size, 0), building)
-    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    out.putalpha(a)
-    return out
+    return imaging.harden_shadow(img, base_img, threshold=110, blur=1.0,
+                                 base_alpha_cut=32)
 
 
 def frames_of(frames_dir, layer):
@@ -120,31 +147,34 @@ def load_numbers(path):
 def main():
     frames_dir, out_dir = sys.argv[1], sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)
-    here = os.path.dirname(os.path.abspath(__file__))
-    numbers_path = os.path.join(here, "sheet_numbers.txt")
+    numbers_path = os.path.join(HERE, "sheet_numbers.txt")
     numbers = load_numbers(numbers_path)
 
     base_paths = frames_of(frames_dir, "base")
+    base_raw = Image.open(base_paths[0]) if base_paths else None
     if base_paths:
-        box = even_box(Image.open(base_paths[0]).getbbox())
-        Image.open(base_paths[0]).crop(box).save(
-            os.path.join(out_dir, "beacon-base.png"))
+        painted = paint("base", base_raw)
+        box = even_box(imaging.bbox_above(painted, 8))
+        painted.crop(box).save(os.path.join(out_dir, "beacon-base.png"))
         numbers["base"] = line_static("base", box)
+        print("  base post:", post.report(base_raw, painted))
 
     shadow_paths = frames_of(frames_dir, "shadow")
     if shadow_paths:
         # masking needs the base frame, not the packed sheet: it is the raw
-        # canvas the shadow was rendered against
+        # canvas the shadow was rendered against. Mask against the PAINTED
+        # base -- the alpha tightening moves the silhouette by a pixel and a
+        # mask cut from the untightened one leaves a rim of self-shadow.
         if not base_paths:
             raise SystemExit("shadow needs the base frames to mask against")
-        full = blacken_shadow(Image.open(shadow_paths[0]), Image.open(base_paths[0]))
-        box = even_box(full.getbbox())
+        full = blacken_shadow(Image.open(shadow_paths[0]), paint("base", base_raw))
+        box = even_box(imaging.bbox_above(full, 8))
         full.crop(box).save(os.path.join(out_dir, "beacon-shadow.png"))
         numbers["shadow"] = line_static("shadow", box)
 
     anim_paths = frames_of(frames_dir, "anim")
     if anim_paths:
-        frames = [Image.open(p) for p in anim_paths]
+        frames = [paint("anim", Image.open(p)) for p in anim_paths]
         box = union_bbox(frames)
         img = sheet(frames, box)
         img.save(os.path.join(out_dir, "beacon-anim.png"))
@@ -155,7 +185,7 @@ def main():
         # The deck plant: holographic glyphs, cryo vapour and the cable
         # pulses. Plain alpha, not additive -- the vapour has to be able to
         # cover what is behind it, which an additive layer cannot do.
-        frames = [Image.open(p) for p in deck_paths]
+        frames = [paint("deck", Image.open(p)) for p in deck_paths]
         box = union_bbox(frames)
         img = sheet(frames, box)
         img.save(os.path.join(out_dir, "beacon-deck.png"))

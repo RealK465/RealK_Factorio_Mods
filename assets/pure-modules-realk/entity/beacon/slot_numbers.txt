@@ -1,1 +1,1 @@
-slots: width=42 height=40 ref_shift=util.by_pixel(-16.0, 66.0)
+slots: width=40 height=40 ref_shift=util.by_pixel(-16.0, 66.0)

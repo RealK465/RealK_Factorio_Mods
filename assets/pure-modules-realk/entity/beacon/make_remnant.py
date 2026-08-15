@@ -18,6 +18,27 @@ import sys
 
 from PIL import Image, ImageChops, ImageFilter
 
+
+def _skill_scripts(start=None):
+    """Find .claude/skills/factorio-graphics/scripts by walking up."""
+    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
+    if os.path.isfile(d):
+        d = os.path.dirname(d)
+    while True:
+        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
+        if os.path.isdir(c):
+            return c
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise RuntimeError("factorio-graphics scripts not found above " + str(start))
+        d = parent
+
+
+sys.path.insert(0, _skill_scripts())
+
+from factorio_render import gates, post
+
+
 CANVAS = (576, 576)
 SHADOW_ALPHA = 0.42       # vanilla remnant shadows are soft mid-grey, not black
 SHADOW_RGB = (26, 24, 22)
@@ -82,7 +103,12 @@ def scorch_fringe(img, seed):
 
 
 def compose(wreck_path, shadow_path, seed):
-    wreck = Image.open(wreck_path).convert("RGBA")
+    # Paint-over on the WRECK only. The fringe and the ground shadow below are
+    # generated here rather than rendered, so they already have the contrast
+    # they were authored with; running the pass over them would just crunch a
+    # gradient. The remnant preset carries no rim light and no saturation lift
+    # -- a wreck is burnt and unlit, and vanilla's sit at mean luminance 63-67.
+    wreck = post.paint_over(Image.open(wreck_path).convert("RGBA"), "remnant")
     shadow = Image.open(shadow_path).convert("RGBA")
     out = Image.new("RGBA", wreck.size, (0, 0, 0, 0))
     out = Image.alpha_composite(out, scorch_fringe(wreck, seed))
@@ -120,6 +146,7 @@ def main():
     for i, im in enumerate(imgs):
         sheet.paste(im.crop(box), (0, i * h))
     sheet.save(os.path.join(out_dir, "pure-beacon-remnants.png"))
+    print("  ", gates.remnant(os.path.join(out_dir, "pure-beacon-remnants.png")))
 
     # util.by_pixel takes display px (= source px / 2 at scale 0.5); the camera
     # targets the entity centre, which sits at the canvas centre

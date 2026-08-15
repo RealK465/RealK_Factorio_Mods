@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.8
+Date: ????
+  Graphics:
+    - The Pure beacon is redrawn with deeper shading and crisper edges, so its
+      coils, panels and instruments read at normal zoom instead of blurring
+      together.
+    - On Aquilo the frozen beacon now shows snow lying on the machine, rather
+      than a pale film washing the whole building out.
+    - A module's colour no longer paints a flat patch over its socket. It tints
+      the housing and lets the metal underneath show through.
+    - The beacon's wreck is darker and more burnt, matching the other ruins in
+      the game.
+    - The module and beacon icons are sharper, and the dark fringe around their
+      edges is gone.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.7
 Date: 2026-08-08
   Changes:

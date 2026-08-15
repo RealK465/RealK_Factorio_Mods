@@ -18,6 +18,29 @@ import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+def _skill_scripts(start=None):
+    """Find .claude/skills/factorio-graphics/scripts by walking up.
+
+    Not a fixed number of "..": these scripts are run headless by Blender, by
+    python, and by exec() from Blender's console, and only some of those give
+    __file__ a real value.
+    """
+    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
+    if os.path.isfile(d):
+        d = os.path.dirname(d)
+    while True:
+        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
+        if os.path.isdir(c):
+            return c
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise RuntimeError("factorio-graphics scripts not found above " + str(start))
+        d = parent
+
+
+sys.path.insert(0, _skill_scripts())
+
+from factorio_render import rig as fr_rig
 
 CANVAS = (576, 576)
 ORTHO_SCALE = 9.0          # 576/9 -> 64 px/tile, same as the entity
@@ -53,9 +76,10 @@ def parse_args():
 
 def set_engine(scn):
     scn.render.engine = "CYCLES"
-    scn.cycles.device = "CPU"
+    fr_rig.use_gpu(scn)
     scn.cycles.samples = 96
     scn.cycles.use_denoising = True
+    scn.render.use_persistent_data = True
 
 
 def rig():
