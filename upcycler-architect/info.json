@@ -1,0 +1,11 @@
+{
+  "name": "upcycler-architect",
+  "version": "0.1.0",
+  "title": "Upcycler Architect",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/upcycler-architect",
+  "description": "Pick an item and a target quality, and have a complete upcycling loop designed and placed as ghosts. In early development, not yet functional.",
+  "dependencies": ["base >= 2.1.0", "quality >= 2.1.0"],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**"] }
+}
