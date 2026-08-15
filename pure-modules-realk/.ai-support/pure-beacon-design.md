@@ -177,6 +177,120 @@ black rectangle there — and which face wins depends on BVH order, so it appear
 as unrelated geometry was added elsewhere on the deck. The audit never reported it because
 `("Rim", "Rim")` is whitelisted. The side beams now butt into the front and back pair.
 
+## Containment ring plant, and the well that was never on screen
+
+Added after everything above, and prompted by measurement rather than by the
+brief. An object-ID render (every material swapped for a flat index, one frame
+to EXR, pixels counted per index — see the graphics skill) reported two things
+the renders themselves had never shown:
+
+- **`DishGlow` drew 0 pixels, and the four aperture bars drew 2, 2, 2 and 0.**
+  `Dish` was a solid cylinder r 0.95 spanning z 1.22–1.42 and the whole
+  containment well lived inside it. The well described at the top of this
+  document — recessed glow, lipped ring, aperture bars, the machine's entire
+  reason for existing — had never once appeared in the sprite. `Dish` is an
+  annulus now (`annulus()` in the generator, r_in 0.66), the emitter sits 0.15
+  below the rim so there is visible shaft wall above it, and the bars went from
+  four to three because an even count reads as a grille and an odd one as
+  machinery.
+- **That one plain cylinder face was 8.0% of every visible pixel** — the
+  largest and emptiest object in the entity, which is where added detail buys
+  the most. `build_dish_plant()` puts a condenser stack on the front-left of
+  the annulus and a squat control head on the front-right, joined by an arched
+  conduit crossover, with radial vents and a bolt circle on the ring itself.
+
+Two constraints shaped the placement and both are worth keeping: everything
+stays under z 1.8, because the inner ring sweeps down to 2.13 and the crystal
+sits above that; and the two sides are **deliberately not mirrored**. Bilateral
+symmetry is the single most un-Factorio property this machine had — no vanilla
+entity has it — so the two units differ in height, angle and function.
+
+The crossover started as a sagging hose and the overlap audit caught its ribs
+clipping `DishLip`: a catenary between those anchors dips to about z 1.43 and
+the lip tops out at 1.48. It is an arch now, which clears the lip and reads as
+the rigid line a pressure-vessel crossover would actually be.
+
+**The glow is deliberately dim** (strength 0.52, down from 1.2). Once the well
+was open it became a large up-facing emissive disc and at the old value it
+clipped to a flat cyan plate that outshone the crystal — which is the hero and
+holds the emissive budget. The recess does the work; the light only has to
+suggest that something is burning down there.
+
+## Palette: the beacon was grey, and coverage was not the fix
+
+The identity teal was measured at saturation 0.20 covering 29% of the sprite,
+and the machine still read monochrome — 53% of its pixels sat below saturation
+0.12, where every vanilla entity keeps 17–23%. The instinct to paint more of
+the machine teal is backwards; **saturation is what makes an identity colour
+survive at 64 px/tile, not coverage.**
+
+A cold-dominant machine is perfectly vanilla — the lab is 53% blue at
+saturation 0.45 — so the Aquilo identity stays. What was not vanilla was the
+neutral mass behind it: `gunmetal`, `cast_iron` and the dark paint family were
+all blue-grey and owned ~40% of the sprite between them. Vanilla has no neutral
+mass at all, and its saturation runs *inverse* to value (the cryogenic plant
+measures 0.35 in its darkest band falling to 0.14 in its highlights) because
+crevices fill with warm rust while speculars go white. Those three families are
+warm oxidised tones now with their `rust` terms raised so the AO-seeded
+crevices actually take colour, and the teal itself went from saturation 0.14 to
+0.28 while giving up coverage rather than gaining it.
+
+Numbers before → after, base layer: saturated-pixel share 47% → 89%, mean
+saturation 0.16 → 0.37, luminance sd 0.170 → 0.222, form/grain energy ratio
+0.63 → 3.23 (vanilla 5×5 entities: cryogenic plant 1.70, lab 3.27).
+
+## The core after dark
+
+`beacon-glow.png`, drawn `draw_as_light` + `blend_mode = "additive"`, which is
+what vanilla's own beacon does with `beacon-light.png`. Without it the crystal
+went as flat as the hull at night, which is wrong for the one part of this
+machine that is supposed to be burning.
+
+Rendered as an **emission-only pass**: the same geometry as `anim` with every
+light in the scene and the world background switched to zero. Nothing is
+classified as emissive by name — with no illumination at all, what reaches the
+film *is* the emission, which is exactly what an additive light sprite should
+contain. The rings come out near-black and are thresholded away before the crop
+box is measured, because black adds nothing under additive blending and
+carrying it would have set the box to the full ring silhouette.
+
+`always_draw = true`, unlike vanilla's, which only lights while working: the
+same reasoning as the rings and the deck plant — an idle Pure beacon is powered
+rather than dead, so its core is lit whether or not modules are in it.
+`apply_tint = false`, because light does not take the module tint.
+
+The sheet is **gained 1.75x in packing**, and only the sheet. The emission-only
+pass is faithful but dim -- mean (20,53,73) over its visible area -- and
+additive into the light pass that reads as a crystal which is merely not-dark.
+Boosting here rather than raising the material emission is what lets the daytime
+crystal keep the deeper blue it was tuned to: both sheets come off one render
+and only this one is lifted.
+
+The entity also keeps a real `light` source, raised from intensity 0.4 / size 8
+to **0.8 / 16**. At the old values it lit essentially nothing on the ground, so
+the beacon read as a bright sprite rather than as something burning. A lamp is
+0.9 / 40, so this is still a machine glow rather than lighting. Vanilla's own
+beacon has its `light` commented out and leans entirely on the sprite; this one
+does both, because the crystal is the hero and the design calls it a contained
+plasma.
+
+Packed at **half the source resolution** with `scale = 1.0`. It is a 9 px
+gaussian with no detail in it, and at full resolution the sheet came out 4.2 MB
+— larger than the anim sheet it exists to light. Half res costs nothing visible
+and a quarter of the atlas.
+
+## Crystal value, and what the paint-over did to it
+
+The crystal is a step darker than it was, and deliberately so: `post.form_contrast`
+stretches every channel about one common pivot, so a bright saturated pixel
+gains chroma *and* drifts in hue as its top channel meets the soft clip. The
+crystal measured (85,175,220) before that pass existed and (87,204,219) after —
+it had turned turquoise. Pulling green down at the source with a crystal-only
+colour set (the arcs and ring seams keep the shared `PLASMA_*` tones) and
+dropping the emission so less of it reaches the clip at all is what holds the
+hue. It now measures mean luminance 123.7 over the crystal body against 137.7
+before, with the near-clipped fraction halved from 19.0% to 10.5%.
+
 ## Aquilo frost overlay
 
 Added after the four original design passes, so it isn't in any of them by name — folded
@@ -189,6 +303,49 @@ are the measured output of `make_frozen.py`, which gates the result against ever
 frozen patch on colour bands, coverage against the machine's own area, and alpha spread —
 the alpha spread is what catches a patch that's technically the right colour and still
 reads as a film. Current values live in `prototypes/beacon/graphics.lua`.
+
+### The frost was a film, and the floor was why
+
+The first shipped version of this patch passed every colour and coverage gate
+and still read as the machine going pale — snow smeared over the whole hull
+rather than lying on it. Two causes, both of them a floor:
+
+- **`snow_override` had an amount floor of 0.32.** Every surface with any
+  upward component kept at least 32% snow however sheltered it was, so no drift
+  could read as a drift. Removed. The up-facing ramp also started at normal
+  Z 0.48 — a surface tilted 60 degrees off horizontal — which is most of the
+  panels on the machine; it starts at 0.63 now. The drift noise went from scale
+  7 detail 4 to scale 2.7 detail 2, because vanilla's drifts are blobs and ours
+  were mottling. AO samples went 8 to 32: at 8 the denoiser smeared the
+  accumulation into broad horizontal bands across the sprite, which was most of
+  what made the layer look wrong.
+- **`drift_alpha` then clipped alpha below 40**, which was the right fix when
+  the shader was producing the film but became a second cut once it was not —
+  it removed the soft shoulder along with the tail, and the transition band
+  collapsed to 2.1% of the machine's area against vanilla's 6.2-11.0. Floor 16
+  now.
+
+Result, as fractions of the machine's own opaque area: faint 8.4 -> 6.7, veil
+7.2 -> 4.5, mid 5.0 -> 4.3, solid 16.3 -> 14.9, any-alpha 31.0 -> 25.3. The
+veil roughly halved while the drifts held, which is the shape vanilla has.
+
+**The gates could not have caught this.** They measure colour bands, coverage
+ratios and the solid-outweighs-faint rule, and every one of them was green.
+Snow that is the right colour, in the right quantity, spread evenly instead of
+in drifts is a *shape* failure, and the only thing that finds it is compositing
+the patch over the base on Aquilo ground and looking at it next to vanilla's.
+
+### The wreck stayed blue
+
+Vanilla remnants are 88-99% warm pixels (cryogenic plant 88.0, nuclear reactor
+94.5, base beacon 99.4) because rust wins whatever the machine was painted —
+and the cryogenic plant is a teal machine. This wreck measured 64.3% warm and
+34.9% cold. The hull inherits `PAINT_A`/`PAINT_B` from the entity, so the
+palette work above had actually made it *bluer*, and its own `bare`, `iron`,
+`gunmetal` and `ring` tones were hardcoded neutral or cool. Those are warm now,
+and the surviving identity paint is pulled toward its own luminance before use
+(`fade()`), since burnt paint loses chroma and the rust on top of it has to be
+able to read. 82.8% warm now, saturation 0.36 against vanilla's 0.32-0.40.
 
 ## Render pipeline
 

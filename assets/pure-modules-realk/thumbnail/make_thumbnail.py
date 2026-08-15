@@ -26,9 +26,21 @@ FONT = Path(
     r"C:\Program Files (x86)\Steam\steamapps\common\Factorio\data\core\fonts\TitilliumWeb-Bold.ttf"
 )
 
-# Square crop on the source, measured off the platform (x 95-390, y 58-465).
-# Pushed up so the machine sits high and the bare stone floor carries the text.
-CROP = (22, 30, 462, 470)
+# Square crop on the source, measured off the platform.
+#
+# RE-MEASURED for the 802x860 screenshot that replaced the original 500x578 one.
+# The old constant (22, 30, 462, 470) was in the old image's pixel space and on
+# this one would have cropped a corner of the platform -- there is nothing in
+# the script that would have complained, so re-check this whenever the source
+# screenshot is replaced. Platform occupies x 147-654, y 64-668 (thresholding
+# the stone against the snow); the machine sits about x 270-530, y 175-540.
+#
+# The square is pushed up so the machine sits high and the bare stone below it
+# carries the text. The binding constraint is that the source is only 860 px
+# tall: a crop large enough to leave the text clear of the machine runs out of
+# image before it runs out of stone, which is why TEXT_W came down from 0.74 to
+# 0.69 at the same time rather than the crop simply growing.
+CROP = (95, 152, 705, 762)
 
 # Brushed-steel ramp, pulled cool to echo the beacon's crystal. Applied down each
 # line separately, so both read as metal rather than one line getting the
@@ -50,7 +62,7 @@ SIZE = 512          # master is built here, then downsampled to 144
 LINES = ("PURE", "MODULES")
 # One size for both lines, fitted to the LONGER one. Fitting each line to the
 # same width instead blows "PURE" up to four huge letters and buries the beacon.
-TEXT_W = 0.74       # width of the longest line, as a fraction of the image
+TEXT_W = 0.69       # width of the longest line, as a fraction of the image
 BASELINE = 0.935    # bottom of the last line, as a fraction of height
 
 

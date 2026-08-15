@@ -19,6 +19,29 @@ import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+def _skill_scripts(start=None):
+    """Find .claude/skills/factorio-graphics/scripts by walking up.
+
+    Not a fixed number of "..": these scripts are run headless by Blender, by
+    python, and by exec() from Blender's console, and only some of those give
+    __file__ a real value.
+    """
+    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
+    if os.path.isfile(d):
+        d = os.path.dirname(d)
+    while True:
+        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
+        if os.path.isdir(c):
+            return c
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise RuntimeError("factorio-graphics scripts not found above " + str(start))
+        d = parent
+
+
+sys.path.insert(0, _skill_scripts())
+
+from factorio_render import rig as fr_rig
 
 PX_PER_TILE = 64
 CANVAS = (512, 640)
@@ -33,6 +56,13 @@ LAYER_COLLS = {
     # pulse. Its own loop and its own crop box -- re-rendering the rings for
     # a vapour puff would cost 64 frames of the far larger anim sheet.
     "deck": ("PB_Deck",),
+    # Emission-only pass over the same geometry as `anim`, for the
+    # draw_as_light sheet: the crystal and the ring seams keep shining after
+    # dark the way vanilla's own beacon-light.png does. Rendered by switching
+    # the lights and the world off rather than by classifying materials as
+    # emissive -- with nothing illuminating the scene, what reaches the film IS
+    # the emission, which is exactly what an additive light sprite should be.
+    "glow": ("PB_Moving",),
     "footprint": ("PB_Footprint",),
     # static geometry ONLY: a baked shadow of the floating rings/crystal lands
     # ~2 tiles right of the building as a detached, frozen blob (found in game)
@@ -56,6 +86,7 @@ STATIC_LAYERS = {"base", "shadow", "footprint", "slot-box", "slot-lights", "froz
 # layers whose content only covers the moving region -- saves ~70% per frame.
 BORDERS = {
     "anim": (0.20, 0.52, 0.80, 1.0),
+    "glow": (0.20, 0.52, 0.80, 1.0),   # same geometry as anim, same region
     # the arcs layer now runs the full height of the electrodes, from the
     # induction coil at the foot of a pylon to the core, so its region has to
     # reach down past the front pylon roots -- clipping it is silent
@@ -71,9 +102,13 @@ def parse_args():
     layers = ["base", "anim"]
     frames = 1
     only = None
+    from_blend = False
     i = 1
     while i < len(argv):
-        if argv[i] == "--layers":
+        if argv[i] == "--from-blend":
+            from_blend = True
+            i += 1
+        elif argv[i] == "--layers":
             layers = argv[i + 1].split(",")
             i += 2
         elif argv[i] == "--frames":
@@ -84,7 +119,7 @@ def parse_args():
             i += 2
         else:
             raise SystemExit("unknown arg: " + argv[i])
-    return out_dir, layers, frames, only
+    return out_dir, layers, frames, only, from_blend
 
 
 def set_engine(scn):
@@ -92,9 +127,13 @@ def set_engine(scn):
     # AO/GI is what makes crevices dark and parts sit together (EEVEE reads
     # flat by comparison -- tried, rejected).
     scn.render.engine = "CYCLES"
-    scn.cycles.device = "CPU"
+    # GPU if the machine has one, else CPU -- measured 16.5 s -> 7.0 s per
+    # frame here, and persistent data takes a repeat render to 2.2 s. The
+    # loop this shortens is look-fix-look, which is where the art comes from.
+    fr_rig.use_gpu(scn)
     scn.cycles.samples = 96
     scn.cycles.use_denoising = True
+    scn.render.use_persistent_data = True
     # The frozen layer turns every material into a mostly-transparent snow
     # mix, and a camera ray crossing this model meets far more than the
     # default 8 transparent surfaces -- the coil stacks alone are dozens of
@@ -179,8 +218,22 @@ def render_layer(layer, out_dir, frames, only=None):
     # The frozen layer renders the same geometry as base, with every material
     # swapped for the snow shader -- so the only thing that survives to film
     # is the accumulation, and the machine underneath stays transparent.
-    bpy.context.view_layer.material_override = (
-        beacon_gen.snow_override() if layer == "frozen" else None)
+    override = beacon_gen.snow_override() if layer == "frozen" else None
+    bpy.context.view_layer.material_override = override
+    # Emission-only: kill every light and the world, so nothing but the
+    # materials' own emission lands on film.
+    dark = []
+    if layer == "glow":
+        for o in bpy.data.objects:
+            if o.type == "LIGHT":
+                dark.append((o.data, o.data.energy))
+                o.data.energy = 0.0
+        world_bg = scn.world.node_tree.nodes["Background"] if scn.world else None
+        if world_bg:
+            dark.append((world_bg.inputs["Strength"], world_bg.inputs["Strength"].default_value))
+            world_bg.inputs["Strength"].default_value = 0.0
+    # persistent data caches exactly what a material override invalidates
+    scn.render.use_persistent_data = override is None
     layer_dir = os.path.join(out_dir, layer)
     os.makedirs(layer_dir, exist_ok=True)
     todo = [0] if layer in STATIC_LAYERS else (only or list(range(frames)))
@@ -190,7 +243,13 @@ def render_layer(layer, out_dir, frames, only=None):
             beacon_gen.update_arcs(f, frames)
         scn.render.filepath = os.path.join(layer_dir, "f%04d.png" % f)
         bpy.ops.render.render(write_still=True)
+    for holder, value in dark:
+        if hasattr(holder, "energy"):
+            holder.energy = value
+        else:
+            holder.default_value = value
     bpy.context.view_layer.material_override = None
+    scn.render.use_persistent_data = True
 
 
 def render_shadow(out_dir, frames):
@@ -218,7 +277,25 @@ def render_shadow(out_dir, frames):
 
 
 def main():
-    out_dir, layers, frames, only = parse_args()
+    out_dir, layers, frames, only, from_blend = parse_args()
+    if from_blend:
+        # 0.18 s to reopen the saved snapshot against 62.9 s to rebuild the
+        # geometry -- the difference between a look-fix-look loop that costs
+        # 80 s and one that costs 2.5 s. beacon_gen stays the source of truth,
+        # so re-run save_blend.py after touching it, and never use this flag
+        # for a final render of a generator change.
+        blend = os.path.join(HERE, "beacon.blend")
+        bpy.ops.wm.open_mainfile(filepath=blend)
+        rig()
+        scn = bpy.context.scene
+        set_engine(scn)
+        for layer in layers:
+            if layer == "shadow":
+                render_shadow(out_dir, frames)
+            else:
+                render_layer(layer, out_dir, frames, only)
+        print("RENDER DONE (from blend):", ",".join(layers), "->", out_dir)
+        return
     bpy.ops.wm.read_factory_settings(use_empty=True)
     import beacon_gen
     objs = beacon_gen.build_scene()

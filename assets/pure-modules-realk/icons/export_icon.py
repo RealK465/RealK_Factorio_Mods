@@ -1,18 +1,52 @@
 """Turn a Blender render into a shippable Factorio module icon.
 
-Bloom, downscale, then the 120x64 mipmap strip vanilla uses.
+Bloom, paint-over, downscale, then the 120x64 mipmap strip vanilla uses.
 
 The bloom has to happen here rather than in Blender's compositor: the glow
 must extend the *alpha* as well as the colour, or the halo simply vanishes
 against the game's background. Vanilla's module icons carry exactly that --
 their cyan haze reaches past the chassis silhouette into transparent pixels.
 
+Every resample goes through factorio_render.imaging, never Image.resize.
+These renders are straight (unassociated) alpha, so a direct resize averages
+colour across the alpha edge unweighted and lays a dark rind round the icon.
+Measured on this mod's own art at a 4x reduction, 27-38% of the surviving
+pixels came out more than 8/255 wrong, and an icon is nothing *but* edge at
+64 px. Factorio loads with premul_alpha = true, so the shipped files are the
+right convention; it was our downscaling that was wrong.
+
     python export_icon.py item <render.png> <out.png>   ->  120x64
     python export_icon.py tech <render.png> <out.png>   ->  480x256
 """
 
+import os
 import sys
+
 from PIL import Image, ImageFilter
+
+def _skill_scripts(start=None):
+    """Find .claude/skills/factorio-graphics/scripts by walking up.
+
+    Not a fixed number of "..": these scripts are run headless by Blender, by
+    python, and by exec() from Blender's console, and only some of those give
+    __file__ a real value.
+    """
+    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
+    if os.path.isfile(d):
+        d = os.path.dirname(d)
+    while True:
+        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
+        if os.path.isdir(c):
+            return c
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise RuntimeError("factorio-graphics scripts not found above " + str(start))
+        d = parent
+
+
+sys.path.insert(0, _skill_scripts())
+
+from factorio_render import imaging, post
 
 # Above the lit chassis (~0.51 luminance) so the bloom picks up the lens and
 # bevel highlights only -- lower, and the whole body hazes over.
@@ -59,16 +93,16 @@ def bloom(im):
     return out
 
 
-def mipmap_strip(icon, base):
-    """base + base/2 + base/4 + base/8 laid out horizontally, as vanilla ships
-    them: 120x64 for item icons, 480x256 for technology icons."""
-    sizes = [base, base // 2, base // 4, base // 8]
-    strip = Image.new("RGBA", (sum(sizes), base), (0, 0, 0, 0))
-    x = 0
-    for size in sizes:
-        strip.alpha_composite(icon.resize((size, size), Image.LANCZOS), (x, 0))
-        x += size
-    return strip
+def sharpen(im):
+    """The paint-over pass, at full render size and after the bloom.
+
+    Order is deliberate. The bloom is a 16 px-radius glow; the contrast pass
+    works at radius 4, so it sits entirely below the glow's frequency band and
+    cannot amplify the halo -- it only shapes the chassis. alpha_gamma is
+    pinned to 1.0 so the bloomed alpha, which is the whole point of doing the
+    glow here rather than in the compositor, comes through untouched.
+    """
+    return post.paint_over(im, "icon", alpha_gamma=1.0)
 
 
 def drop_shadow(icon, offset=(11, 13), blur=7.0, opacity=150):
@@ -88,15 +122,15 @@ def drop_shadow(icon, offset=(11, 13), blur=7.0, opacity=150):
 
 
 def main(kind, src, dst):
-    im = bloom(Image.open(src))
+    im = sharpen(bloom(Image.open(src)))
     if kind == "item":
-        mipmap_strip(im.resize((64, 64), Image.LANCZOS), 64).save(dst)
+        imaging.mipmap_strip(imaging.resize(im, (64, 64)), 64).save(dst)
     elif kind == "tech":
         # inset so the shadow has somewhere to fall inside the 256 box
-        body = im.resize((216, 216), Image.LANCZOS)
+        body = imaging.resize(im, (216, 216))
         canvas = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         canvas.alpha_composite(body, (14, 10))
-        mipmap_strip(drop_shadow(canvas), 256).save(dst)
+        imaging.mipmap_strip(drop_shadow(canvas), 256).save(dst)
     else:
         raise SystemExit("kind must be 'item' or 'tech'")
     print("wrote", dst)

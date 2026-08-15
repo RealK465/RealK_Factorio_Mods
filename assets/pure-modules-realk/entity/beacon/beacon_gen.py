@@ -10,6 +10,7 @@ import random
 import sys
 from pathlib import Path
 
+import bmesh
 import bpy
 from mathutils import Vector
 
@@ -76,6 +77,16 @@ COOLANT_COLD = srgb("#6FD8FF")
 LED_GREEN = srgb("#69FF8C")
 LED_AMBER = srgb("#FFB020")
 HEAT_ORANGE = srgb("#FF6A18")   # heat-pipe interior, the warm counterweight
+# Crystal-only tones, deliberately deeper and bluer than the PLASMA_* set the
+# arcs and seams share. post.form_contrast stretches each channel about one
+# common pivot, so a bright saturated pixel gains chroma AND drifts in hue as
+# the top channel meets the soft clip: the crystal measured (85,175,220) before
+# that pass existed and (87,204,219) after, i.e. it turned turquoise. Pulling
+# green down at the source, and dropping the emission so less of the crystal
+# reaches the clip at all, is what holds the hue.
+CRYSTAL_DEEP = srgb("#1A5CB0")
+CRYSTAL_LIT = srgb("#2F80B8")
+CRYSTAL_RIM = srgb("#C0DEEE")
 
 
 # --------------------------------------------------------------------------
@@ -183,6 +194,42 @@ def cylinder(name, radius, depth, location, rotation=(0, 0, 0), material=None, v
     return obj
 
 
+def annulus(name, r_in, r_out, height, location, material=None, verts=48):
+    """Flat ring with a real hole. A solid cylinder buries whatever sits under
+    it -- the containment well's glow and its aperture bars rendered exactly
+    zero pixels between them until this existed, because `Dish` was solid and
+    they lived inside it.
+
+    The shell is closed and non-self-intersecting, so recalc_face_normals is
+    safe here; it is not safe on the overlapping-box assemblies elsewhere in
+    this file.
+    """
+    me = bpy.data.meshes.new(PREFIX + name + "M")
+    bm = bmesh.new()
+    hz = height * 0.5
+    ring = {}
+    for r, rk in ((r_in, "i"), (r_out, "o")):
+        for z, zk in ((-hz, "lo"), (hz, "hi")):
+            ring[rk + zk] = [bm.verts.new((r * math.cos(2 * math.pi * i / verts),
+                                           r * math.sin(2 * math.pi * i / verts), z))
+                             for i in range(verts)]
+    for i in range(verts):
+        j = (i + 1) % verts
+        bm.faces.new((ring["olo"][i], ring["olo"][j], ring["ohi"][j], ring["ohi"][i]))
+        bm.faces.new((ring["ihi"][i], ring["ihi"][j], ring["ilo"][j], ring["ilo"][i]))
+        bm.faces.new((ring["ohi"][i], ring["ohi"][j], ring["ihi"][j], ring["ihi"][i]))
+        bm.faces.new((ring["ilo"][i], ring["ilo"][j], ring["olo"][j], ring["olo"][i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    obj = bpy.data.objects.new(PREFIX + name, me)
+    obj.location = location
+    if material:
+        obj.data.materials.append(material)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
 def sphere(name, radius, location, material=None, subdiv=2):
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdiv, radius=radius, location=location)
     obj = bpy.context.object
@@ -211,7 +258,10 @@ def _get_mat(name):
 
 
 RUST = (0.14, 0.055, 0.025)
-BARE = (0.34, 0.35, 0.37)
+# Chipped paint shows bare steel, and vanilla renders that warm rather than
+# neutral -- its highlight band measures hue 41 at saturation 0.14, where this
+# was a flat grey (saturation 0.04) that drained colour from every worn edge.
+BARE = srgb("#9E9890")
 
 
 def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
@@ -229,7 +279,7 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
     nt, out = _reset_nodes(m)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
 
-    def noise_node(scale, detail=6.0):
+    def noise_node(scale, detail=2.6):
         n = nt.nodes.new("ShaderNodeTexNoise")
         n.inputs["Scale"].default_value = scale
         n.inputs["Detail"].default_value = detail
@@ -350,7 +400,7 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
         ao_inv = math_node("SUBTRACT")
         ao_inv.inputs[0].default_value = 1.0
         nt.links.new(ao.outputs["AO"], ao_inv.inputs[1])
-        rust_noise = noise_node(noise_scale * 0.6, detail=8.0)
+        rust_noise = noise_node(noise_scale * 0.6, detail=3.0)
         rust_patch = map_range((0.0, 1.0), fr=(0.52, 0.68))
         nt.links.new(rust_noise.outputs["Fac"], rust_patch.inputs["Value"])
         seed = math_node("MAXIMUM")
@@ -370,7 +420,7 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
     obj_info = nt.nodes.new("ShaderNodeObjectInfo")
     hue_map = map_range((0.47, 0.53))
     nt.links.new(obj_info.outputs["Random"], hue_map.inputs["Value"])
-    val_map = map_range((0.85, 1.15))
+    val_map = map_range((0.74, 1.26))
     nt.links.new(obj_info.outputs["Random"], val_map.inputs["Value"])
     jitter = nt.nodes.new("ShaderNodeHueSaturation")
     nt.links.new(hue_map.outputs["Result"], jitter.inputs["Hue"])
@@ -381,7 +431,7 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
     # edge wear: convex edges chip to bare metal, patchy via fine noise
     edge = map_range((0.0, 1.0), fr=(0.53, 0.62))
     nt.links.new(geo.outputs["Pointiness"], edge.inputs["Value"])
-    wear_noise = noise_node(noise_scale * 2.4)
+    wear_noise = noise_node(noise_scale * 1.5)
     wear_patch = map_range((0.25, 1.0), fr=(0.35, 0.65))
     nt.links.new(wear_noise.outputs["Fac"], wear_patch.inputs["Value"])
     edge_mask = math_node("MULTIPLY")
@@ -408,7 +458,7 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
         nt.links.new(xmul.outputs["Value"], stretch.inputs["X"])
         nt.links.new(sep.outputs["Y"], stretch.inputs["Y"])
         nt.links.new(sep.outputs["Z"], stretch.inputs["Z"])
-        sc_noise = noise_node(noise_scale * 6.0, detail=2.0)
+        sc_noise = noise_node(noise_scale * 3.2, detail=1.6)
         nt.links.new(stretch.outputs["Vector"], sc_noise.inputs["Vector"])
         sc_mask = map_range((0.0, 1.0), fr=(0.62, 0.72))
         nt.links.new(sc_noise.outputs["Fac"], sc_mask.inputs["Value"])
@@ -883,8 +933,8 @@ def crystal_quantum():
     nt.links.new(coord.outputs["Object"], cells.inputs["Vector"])
     facet = nt.nodes.new("ShaderNodeMix")
     facet.data_type = "RGBA"
-    facet.inputs["A"].default_value = (*PLASMA_DEEP, 1)
-    facet.inputs["B"].default_value = (*PLASMA_LIT, 1)
+    facet.inputs["A"].default_value = (*CRYSTAL_DEEP, 1)
+    facet.inputs["B"].default_value = (*CRYSTAL_LIT, 1)
     tone = nt.nodes.new("ShaderNodeMapRange")
     tone.inputs["From Min"].default_value = 0.15
     tone.inputs["From Max"].default_value = 0.75
@@ -907,13 +957,13 @@ def crystal_quantum():
     lw.inputs["Blend"].default_value = 0.32
     rim_col = nt.nodes.new("ShaderNodeMix")
     rim_col.data_type = "RGBA"
-    rim_col.inputs["A"].default_value = (*PLASMA_DEEP, 1)
-    rim_col.inputs["B"].default_value = (*PLASMA_HOT, 1)
+    rim_col.inputs["A"].default_value = (*CRYSTAL_DEEP, 1)
+    rim_col.inputs["B"].default_value = (*CRYSTAL_RIM, 1)
     nt.links.new(lw.outputs["Facing"], rim_col.inputs["Factor"])
     nt.links.new(rim_col.outputs["Result"], bsdf.inputs["Emission Color"])
     rim_str = nt.nodes.new("ShaderNodeMapRange")
-    rim_str.inputs["To Min"].default_value = 0.22
-    rim_str.inputs["To Max"].default_value = 0.9
+    rim_str.inputs["To Min"].default_value = 0.15
+    rim_str.inputs["To Max"].default_value = 0.54
     nt.links.new(lw.outputs["Facing"], rim_str.inputs["Value"])
     nt.links.new(rim_str.outputs["Result"], bsdf.inputs["Emission Strength"])
     nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
@@ -1051,9 +1101,23 @@ def add_energy_sheen(mat, color=CYAN, strength=0.9, noise_scale=4.5):
 
 # Paint families shared by the plain and the stencilled variants of a
 # material, so a decal panel can never drift from the panel beside it.
-PAINT_A, PAINT_B = (0.135, 0.185, 0.19), (0.055, 0.085, 0.09)
-DARK_A, DARK_B = (0.095, 0.105, 0.115), (0.065, 0.075, 0.085)
-HOLM_A, HOLM_B = (0.30, 0.345, 0.40), (0.20, 0.235, 0.29)
+# Saturation, not coverage, is what makes an identity colour read. Measured
+# against vanilla's own strongly-coloured machine: the lab's blue runs
+# saturation 0.45, the cryogenic plant's warm hull 0.34, the base beacon 0.44.
+# This paint ran 0.14 -- on 29% of the sprite and still reading monochrome,
+# because 53% of our pixels sat below saturation 0.12 where vanilla keeps
+# 17-23% there. Raising the paint alone is not enough; DARK below carries the
+# other half of the fix.
+PAINT_A, PAINT_B = srgb("#5C7C80"), srgb("#2F464A")
+# The counterweight, and the bigger half of the change. This family plus
+# gunmetal and cast_iron own ~40% of the sprite and were all neutral blue-grey,
+# which is what flattened the whole machine. Vanilla has no neutral mass at
+# all: its darkest value band is its MOST saturated (cryogenic plant 0.35 at
+# value < 0.12, falling to 0.14 in the highlights) because crevices fill with
+# warm rust and bounce while speculars go white. Warm oxidised steel here
+# reproduces that ramp and gives the teal something to be cold against.
+DARK_A, DARK_B = srgb("#574839"), srgb("#362920")
+HOLM_A, HOLM_B = srgb("#7B909E"), srgb("#4D5D6B")
 
 
 def deck_paint(name, decal=None, decal_fit=1.0, scratch=0.45):
@@ -1117,7 +1181,7 @@ def snow_override(name="frost_overlay", coverage=1.0):
     # what faces the sky holds snow; convex edges catch it next
     nrm = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(geo.outputs["Normal"], nrm.inputs["Vector"])
-    up = map_range((0.0, 1.0), fr=(0.48, 0.86))
+    up = map_range((0.0, 1.0), fr=(0.63, 0.90))
     nt.links.new(nrm.outputs["Z"], up.inputs["Value"])
     edge = map_range((0.0, 0.30), fr=(0.555, 0.615))
     nt.links.new(geo.outputs["Pointiness"], edge.inputs["Value"])
@@ -1125,10 +1189,10 @@ def snow_override(name="frost_overlay", coverage=1.0):
     # drifted, not painted on: the noise is what leaves bare metal showing
     # through, and a uniform coat is the tell that reads as a white blob
     noise = nt.nodes.new("ShaderNodeTexNoise")
-    noise.inputs["Scale"].default_value = 7.0
-    noise.inputs["Detail"].default_value = 4.0
+    noise.inputs["Scale"].default_value = 2.7
+    noise.inputs["Detail"].default_value = 2.0
     nt.links.new(coord.outputs["Object"], noise.inputs["Vector"])
-    patch = map_range((0.0, 1.0), fr=(0.44, 0.62))
+    patch = map_range((0.0, 1.0), fr=(0.425, 0.565))
     nt.links.new(noise.outputs["Fac"], patch.inputs["Value"])
 
     # Snow only lands on surfaces the sky can reach. Without this the inside
@@ -1162,14 +1226,14 @@ def snow_override(name="frost_overlay", coverage=1.0):
     # vanilla's split between bright caps and blue-grey recesses.
     ao = nt.nodes.new("ShaderNodeAmbientOcclusion")
     ao.inputs["Distance"].default_value = 1.20
-    ao.samples = 8
+    ao.samples = 32
     # Two separate curves off the same AO, because colour and coverage do not
     # want the same one. Driving both from one made the recesses bare instead
     # of icy: snow does reach a crevice, it just packs down grey there rather
     # than staying white.
     open_sky = map_range((0.0, 1.0), fr=(0.50, 0.95))       # tone: tight
     nt.links.new(ao.outputs["AO"], open_sky.inputs["Value"])
-    sheltered = map_range((0.32, 1.0), fr=(0.30, 0.80))     # amount: floored
+    sheltered = map_range((0.0, 1.0), fr=(0.30, 0.70))      # amount: no floor
     nt.links.new(ao.outputs["AO"], sheltered.inputs["Value"])
     amount = math_node("MULTIPLY")
     nt.links.new(cover.outputs["Value"], amount.inputs[0])
@@ -1182,7 +1246,7 @@ def snow_override(name="frost_overlay", coverage=1.0):
     # soft shoulder gets squeezed out here -- left in, it coats the whole hull
     # in a half-transparent film and the machine reads shrink-wrapped rather
     # than snowed on.
-    crisp = map_range((0.0, 1.0), fr=(0.34, 0.46))
+    crisp = map_range((0.0, 1.0), fr=(0.375, 0.515))
     nt.links.new(amount.outputs["Value"], crisp.inputs["Value"])
     amount = crisp
     if coverage != 1.0:
@@ -1221,9 +1285,9 @@ def build_materials():
                             wear=0.4, rust=0.3, noise_scale=5.0,
                             frost=0.08, grain=0.14),
         "steel_dark": dark_paint("steel_dark"),
-        "gunmetal": worn_metal("gunmetal", (0.065, 0.072, 0.082), (0.045, 0.05, 0.058),
+        "gunmetal": worn_metal("gunmetal", srgb("#473C32"), srgb("#302720"),
                                metallic=0.42, rough_lo=0.4, rough_hi=0.55,
-                               wear=0.45, rust=0.15, frost=0.12, grain=0.12),
+                               wear=0.45, rust=0.34, frost=0.12, grain=0.12),
         # holmium plate: cooler and more reflective than the hull, used as
         # inserts so the identity teal has something to sit against
         "holmium": worn_metal("holmium_plate", HOLM_A, HOLM_B,
@@ -1245,32 +1309,31 @@ def build_materials():
                             metallic=0.15, rough_lo=0.6, rough_hi=0.85,
                             wear=0.55, rust=0.25, noise_scale=4.5, frost=0.12),
         # dark cast iron for fittings and flanges
-        "iron": worn_metal("cast_iron", (0.028, 0.028, 0.032), (0.018, 0.018, 0.022),
+        "iron": worn_metal("cast_iron", srgb("#211A16"), srgb("#17110E"),
                            metallic=0.35, rough_lo=0.5, rough_hi=0.7,
-                           wear=0.35, rust=0.2, frost=0.14),
+                           wear=0.35, rust=0.42, frost=0.14),
         # copper piping, worn and part-patinated
         "copper": worn_metal("copper_pipe", (0.3, 0.11, 0.05), (0.16, 0.06, 0.03),
                              metallic=0.7, rough_lo=0.35, rough_hi=0.55,
                              wear=0.25, rust=0.3, noise_scale=6.0, frost=0.07),
         # containment coil bodies: worn metal that also carries the field
         "ring": add_energy_sheen(
-            worn_metal("coil_ring", (0.055, 0.062, 0.075), (0.038, 0.042, 0.052),
+            worn_metal("coil_ring", srgb("#3D3731"), srgb("#2B2621"),
                        metallic=0.28, rough_lo=0.5, rough_hi=0.68,
-                       wear=0.4, rust=0.1, frost=0.10),
+                       wear=0.4, rust=0.22, frost=0.10),
             color=ARC_OUTER, strength=0.22),
         "hose": rubber("hose_rubber"),
         # armoured conduit: light enough to read as a separate run against the
         # deck paint, where a second black rubber line just merges with the
         # first. Metal, so the key catches its top and gives it a round
         # section at 4 px wide.
-        "conduit": worn_metal("conduit_braid", (0.115, 0.128, 0.135),
-                              (0.070, 0.079, 0.085), metallic=0.45,
-                              rough_lo=0.34, rough_hi=0.56, wear=0.4,
-                              rust=0.22, frost=0.10, grain=0.18),
+        "conduit": worn_metal("conduit_braid", srgb("#695E52"), srgb("#473E35"),
+                              metallic=0.45, rough_lo=0.34, rough_hi=0.56,
+                              wear=0.4, rust=0.30, frost=0.10, grain=0.18),
         "cable": rubber("cable_rubber", (0.021, 0.020, 0.019)),
         "crystal": crystal_quantum(),
-        "core": plain("crystal_core", PLASMA_HOT, metallic=0.0, rough=0.3,
-                      emission=PLASMA_HOT, strength=1.35),
+        "core": plain("crystal_core", CRYSTAL_RIM, metallic=0.0, rough=0.3,
+                      emission=CRYSTAL_RIM, strength=0.95),
         # emission stays ~1: Standard clips hard and the blue blows to white
         # anywhere above (the hue is the point, not the brightness). Fresnel
         # makes the tips flare at their rim without raising the number.
@@ -1279,8 +1342,14 @@ def build_materials():
             color=ARC_OUTER, strength=1.05),
         # the containment well under the core: bright enough to bounce onto
         # the surrounding machinery, dim enough to stay blue instead of white
-        "glow_hot": plain("glow_hot", (0.10, 0.24, 0.36), metallic=0.0, rough=0.3,
-                          emission=PLASMA_LIT, strength=1.2),
+        # Dim on purpose. Once the well was actually open this became a large
+        # up-facing emissive disc, and at the old strength it clipped to a flat
+        # cyan plate that outshone the crystal -- which is the hero and holds
+        # the emissive budget. The recess does the work: 0.15 of dark iron
+        # shaft wall above it reads as depth, so the light only has to suggest
+        # that something is burning down there.
+        "glow_hot": plain("glow_hot", (0.055, 0.135, 0.20), metallic=0.0, rough=0.3,
+                          emission=PLASMA_LIT, strength=0.52),
         "arc": arc_plasma(),
         # sparks and motes: a couple of pixels each, so only the hue survives
         # -- kept just under the clip point rather than pushed white
@@ -1364,7 +1433,7 @@ def build_materials():
         "led_amber": emission_only("led_amber", LED_AMBER, 1.0),
         "led_cyan": emission_only("led_cyan", ARC_OUTER, 1.0),
         "dial": plain("dial_face", (0.34, 0.33, 0.29), metallic=0.0, rough=0.55),
-        "socket_dark": plain("socket_dark", (0.012, 0.014, 0.016), metallic=0.2, rough=0.75),
+        "socket_dark": plain("socket_dark", srgb("#14100D"), metallic=0.2, rough=0.75),
         "footprint": emission_only("footprint_white", (1, 1, 1), 1.0),
     }
 
@@ -2955,16 +3024,28 @@ def build_dish(base, mats):
     bevel(pedestal, width=0.05)
     smooth(pedestal)
     link_to(pedestal, base)
-    dish = cylinder("Dish", 0.95, 0.2, (0, 0, 1.32), material=mats["gunmetal"])
-    bevel(dish, width=0.04)
+    # An ANNULUS, not a disc. This was a solid cylinder and it was the single
+    # largest object in the sprite (8.0% of visible pixels, a plain plate) --
+    # and it swallowed the containment well whole: an object-ID render measured
+    # DishGlow at 0 visible pixels and the four aperture bars at 2, 2, 2 and 0.
+    # The well the comment below describes has never actually been on screen.
+    dish = annulus("Dish", 0.66, 0.95, 0.2, (0, 0, 1.32), material=mats["gunmetal"])
+    bevel(dish, width=0.025, segments=2)
     smooth(dish)
     link_to(dish, base)
     # Containment well, not a lit disc: the glow is recessed under a lipped
     # ring and crossed by aperture bars, so the light reads as coming out of
     # a shaft. A flush emissive circle at this size just looks like a sticker.
-    dish_glow = cylinder("DishGlow", 0.64, 0.06, (0, 0, 1.33), material=mats["glow_hot"])
+    # Recessed 0.15 below the annulus rim, which is ~10 px of visible shaft
+    # wall at 64 px/tile -- enough to read as depth rather than as a lid.
+    dish_glow = cylinder("DishGlow", 0.615, 0.05, (0, 0, 1.245), material=mats["glow_hot"])
     smooth(dish_glow)
     link_to(dish_glow, base)
+    # shaft floor around the emitter, so the well has a bottom rather than a
+    # hole straight through the pedestal
+    floor = cylinder("DishWellFloor", 0.655, 0.04, (0, 0, 1.222), material=mats["iron"])
+    smooth(floor)
+    link_to(floor, base)
     bpy.ops.mesh.primitive_torus_add(major_radius=0.68, minor_radius=0.10,
                                      major_segments=44, minor_segments=12,
                                      location=(0, 0, 1.38))
@@ -2977,10 +3058,13 @@ def build_dish(base, mats):
     bevel(hub, width=0.02, segments=2)
     smooth(hub)
     link_to(hub, base)
-    for i in range(4):
-        bar = cube("DishBar%d" % i, (0.085, 1.34, 0.05), (0, 0, 1.39),
-                   (0, 0, math.radians(22.5 + 45 * i)), mats["gunmetal"])
-        bevel(bar, width=0.015, segments=2)
+    # Aperture bars, now crossing an open well instead of embedded in a solid
+    # plate. Three rather than four: an even count reads as a grille, an odd
+    # one as machinery, and it leaves the biggest gap off-centre.
+    for i in range(3):
+        bar = cube("DishBar%d" % i, (0.058, 1.36, 0.05), (0, 0, 1.372),
+                   (0, 0, math.radians(18 + 60 * i)), mats["gunmetal"])
+        bevel(bar, width=0.014, segments=2)
         link_to(bar, base)
 
     # curved collar easing the pedestal into the dish
@@ -3159,6 +3243,96 @@ def build_sockets(base, mats):
                     material=mats["steel_dark"])
         bevel(sill, width=0.018, segments=2)
         link_to(sill, base)
+
+
+def build_dish_plant(base, mats):
+    """Machinery on the front of the containment annulus.
+
+    Placed by measurement rather than taste: an object-ID render put `Dish` at
+    8.0% of all visible pixels as a single plain face, the largest and emptiest
+    thing in the sprite. The front half is also the only half the 45-degree
+    camera can see into, and everything here stays under z 1.8 so the inner
+    ring (lowest sweep z 2.13) and the crystal above it keep their clearance.
+
+    Deliberately NOT mirrored. Vanilla has no bilaterally symmetric entity and
+    this beacon read as a monument largely because of it, so the two sides
+    carry different plant at different heights and different angles.
+    """
+    def on_ring(deg, r, z):
+        a = math.radians(deg)
+        return (r * math.cos(a), r * math.sin(a), z)
+
+    TOP = 1.42                      # annulus top face
+
+    # -- left: a tall condenser stack, the taller of the two ------------------
+    lx, ly, _ = on_ring(249, 0.80, TOP)
+    body = cylinder("DishCondBody", 0.105, 0.30, (lx, ly, TOP + 0.15),
+                    material=mats["holmium"], verts=16)
+    smooth(body)
+    link_to(body, base)
+    for k in range(4):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.118, minor_radius=0.020,
+                                         major_segments=18, minor_segments=6,
+                                         location=(lx, ly, TOP + 0.05 + 0.07 * k))
+        fin = bpy.context.object
+        fin.name = PREFIX + "DishCondFin%d" % k
+        fin.data.materials.append(mats["copper"])
+        smooth(fin)
+        link_to(fin, base)
+    cap = cylinder("DishCondCap", 0.075, 0.09, (lx, ly, TOP + 0.34),
+                   material=mats["gunmetal"], verts=14)
+    bevel(cap, width=0.014, segments=2)
+    link_to(cap, base)
+    relief_valve(base, mats, "DishCondValve", (lx - 0.17, ly - 0.09, TOP - 0.02),
+                 ang=math.radians(-24))
+
+    # -- right: a squat control head, lower and turned the other way ----------
+    rx, ry, _ = on_ring(303, 0.775, TOP)
+    junction_box(base, mats, "DishCtl", (rx, ry, TOP + 0.055), math.radians(28),
+                 size=(0.19, 0.15, 0.115))
+    sight_glass(base, mats, "DishSight", (rx + 0.12, ry - 0.05, TOP + 0.02),
+                0.045, "fluid_cold")
+    gauge(base, mats, "DishCtlGauge", (rx - 0.14, ry - 0.10, TOP + 0.10),
+          ang=math.radians(18), r=0.070)
+    led_strip(base, mats, "DishCtlLed", (rx, ry - 0.09, TOP + 0.125),
+              (0.085, 0.016, 0.010), "led_green", ang=math.radians(28))
+
+    # -- the hose between them ----------------------------------------------
+    # Arced OVER the well rather than round it: the collar (r 0.92-1.12,
+    # z 1.14-1.34) and the four rim clamps leave no clear route at dish level,
+    # and a line at annulus height would run inside the annulus solid.
+    # Arched, not sagging. A catenary between these two anchors dips to about
+    # z 1.43 and the lip torus tops out at 1.48, so the ribbed rings clipped
+    # straight through it (the audit caught DishLoopF5 and F7). Arcing it over
+    # keeps the whole run clear of the lip and reads as rigid line rather than
+    # flexible hose, which is what a coolant crossover on a pressure vessel is.
+    mx, my = (lx + rx) * 0.5, (ly + ry) * 0.5
+    pipe_run(base, mats, "DishLoop",
+             [(lx, ly, TOP + 0.29),
+              (mx - 0.06, my - 0.11, TOP + 0.37),
+              (rx + 0.03, ry - 0.04, TOP + 0.16)],
+             0.036, mat_key="conduit", rings=7, ring_key="iron")
+    # short service run off the control head, back down onto the annulus
+    pipe_run(base, mats, "DishCtlDrop",
+             [(rx + 0.02, ry + 0.05, TOP + 0.05),
+              (rx + 0.10, ry + 0.16, TOP - 0.01),
+              (rx + 0.13, ry + 0.26, TOP - 0.03)],
+             0.026, mat_key="copper", rings=3)
+
+    # -- annulus surface: vents and a bolt circle -----------------------------
+    # The ring is 0.29 wide (about 18 px), so this is the largest flat band on
+    # the machine and the cheapest place to buy detail.
+    for i, deg in enumerate((198, 216, 234, 324, 342, 0, 18)):
+        a = math.radians(deg)
+        vent = cube("DishVent%d" % i, (0.055, 0.20, 0.022),
+                    (0.805 * math.cos(a), 0.805 * math.sin(a), TOP - 0.004),
+                    (0, 0, a), mats["iron"])
+        link_to(vent, base)
+    for i in range(14):
+        a = math.radians(12 + 360 * i / 14.0)
+        greeble(base, mats, "DishBolt%d" % i, "bolt",
+                (0.915 * math.cos(a), 0.915 * math.sin(a), TOP - 0.012), a, 0.85)
+    return None
 
 
 def build_amphitheater(base, mats):
@@ -3413,6 +3587,7 @@ def build_scene():
     build_plinth(base, mats)
     props = build_deck(base, mats, deck)
     build_dish(base, mats)
+    build_dish_plant(base, mats)
     build_amphitheater(base, mats)
     build_pylons(base, mats)
     build_sockets(base, mats)

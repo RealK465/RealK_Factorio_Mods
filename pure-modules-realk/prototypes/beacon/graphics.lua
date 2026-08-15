@@ -28,7 +28,7 @@ local function socket(shift)
       render_layer = "lower-object",
       pictures = {
         filename = g .. "beacon-module-mask-box.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
       },
     },
     {
@@ -36,7 +36,7 @@ local function socket(shift)
       render_layer = "lower-object-above-shadow",
       pictures = {
         filename = g .. "beacon-module-mask-lights.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
       },
     },
     {
@@ -44,7 +44,7 @@ local function socket(shift)
       render_layer = "lower-object-above-shadow",
       pictures = {
         filename = g .. "beacon-module-lights.png",
-        width = 42, height = 40, scale = 0.5, shift = shift,
+        width = 40, height = 40, scale = 0.5, shift = shift,
         draw_as_light = true,
       },
     },
@@ -56,11 +56,11 @@ end
 -- so it covers most of the machine's height, and packing it to the rings'
 -- box would have grown the far larger anim sheet to match.
 local arc_frames = {
-  width = 284, height = 384,
+  width = 276, height = 378,
   frame_count = 64, line_length = 8,
   animation_speed = 0.5,
   scale = 0.5,
-  shift = util.by_pixel(0.0, -59.5),
+  shift = util.by_pixel(0.5, -60.0),
 }
 
 local function arcs_layer(extra)
@@ -79,7 +79,12 @@ local set = {
   random_animation_offset = true,
   draw_animation_when_idle = false,
 
-  light = { shift = { 0, 0 }, color = { 0.55, 0.85, 1.0 }, intensity = 0.4, size = 8 },
+  -- The core is a contained plasma, so it should read as a light source after
+  -- dark and not just as a bright sprite. 0.4/8 lit essentially nothing on the
+  -- ground; a lamp is 0.9/40, so this is still a machine glow rather than
+  -- lighting. Vanilla's own beacon has this commented out and relies purely on
+  -- its draw_as_light sheet -- we do both, because the crystal is the hero.
+  light = { shift = { 0, 0 }, color = { 0.55, 0.85, 1.0 }, intensity = 0.8, size = 16 },
 
   animation_list = {
     -- static plinth + its shadow
@@ -90,12 +95,12 @@ local set = {
         layers = {
           {
             filename = g .. "beacon-base.png",
-            width = 308, height = 450, scale = 0.5,
+            width = 306, height = 448, scale = 0.5,
             shift = util.by_pixel(0.0, -35.0),
           },
           {
             filename = g .. "beacon-shadow.png",
-            width = 412, height = 326, scale = 0.5,
+            width = 410, height = 324, scale = 0.5,
             shift = util.by_pixel(25.5, 1.5),
             draw_as_shadow = true,
           },
@@ -126,7 +131,7 @@ local set = {
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 0.5,
-        shift = util.by_pixel(2.0, -7.5),
+        shift = util.by_pixel(2.5, -7.5),
       },
     },
     -- rings + crystal, frozen while idle
@@ -135,11 +140,40 @@ local set = {
       always_draw = true,
       animation = {
         filename = g .. "beacon-anim.png",
-        width = 220, height = 230,
+        width = 218, height = 222,
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 0.5,
+        shift = util.by_pixel(0.0, -86.5),
+      },
+    },
+    -- The crystal and the ring seams AS LIGHT. Rendered as an emission-only
+    -- pass (the same geometry as beacon-anim with every lamp in the scene
+    -- switched off, so what reaches the film is the emission and nothing
+    -- else) and drawn additively into the light layer, which is how vanilla's
+    -- own beacon does it with beacon-light.png. The core keeps shining after
+    -- dark instead of going flat with the rest of the hull.
+    --
+    -- always_draw, unlike vanilla's: an idle Pure beacon is powered rather
+    -- than dead, so its core is lit whether or not modules are in it.
+    -- apply_tint = false because light does not take the module tint.
+    --
+    -- scale = 1.0, not 0.5: the sheet is packed at half the source resolution
+    -- the other layers use. It is a wide gaussian with no detail in it, so
+    -- half res costs nothing visible and saves three quarters of the atlas.
+    {
+      render_layer = "object",
+      always_draw = true,
+      apply_tint = false,
+      animation = {
+        filename = g .. "beacon-glow.png",
+        width = 111, height = 113,
+        frame_count = 64, line_length = 8,
+        animation_speed = 0.5,
+        scale = 1.0,
         shift = util.by_pixel(0.0, -87.5),
+        draw_as_light = true,
+        blend_mode = "additive",
       },
     },
     -- electric arcs, only while working, tinted by the module
@@ -185,8 +219,8 @@ local set = {
 if feature_flags["freezing"] then
   set.frozen_patch = {
     filename = g .. "beacon-frozen.png",
-    width = 308, height = 442, scale = 0.5,
-    shift = util.by_pixel(0.0, -36.5),
+    width = 306, height = 438, scale = 0.5,
+    shift = util.by_pixel(0.0, -37.0),
   }
   -- The rings and crystal are in the patch too, and the ice on them was
   -- rendered against animation frame 0. Pinning the animation there while

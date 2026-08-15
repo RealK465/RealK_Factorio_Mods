@@ -17,6 +17,7 @@
 import os
 import sys
 
+import numpy as np
 from PIL import Image
 
 CANVAS = (512, 640)
@@ -123,11 +124,42 @@ def alpha_bands(patch, out_dir):
         print("    %-6s %5.1f%%   vanilla %.1f..%.1f  %s" % (label, pct, want[0], want[1], ok))
 
 
+def drift_alpha(img, floor=16, knee=130, gain=1.08):
+    """Turn a film into drifts.
+
+    The snow shader accumulates a long tail of very low alpha across the whole
+    hull. Every colour statistic can sit in vanilla's range while that tail
+    makes the patch a translucent veil over the entire machine instead of
+    snow lying on it -- and in game that reads as the beacon going pale.
+    Measured against the machine's own opaque area, the shipped patch put
+    17.3% of it in the faint band where vanilla's four patches sit at
+    4.8-10.7, and 50.6% under any alpha at all against vanilla's 35-42.
+
+    Clipping the tail and lifting what is already solid puts every band back
+    in range.
+
+    **The floor was cut from 40 to 16 once snow_override stopped producing the
+    film in the first place.** The shader had a 0.32 amount floor, so every
+    up-facing surface kept at least 32% snow however sheltered it was; with
+    that gone the accumulation is already drifted, and a hard 40 clip on top
+    was removing the soft shoulder as well as the tail. That showed up as the
+    transition band collapsing to 2.1% of the machine's area where vanilla runs
+    6.2-11.0 -- snow with a cut-out edge rather than a drifted one.
+    """
+    a = np.asarray(img.convert("RGBA")).astype(np.float32)
+    al = a[..., 3]
+    out = np.where(al <= floor, 0.0, (al - floor) * (255.0 / (255.0 - floor)))
+    out = np.where(out >= knee, np.minimum(255.0, out * gain), out)
+    a[..., 3] = np.clip(out, 0, 255)
+    return Image.fromarray(a.astype(np.uint8), "RGBA")
+
+
 def main():
     frames_dir, out_dir = sys.argv[1], sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)
 
-    src = Image.open(os.path.join(frames_dir, "frozen", "f0000.png")).convert("RGBA")
+    src = drift_alpha(
+        Image.open(os.path.join(frames_dir, "frozen", "f0000.png")).convert("RGBA"))
     bb = src.getbbox()
     if bb is None:
         raise SystemExit("frozen render is empty -- nothing accumulated")

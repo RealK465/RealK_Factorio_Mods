@@ -140,6 +140,16 @@ deck plant's hologram, cryo vapour and cable pulses, 64 frames of a small crop a
 `--layers base,shadow,deck`. `make_stencils.py` regenerates the
 decal atlas in `textures/` and only needs running when a mark changes.
 
+`glow` is the fifth sheet: the same geometry as `anim` rendered with **every
+light in the scene switched off**, so what lands on film is the materials' own
+emission and nothing else — which is exactly what an additive `draw_as_light`
+sprite should contain. It is what keeps the core shining after dark, the way
+vanilla's own beacon uses `beacon-light.png`. Anything that changes the crystal
+or the ring seams invalidates `anim` **and** `glow` together. It is the one
+sheet packed at half the source resolution and declared `scale = 1.0`: it is a
+9 px gaussian with no detail to lose, and at full res it was 4.2 MB, larger
+than the anim sheet it only lights.
+
 `export_icon.py` does the bloom, the downscale and the mipmap strip. Bloom happens there and
 not in Blender's compositor because the glow has to extend the PNG's **alpha** — otherwise the
 halo vanishes against the game background.
@@ -149,7 +159,7 @@ saved snapshot, not the source of truth:
 
 ```bash
 blender -b -P assets/pure-modules-realk/entity/beacon/render_entity.py -- <out_dir> \
-  --layers base,anim,arcs,deck,shadow,slot-box,slot-lights --frames 64
+  --layers base,anim,arcs,deck,glow,shadow,slot-box,slot-lights --frames 64
 python assets/pure-modules-realk/entity/beacon/make_sheets.py <out_dir> pure-modules-realk/graphics/entity/beacon
 python assets/pure-modules-realk/entity/beacon/make_slots.py <out_dir> pure-modules-realk/graphics/entity/beacon
 # re-check sheet_numbers.txt / slot_numbers.txt against prototypes/beacon-graphics.lua
