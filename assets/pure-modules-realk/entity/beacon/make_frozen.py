@@ -124,7 +124,7 @@ def alpha_bands(patch, out_dir):
         print("    %-6s %5.1f%%   vanilla %.1f..%.1f  %s" % (label, pct, want[0], want[1], ok))
 
 
-def drift_alpha(img, floor=40, knee=150, gain=1.18):
+def drift_alpha(img, floor=16, knee=130, gain=1.08):
     """Turn a film into drifts.
 
     The snow shader accumulates a long tail of very low alpha across the whole
@@ -135,10 +135,16 @@ def drift_alpha(img, floor=40, knee=150, gain=1.18):
     17.3% of it in the faint band where vanilla's four patches sit at
     4.8-10.7, and 50.6% under any alpha at all against vanilla's 35-42.
 
-    Clipping the tail at 40 and lifting what is already solid puts every band
-    back in range (faint 8.1%, veil 6.9%, mid 4.8%, solid 17.8%, any 37.5%).
-    Fixing it here rather than in the shader keeps one render serving both --
-    the accumulation itself is correct, it is the presentation that was soft.
+    Clipping the tail and lifting what is already solid puts every band back
+    in range.
+
+    **The floor was cut from 40 to 16 once snow_override stopped producing the
+    film in the first place.** The shader had a 0.32 amount floor, so every
+    up-facing surface kept at least 32% snow however sheltered it was; with
+    that gone the accumulation is already drifted, and a hard 40 clip on top
+    was removing the soft shoulder as well as the tail. That showed up as the
+    transition band collapsing to 2.1% of the machine's area where vanilla runs
+    6.2-11.0 -- snow with a cut-out edge rather than a drifted one.
     """
     a = np.asarray(img.convert("RGBA")).astype(np.float32)
     al = a[..., 3]

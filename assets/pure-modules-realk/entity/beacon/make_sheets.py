@@ -23,7 +23,7 @@ import os
 import sys
 import glob
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageFilter
 
 def _skill_scripts(start=None):
     """Find .claude/skills/factorio-graphics/scripts by walking up.
@@ -52,7 +52,7 @@ from factorio_render import imaging, post
 
 CANVAS = (512, 640)
 COLS = 8
-ORDER = ("base", "shadow", "anim", "arcs", "deck")
+ORDER = ("base", "shadow", "anim", "arcs", "deck", "glow")
 
 # Which paint-over preset each layer gets, and what it must not do.
 #   shadow  pure black + alpha already; contrast on it is meaningless
@@ -65,6 +65,10 @@ POST = {
     "deck": dict(preset="entity", alpha_gamma=1.0),
     "shadow": None,
     "arcs": None,
+    # draw_as_light + additive, like the arcs: it is added to the light pass,
+    # so crevice deepening would eat it and tightening its alpha would chew the
+    # soft falloff that makes it read as light rather than as a decal.
+    "glow": None,
 }
 
 
@@ -104,6 +108,50 @@ def add_arc_glow(img):
     far = img.filter(ImageFilter.GaussianBlur(5))
     far.putalpha(far.getchannel("A").point(lambda v: int(v * 0.45)))
     return Image.alpha_composite(Image.alpha_composite(far, near), img)
+
+
+def light_only(img, floor=16):
+    """Drop what an additive layer cannot contribute.
+
+    The glow pass renders the whole moving assembly, and the rings come out
+    near-black because they emit almost nothing. Under blend_mode "additive"
+    those pixels add exactly zero, but they still drag the crop box out to the
+    full ring silhouette -- carrying them would have made this sheet the same
+    1744x1776 as the anim sheet to deliver a glow around the crystal.
+    """
+    keep = img.convert("RGB").convert("L").point(lambda v: 255 if v >= floor else 0)
+    out = img.copy()
+    out.putalpha(ImageChops.multiply(img.getchannel("A"), keep))
+    return out
+
+
+def light_gain(img, gain=1.75):
+    """Brighten the light sheet, and ONLY the light sheet.
+
+    The emission-only pass renders what the materials actually emit, which is
+    faithful but dim -- mean (17,37,53) over the visible area. Additive into
+    the light pass that reads as a crystal which is merely not-dark rather than
+    one that is lit. Gaining here rather than raising the material emission is
+    what lets the daytime crystal stay at the deeper blue it was tuned to:
+    the two sheets come off the same render but only this one is boosted.
+    """
+    r, g, b, a = img.split()
+    f = lambda v: min(255, int(v * gain))
+    return Image.merge("RGBA", (r.point(f), g.point(f), b.point(f), a))
+
+
+def add_light_bloom(img):
+    # The light sheet is what the crystal THROWS, not the crystal. Reusing the
+    # bolt halo here would keep the facet edges crisp and read as a second
+    # crystal pasted over the first; a wide soft falloff reads as glow.
+    # Tightened from 9/0.55 + 3/0.70: additive into the light pass is already
+    # generous at night, and the wider halo reached well past the rings, which
+    # reads as fog rather than as a lit core next to vanilla neighbours.
+    wide = img.filter(ImageFilter.GaussianBlur(6.5))
+    wide.putalpha(wide.getchannel("A").point(lambda v: int(v * 0.38)))
+    near = img.filter(ImageFilter.GaussianBlur(2.5))
+    near.putalpha(near.getchannel("A").point(lambda v: int(v * 0.58)))
+    return Image.alpha_composite(Image.alpha_composite(wide, near), img)
 
 
 def blacken_shadow(img, base_img):
@@ -200,6 +248,29 @@ def main():
         img = sheet(frames, box)
         img.save(os.path.join(out_dir, "beacon-arcs.png"))
         numbers["arcs"] = line_sheet("arcs", box, len(frames), img)
+
+    glow_paths = frames_of(frames_dir, "glow")
+    if glow_paths:
+        # Emission-only render of the rings and crystal, drawn with
+        # draw_as_light + additive so the core keeps shining after dark --
+        # vanilla's own beacon does exactly this with beacon-light.png.
+        frames = [add_light_bloom(light_gain(light_only(
+                      Image.open(p).convert("RGBA")))) for p in glow_paths]
+        box = union_bbox(frames)
+        # Packed at HALF the source resolution and declared scale = 1.0, so it
+        # covers the same display pixels for a quarter of the atlas. This layer
+        # is a 9 px gaussian either way -- there is no detail in it to lose --
+        # and at full res it came out 4.2 MB, larger than the anim sheet it
+        # only lights. Downscaled per frame, never over the packed sheet: a
+        # resample across cell boundaries bleeds each frame into its neighbour.
+        w, h = box[2] - box[0], box[3] - box[1]
+        half = (w // 2, h // 2)
+        cells = [imaging.resize(f.crop(box), half) for f in frames]
+        img = imaging.pack_sheet(cells, (0, 0, half[0], half[1]), COLS)
+        img.save(os.path.join(out_dir, "beacon-glow.png"))
+        numbers["glow"] = ("glow: width=%d height=%d shift=util.by_pixel(%.1f, %.1f) "
+                           "frames=%d line_length=%d scale=1.0 sheet=%dx%d") % (
+            half[0], half[1], *lua_shift(box), len(cells), COLS, img.width, img.height)
 
     report = "\n".join(numbers[k] for k in ORDER if k in numbers)
     print(report)

@@ -79,7 +79,12 @@ local set = {
   random_animation_offset = true,
   draw_animation_when_idle = false,
 
-  light = { shift = { 0, 0 }, color = { 0.55, 0.85, 1.0 }, intensity = 0.4, size = 8 },
+  -- The core is a contained plasma, so it should read as a light source after
+  -- dark and not just as a bright sprite. 0.4/8 lit essentially nothing on the
+  -- ground; a lamp is 0.9/40, so this is still a machine glow rather than
+  -- lighting. Vanilla's own beacon has this commented out and relies purely on
+  -- its draw_as_light sheet -- we do both, because the crystal is the hero.
+  light = { shift = { 0, 0 }, color = { 0.55, 0.85, 1.0 }, intensity = 0.8, size = 16 },
 
   animation_list = {
     -- static plinth + its shadow
@@ -140,6 +145,35 @@ local set = {
         animation_speed = 0.5,
         scale = 0.5,
         shift = util.by_pixel(0.0, -86.5),
+      },
+    },
+    -- The crystal and the ring seams AS LIGHT. Rendered as an emission-only
+    -- pass (the same geometry as beacon-anim with every lamp in the scene
+    -- switched off, so what reaches the film is the emission and nothing
+    -- else) and drawn additively into the light layer, which is how vanilla's
+    -- own beacon does it with beacon-light.png. The core keeps shining after
+    -- dark instead of going flat with the rest of the hull.
+    --
+    -- always_draw, unlike vanilla's: an idle Pure beacon is powered rather
+    -- than dead, so its core is lit whether or not modules are in it.
+    -- apply_tint = false because light does not take the module tint.
+    --
+    -- scale = 1.0, not 0.5: the sheet is packed at half the source resolution
+    -- the other layers use. It is a wide gaussian with no detail in it, so
+    -- half res costs nothing visible and saves three quarters of the atlas.
+    {
+      render_layer = "object",
+      always_draw = true,
+      apply_tint = false,
+      animation = {
+        filename = g .. "beacon-glow.png",
+        width = 111, height = 113,
+        frame_count = 64, line_length = 8,
+        animation_speed = 0.5,
+        scale = 1.0,
+        shift = util.by_pixel(0.0, -87.5),
+        draw_as_light = true,
+        blend_mode = "additive",
       },
     },
     -- electric arcs, only while working, tinted by the module

@@ -56,6 +56,13 @@ LAYER_COLLS = {
     # pulse. Its own loop and its own crop box -- re-rendering the rings for
     # a vapour puff would cost 64 frames of the far larger anim sheet.
     "deck": ("PB_Deck",),
+    # Emission-only pass over the same geometry as `anim`, for the
+    # draw_as_light sheet: the crystal and the ring seams keep shining after
+    # dark the way vanilla's own beacon-light.png does. Rendered by switching
+    # the lights and the world off rather than by classifying materials as
+    # emissive -- with nothing illuminating the scene, what reaches the film IS
+    # the emission, which is exactly what an additive light sprite should be.
+    "glow": ("PB_Moving",),
     "footprint": ("PB_Footprint",),
     # static geometry ONLY: a baked shadow of the floating rings/crystal lands
     # ~2 tiles right of the building as a detached, frozen blob (found in game)
@@ -79,6 +86,7 @@ STATIC_LAYERS = {"base", "shadow", "footprint", "slot-box", "slot-lights", "froz
 # layers whose content only covers the moving region -- saves ~70% per frame.
 BORDERS = {
     "anim": (0.20, 0.52, 0.80, 1.0),
+    "glow": (0.20, 0.52, 0.80, 1.0),   # same geometry as anim, same region
     # the arcs layer now runs the full height of the electrodes, from the
     # induction coil at the foot of a pylon to the core, so its region has to
     # reach down past the front pylon roots -- clipping it is silent
@@ -212,6 +220,18 @@ def render_layer(layer, out_dir, frames, only=None):
     # is the accumulation, and the machine underneath stays transparent.
     override = beacon_gen.snow_override() if layer == "frozen" else None
     bpy.context.view_layer.material_override = override
+    # Emission-only: kill every light and the world, so nothing but the
+    # materials' own emission lands on film.
+    dark = []
+    if layer == "glow":
+        for o in bpy.data.objects:
+            if o.type == "LIGHT":
+                dark.append((o.data, o.data.energy))
+                o.data.energy = 0.0
+        world_bg = scn.world.node_tree.nodes["Background"] if scn.world else None
+        if world_bg:
+            dark.append((world_bg.inputs["Strength"], world_bg.inputs["Strength"].default_value))
+            world_bg.inputs["Strength"].default_value = 0.0
     # persistent data caches exactly what a material override invalidates
     scn.render.use_persistent_data = override is None
     layer_dir = os.path.join(out_dir, layer)
@@ -223,6 +243,11 @@ def render_layer(layer, out_dir, frames, only=None):
             beacon_gen.update_arcs(f, frames)
         scn.render.filepath = os.path.join(layer_dir, "f%04d.png" % f)
         bpy.ops.render.render(write_still=True)
+    for holder, value in dark:
+        if hasattr(holder, "energy"):
+            holder.energy = value
+        else:
+            holder.default_value = value
     bpy.context.view_layer.material_override = None
     scn.render.use_persistent_data = True
 

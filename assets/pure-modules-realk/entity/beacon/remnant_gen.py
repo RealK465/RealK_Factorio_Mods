@@ -46,12 +46,26 @@ def wreck_materials():
         return tuple(v * DIM for v in c)
 
     bg.BARE, bg.RUST, bg.FROST = d(_BARE0), d(_RUST0), d(_FROST0)
-    paint_a, paint_b = d(bg.PAINT_A), d(bg.PAINT_B)
+
+    def fade(c, k=0.58):
+        # Burnt paint loses chroma. Measured against vanilla: every shipped
+        # remnant is 88-99% warm pixels (cryogenic plant 88.0, nuclear reactor
+        # 94.5, base beacon 99.4) because rust wins whatever the machine was
+        # painted -- and the cryogenic plant is a teal machine. This wreck came
+        # out 64% warm and 35% cold, which is the identity colour surviving far
+        # too well. Pulling the paint toward its own luminance lets the rust on
+        # top of it read.
+        lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        return tuple(v + (lum - v) * k for v in c)
+
+    paint_a, paint_b = fade(d(bg.PAINT_A)), fade(d(bg.PAINT_B))
     # Bare steel the paint has been knocked off, and the sooted char that
     # replaces it anywhere near the middle. Both stay well above pure black:
     # Standard clips at both ends and a black wreck loses all its form.
-    bare_a, bare_b = d((0.115, 0.118, 0.126)), d((0.062, 0.064, 0.070))
-    char_a, char_b = d((0.078, 0.070, 0.062)), d((0.042, 0.038, 0.033))
+    # Warm rather than neutral -- a neutral grey here reads as cold slag and
+    # was most of why this wreck stayed blue against vanilla's rusted ones.
+    bare_a, bare_b = d((0.132, 0.112, 0.092)), d((0.072, 0.060, 0.048))
+    char_a, char_b = d((0.088, 0.066, 0.048)), d((0.048, 0.035, 0.025))
 
     hull = bg.worn_metal("wreck_hull", paint_a, paint_b,
                          metallic=0.20, rough_lo=0.55, rough_hi=0.85, grime=0.55,
@@ -69,10 +83,10 @@ def wreck_materials():
     rusty = bg.worn_metal("wreck_rusty", d((0.115, 0.056, 0.026)), d((0.062, 0.030, 0.014)),
                           metallic=0.15, rough_lo=0.65, rough_hi=0.9,
                           wear=0.6, rust=0.5, noise_scale=4.5, frost=0.10)
-    iron = bg.worn_metal("wreck_iron", d((0.030, 0.028, 0.028)), d((0.019, 0.018, 0.018)),
+    iron = bg.worn_metal("wreck_iron", d((0.034, 0.026, 0.020)), d((0.022, 0.017, 0.013)),
                          metallic=0.35, rough_lo=0.6, rough_hi=0.85,
                          wear=0.45, rust=0.6, frost=0.08)
-    gunmetal = bg.worn_metal("wreck_gunmetal", d((0.058, 0.060, 0.066)), d((0.038, 0.039, 0.043)),
+    gunmetal = bg.worn_metal("wreck_gunmetal", d((0.068, 0.054, 0.042)), d((0.044, 0.035, 0.027)),
                              metallic=0.40, rough_lo=0.5, rough_hi=0.75,
                              wear=0.55, rust=0.45, frost=0.10)
     holmium = bg.worn_metal("wreck_holmium", d(bg.HOLM_A), d(bg.HOLM_B),
@@ -83,15 +97,15 @@ def wreck_materials():
                            wear=0.35, rust=0.55, noise_scale=6.0, frost=0.06)
     # The coil bands keep their machined look but lose the energy sheen: a
     # sheen node here is the difference between "dead hardware" and "still on".
-    ring = bg.worn_metal("wreck_ring", d((0.092, 0.098, 0.110)), d((0.058, 0.062, 0.070)),
+    ring = bg.worn_metal("wreck_ring", d((0.104, 0.086, 0.070)), d((0.066, 0.054, 0.043)),
                          metallic=0.30, rough_lo=0.55, rough_hi=0.8,
                          wear=0.55, rust=0.35, frost=0.12)
     hose = bg.rubber("wreck_hose", (0.014, 0.014, 0.015))
-    dead = bg.plain("wreck_dead", d((0.030, 0.032, 0.035)), metallic=0.15, rough=0.62)
+    dead = bg.plain("wreck_dead", d((0.034, 0.029, 0.024)), metallic=0.15, rough=0.62)
     void = bg.plain("wreck_void", (0.020, 0.021, 0.023), metallic=0.1, rough=0.8)
     # Burst canister glass: sooted and opaque. A clean transmissive shell in a
     # wreck reads as intact hardware, which is the opposite of the point.
-    glass = bg.plain("wreck_glass", d((0.045, 0.052, 0.056)), metallic=0.25, rough=0.45)
+    glass = bg.plain("wreck_glass", d((0.052, 0.045, 0.038)), metallic=0.25, rough=0.45)
 
     mats = {
         "crystal_dead": dead_crystal(),
