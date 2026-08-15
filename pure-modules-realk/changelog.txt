@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.9
+Date: 2026-08-15
+  Changes:
+    - Version 1.0.8, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.8
-Date: ????
+Date: 2026-08-15
   Graphics:
     - The Pure beacon is redrawn with deeper shading and crisper edges, so its
       coils, panels and instruments read at normal zoom instead of blurring
@@ -9,10 +14,23 @@ Date: ????
       than a pale film washing the whole building out.
     - A module's colour no longer paints a flat patch over its socket. It tints
       the housing and lets the metal underneath show through.
-    - The beacon's wreck is darker and more burnt, matching the other ruins in
-      the game.
+    - The beacon's wreck is darker, rustier and more burnt, matching the other
+      ruins in the game.
     - The module and beacon icons are sharper, and the dark fringe around their
       edges is gone.
+    - The Pure beacon's containment well is now open and lit. Its glow was
+      sealed inside the casing before and never actually visible.
+    - New machinery on the containment ring: a condenser stack on one side, a
+      control head with a sight glass on the other, and a coolant line arching
+      between them.
+    - The Pure beacon's colours are warmer and stronger, so it sits alongside
+      the game's own machines instead of reading flat grey.
+    - The Pure beacon's core sits at a deeper blue, and after dark it shines
+      and casts light on the ground around it instead of going flat with the
+      rest of the machine.
+  Changes:
+    - Releasing for Factorio 2.0. Version 1.0.9 is the Factorio 2.1 build of
+      the same mod.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.7
 Date: 2026-08-08
