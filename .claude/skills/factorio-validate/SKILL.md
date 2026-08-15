@@ -15,7 +15,7 @@ Validate the data stage without launching the game and without touching the real
 
 The isolated dir needs a copy of the mod under test plus a `mod-list.json`. **Exit code 0 = data stage loaded clean.**
 
-**Never point `--mod-directory` at this repo.** The game rewrites `mod-list.json` in whatever directory it is given, and that file is off-limits here. Always stage into a scratch directory.
+**Never point `--mod-directory` at a real mods folder — this repo included.** The game rewrites `mod-list.json` in whatever directory it is given, disabling every mod it does not find there. Always stage into a scratch directory.
 
 ## Script
 
@@ -25,7 +25,15 @@ The isolated dir needs a copy of the mod under test plus a `mod-list.json`. **Ex
 .\validate.ps1 -ModPath <path-to-mod-folder>
 ```
 
-Options: `-FactorioPath <install root>` (defaults to the Steam location; override per machine), `-Disable <names>` to turn an expansion off for a compatibility check, `-KeepDump` to leave `data-raw-dump.json` in place for inspection, and **`-Live` to run with the game open** (see below).
+Options: `-FactorioPath <install root>`, `-Disable <names>` to turn an expansion off for a compatibility check, `-KeepDump` to leave `data-raw-dump.json` in place for inspection, and `-Live` for scratch write-data — which switches itself on here and is described below only so its output makes sense.
+
+**`-FactorioPath` resolves itself and rarely needs passing.** The script takes `$env:FACTORIO_PATH` if set, else **the install this repo lives in** — four levels above the script, since the repo is a dev install's `mods/` folder. If neither has a `bin\x64\factorio.exe` it throws; it deliberately does **not** go hunting for some other install, because the one it would find is the one being played and a wrong-install run exits 0 looking like a pass. It prints the install it chose and that install's `base` version on every run:
+
+```
+Install: ...\Factorio 2.1 SA Experimental (base 2.1.14)
+```
+
+Read that line. Validating a 2.1 mod against a 2.0 install, or against one with a different expansion set, exits 0 and proves nothing — and nothing else in the output would tell you.
 
 It reads `name` and `version` out of `info.json`, checks the folder name matches, copies the folder into a scratch dir under `%TEMP%`, writes a `mod-list.json`, runs the game, extracts the error lines on failure, and cleans up. Takes about 5 seconds.
 
@@ -37,9 +45,10 @@ Three things the script exists to get right, all found by testing it:
 
 Expansions load from the game install whether or not `mod-list.json` names them, so they only need listing to turn one **off**.
 
-## Close the game first
+## The lock, and why it never bites here
 
-A running Factorio holds `%APPDATA%\Factorio\.lock`, and the headless run then dies with:
+A running Factorio holds a `.lock` in its **write-data** folder, and a second run against the
+same install dies with:
 
 ```
 Error Util.cpp:81: Couldn't create lock file ...\.lock: 32.
@@ -47,19 +56,15 @@ Is another instance already running?
 ```
 
 Exit code 1, so the script reports a failed data stage — but **this is an environment failure,
-not a mod error**, and the mod was never loaded at all. Check for a running `factorio` process
-before believing a failure that mentions the lock file.
+not a mod error**, and the mod was never loaded at all.
 
-### Or move the lock: validating with the game open
-
-The lock lives in the **write-data** folder, not the mod folder, and a config
-file can move it. This validates while Factorio is running (verified
-2026-08-06, exit 0 with `Checksum of pure-modules-realk:` in the log):
+**On this setup it cannot happen.** The lock follows write-data, not the mod folder, so a
+scratch `config.ini` relocating write-data moves the lock with it:
 
 ```ini
 ; scratch config.ini
 [path]
-read-data=C:\Program Files (x86)\Steam\steamapps\common\Factorio\data
+read-data=<factorio-install>\data
 write-data=<scratch dir>
 ```
 
@@ -67,24 +72,18 @@ write-data=<scratch dir>
 factorio.exe --config <scratch>\config.ini --mod-directory <scratch>\mods --dump-data
 ```
 
-`--mod-directory` still needs its own staged copy plus a BOM-free
-`mod-list.json`, exactly as the script builds.
+`validate.ps1 -Live` writes exactly that, points `write-data` at a temp folder, and reads the
+log and the dump back from there — and **against a standalone install it switches itself on**,
+so the flag never has to be typed. Verified 2026-08-06, exit 0 with
+`Checksum of pure-modules-realk:` present on both the full-expansion and the base-only run.
 
-**`validate.ps1 -Live` does all of this for you** — it writes the scratch
-`config.ini`, points `write-data` at a temp folder, and reads the log and the
-dump from there. Verified 2026-08-06 with Factorio open: exit 0 and
-`Checksum of pure-modules-realk:` present, on both the full-expansion and the
-base-only run.
+Two things this buys beyond the lock: nothing is written into the install, so `data-raw-dump.json`
+never has to be cleaned up there (with `-KeepDump` it lands at `%TEMP%\data-raw-dump-<name>.json`),
+and a run cannot disturb the install at all.
 
-Two reasons to reach for it even when the game is closed: nothing is written to
-the real user-data folder, so `data-raw-dump.json` never has to be cleaned up
-there (with `-KeepDump` it is moved to `%TEMP%\data-raw-dump-<name>.json`
-before the scratch folder is removed), and the run cannot disturb the live
-install at all. The default path is unchanged and still writes to
-`%APPDATA%\Factorio`.
-
-When the default path fails on the lock, the script now says so explicitly and
-points at `-Live` rather than leaving it to be diagnosed.
+`-Live` is therefore vestigial in normal use. It exists for an install that keeps its write-data
+in a system directory, which nothing here does — and if a run ever *does* fail on the lock, the
+script says so explicitly rather than leaving it to be diagnosed.
 
 ## Settling a question with a throwaway mod
 
@@ -140,18 +139,15 @@ runs headless: a probe mod's `game.take_screenshot` silently writes nothing whil
 `--benchmark-graphics <save> --benchmark-ticks N` runs the same save with the renderer, ticks
 events normally, and exits — a probe mod that generates chunks, finds the feature, screenshots it
 and calls `game.set_wait_for_screenshots_to_finish()` turns it into a headless-ish visual
-harness. Three Windows/Steam facts, each measured the hard way (2.1.14, Steam build):
+harness. Three Windows facts, each measured the hard way (2.1.14):
 
-- **The Steam build refuses to start any graphics mode while the game is already running** —
-  instant exit, code 0 or 1, and *no log written*, because the failure happens before logging.
-  A run that leaves `factorio-current.log` untouched never started; check
-  `Get-Process factorio` before diagnosing anything else. Headless modes (`--dump-data`,
-  `--create`, `--benchmark`, `--generate-map-preview`) run fine alongside the open game.
-  **The escape hatch is a standalone (DRM-free) install** — it launches graphically alongside
-  the running Steam game without complaint. The 2.0.77 installs in `CLAUDE.local.md` served as
-  a live render farm for a 2.1 mod's tile art: tile-transition semantics are identical across
-  2.0/2.1, so a throwaway 2.0 probe mod (tile + transitions + a `set_tiles` arena in
-  `control.lua`) verified sheets the Steam 2.1 install could not, while the owner kept playing.
+- **Graphics modes run fine here, and that is not universal.** A DRM-free standalone install
+  launches a graphics mode whatever else is running; a Steam build refuses while its own game is
+  open, exiting instantly with *no log written* because the failure precedes logging. The dev
+  installs are standalone, so the constraint does not apply — but it is worth knowing that
+  "exited immediately and wrote no log" has a cause other than a broken probe mod. Headless
+  modes (`--dump-data`, `--create`, `--benchmark`, `--generate-map-preview`) are unaffected
+  either way.
 - **`factorio.exe` is a GUI-subsystem executable**: PowerShell's `&` returns immediately without
   waiting and `$LASTEXITCODE` stays null. Use `Start-Process -Wait -PassThru`.
 - **`--map-preview-scale` no longer exists in 2.1** — an unknown option prints the help text and
@@ -163,15 +159,24 @@ harness. Three Windows/Steam facts, each measured the hard way (2.1.14, Steam bu
 ## Validating against another game version
 
 `-FactorioPath` points the run at any install, which is how a 2.0 backport gets validated while
-this machine's Steam install is on 2.1. The 2.0 installs on this machine are listed in
-`CLAUDE.local.md`; the workflow around them is the `factorio-multiversion` skill.
+the default install is on 2.1, and how a no-expansion build gets checked against an install
+that genuinely does not ship the expansions. The installs on this machine — and which one each
+question belongs to — are listed in `CLAUDE.local.md`; the 2.0 workflow is the
+`factorio-multiversion` skill.
 
-Standalone (zip) installs keep their write-data in the install folder rather than
-`%APPDATA%\Factorio`, so the log this script reads would be the *Steam* install's stale one —
-a failed run reported as a pass. The script detects those (`config-path.cfg` →
-`use-system-read-write-data-directories=false`) and switches itself to `-Live` scratch mode,
-which also keeps the run from writing anything into that install. Verified 2026-08-06 against
-both 2.0.77 standalone installs, exit 0 with the checksum line present.
+**A vanilla install is a stronger check than `-Disable`.** `-Disable` leaves the expansion data
+sitting in the install and merely switches the mods off; a base-only install does not ship it at
+all. Use `-Disable` for the quick pass, and a vanilla install to settle a question about what a
+player without Space Age actually gets.
+
+Standalone (zip) installs keep their write-data in the install folder rather than a system
+directory like `%APPDATA%\Factorio`, so the log this script reads would otherwise be some
+*other* install's stale one — a failed run reported as a pass. The script detects those
+(`config-path.cfg` → `use-system-read-write-data-directories=false`) and switches itself to
+`-Live` scratch mode, which also keeps the run from writing anything into that install.
+Verified 2026-08-06 against both 2.0.77 standalone installs, exit 0 with the checksum line
+present. **This is also why the default run needs no flags when the repo lives in a standalone
+dev install** — the same detection fires on it.
 
 Remember what a green run on the other version does *not* prove: the data stage ignores
 properties it does not recognise, so anything version-only loads clean and does nothing.
@@ -195,7 +200,7 @@ only that whichever branch ran was structurally valid.
 
 ## Inspecting the result
 
-`--dump-data` also writes `data-raw-dump.json` (28 MB, measured) into the user-data folder's `script-output/`. Parse it to confirm the *resulting* prototype values rather than trusting the source — useful when a prototype is assembled by `table.deepcopy` plus edits, or when another mod's `data-final-fixes` may have changed it. Grep or query for the specific prototype; don't read it whole.
+`--dump-data` also writes `data-raw-dump.json` (28 MB, measured) into the user-data folder's `script-output/` — which is the install root for a standalone build, and the scratch folder whenever the script is in `-Live` mode (with `-KeepDump` it lands at `%TEMP%\data-raw-dump-<name>.json` instead). Parse it to confirm the *resulting* prototype values rather than trusting the source — useful when a prototype is assembled by `table.deepcopy` plus edits, or when another mod's `data-final-fixes` may have changed it. Grep or query for the specific prototype; don't read it whole.
 
 Delete the dump afterwards. It matches `.gitignore`, so it will not be committed, but it is 28 MB of churn in the user-data folder.
 
@@ -265,4 +270,4 @@ Placing the mod on a real map is still required before calling it done.
 
 ## When a load fails
 
-Errors surface in `factorio-current.log`, in the same user-data folder as `mods/`. The script prints the last error lines; read the log for the full context. Common causes: a folder name that doesn't match `info.json`, a dependency floor no installed mod satisfies, a `require` path that resolves against the wrong mod, or a prototype naming something that doesn't exist.
+Errors surface in `factorio-current.log`, in the same user-data folder as `mods/` — the install root for a standalone build, and a scratch folder under `%TEMP%` for any run the script put in `-Live` mode, which is all of them here. The script prints the last error lines; read the log for the full context. Common causes: a folder name that doesn't match `info.json`, a dependency floor no installed mod satisfies, a `require` path that resolves against the wrong mod, or a prototype naming something that doesn't exist.

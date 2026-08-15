@@ -510,14 +510,14 @@ unbroken slab far more clearly than the offline composite had.**
 
 Four things it exists to get right, each found by testing:
 
-- **`SteamAppId=427520` lets a graphics mode run while the game is open.**
-  Without it the Steam build prints `Steam requires game restart,
-  restarting...` and **exits 0** having photographed nothing. That deceptive
-  exit code is why the script counts PNGs instead of trusting the exit status —
-  and it is the whole reason this is usable without closing the game.
+- **Verify by counting PNGs, never by the exit code.** A graphics mode can exit
+  **0** having photographed nothing. (The known cause is a DRM check on Steam
+  builds, which the dev installs don't have — `SteamAppId=427520` is still set
+  as cheap insurance and simply does nothing here. The lesson generalises: a
+  clean exit is not evidence a screenshot exists.)
 - **Scratch write-data.** The `.lock`, the log and `script-output` all follow
-  write-data, so a `config.ini` relocating it keeps the run clear of the open
-  game and out of `%APPDATA%\Factorio` entirely.
+  write-data, so a `config.ini` relocating it keeps the run out of the install's
+  own user-data folder entirely.
 - **Spread the work over ticks.** Chunk generation, placement and
   screenshotting each need the previous one finished; a screenshot requested in
   the same tick as the entity photographs empty ground.

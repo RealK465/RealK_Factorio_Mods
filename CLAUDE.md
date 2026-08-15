@@ -8,16 +8,23 @@ This file is portable — repo conventions and the rules that apply in any clone
 
 A Factorio **mods directory** that is also a git repository. Factorio loads whatever is here at game start, so it is a working install first and a source tree second. Only the mods developed in this repo are tracked; everything the game or another author put here is ignored.
 
-Cloning into the mods directory — `%APPDATA%\Factorio\mods` on Windows, `~/Library/Application Support/factorio/mods` on macOS, `~/.factorio/mods` on Linux — is what makes edits testable without a copy step. Working elsewhere is fine, but the mods won't be live until symlinked or copied in.
+Living inside a real mods folder is what makes edits testable without a copy step — save a Lua file, restart the game, see it. Working elsewhere is fine, but the mods won't be live until symlinked or copied in.
+
+**The mods folder it lives in is a dedicated dev install** — a standalone (DRM-free zip) copy of the game kept for development, whose `mods/` holds nothing but this repo. Not the copy anyone plays. That buys three things: the repo root stays clean of other people's mods, the game version stays pinned instead of updating underneath the work, and a standalone install keeps its own `.lock` and write-data, so validation and screenshot runs work no matter what else is running.
+
+**Any install used for actually playing is out of scope** — never read, never written, never validated against, never named in a tool invocation. There is no path in this workspace that needs one. Paths for the dev installs are in `CLAUDE.local.md`.
+
+(A clone that instead sits in a play install's mods folder — `%APPDATA%\Factorio\mods` on Windows, `~/Library/Application Support/factorio/mods` on macOS, `~/.factorio/mods` on Linux — still works; it just has to keep other authors' mods straight from the deliverables, which is what *Folder classes* below is for.)
 
 On first use, copy `CLAUDE.local.md.example` to `CLAUDE.local.md` and fill it in. It is git-ignored and must stay that way — it is the one place machine paths and personal identity belong.
 
 ## Do not touch
 
-- **`*.zip`** — other authors' mods, downloaded for play runs. Never edit, unzip in place, delete, or rename them. Reading one (e.g. extracting to a scratch directory) is fine as reference only.
+- **Any install used for playing** — outside the repo and outside our remit. Don't read it, write it, stage from it, validate against it, or point `--mod-directory` or `fmtk mods` at it. A play save's mod list is not recoverable from git, and a run against the wrong install exits 0 and looks like a pass. Everything needed is in the dev installs; needing a play path means something is misconfigured.
+- **`*.zip`** — other authors' packaged mods, if any are ever dropped in here. Never edit, unzip in place, delete, or rename them. Extracting a copy to a scratch directory to read is fine; it stays reference only.
 - **`mod-list.json`**, **`mod-settings.dat`** — managed by the game. Editing these breaks the install. This is also why `--mod-directory` and `fmtk mods` must never be pointed at this folder.
 - **Frozen vendor mod folders** — other authors' unpacked mods, present only so the game loads them. Don't read or modify them unless asked. **Not every untracked folder is one of these** — see *Folder classes* below, and note that this rule is enforced by `permissions.deny` in `.claude/settings.json`, not by this line alone.
-- Anything under the game install directory — read-only reference.
+- **Anything under the game install directory** — read-only reference. That is the folder one level above this repo: its `data/` and `doc-html/` are the authoritative API, and its `config/`, `saves/` and `script-output/` are the game's own. Read freely, write nothing.
 
 ## Folder classes
 
@@ -25,6 +32,12 @@ Factorio requires every mod folder to sit at this directory's root, so they cann
 into subfolders — a declaration is the only thing separating a deliverable from another author's
 mod. There are five classes, and the trap is that **"not in git" does not mean "do not touch"**:
 two of the five are edited routinely and tracked by nothing.
+
+**A dev install collapses most of this.** With the repo alone in its mods folder, the only class
+with members is Deliverable, plus whatever Reference material was deliberately put here. The
+table still stands — a clone can land in a mixed folder, and material can always arrive later —
+but if the classes read as elaborate for what is actually on disk, that is the arrangement
+working. Which classes are populated **here** is in `CLAUDE.local.md`.
 
 | Class | Ours | In git | Agent may edit | Ships to portal |
 |---|---|---|---|---|
@@ -80,6 +93,8 @@ Tracked unpacked folders are this repo's own mods:
 - **`space-forge/`** — Space Forge. A large overhaul, in early development; nothing is implemented yet. **Unpublished**, Factorio 2.1 only. Ships as a pair with the mod below, and the two carry independent version sequences. Scope, art direction and compatibility stance are all still open — the mod's `CLAUDE.md` and `.ai-support/design.md` are where decisions get recorded.
 
 - **`space-forge-graphics/`** — Space Forge Graphics. The art half of the mod above: sprites, icons and sounds, **and no Lua at all**. Splitting art out keeps a balance patch small for players; the rule that keeps it working is that this mod never gains a data stage. Same pattern as `space-exploration-graphics` and `Krastorio2Assets`. **Unpublished.**
+
+- **`upcycler-architect/`** — Upcycler Architect. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and drops it as ghosts. In early development — scaffolding only, no `data.lua` or `control.lua` yet, so it loads and does nothing. **Unpublished**, Factorio 2.1 only, and the only mod here with a hard `quality` dependency. Scope is still open; the mod's `CLAUDE.md` and `.ai-support/design.md` hold the decisions and the verified API findings — chiefly that ghosts must be placed one at a time, because blueprint strings only work in menu simulations.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
@@ -150,9 +165,9 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
 - **`main` is Factorio 2.1; `legacy/2.0` is Factorio 2.0.** Both are long-lived trunks, not a
   branch and a one-off side branch: `legacy/2.0` is where *every* 2.0 build of *every* mod in
   this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
-  and the 2.0 track stops getting work. It is checked out as a worktree **outside this
-  directory** — the mods folder is the live install, not a place for a second copy of a mod.
-  Path in `CLAUDE.local.md`; workflow in the `factorio-multiversion` skill.
+  and the 2.0 track stops getting work. It is checked out as a **worktree in the 2.0 dev
+  install's own `mods/`**, so the 2.0 build is live and testable exactly as `main` is in the 2.1
+  one. Path in `CLAUDE.local.md`; workflow in the `factorio-multiversion` skill.
 - **Only a mod's own source may differ between the two branches.** `CLAUDE.md`, `README.md`,
   everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
@@ -237,7 +252,7 @@ version, so this genuinely is two builds and two release tracks, not one zip tha
 Mechanics, numbering and what 2.1 broke: the `factorio-multiversion` skill. When 2.1 goes stable
 the 2.0 track simply stops getting work.
 
-The game install ships the authoritative API for the *exact installed version* — **prefer these over anything remembered, guessed, or found online.** Paths are relative to the install root (absolute path in `CLAUDE.local.md`; typically `C:\Program Files (x86)\Steam\steamapps\common\Factorio`, `/Applications/factorio.app/Contents`, or `~/.steam/steam/steamapps/common/Factorio`):
+The game install ships the authoritative API for the *exact installed version* — **prefer these over anything remembered, guessed, or found online.** Read them from the dev install, whose version is pinned; absolute path in `CLAUDE.local.md`, and the paths below are relative to its root (the folder holding `bin/`, `data/` and `doc-html/`, one level above this repo):
 
 - `doc-html/runtime-api.json` — full runtime (control-stage) API: classes, events, defines, concepts.
 - `doc-html/prototype-api.json` — full prototype (data-stage) API: every prototype and type.
@@ -264,7 +279,7 @@ repo convention, and it is long. Three facts orient everything else:
 
 - **Stages run in order**: `settings.lua` → `data.lua` → `data-updates.lua` → `data-final-fixes.lua` → (game starts) → `control.lua`. Data-stage code cannot see runtime state; control-stage code cannot see or modify prototypes. Only touch other mods' prototypes in `data-updates`/`data-final-fixes`.
 - **2.0 renamed things.** `global` → `storage`, `game.<x>_prototypes` → `prototypes.<x>`, assorted `game.*` utilities → `helpers.*`. Code using the old names is pre-2.0 and needs porting, not copying.
-- **Errors surface in `factorio-current.log`**, in the same user-data folder as `mods/`. Read it when diagnosing a load failure — several failure modes are silent otherwise.
+- **Errors surface in `factorio-current.log`**, in the same user-data folder as `mods/` — for a standalone install that is the install root, one level above this repo. Read it when diagnosing a load failure; several failure modes are silent otherwise.
 
 ## Skills
 

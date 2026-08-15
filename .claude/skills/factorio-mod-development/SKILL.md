@@ -255,6 +255,8 @@ the only shape that survives shared tables, and it costs two lines.
 - **`factorio-current.log`**, in the same user-data folder as `mods/`, is where load failures and
   `log()` output land. Several failure modes appear *only* there — a missing locale key logs
   `Unknown key`, a malformed `changelog.txt` logs a parse error and simply doesn't render.
+  For a standalone install that folder is the **install root**, one level above this repo; read
+  the wrong install's log and a stale error looks like a live one.
 - **`log(serpent.block(x))`** works in both stages and is usually enough. At runtime `game.print`
   and `player.print` are more immediate; neither exists during `control.lua` top level or
   `on_load`.

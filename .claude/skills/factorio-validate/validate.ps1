@@ -7,7 +7,12 @@ param(
   [Parameter(Mandatory = $true)]
   [string] $ModPath,
 
-  [string] $FactorioPath = 'C:\Program Files (x86)\Steam\steamapps\common\Factorio',
+  # Defaults to the install this repo lives in: the repo is a dev install's mods/
+  # folder, so the install root is four levels above this script and needs no
+  # configuring. $env:FACTORIO_PATH overrides, matching FACTORIO_DATA in
+  # factorio_render/vanilla.py. There is deliberately NO fallback to a play
+  # install - see the throw below.
+  [string] $FactorioPath,
 
   # Expansions load from the game install whether or not they are listed, so
   # they only need naming here to turn one OFF for a compatibility check.
@@ -22,6 +27,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $FactorioPath) {
+  # <install>/mods/.claude/skills/factorio-validate/ -> <install>
+  $selfInstall = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..')).Path
+  $FactorioPath = @($env:FACTORIO_PATH, $selfInstall) |
+    Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\x64\factorio.exe')) } |
+    Select-Object -First 1
+  # Throw rather than hunt for any other install. Silently falling back to a play
+  # install would run the game against someone's real setup, and a wrong-install run
+  # exits 0 and looks exactly like a pass.
+  if (-not $FactorioPath) {
+    throw "No dev install found at $selfInstall - pass -FactorioPath or set FACTORIO_PATH (see CLAUDE.local.md)."
+  }
+}
 
 $ModPath = (Resolve-Path -LiteralPath $ModPath).Path
 $infoPath = Join-Path $ModPath 'info.json'
@@ -46,7 +65,7 @@ if (-not (Test-Path -LiteralPath $exe)) {
 }
 
 # A standalone (zip) install keeps its write-data in its own folder instead of
-# %APPDATA%\Factorio. This script would then read the Steam install's stale log and
+# %APPDATA%\Factorio. This script would then read some other install's stale log and
 # call a failed run a pass, so switch to scratch write-data - which also keeps the
 # run from writing anything into that install.
 $pathCfg = Join-Path $FactorioPath 'config-path.cfg'
@@ -88,6 +107,13 @@ $json = [pscustomobject]@{
   (Join-Path $stage 'mod-list.json'), $json, (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host "Validating $name $version"
+# Say which install ran. Validating a 2.1 mod against a 2.0 install (or the wrong
+# expansion set) passes clean and proves nothing, and there is no other signal.
+$baseInfo = Join-Path $FactorioPath 'data\base\info.json'
+$baseVer = if (Test-Path -LiteralPath $baseInfo) {
+  (Get-Content -LiteralPath $baseInfo -Raw | ConvertFrom-Json).version
+} else { '?' }
+Write-Host "Install: $FactorioPath (base $baseVer)"
 if ($Disable.Count) { Write-Host "Disabled: $($Disable -join ', ')" }
 
 # factorio.exe is a GUI-subsystem binary, so the call operator neither waits

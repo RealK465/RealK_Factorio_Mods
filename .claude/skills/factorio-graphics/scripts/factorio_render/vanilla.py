@@ -52,17 +52,18 @@ def find_data_dir():
     env = os.environ.get("FACTORIO_DATA")
     if env and os.path.isdir(env):
         return env
-    candidates = [
-        r"C:\Program Files (x86)\Steam\steamapps\common\Factorio\data",
-        r"C:\Program Files\Steam\steamapps\common\Factorio\data",
-        os.path.expanduser("~/Library/Application Support/Steam/steamapps/"
-                           "common/Factorio/factorio.app/Contents/data"),
-        os.path.expanduser("~/.steam/steam/steamapps/common/Factorio/data"),
-    ]
-    for c in candidates:
-        if os.path.isdir(c):
-            return c
-    raise RuntimeError("game data/ not found -- set FACTORIO_DATA")
+    # <install>/mods/.claude/skills/factorio-graphics/scripts/factorio_render/ ->
+    # <install>/data. The repo lives in a dev install's mods/ folder, so this is
+    # the answer, and it is pinned to that install's version. No hunt for other
+    # installs on the machine: a silently different game version would change the
+    # vanilla sprites underneath a composite without anything looking wrong.
+    here = os.path.dirname(os.path.abspath(__file__))
+    self_install = os.path.abspath(os.path.join(here, *([os.pardir] * 6)))
+    self_data = os.path.join(self_install, "data")
+    if os.path.isfile(os.path.join(self_data, "base", "info.json")):
+        return self_data
+    raise RuntimeError(
+        "game data/ not found at %s -- set FACTORIO_DATA" % self_data)
 
 
 def resolve(path, mod_roots=None):

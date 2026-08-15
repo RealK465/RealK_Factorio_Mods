@@ -533,8 +533,7 @@ Everything above was established on a working implementation (a chasm tile with 
 walls, since removed from the repo). **Verify transition art in a real engine, never by an
 offline mockup** — a compositor built on careful art-reading still got the rotation order and
 two art-interaction rules wrong; the `factorio-validate` skill's `--benchmark-graphics`
-harness (on a DRM-free standalone install if the Steam game is open) is cheap and tells the
-truth.
+harness is cheap and tells the truth. The dev installs are DRM-free, so it runs whenever asked.
 
 ## Sprite metadata sidecars
 

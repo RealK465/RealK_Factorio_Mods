@@ -38,10 +38,11 @@ game the newest one matching its major version; the in-game browser never shows 
 | | main | legacy/2.0 |
 |---|---|---|
 | Branch | `main` — the live mod folder | `legacy/2.0`, checked out in a worktree |
+| Lives in | the 2.1 install's `mods/` | the 2.0 install's `mods/` |
 | `factorio_version` | `"2.1"` | `"2.0"` |
 | `base` dependency | `base >= 2.1.0` | `base >= 2.0.0` |
 | Version band | `<major>.1.x` | `<major>.0.x` |
-| Validated against | the Steam 2.1 install | a standalone 2.0 install |
+| Validated against | a 2.1 install | a 2.0 install |
 
 ### Version numbering
 
@@ -77,15 +78,22 @@ published ones can never be changed.
 `legacy/2.0` diverges from `main` in `info.json` (version, `factorio_version`, `base` floor) and
 in whatever code the port needs. Everything else arrives by cherry-pick.
 
-**Check it out outside the mods directory.** This repo *is* the live mods folder; a second copy
-of a mod inside it is untracked clutter in the one directory the game scans. The worktree path
-for this machine is in `CLAUDE.local.md`.
+**The worktree lives in the 2.0 dev install's own `mods/`** — the exact mirror of what `main` is
+in the 2.1 install, so the 2.0 build is *live* and can be launched and played, not merely
+validated. The path is in `CLAUDE.local.md`.
+
+That makes the worktree a live mod folder too, so the game writes `mod-list.json` and
+`mod-settings.dat` into it. Both are already in `.gitignore`, which is shared across branches —
+don't "fix" a `git status` that shows them.
 
 ```bash
 git worktree add <legacy-path> legacy/2.0     # first time; add -b to create the branch
 cd <legacy-path>
 git cherry-pick <commit-from-main>            # expect conflicts in info.json / changelog.txt
 ```
+
+`git worktree add` wants the target either absent or an empty directory. A game install's fresh
+`mods/` already contains a `mod-list.json`, so move that aside first and let the game rewrite it.
 
 Conflicts in `info.json` and `changelog.txt` are the normal case, not a mistake — both files
 legitimately differ between tracks. Keep the legacy band on both sides of the resolve.
@@ -141,13 +149,20 @@ connecting by touching edges, the recycling category moving from base to the rec
 .\validate.ps1 -ModPath <legacy-path>\<mod> -FactorioPath "<2.0 install>"
 ```
 
-Install paths are in `CLAUDE.local.md`. This machine has two 2.0.77 standalone installs — one
-with Space Age, one vanilla — which between them cover both configurations our mods support. Use
-the vanilla install, or `-Disable space-age quality`, for the no-expansion path.
+Install paths are in `CLAUDE.local.md`. This machine has four standalone installs — 2.1 and 2.0,
+each in a Space Age and a vanilla flavour — which between them cover every configuration our
+mods support. Use the matching vanilla install, or `-Disable space-age quality`, for the
+no-expansion path; the vanilla install is the stronger of the two, since `-Disable` only
+switches expansion data off rather than removing it.
 
-A standalone (zip) install keeps its write-data in its own folder rather than
-`%APPDATA%\Factorio`; the script detects that and switches itself to scratch-folder mode, so the
-2.0 run never writes into the install and never collides with a running 2.1 game.
+**`-FactorioPath` is required here even though it is optional elsewhere.** The script otherwise
+defaults to the install the repo lives in, which is the 2.1 one — so a 2.0 backport validated
+without the flag silently exercises the wrong game and passes. Read the `Install:` line the
+script prints and confirm the `base` version on it before believing the result.
+
+A standalone (zip) install keeps its write-data in its own folder rather than a system directory;
+the script detects that and switches itself to scratch-folder mode, so the 2.0 run never writes
+into the install and never collides with a running game.
 
 Exit 0 proves the data stage loads. It says nothing about classes 2 and 3.
 
@@ -157,7 +172,7 @@ Exit 0 proves the data stage loads. It says nothing about classes 2 and 3.
 prints every property that differs, appears or vanishes. It is how class 2 gets caught.
 
 ```powershell
-.\validate.ps1 -ModPath <mod> -KeepDump                        # 2.1, Steam install
+.\validate.ps1 -ModPath <mod> -KeepDump                        # 2.1, the default install
 Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-2.1.json
 .\validate.ps1 -ModPath <legacy>\<mod> -FactorioPath "<2.0 install>" -KeepDump
 Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-2.0.json
