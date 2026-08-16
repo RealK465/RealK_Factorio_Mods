@@ -5,7 +5,7 @@
   "author": "RealK",
   "factorio_version": "2.1",
   "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/upcycler-planner",
-  "description": "Pick an item and a target quality, the mod designs the entire upcycling loop blueprint and places it as ghosts.",
+  "description": "Choose an item and a target quality, the mod designs the entire upcycling loop blueprint and places it as ghosts.",
   "dependencies": ["base >= 2.1.0", "quality >= 2.1.0"],
   "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**", "tests/**"] }
 }
