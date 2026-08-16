@@ -64,6 +64,10 @@ Default `author` for new mods: `<name>`. Default `homepage`: `<url>`.
 ## Tooling
 
 - **fmtk** (`factoriomod-debug`) `<version>` — `npm install -g factoriomod-debug`
+- **factorio-test-cli** `<version>` — `npm install -g factorio-test-cli`; the in-game test
+  runner (the `factorio-testing` skill seeds the framework mod and fetches emmylua_check
+  itself). On Windows it also needs a spawnable `npx.exe` — see the skill.
+- **Lua** `<version>` and **luacheck** `<version>` — the pure and static test tiers
 - **Node** `<version>` (fmtk requires ≥ 22.7.0)
 - **Blender** `<version>`, if doing graphics work
 - Anything else the agent should not have to probe for
