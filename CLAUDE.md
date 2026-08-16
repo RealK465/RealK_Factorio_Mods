@@ -83,7 +83,7 @@ Tracked unpacked folders are this repo's own mods:
 
 - **`space-forge-graphics/`** — Space Forge Graphics. The art half of the mod above: sprites, icons and sounds, **and no Lua at all**. Splitting art out keeps a balance patch small for players; the rule that keeps it working is that this mod never gains a data stage. Same pattern as `space-exploration-graphics` and `Krastorio2Assets`. **Unpublished.**
 
-- **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and drops it as ghosts. In development — the first version works end to end (shortcut → modal → Confirm → selection tool → ghosts), with researched-gated pickers and support for modded recyclers, though the loop's long-run in-game behaviour is still being proven. **Unpublished**, Factorio 2.1 only, and the only mod here with a hard `quality` dependency. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly that ghosts must be placed one at a time, because blueprint strings only work in menu simulations.
+- **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and drops it as ghosts. In development — the first version works end to end (shortcut → modal → Confirm → selection tool → ghosts), with researched-gated pickers and support for modded recyclers, though the loop's long-run in-game behaviour is still being proven. **Unpublished**, on both tracks since 2026-08-16: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below). The only mod here with a hard `quality` dependency. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly that ghosts must be placed one at a time, because blueprint strings only work in menu simulations.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
@@ -193,7 +193,10 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
   files are `info.json`, `prototypes/modules/definitions.lua`,
-  `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else.
+  `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else. For
+  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`
+  and `scripts/gui.lua`, plus `data-final-fixes.lua`, which exists **only** on `legacy/2.0` —
+  the 2.0 shims live on that branch alone, never version-gated into `main`.
   `README.md` used to be on that list and no longer is: the 1.0.2/1.0.3 rewrite dropped the
   claim that a module's cost does not grow with its quality, which was the only 2.1-only
   sentence in it, so both tracks now ship the same file.

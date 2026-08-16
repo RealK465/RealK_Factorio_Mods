@@ -275,25 +275,20 @@ Format rules are unchanged: see `factorio-changelog`.
 
 ## Sharing code between the tracks
 
-The branch model means most files can simply stay identical. When one file genuinely has to
-serve both — a shared prototype table where a single property is version-gated — branch on the
-base mod's version instead of forking the file:
+**This repo forks; it never gates.** The repo owner's standing call (2026-08-16, from the
+upcycler-planner port): `main` carries no 2.0 code — no base-version branches, no `mods[...]`
+presence probes, no compat shims, however small a helper. The 2.0 track is temporary, and gated
+code would sit in `main` confusing readers long after 2.1 goes stable and the track stops. A
+backport is therefore forked copies of the affected files on `legacy/2.0`, with the
+divergent-file list declared in `CLAUDE.md` → *Git* — Pure Modules and Upcycler Planner are the
+worked examples — and a cherry-pick that touches a forked file is rewritten by hand, never
+merged blind.
 
-```lua
--- data stage: `mods` maps every enabled mod to its version, base included
-local major, minor = mods["base"]:match("^(%d+)%.(%d+)")
-if tonumber(major) * 100 + tonumber(minor) >= 201 then
-  module.consumption_quality_multiplier = 0
-end
-```
-
-At runtime the same fact is `script.active_mods["base"]`. `feature_flags` works as a version
-probe too, since flags accumulate over time — `feature_flags["expansion"]` is 2.1-only and reads
-as `nil` on 2.0, which is safe to test.
-
-Reach for this only where a fork would mean duplicating a whole file over one line. Two branches
-differing in one guarded block each are easier to cherry-pick between than two branches
-differing everywhere.
+For recognising the gating pattern in *other people's* mods (never for adding it here): the
+data stage branches on `mods["base"]`, matching major/minor out of the version string; at
+runtime the same fact is `script.active_mods["base"]`; and `feature_flags` doubles as a version
+probe, since flags accumulate — `feature_flags["expansion"]` is 2.1-only and reads as `nil` on
+2.0.
 
 ## Deciding not to backport
 
