@@ -64,7 +64,8 @@ prototypes/
 scripts/                     one file per runtime feature, required by control.lua
 migrations/                  added the first time a prototype is renamed
 locale/en/space-forge.cfg    every player-visible string
-.ai-support/design.md        the running design record — decisions and their reasons
+.ai-support/index.md         the map — read it first
+.ai-support/decisions.md     what is settled, and why
 ```
 
 **`require` paths use dots, mod-wide** — a readability convention, not a correctness one.
@@ -81,8 +82,11 @@ spelling just makes a shared module grep-able.
   on purpose; rewrite them before the first release rather than after.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
   sync if the root copy is ever refreshed.
-- Design decisions go in `.ai-support/design.md` as they are made, with the reason. Anything
-  that generalises beyond this mod belongs in a skill under `.claude/` instead.
+- **`.ai-support/` is this mod's local context — start at its `index.md`.** Design decisions go
+  in `.ai-support/decisions.md` as they are made, with the reason; it covers the graphics mod
+  too, which carries no `.ai-support/` of its own. The repo `CLAUDE.md` → *AI support folders*
+  has the rules, including which further files to add and when. Anything that generalises beyond
+  this mod belongs in a skill under `.claude/` instead.
 - **Validating needs both mods staged.** `validate.ps1` takes one `-ModPath`, so a run against
   `space-forge` alone dies on the unresolved `space-forge-graphics` dependency. Stage both into
   a scratch `mods/` with a BOM-free `mod-list.json` naming all three (`base` included), then run
@@ -112,8 +116,9 @@ spelling just makes a shared module grep-able.
 
 ## Open questions
 
-The design is deliberately undecided. Record answers here and in `.ai-support/design.md` as
-they are made, rather than letting them exist only in the code.
+The design is deliberately undecided. **`.ai-support/decisions.md` is the single owner** of the
+open list and the reasons behind it — record answers there as they are made, rather than letting
+them exist only in the code, and keep the summaries below to one line each.
 
 - **What does the overhaul actually change?** Scope is undefined: production chains,
   progression, planets, combat — none of it is chosen.

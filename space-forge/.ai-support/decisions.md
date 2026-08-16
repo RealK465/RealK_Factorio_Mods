@@ -1,15 +1,15 @@
-# Space Forge — design record
+# Space Forge — decisions
 
-The running record of what has been decided and why. Tracked in git, ships nowhere (leading
-dot, invisible to Factorio and to `fmtk package`).
+Register: what is settled, and why. **Edited in place** — a decision that changes is rewritten
+here rather than annotated, so this file always reads as the present tense. Rules for the folder
+are in the repo `CLAUDE.md` → *AI support folders*. Never ships (leading dot).
 
 Started 2026-08-08. **Almost nothing is decided yet** — the mod was scaffolded before its
 design, deliberately, so there is a place to put decisions as they are made.
 
-**How to use this file.** Write a decision down when it is made, with the reason and the
-alternatives that lost. A decision whose reason is only in someone's head gets re-litigated
-every few weeks; one whose reason is written down can be revisited honestly, or overturned
-on purpose. Move anything that generalises past this mod into a skill under `.claude/`.
+Write a decision down when it is made, with the reason and the alternatives that lost. A
+decision whose reason is only in someone's head gets re-litigated every few weeks; one whose
+reason is written down can be revisited honestly, or overturned on purpose.
 
 ---
 
