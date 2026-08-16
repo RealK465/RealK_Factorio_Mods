@@ -13,7 +13,7 @@ game's own settings) is git-ignored.
 | [`pure-modules-realk`](pure-modules-realk/) | [published](https://mods.factorio.com/mod/pure-modules-realk) | A clean top tier of modules above tier 3 — stronger, with no speed or quality penalty — plus a wide-area beacon built for the tier. |
 | [`space-forge`](space-forge/) | in development | A large overhaul. Early scaffolding — not playable yet. |
 | [`space-forge-graphics`](space-forge-graphics/) | in development | The art for Space Forge, split out so a balance patch stays small. Contains no code. |
-| [`upcycler-planner`](upcycler-planner/) | in development | A layout planner for quality upcycling loops — pick an item and a target quality, and it designs the loop and drops it as ghosts. First version works end to end; unreleased. |
+| [`upcycler-planner`](upcycler-planner/) | [published](https://mods.factorio.com/mod/upcycler-planner) | A layout planner for quality upcycling loops — pick an item and a target quality, and it designs the loop and drops it as ghosts. |
 
 Each mod folder is self-contained and carries its own `README.md`, `LICENSE` and
 `changelog.txt`, which is what ships to the [mod portal](https://mods.factorio.com/) on
@@ -85,6 +85,7 @@ support) that guide that work. None of it ships with a mod or reaches the mod po
 Tooling used across mods in this repo:
 
 - [**fmtk**](https://github.com/justarandomgeek/vscode-factoriomod-debug) (`factoriomod-debug`) — versioning, packaging and publishing
+- [**factorio-test**](https://github.com/GlassBricks/FactorioTest) — the in-game test framework behind `upcycler-planner`'s suite, run headless or against a real client
 - **Blender**, for entity and icon art — sources live in `assets/`, exports in each mod's `graphics/`
 - Factorio's own headless binary, for validating that a mod's data stage loads before packaging
 
