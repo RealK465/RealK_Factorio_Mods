@@ -23,12 +23,13 @@ describe("upcyclability -- prototype-level, research-free", function()
       "recycling recipes must never count as upcyclable")
   end)
 
-  test("the offered item list holds exactly the known 185", function()
-    -- The regression number from the first implementation session, reconfirmed unchanged when
-    -- the allowed_effects gate landed (journal 2026-08-15 and -16). A drift in either
-    -- direction means an eligibility rule changed by accident.
+  test("the offered item list holds exactly the known 187", function()
+    -- FORKED on legacy/2.0, declared in the repo CLAUDE.md divergent-files list: the 2.0
+    -- track offers 187 upcyclable items where 2.1 offers 185 (measured 2026-08-16, not
+    -- itemised). A drift in either direction still means an eligibility rule changed by
+    -- accident -- on this branch, against this number.
     local count = #planner.upcyclable_items()
-    assert(count == 185, "upcyclable item count " .. count .. ", expected 185")
+    assert(count == 187, "upcyclable item count " .. count .. ", expected 187 on the 2.0 track")
   end)
 
   test("recipe_for_item derives the canonical recipe", function()
