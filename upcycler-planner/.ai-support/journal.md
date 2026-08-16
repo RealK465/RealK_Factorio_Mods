@@ -69,9 +69,19 @@ through the runner's `-Graphics` path, pure 14/14, static clean). The owner set 
 checkpoints rather than per-edit, suites opt-in per mod, the graphics pass at releases — now
 written into this mod's `CLAUDE.md`, the `factorio-testing` skill, and `factorio-release`
 step 3. The runner was also prepared for the legacy track (data dirs keyed per install,
-`recycler` auto-dropped where an install ships none), and the skill's 2.0 section is the
+`recycler` auto-dropped where an install ships none), and the skill's 2.0 section became the
 session checklist for it: fork `loop_spec` for the `furnace_*` inventory names, re-measure
 the 185.
+
+**The suite then went to the 2.0 track the same day**: cherry-picked to `legacy/2.0` (one
+hand-resolved conflict, `info.json` as always) and 72/73 on the very first run. Both
+checklist predictions dissolved on contact: the `loop_spec` fork never happened —
+`defines.inventory.crafter_input` and `crafter_output` already exist on 2.0.77, 2.1 merely
+removed the `furnace_*` aliases — and the one real fork is `tests/planner_spec.lua`, because
+**the 2.0 track offers 187 upcyclable items where 2.1 offers 185** (measured, not itemised).
+The seeding lesson: fmtk's plain `mods install` grabs the overall-newest framework release, a
+2.1-only build the 2.0 game refuses to load, so the runner now picks the newest release
+matching the install's own major.minor from the portal API directly.
 
 ## 2026-08-16 — first release: 0.1.0 (Factorio 2.0) and 0.1.1 (Factorio 2.1)
 
