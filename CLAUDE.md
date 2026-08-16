@@ -316,6 +316,7 @@ Reference detail lives in `.claude/skills/`, tracked in this repo. **Invoke the 
 | `factorio-changelog` | Writing or fixing **any** line of `changelog.txt` |
 | `factorio-release` | Any version bump, `fmtk` command, packaging, or mod-portal question |
 | `factorio-validate` | After editing prototypes and before packaging — proves the data stage loads |
+| `factorio-testing` | Running or writing automated tests for a mod — the in-game factorio-test suite (headless or graphics), the pure host-Lua tier, or the static checkers |
 | `factorio-graphics` | Any sprite, icon, `thumbnail.png` or Blender work — including *designing* an entity's look, which happens before any Blender step |
 | `factorio-multiversion` | Anything touching a second game version — backporting to 2.0, the `legacy/2.0` branch, whether a change is safe there, or what 2.1 broke |
 

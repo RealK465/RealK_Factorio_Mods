@@ -88,7 +88,10 @@ wrong here. Backporting and the legacy branch are that skill too.
 
 1. `fmtk version` — bumps `version` in `info.json` and opens a new changelog section stamped `Date: ????`. **Skip when the top section is already open** — the work belongs in it (see "Published or open?").
 2. Write the changelog entries under that section by hand — see the `factorio-changelog` skill. The section keeps `Date: ????` for as long as the version is open, however many sessions that spans.
-3. Validate the data stage — see the `factorio-validate` skill.
+3. Validate the data stage — see the `factorio-validate` skill. **If the mod carries a
+   `tests/` suite, it must be green too** — headless plus one graphics pass, via the
+   `factorio-testing` skill. A release is exactly the checkpoint the suite exists for;
+   suites are per-mod opt-in, so a mod without one skips this sentence.
 4. **Settle every player-facing file before packaging.** `README.md` ships *inside the zip* **and** becomes the portal description, so a wrong claim in it gets baked into a release that can never be re-uploaded. Read it against the track being shipped rather than against the mod in general — this is exactly where a 2.1-only promise slips into a 2.0 build. Same for `info.json`'s `description` and the locale strings.
 5. `fmtk package` — builds `<name>_<version>.zip`. Local only, safe, and the right way to sanity-check what would ship. A sanity zip may still carry `Date: ????`; the shipping one is rebuilt after the datestamp.
 6. Verify the zip contents, then **stop and ask**.
