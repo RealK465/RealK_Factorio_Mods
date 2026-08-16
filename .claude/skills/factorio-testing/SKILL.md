@@ -152,20 +152,16 @@ addon wrapper, not the library. emmylua_check **errors** fail the run; its warni
 
 ## The 2.0 track
 
-Untested there so far, but prepared: the runner keys its data dir per install and trims
-`recycler` from the default mod set when the install ships no `data\recycler` (2.0, where
-the entity lives inside `quality`). The legacy worktree's own copy of this skill self-locates
-to the 2.0 install, exactly like `validate.ps1`, and `check-static.ps1` regenerates 2.0.77
-typedefs there on first run. The remaining legacy-session checklist, in order:
+Proven on 2.0.77 (2026-08-16): the whole suite passes from the legacy worktree, whose copy of
+this skill self-locates to the 2.0 install exactly like `validate.ps1` — `check-static.ps1`
+regenerates 2.0.77 typedefs there on first run, the runner keys its data dir per install,
+trims `recycler` from the default mod set when the install ships no `data\recycler` (2.0,
+where the entity lives inside `quality`), and seeds the framework **version-matched** from
+the portal (the overall-newest release is a 2.1-only build a 2.0 game refuses to load).
 
-1. The suite must be committed on `main` first; it reaches `legacy/2.0` by cherry-pick.
-2. **Fork `tests/loop_spec.lua` on the legacy branch** — it uses
-   `defines.inventory.crafter_input`/`crafter_output`, which are 2.1 names (2.0 has the
-   `furnace_*` pair) — and add it to the divergent-files list in the repo `CLAUDE.md` → Git.
-   Never version-gate it in `main`'s copy.
-3. Run from the worktree and read the first run honestly. Expected discoveries: fmtk should
-   seed the 2.0-compatible framework (3.0.x) by itself — verify the CLI accepts it; the
-   "185 upcyclable items" count may differ on 2.0 (eligibility flows through the mod-data
-   bridge there) — measure, and fork that assertion if so; confirm the bundled save's
-   connected player and `tags()` behave the same on framework 3.0.x.
-4. `factorio-multiversion` governs the branch mechanics throughout.
+Findings from the port, so nobody re-predicts them: `defines.inventory.crafter_input`/
+`crafter_output` already exist on 2.0 — 2.1 only removed the old `furnace_*` aliases — so
+`loop_spec` needed no fork. The one forked spec is `tests/planner_spec.lua` on `legacy/2.0`:
+the 2.0 track offers **187** upcyclable items where 2.1 offers 185. Suite changes flow
+main → cherry-pick, with that file rewritten by hand like the mod's other divergent files
+(repo `CLAUDE.md` → Git); `factorio-multiversion` governs the branch mechanics.

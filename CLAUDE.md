@@ -195,9 +195,11 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
   files are `info.json`, `prototypes/modules/definitions.lua`,
   `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else. For
-  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`
-  and `scripts/gui.lua`, plus `data-final-fixes.lua`, which exists **only** on `legacy/2.0` —
-  the 2.0 shims live on that branch alone, never version-gated into `main`.
+  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`,
+  `scripts/gui.lua` and `tests/planner_spec.lua` (the 2.0 track offers 187 upcyclable items
+  where 2.1 offers 185, so the regression pin forks with it), plus `data-final-fixes.lua`,
+  which exists **only** on `legacy/2.0` — the 2.0 shims live on that branch alone, never
+  version-gated into `main`.
   `README.md` used to be on that list and no longer is: the 1.0.2/1.0.3 rewrite dropped the
   claim that a module's cost does not grow with its quality, which was the only 2.1-only
   sentence in it, so both tracks now ship the same file.
