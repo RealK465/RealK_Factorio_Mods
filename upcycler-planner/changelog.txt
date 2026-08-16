@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.5
+Date: 2026-08-16
+  Changes:
+    - Version 0.1.4, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
+Version: 0.1.4
+Date: 2026-08-16
+  Locale:
+    - The mod description shown in the mod browser now matches the one on the mod portal.
+  Changes:
+    - Releasing for Factorio 2.0.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.3
 Date: 2026-08-16
   Graphics:

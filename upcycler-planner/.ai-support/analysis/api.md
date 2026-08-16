@@ -432,6 +432,9 @@ Two consequences worth not re-deriving:
   `info.json`, not the dependency list** — so a mod depending on `quality` alone is *not*
   tagged. Wube's statement names the flags collectively ("*the expansion flags (eg,
   `space_travel_required`)*", forum `p=698604`), with `quality_required` among the DLC's own
-  set. **Unverified** for this mod: the portal API exposes no flag field, so the tag can only
-  be confirmed after an upload. `space_travel_required` would tag it too but is a false claim
-  here — it unlocks planet and space-platform prototypes this mod never touches.
+  set. **Confirmed for this mod on 2026-08-16**: after uploading 0.1.4/0.1.5 the public page
+  carries a **"Space Age Mod"** label, so `quality_required` alone is enough to earn the tag —
+  `space_travel_required` is not required for it, and would be a false claim here since it
+  unlocks planet and space-platform prototypes this mod never touches. Note the tag is visible
+  only on the **HTML page**: no endpoint of the JSON API exposes a feature-flag or tag field,
+  which is why this could not be checked before the upload.
