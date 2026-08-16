@@ -25,13 +25,30 @@ ships (leading dot).
   `pure-modules-realk`. `upcycler-` was rejected because the portal already carries a different
   mod named `upcycler`, likely to own that name and its derivatives; `up-` as too generic — "up"
   reads as a direction before it reads as a namespace.
-- **Hard dependency on `quality >= 2.1.0`, no `quality_required` feature flag.** The mod is
-  worthless without quality tiers, and unlike the flag a hard dependency also fixes load order —
-  the flag would only make Space Age ownership mandatory. In 2.1 `quality` itself declares
-  `recycler >= 2.1.0`, so this one line pulls the recycler in for free.
-- **Factorio 2.1 only.** No `legacy/2.0` build: `recycler` is 2.1-only, and there is nothing
-  shipped worth backporting.
-- **Version starts at `0.1.0`**, open section, `Date: ????`.
+- **Hard dependency on `quality` (`>= 2.1.0` on `main`, `>= 2.0.0` on `legacy/2.0`), no
+  `quality_required` feature flag.** The mod is worthless without quality tiers, and unlike the
+  flag a hard dependency also fixes load order — the flag would only make Space Age ownership
+  mandatory. The one line delivers the recycler on both tracks: in 2.1 `quality` declares
+  `recycler >= 2.1.0`, and in 2.0 the recycler entity ships inside `quality` itself.
+- **Both game tracks, forked — `main` carries no 2.0 code.** Ported to Factorio 2.0 on
+  2026-08-16 at the repo owner's ask, reversing the earlier 2.1-only call — that call rested
+  on "`recycler` is 2.1-only", and 2.0's `quality` mod ships the recycler entity itself, so
+  the mod's whole mechanism exists there; 2.0 is also the stable release most players are on.
+  The port was first built as version-gated shared files and **the owner rejected that
+  shape**: the 2.0 track is temporary — it stops getting work when 2.1 goes stable — and
+  gated compat code in `main` would sit there confusing readers long after it stopped
+  mattering. So the adaptations are forked copies on `legacy/2.0`: `scripts/planner.lua`
+  (recipe `category` + `additional_categories` in place of 2.1's `categories`, and the
+  mod-data bridge standing in for the missing `can_set_quality`),
+  `prototypes/planner/icons.lua` (the recycler icon ships in `quality` there),
+  `scripts/gui.lua` (local `contains_value`; core's is 2.1-only), and the legacy-only
+  `data-final-fixes.lua` that writes the bridge — declared in the repo `CLAUDE.md` → *Git*
+  beside Pure Modules' divergent list. A cherry-pick touching a forked file is rewritten by
+  hand. The verified 2.0 API surface: `analysis/factorio-2.0.md`.
+- **Version starts at `0.1.0`**, open section, `Date: ????`. The two tracks share one
+  sequential version line (repo rule, `factorio-multiversion`), so the first release pair
+  needs two numbers — which track takes the lower one is the repo owner's call at release
+  time, and is still open.
 - **No flib dependency.** Its save/load-safe GUI handler registry is ~43 lines and worth
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.

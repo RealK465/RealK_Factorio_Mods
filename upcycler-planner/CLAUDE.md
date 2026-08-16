@@ -81,14 +81,25 @@ work: reference only, never edited, never redistributed.
 
 ## Dependencies
 
-`["base >= 2.1.0", "quality >= 2.1.0"]`.
+`["base >= 2.1.0", "quality >= 2.1.0"]` on `main`; the `legacy/2.0` build floors both at
+`2.0.0`.
 
 The hard dependency on `quality` is deliberate and does double duty: the mod is meaningless
-without quality tiers, and in 2.1 `quality` itself declares `"recycler >= 2.1.0"`, so this one
-line pulls in the recycler too. **No `quality_required` feature flag is declared** — the flag
-would make Space Age ownership mandatory without fixing load order, which is the wrong half of
-what is needed. Reach for `feature_flags[...]` only if some behaviour should light up
-optionally.
+without quality tiers, and it delivers the recycler on both tracks — in 2.1 `quality` itself
+declares `"recycler >= 2.1.0"`, and in 2.0 the recycler entity ships inside `quality`. **No
+`quality_required` feature flag is declared** — the flag would make Space Age ownership
+mandatory without fixing load order, which is the wrong half of what is needed. Reach for
+`feature_flags[...]` only if some behaviour should light up optionally.
+
+## The 2.0 build
+
+**`main` carries no 2.0 code — never version-gate 2.0 compatibility into it.** The repo
+owner's explicit call; the reason is in `.ai-support/decisions.md`. The port lives entirely on
+`legacy/2.0` as forked copies of the divergent files declared in the repo `CLAUDE.md` → *Git*,
+plus `data-final-fixes.lua`, which exists only on that branch. A cherry-pick from `main` that
+touches a forked file is rewritten by hand, never merged blind. When working on the legacy
+branch, keep `.ai-support/analysis/factorio-2.0.md` open — it is the verified 2.0 API surface,
+including the reads that are hard errors on the wrong version.
 
 ## Layout
 
@@ -97,6 +108,7 @@ The shape follows the community convention in the `factorio-mod-setup` skill: gr
 
 ```
 data.lua                            entry point; requires the prototype files
+data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_quality into mod-data
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        one per-player setting: show unresearched options
 prototypes/planner/                 shortcut, selection tool, and the icon layers they share
@@ -176,7 +188,9 @@ The rules, in short. **Every reason lives once, in `.ai-support/decisions.md`** 
 re-opening any of these, and don't restate a reason here.
 
 - Name `upcycler-planner`; prototype prefix `upl-`; settings and locale keys use the full name.
-- Factorio 2.1 only, no `legacy/2.0` build. Version starts at `0.1.0`.
+- Both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0`. No 2.0 code on `main` — the
+  port is forked files on the legacy branch, declared in the repo `CLAUDE.md` → *Git*. Version
+  starts at `0.1.0`.
 - Hard `quality >= 2.1.0` dependency, no feature flag. No flib dependency.
 - **Ghosts, one at a time — never a blueprint string.** The API forces this; see fact 1 above.
 - Shortcut → modal → Confirm → selection tool → click, gated on the `recycling` technology. The

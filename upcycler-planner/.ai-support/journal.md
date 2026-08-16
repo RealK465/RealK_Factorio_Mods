@@ -9,6 +9,68 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — ported to Factorio 2.0, forked on the legacy branch
+
+Repo owner's ask: the first version is good enough for a release, so make the 2.0 build real
+and testable in the 2.0 dev install. This reverses the 2.1-only decision, whose stated reason —
+"`recycler` is 2.1-only" — turned out to be about the *mod*, not the machine: on 2.0 the
+recycler entity, the `recycling` technology and the recipe generation all ship inside the
+`quality` mod (`data/quality/prototypes/entity/entity.lua`, eject vector `{-0.5, -2.3}`, which
+`recycler_orientation` lands north with `eject_col = 0` exactly like 2.1's `{-0.35, -2.3}`).
+
+**The whole API surface was checked against the 2.0 install's own `doc-html/` before touching
+code**, and nearly all of it is identical at 2.0.77 — `insert_plan` on ghosts, the logistic
+point/sections/`trash_not_requested` machinery, wire connectors, `manual_ghost`, every
+quality-parameterised getter, the `-with-quality` elem types, even
+`defines.inventory.crafter_modules`, which 2.0 already carries with the old per-machine names
+merely deprecated. Three real differences (`analysis/factorio-2.0.md` is the full record):
+
+- `LuaRecipePrototype.categories` is 2.1-only; 2.0 has `category` + `additional_categories`,
+  and reading a `LuaObject` attribute the running version lacks is a hard error, not nil.
+- `can_set_quality` has no 2.0 runtime mirror at all. A new `data-final-fixes.lua` records
+  every recipe with `allow_quality == false` into a mod-data prototype
+  (`upl-no-quality-recipes`), and the planner reads it through `LuaModData.get`. Vanilla 2.0
+  does set the flag (oil cracking, lubricant, a catalyst recipe), so the bridge carries real
+  content, though those all fail the fluid gate anyway — its real audience is modded games.
+- `util.contains_value` is 2.1-only in core's lualib. The recycler icon also moves mods:
+  `__recycler__` on 2.1, `__quality__` on 2.0 — the same 120x64 strip in both.
+
+**The shape changed mid-session, at the owner's correction.** The first build gated all of
+this inside shared files (a base-version seam in `planner.lua`, a `mods["recycler"]` probe in
+`icons.lua`), so that every file except `info.json` stayed identical across branches. The
+owner rejected it: the 2.0 track is temporary — it stops getting work when 2.1 goes stable —
+and gated 2.0 code sitting in `main` would confuse readers long after it stopped mattering.
+Reworked to **forked files on `legacy/2.0`**, with `main` reverted byte-for-byte to its
+pre-port state: the legacy branch carries its own `planner.lua` (2.0 category shape + the
+bridge read), `icons.lua` (quality-mod icon path), `gui.lua` (local `contains_value`) and the
+legacy-only `data-final-fixes.lua`; the divergent-file list is declared in the repo
+`CLAUDE.md` → *Git* beside Pure Modules'. Reason recorded in `decisions.md`.
+
+**Verified end to end on both installs, before and after the rework.** Data stage: exit 0 on
+2.0.77 and 2.1.14, `--check-unused-prototype-data` silent on both, and `compare-dumps.py`
+shows the shortcut and selection tool identical across versions — the only mod-authored
+difference is the mod-data bridge, present on 2.0 alone, and the only other row is the
+*generated* `upl-planner-recycling` recipe drifting in the known engine ways
+(`category`→`categories`, `probability`→`independent_probability`). Runtime: the usual
+`--create` harness, extended to cover the port (bridge contents, categories-driven machine
+matching) and run against **both** installs — 38/38 on 2.0.77 and 37/37 on 2.1.14, with
+byte-equivalent plans (130 ghosts, same picks, 7 wired poles) placed and read back on each.
+
+The check tooling learned something from this: `check-ai-docs.py` used to hold every note to
+the install beside the repo, which breaks in both directions once a mod straddles two — this
+file's 2.0 evidence read from `main`, `api.md`'s 2.1 citations read from the legacy worktree.
+It now resolves each *evidence* file against the install matching its own `verified_against`
+(found through the git worktrees, each of which sits in its own install), and holds unpinned
+notes — journal, registers — to "any pinned install knows this name", since the journal is
+allowed to go stale by design.
+
+The port sits in the legacy worktree **uncommitted**. Release numbering for the pair is
+deliberately still open — one shared sequence, owner's call which track takes the lower
+number — and `changelog.txt` therefore keeps its single open `0.1.0` section until that call
+is made. The GUI remains the one thing no harness can reach on either version; the 2.0 fork
+adds nothing GUI-side beyond the `contains_value` local, so the standing in-game checklist is
+unchanged.
+
 ## 2026-08-16 — the shortcut icon was drawing wrong, and nobody could see it
 
 The repo owner asked for the shortcut icon as an image, and sent a screenshot of the toolbar: a
