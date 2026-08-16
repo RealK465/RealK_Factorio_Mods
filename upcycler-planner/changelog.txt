@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2026-08-16
+  Changes:
+    - Releasing for Factorio 2.1. Version 0.1.0 is the Factorio 2.0 build of the same mod.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
-Date: ????
+Date: 2026-08-16
   Major Features:
     - Initial release.
     - Pick an item and target quality, configure the loop, and place the whole thing as ghosts.
@@ -14,3 +19,5 @@ Date: ????
     - The shortcut appears once recycling is researched.
     - Fluid recipes are not supported yet.
     - Red messages disable Place; orange messages are warnings you can build through.
+  Changes:
+    - Releasing for Factorio 2.0. Version 0.1.1 is the Factorio 2.1 build of the same mod.
