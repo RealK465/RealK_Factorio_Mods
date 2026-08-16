@@ -43,7 +43,7 @@ Only researched options are offered, and a setting can show everything instead.
 
 Factorio with **Space Age**, which is where quality and recyclers come from.
 
-The main development/testing branch is Factorio 2.1, though a barely tested port exists for Factorio 2.0.
+The main development branch is Factorio 2.1. A Factorio 2.0 port is maintained alongside it, and the same test suite passes on both.
 
 ## Credits
 
