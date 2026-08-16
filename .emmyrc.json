@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/EmmyLuaLs/emmylua-analyzer-rust/refs/heads/main/crates/emmylua_code_analysis/resources/schema.json",
+  "runtime": {
+    "version": "Lua5.2"
+  },
+  "workspace": {
+    "library": [
+      ".claude/skills/factorio-testing/typedefs/factorio/library",
+      ".claude/skills/factorio-testing/meta"
+    ],
+    "ignoreDir": ["exemples", "assets", ".claude", "*.zip"]
+  },
+  "strict": {
+    "requirePath": false
+  }
+}
