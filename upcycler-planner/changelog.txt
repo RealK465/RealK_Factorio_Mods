@@ -3,25 +3,22 @@ Version: 0.1.0
 Date: ????
   Major Features:
     - Initial release.
-    - Adds a shortcut button that opens a planner. Pick an item, a target quality, a crafting machine and a recycler, then click the ground to place the whole upcycling loop as ghosts.
-    - The loop is designed for your choices rather than pasted from a fixed blueprint: one machine per quality tier, each pinned to that tier, with a recycler beneath every tier below the target feeding recovered ingredients straight back in.
-    - Quality modules go into every machine below the target tier and into the recyclers. The machine at the target tier gets productivity modules instead, since there is no higher quality left for it to roll, and is left empty when the recipe or the machine does not allow productivity.
-    - Machines, recyclers, belts, inserters, chests and modules are all chosen from what you have researched.
-    - A Build options section at the bottom of the planner sets what the loop is built out of: the belt its ring is made from, the quality module that fills the machines below the target and the recyclers, the electric pole that powers it, and whether the chests trash what they were not asked for, which by default they do. The pickers start on the best you have researched and remember what you picked last.
-    - The crafting machine, the recycler, the quality module and the electric pole can each be given a quality of their own, so a loop can be built out of legendary machines and legendary modules. That is a separate choice from the target quality, which is what the loop produces.
-    - Modded recyclers are stood in whatever rotation makes their output land in the machine above, and the loop widens its columns to fit a recycler bigger than its machine; one whose throw cannot reach into the machine at all is refused with an explanation.
-    - Only offers items that can actually be looped, and explains why when one cannot.
-    - The buffer feeding each recycler requests its item as well as catching it off the belt, so the loop can be topped up by bots, and the first stage can be fed straight from what your base already produces.
-    - The loop's requester chests are allowed to draw from your buffer chests, not only from storage and providers.
-    - The planner offers only researched items, machines, qualities, belts and recyclers; a per-player setting shows everything instead, like the game's own selection-list option.
-    - Only inserters that need no fuel are used. If every researched inserter runs on fuel, which is how a fresh Space Age game starts, the planner says so instead of planning a loop that would starve.
-    - Electric poles are planned into the loop, placed so every machine, recycler and inserter has power and wired into one connected network. The Build options picker chooses the pole; it defaults to the longest-reaching one-tile pole you have researched, substations can be picked but are never chosen automatically, and clearing the picker places no poles at all.
-    - Higher-quality poles reach further and the layout uses it, so fewer are placed. Free space inside the loop is used first, and the loop only grows wider when the chosen pole could not otherwise reach everything.
+    - Pick an item and target quality, configure the loop, and place the whole thing as ghosts.
+    - One machine per quality tier with recyclers feeding ingredients back in below the target.
+    - Quality modules fill machines and recyclers below the target; the top machine gets productivity when allowed.
+    - Build options: belt, quality module, electric pole, and whether chests trash unrequested items.
+    - Machines, recyclers, modules and poles can each have their own build quality.
+    - Supports modded recyclers with different sizes and eject directions.
+    - Only offers items that can actually loop, with clear messages when they cannot.
+    - Requester chests also draw from buffer chests, not only from storage and providers.
+    - Electric poles planned for full power coverage and wired into one network. Higher-quality poles need fewer placements.
+    - Pickers default to the best researched option and remember your last pick.
+    - Only uses inserters that do not need fuel.
   Info:
     - The shortcut appears once recycling is researched.
-    - Recipes that use fluids are not supported yet.
-    - Belts are not affected by quality, so the belt picker has no quality to set.
-    - A quality you have not researched yet can still be picked for the machines, recyclers or modules. The planner warns, places the ghosts anyway, and they wait for the research.
-    - Items from editor and cheat mods are never chosen as building materials.
-    - Problems that disable the Place button show in red; warnings you can build through show in orange.
-    - A pole that cannot power the whole loop even after it grows, such as the big electric pole, still places what it can; the planner says in orange how many buildings are left without power.
+    - Fluid recipes are not supported yet.
+    - Belt quality has no effect, so the belt picker has no quality option.
+    - Unresearched qualities can be picked for machines, recyclers or modules — the planner warns and places ghosts that wait.
+    - Editor and cheat mod items are never used as building materials.
+    - Red messages disable Place; orange messages are warnings you can build through.
+    - A pole that cannot cover the whole loop still places what it can and reports the shortfall.
