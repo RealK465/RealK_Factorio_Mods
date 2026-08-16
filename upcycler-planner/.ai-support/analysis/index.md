@@ -6,8 +6,9 @@ two upcycler blueprints decoded, ~14 more found and read, both reference planner
 and studied, and every API call checked against the installed 2.1.14's own `doc-html/` rather
 than recalled.
 
-It exists so none of that has to be re-derived. `../design.md` holds the decisions; this holds
-the evidence they rest on. Never ships (leading dot on `.ai-support`).
+It exists so none of that has to be re-derived. `../decisions.md` holds what is settled and
+`../journal.md` how it got there; this holds the evidence they rest on. Never ships (leading
+dot on `.ai-support`).
 
 | File | What is in it |
 |---|---|

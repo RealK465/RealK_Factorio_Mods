@@ -66,12 +66,13 @@ tier-2 modules, and cheat items with no real recipe (Editor Extensions) self-rec
 "some enabled recipe produces it" reads unresearched modules and infinity chests as unlocked.
 The producer map in `planner.lua` excludes the recycling category and Factoriopedia-hidden
 recipes, and the chest picker takes only real `logistic-container`s. Story and evidence:
-`.ai-support/design.md` (2026-08-15, research gating) and `analysis/api.md` §8.
+`.ai-support/journal.md` (2026-08-15, research gating) and `analysis/api.md` §8.
 
-**The research is in `.ai-support/analysis/`** — start at its `README.md`. Decoded blueprints and
-the scaling law, the chosen belt-ring layout as a formula, the deferred bot-loop layout, the
-verified API (including what is *not* verified), the quality maths, and the reference-mod
-patterns. `.ai-support/design.md` holds the decisions; `analysis/` holds the evidence.
+**`.ai-support/` is this mod's local context — start at its `index.md`.** `decisions.md` holds
+what is settled and why, `deferred.md` the parked work, `journal.md` what happened, and
+`analysis/` the evidence: decoded blueprints and the scaling law, the chosen belt-ring layout as
+a formula, the deferred bot-loop layout, the verified API (including what is *not* verified),
+the quality maths, and the reference-mod patterns.
 
 **Neither reference mod is in this workspace**, and both are open source — clone into a scratch
 directory if a detail needs re-checking: P.U.M.P. at `github.com/Xcone/factorio_pump` (mod in
@@ -107,8 +108,10 @@ scripts/                            one file per runtime concern, required by co
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
-.ai-support/design.md               the running design record — decisions and their reasons
+.ai-support/index.md                the map — read it first
+.ai-support/decisions.md            what is settled, and why
 .ai-support/deferred.md             parked work, each entry with enough context to pick up cold
+.ai-support/journal.md              dated sessions, newest first — what was built and what broke
 .ai-support/analysis/               the evidence: decoded blueprints, verified API, layout specs
 ```
 
@@ -136,16 +139,10 @@ does not:
   `pure-modules-realk` does it (`pure-modules-realk-beacon-allow-quality`), and mod settings are
   listed to players next to other mods' settings where a three-letter tag would be meaningless.
 
-Two tags were rejected. `upcycler-`: the portal already carries a different mod named `upcycler`
-(a machine that converts N items into one of the next tier), which is likely to own that name
-and names derived from it. `up-`: too generic to read as a namespace — "up" is a direction
-before it is an abbreviation, and the tag's whole job is to be recognisable at a glance.
-
-The tag was `ua-` until 2026-08-16, when the mod was renamed from *Upcycler Architect* and the
-abbreviation stopped meaning anything. Renaming a prototype normally costs a migration file and
-a major version bump; it was free here only because nothing had shipped — see
-`.ai-support/design.md`, 2026-08-16. That window closes at the first release, so the tag is
-settled now rather than later.
+**The tag is settled**, because renaming a prototype costs a migration file and a major version
+bump from the first release onward. Which tags were rejected and why is in
+`.ai-support/decisions.md`; the `ua-` → `upl-` rename is in `.ai-support/journal.md`
+(2026-08-16).
 
 ## Working here
 
@@ -156,8 +153,10 @@ settled now rather than later.
   mod on purpose; rewrite them before the first release rather than after.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
   sync if the root copy is ever refreshed.
-- Design decisions go in `.ai-support/design.md` as they are made, with the reason. Anything
-  that generalises beyond this mod belongs in a skill under `.claude/` instead.
+- **Design decisions go in `.ai-support/decisions.md` as they are made, with the reason, and the
+  session that produced them in `.ai-support/journal.md`.** Both, not either — the repo
+  `CLAUDE.md` → *AI support folders* has the rules. Anything that generalises beyond this mod
+  belongs in a skill under `.claude/` instead.
 - **Always pass `--check-unused-prototype-data` when validating.** It is the only thing that
   catches a misspelled prototype property, which the loader ignores rather than rejecting, and
   the exit code stays 0 either way — so the log has to be read. See the `factorio-validate`
@@ -169,48 +168,34 @@ settled now rather than later.
 
 ## Decided
 
-Reasons for each are in `.ai-support/design.md`.
+The rules, in short. **Every reason lives once, in `.ai-support/decisions.md`** — read it before
+re-opening any of these, and don't restate a reason here.
 
-- **Name `upcycler-planner`**, renamed 2026-08-16 from *Upcycler Architect*; portal name
-  verified free the same day. Free to do because nothing had shipped — the portal has no
-  rename, so after the first upload this would be a new mod instead.
-- **Ghosts, not blueprint strings** — the API forces this.
-- **Hard `quality` dependency, no feature flag.**
-- **Factorio 2.1 only**, no `legacy/2.0` build.
-- **Version starts at `0.1.0`.**
-- **Shortcut -> GUI -> Confirm -> selection tool -> click.** The player selects nothing in the
-  world but ground; the GUI's choices define the footprint.
-- **Inputs, in two blocks.** What the loop makes: item, target quality, crafting machine,
-  recycler. What it is built from, under a **Build options** caption: belt, quality module, and
-  the trash-unrequested checkbox (checked by default). Machine, recycler and module each carry
-  their own **quality**; the belt does not, because `belt_speed` has no quality variant. The
-  recycler row is always shown — it was a non-choice in vanilla until quality made it one.
-- **Pickers offer only what is researched.** The per-player `upcycler-planner-show-all`
-  setting shows everything instead, standing in for the game's own selection-list option,
-  which mods cannot read.
-- **Fuelled inserters are never planned in** — an unattended loop cannot keep them fed. When
-  every researched inserter needs fuel (how a fresh Space Age game starts), validation says
-  so instead of planning a loop that would starve.
-- **Modded recyclers work by rotation, not convention** — see fact 3. The one hard limit is
-  that the rotated throw lands inside the machine above.
-- **Belt ring first**, specified in `.ai-support/analysis/layout-belt-ring.md`. The **bot loop is
-  a deferred toggle**, not a dead idea — spec in `analysis/layout-bot-loop.md`.
-- **Gated on the `recycling` technology**, not on quality: without a recycler there is nothing
-  to build.
-- **Modules planned, not merely requested** — quality below target, productivity at target, and
-  the target machine left **empty** when the recipe or the machine refuses productivity
-  (`allow_productivity` defaults to false, so this is the common case, not the exotic one).
-- **No flib dependency** — copy its handler-registry pattern instead.
-- **Prototype names are prefixed `upl-`** — see Naming above.
-- **Electric poles are planned in** (2026-08-16) — a Build options picker with its own
-  quality; researched-best 1x1 default, clearable to "no poles"; free tiles first, added pole
-  columns only when needed; best effort plus an orange count when even that cannot cover; one
-  wired network via ghost copper wires. Algorithm in `.ai-support/analysis/poles.md`, engine
-  facts (the measured powering rule among them) in `analysis/api.md` §10.
+- Name `upcycler-planner`; prototype prefix `upl-`; settings and locale keys use the full name.
+- Factorio 2.1 only, no `legacy/2.0` build. Version starts at `0.1.0`.
+- Hard `quality >= 2.1.0` dependency, no feature flag. No flib dependency.
+- **Ghosts, one at a time — never a blueprint string.** The API forces this; see fact 1 above.
+- Shortcut → modal → Confirm → selection tool → click, gated on the `recycling` technology. The
+  player selects nothing in the world but ground.
+- The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
+  then a **Build options** block for what it is built **out of** (belt, quality module, pole,
+  trash-unrequested checkbox). Machine, recycler, module and pole each carry their own quality;
+  the belt does not.
+- Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
+- **`storage` holds flat strings only** — never a `{name, quality}` table.
+- Belt ring is the layout (`.ai-support/analysis/layout-belt-ring.md`); the bot loop is a
+  deferred toggle, not a dead idea (`analysis/layout-bot-loop.md`).
+- Modules are planned rather than requested, and the terminal machine is left **empty** when the
+  recipe or the machine refuses productivity.
+- Modded recyclers work by rotation, not convention — see fact 3.
+- Chests are 1x1. Inserters reach one tile and are never fuelled. Poles default to the best
+  researched 1x1 and are clearable to none (`analysis/poles.md`, `analysis/api.md` §10).
+- Refused, each with a message: fluid recipes, self-recycling items, and recipes that refuse
+  quality modules.
 
 ## Open questions
 
-Listed in full in `.ai-support/deferred.md`. The one that used to gate everything — *what does
-the player actually select* — is answered above. What is left is mostly scope: modded quality
-tiers, whether the GUI should show expected output, `thumbnail.png`, and a possible
-cursor-blueprint placement route.
+**`.ai-support/deferred.md` is the single owner** of parked and open work, so the two lists
+cannot drift apart. The question that used to gate everything — *what does the player actually
+select* — is answered above. What is left is mostly scope: modded quality tiers, whether the GUI
+should show expected output, `thumbnail.png`, and a possible cursor-blueprint placement route.

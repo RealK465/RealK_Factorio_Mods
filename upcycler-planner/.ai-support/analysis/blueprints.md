@@ -1,3 +1,7 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-15
+---
 # Decoded blueprints — the mechanism, the scaling law, the conventions
 
 Sources: `blueprints/owner-upcycler.txt` (ours, untested), `blueprints/reference-book.txt`

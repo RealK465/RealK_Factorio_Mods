@@ -1,3 +1,7 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-15
+---
 # Reference mods — what to copy, what to avoid
 
 Both planner mods were cloned from source and read (they are not in this workspace; clone again

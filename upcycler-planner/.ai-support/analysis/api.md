@@ -1,11 +1,15 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-16
+---
 # Verified API reference
 
 Checked against the installed 2.1.14's own `doc-html/runtime-api.json`,
 `doc-html/prototype-api.json` and `data/*.lua`. The JSON files are minified, so citations are
 `Class::member` rather than line numbers; game-data citations give file:line.
 
-**This supersedes the API table in `../design.md`, which had two errors** — both corrected in
-§3 below.
+**This supersedes the API table in `../journal.md`** (2026-08-15, feasibility investigation),
+**which had two errors** — both corrected in §3 below.
 
 ## 1. Shortcut
 
@@ -265,7 +269,8 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
   *produce* every ingredient of the item they grind (`quality-module-3-recycling` produces
   quality-module-2), and self-recycling recipes produce the item itself — so with nothing but
   `recycling` researched, a producer scan that includes them reports unresearched module tiers
-  and cheat items as unlocked. This shipped as two real bugs (see `../design.md`).
+  and cheat items as unlocked. This shipped as two real bugs (see `../journal.md`, 2026-08-15,
+  building materials are gated by real research).
 - **Cheat mods' items get self-recycling recipes too.** Editor Extensions never sets
   `auto_recycle = false`, and its only real recipes are disabled `ee-testing-tool` ones with
   empty ingredients (no reversal possible), so every EE chest and module self-recycles.

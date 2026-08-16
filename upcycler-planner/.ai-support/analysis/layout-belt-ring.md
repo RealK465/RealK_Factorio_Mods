@@ -1,3 +1,7 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-16
+---
 # The belt-ring layout, generalised
 
 **This is the chosen family, and this file describes what the mod actually builds** — updated

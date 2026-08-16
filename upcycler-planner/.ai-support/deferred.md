@@ -1,8 +1,8 @@
 # Deferred work — parked deliberately, not forgotten
 
 A running list of things left out of the current build **on purpose**, each with enough context
-to pick up cold. `design.md` holds decisions; `analysis/` holds the evidence; this holds the
-"not yet".
+to pick up cold. `decisions.md` holds what is settled; `analysis/` holds the evidence;
+`journal.md` holds what happened; this holds the "not yet".
 
 Add to this list whenever something is cut for scope. Remove an entry when it ships, and say so
 in `changelog.txt` if a player would notice.

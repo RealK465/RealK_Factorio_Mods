@@ -1,3 +1,7 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-15
+---
 # Quality maths, recycler mechanics, and how closed loops fail
 
 Space Age 2.0 mechanics carry into 2.1 except where a 2.1 change is named. Community claims name

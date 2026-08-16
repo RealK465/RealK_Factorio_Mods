@@ -1,3 +1,7 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-15
+---
 # The bot loop — deferred alternative layout
 
 **Not being built first.** The belt ring (`layout-belt-ring.md`) is milestone 1. This is the

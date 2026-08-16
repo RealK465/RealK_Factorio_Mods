@@ -1,9 +1,14 @@
+---
+verified_against: 2.1.14
+verified: 2026-08-16
+---
 # Pole placement — the coverage pass
 
 How `scripts/poles.lua` turns a finished belt-ring plan into pole positions. Written
 2026-08-16, when the pass shipped. The engine rules it stands on are measured, not assumed —
 they live in `api.md` §10; the layout growth hook is described in `layout-belt-ring.md`
-§"Pole columns"; the decisions and their reasons in `../design.md` (2026-08-16, poles).
+§"Pole columns"; the decisions and their reasons in `../decisions.md`, and the session that
+produced them in `../journal.md` (2026-08-16, electric poles join the build).
 
 ## Contract
 
