@@ -12,8 +12,8 @@ local icons = require("prototypes.planner.icons")
 data:extend({
   {
     type = "shortcut",
-    name = "ua-open",
-    order = "b[blueprints]-u[upcycler-architect]",
+    name = "upl-open",
+    order = "b[blueprints]-u[upcycler-planner]",
     action = "lua",
     technology_to_unlock = "recycling",
     unavailable_until_unlocked = true,

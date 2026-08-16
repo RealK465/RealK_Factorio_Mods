@@ -1,4 +1,4 @@
-# CLAUDE.md — Upcycler Architect
+# CLAUDE.md — Upcycler Planner
 
 Mod-local guidance. The repo-wide rules in `../CLAUDE.md` still apply; this file only covers
 what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
@@ -23,7 +23,7 @@ and the planner and layout are exercised by a headless harness — but the loop'
 *behaviour*, above all whether the recycler's eject stalls politely when its machine rejects a
 rolled-up ingredient, is still unproven. That is the standing thing to watch in game.
 
-**Unpublished.** No `upcycler-architect_*` git tag exists, so version `0.1.0` is the open
+**Unpublished.** No `upcycler-planner_*` git tag exists, so version `0.1.0` is the open
 section in `changelog.txt` (`Date: ????`) and stays open until the first authorised release.
 New work joins that section rather than opening a second one — the `factorio-changelog`
 skill's rules and the `factorio-release` skill's "Published or open?" check govern.
@@ -102,8 +102,9 @@ scripts/                            one file per runtime concern, required by co
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        builder.lua   ghosts on the ground
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
-locale/en/upcycler-architect.cfg    every player-visible string
-migrations/                         added the first time a prototype is renamed (none yet)
+locale/en/upcycler-planner.cfg    every player-visible string
+migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
+                                    migration, because neither prototype persists into a save
 .ai-support/design.md               the running design record — decisions and their reasons
 .ai-support/deferred.md             parked work, each entry with enough context to pick up cold
 .ai-support/analysis/               the evidence: decoded blueprints, verified API, layout specs
@@ -118,8 +119,8 @@ spelling just makes a shared module grep-able.
 
 ## Naming
 
-**Every prototype this mod defines is prefixed `ua-`.** Shortcut `ua-open`, selection tool
-`ua-planner`, and so on. Prototype names are one flat global namespace shared with every other
+**Every prototype this mod defines is prefixed `upl-`.** Shortcut `upl-open`, selection tool
+`upl-planner`, and so on. Prototype names are one flat global namespace shared with every other
 mod, so the prefix is what stops a collision — and a collision here is silent, which is the
 whole reason for the rule.
 
@@ -127,22 +128,26 @@ This mirrors the house style in `pure-modules-realk`, which names prototypes wit
 (`pure-speed-module`, `pure-beacon`) rather than the full mod name. Two things follow it and one
 does not:
 
-- **Prototypes** use the short tag: `ua-`.
+- **Prototypes** use the short tag: `upl-`.
 - **GUI element names and tag keys** use it too, so a stray element is traceable to this mod.
-- **Settings and locale mod-level keys** use the **full** `upcycler-architect` — that is how
+- **Settings and locale mod-level keys** use the **full** `upcycler-planner` — that is how
   `pure-modules-realk` does it (`pure-modules-realk-beacon-allow-quality`), and mod settings are
-  listed to players next to other mods' settings where a two-letter tag would be meaningless.
+  listed to players next to other mods' settings where a three-letter tag would be meaningless.
 
-`upcycler-` was rejected as the tag: the portal already carries a different mod named
-`upcycler` (a machine that converts N items into one of the next tier), which is likely to own
-that name and names derived from it.
+Two tags were rejected. `upcycler-`: the portal already carries a different mod named `upcycler`
+(a machine that converts N items into one of the next tier), which is likely to own that name
+and names derived from it. `up-`: too generic to read as a namespace — "up" is a direction
+before it is an abbreviation, and the tag's whole job is to be recognisable at a glance.
 
-Renaming a prototype later costs a migration file and a major version bump, so this is settled
-before the first one is written rather than after.
+The tag was `ua-` until 2026-08-16, when the mod was renamed from *Upcycler Architect* and the
+abbreviation stopped meaning anything. Renaming a prototype normally costs a migration file and
+a major version bump; it was free here only because nothing had shipped — see
+`.ai-support/design.md`, 2026-08-16. That window closes at the first release, so the tag is
+settled now rather than later.
 
 ## Working here
 
-- Commit scope is `upcycler-architect`. Repo-wide changes use `repo`.
+- Commit scope is `upcycler-planner`. Repo-wide changes use `repo`.
 - **Never commit, push or publish unprompted** — repo `CLAUDE.md`, and approval is per request.
 - `README.md` and the `info.json` / locale descriptions are player-facing and become the portal
   description verbatim via `fmtk details --readme`. All three currently describe an unfinished
@@ -164,7 +169,9 @@ before the first one is written rather than after.
 
 Reasons for each are in `.ai-support/design.md`.
 
-- **Name `upcycler-architect`**, chosen 2026-08-15; portal name verified free the same day.
+- **Name `upcycler-planner`**, renamed 2026-08-16 from *Upcycler Architect*; portal name
+  verified free the same day. Free to do because nothing had shipped — the portal has no
+  rename, so after the first upload this would be a new mod instead.
 - **Ghosts, not blueprint strings** — the API forces this.
 - **Hard `quality` dependency, no feature flag.**
 - **Factorio 2.1 only**, no `legacy/2.0` build.
@@ -176,7 +183,7 @@ Reasons for each are in `.ai-support/design.md`.
   the trash-unrequested checkbox (checked by default). Machine, recycler and module each carry
   their own **quality**; the belt does not, because `belt_speed` has no quality variant. The
   recycler row is always shown — it was a non-choice in vanilla until quality made it one.
-- **Pickers offer only what is researched.** The per-player `upcycler-architect-show-all`
+- **Pickers offer only what is researched.** The per-player `upcycler-planner-show-all`
   setting shows everything instead, standing in for the game's own selection-list option,
   which mods cannot read.
 - **Fuelled inserters are never planned in** — an unattended loop cannot keep them fed. When
@@ -192,7 +199,7 @@ Reasons for each are in `.ai-support/design.md`.
   the target machine left **empty** when the recipe or the machine refuses productivity
   (`allow_productivity` defaults to false, so this is the common case, not the exotic one).
 - **No flib dependency** — copy its handler-registry pattern instead.
-- **Prototype names are prefixed `ua-`** — see Naming above.
+- **Prototype names are prefixed `upl-`** — see Naming above.
 
 ## Open questions
 

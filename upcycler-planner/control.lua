@@ -16,7 +16,7 @@ local gui = require("scripts.gui")
 local planner = require("scripts.planner")
 local builder = require("scripts.builder")
 
-local SHORTCUT = "ua-open"
+local SHORTCUT = "upl-open"
 
 script.on_init(state.init)
 
@@ -65,7 +65,7 @@ local function place_selection(event)
   if not plan then
     entry.pending = nil
     player.clear_cursor()
-    player.print({ "ua-message.plan-failed" })
+    player.print({ "upl-message.plan-failed" })
     return
   end
 
@@ -86,7 +86,7 @@ local function place_selection(event)
   if not placed then
     -- The tool stays in the cursor, so trying somewhere else is just another click.
     player.create_local_flying_text({
-      text = { "ua-message.placement-blocked" },
+      text = { "upl-message.placement-blocked" },
       position = blocked_at,
     })
     return
@@ -94,7 +94,7 @@ local function place_selection(event)
 
   entry.pending = nil
   player.clear_cursor()
-  player.print({ "ua-message.placed", placed })
+  player.print({ "upl-message.placed", placed })
 end
 
 script.on_event(defines.events.on_player_selected_area, place_selection)

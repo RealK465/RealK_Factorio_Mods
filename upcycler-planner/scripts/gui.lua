@@ -17,8 +17,8 @@ local dispatch = require("scripts.dispatch")
 local planner = require("scripts.planner")
 local state = require("scripts.state")
 
-local FRAME = "ua-frame"
-local TOOL = "ua-planner"
+local FRAME = "upl-frame"
+local TOOL = "upl-planner"
 
 -- Shared with control.lua, so the event wiring and the GUI cannot drift on a rename.
 gui.FRAME = FRAME
@@ -32,9 +32,9 @@ end
 
 local function widgets(frame)
   return {
-    machine = frame["ua-content"]["ua-table"]["ua-machine"],
-    status = frame["ua-status"],
-    confirm = frame["ua-buttons"]["ua-confirm"],
+    machine = frame["upl-content"]["upl-table"]["upl-machine"],
+    status = frame["upl-status"],
+    confirm = frame["upl-buttons"]["upl-confirm"],
   }
 end
 
@@ -55,7 +55,7 @@ local function name_filter(names)
   return { { filter = "name", name = names } }
 end
 
-local SHOW_ALL_SETTING = "upcycler-architect-show-all"
+local SHOW_ALL_SETTING = "upcycler-planner-show-all"
 gui.SHOW_ALL_SETTING = SHOW_ALL_SETTING
 
 -- The game's "Show all items in selection lists" option is not readable by mods, so this
@@ -138,8 +138,8 @@ function gui.refresh(player)
   local plan = ok and planner.plan(player.force, choices, gathered) or nil
   if plan then
     local caption = {
-      "", { "ua-gui.footprint", plan.width, plan.height },
-      "  ", { "ua-gui.summary", plan.machines, plan.recyclers },
+      "", { "upl-gui.footprint", plan.width, plan.height },
+      "  ", { "upl-gui.summary", plan.machines, plan.recyclers },
     }
     -- A message alongside ok is a warning the player can build through -- it used to be
     -- silently dropped here, which made the warnings unreachable.
@@ -150,7 +150,7 @@ function gui.refresh(player)
     w.status.caption = caption
     w.status.style.font_color = message and COLOR_WARNING or COLOR_PLAIN
   else
-    w.status.caption = message or { "ua-gui.pick-a-recipe" }
+    w.status.caption = message or { "upl-gui.pick-a-recipe" }
     w.status.style.font_color = COLOR_ERROR
   end
 end
@@ -203,7 +203,7 @@ function gui.open(player)
   local titlebar = frame.add({ type = "flow", direction = "horizontal" })
   titlebar.drag_target = frame
   titlebar.add({
-    type = "label", style = "frame_title", caption = { "ua-gui.title" },
+    type = "label", style = "frame_title", caption = { "upl-gui.title" },
     ignored_by_interaction = true,
   })
   local filler = titlebar.add({ type = "empty-widget", style = "draggable_space_header" })
@@ -217,19 +217,19 @@ function gui.open(player)
 
   -- What the loop makes.
   local content = frame.add({
-    type = "frame", name = "ua-content", style = "inside_shallow_frame_with_padding",
+    type = "frame", name = "upl-content", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
   content.style.horizontally_stretchable = true
-  local rows = content.add({ type = "table", name = "ua-table", column_count = 2 })
+  local rows = content.add({ type = "table", name = "upl-table", column_count = 2 })
 
   -- Each row is a label whose caption and tooltip follow the same locale convention, so the
   -- convention is stated once here instead of at every row below.
   local function label(key)
     rows.add({
       type = "label",
-      caption = { "ua-gui." .. key },
-      tooltip = { "ua-gui." .. key .. "-tooltip" },
+      caption = { "upl-gui." .. key },
+      tooltip = { "upl-gui." .. key .. "-tooltip" },
     })
   end
 
@@ -242,7 +242,7 @@ function gui.open(player)
   -- simply never took, and the pickers opened empty.
   label("recipe")
   local recipe_button = rows.add({
-    type = "choose-elem-button", name = "ua-recipe", elem_type = "item",
+    type = "choose-elem-button", name = "upl-recipe", elem_type = "item",
     elem_filters = item_filters(player),
     tags = dispatch.tags("recipe"),
   })
@@ -255,13 +255,13 @@ function gui.open(player)
   end
   label("quality")
   rows.add({
-    type = "drop-down", name = "ua-quality", items = quality_items, selected_index = selected,
+    type = "drop-down", name = "upl-quality", items = quality_items, selected_index = selected,
     tags = dispatch.tags("quality", { targets = offered_targets }),
   })
 
   label("machine")
   local machine_button = rows.add({
-    type = "choose-elem-button", name = "ua-machine", elem_type = "entity-with-quality",
+    type = "choose-elem-button", name = "upl-machine", elem_type = "entity-with-quality",
     elem_filters = machine_filters(player, choices.recipe),
     tags = dispatch.tags("machine"),
   })
@@ -272,7 +272,7 @@ function gui.open(player)
   -- are BUILT at is picked here.
   label("recycler")
   local recycler_button = rows.add({
-    type = "choose-elem-button", name = "ua-recycler", elem_type = "entity-with-quality",
+    type = "choose-elem-button", name = "upl-recycler", elem_type = "entity-with-quality",
     elem_filters = recycler_filters(player),
     tags = dispatch.tags("recycler"),
   })
@@ -283,28 +283,28 @@ function gui.open(player)
   -- control: the row label it would have had, promoted to a bold first line.
   local function strip_tooltip(key)
     return {
-      "", "[font=default-bold]", { "ua-gui." .. key }, "[/font]\n",
-      { "ua-gui." .. key .. "-tooltip" },
+      "", "[font=default-bold]", { "upl-gui." .. key }, "[/font]\n",
+      { "upl-gui." .. key .. "-tooltip" },
     }
   end
 
   local caption = frame.add({
-    type = "label", style = "caption_label", caption = { "ua-gui.build-options" },
+    type = "label", style = "caption_label", caption = { "upl-gui.build-options" },
   })
   caption.style.top_margin = 8
 
   local options = frame.add({
-    type = "frame", name = "ua-options", style = "inside_shallow_frame_with_padding",
+    type = "frame", name = "upl-options", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
   options.style.horizontally_stretchable = true
 
-  local strip = options.add({ type = "flow", name = "ua-strip", direction = "horizontal" })
+  local strip = options.add({ type = "flow", name = "upl-strip", direction = "horizontal" })
 
   -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
   -- get_crafting_speed(quality), so a legendary belt would carry exactly as much.
   local belt_button = strip.add({
-    type = "choose-elem-button", name = "ua-belt", elem_type = "entity",
+    type = "choose-elem-button", name = "upl-belt", elem_type = "entity",
     elem_filters = belt_filters(player),
     tooltip = strip_tooltip("belt"),
     tags = dispatch.tags("belt"),
@@ -312,7 +312,7 @@ function gui.open(player)
   belt_button.elem_value = choices.belt
 
   local module_button = strip.add({
-    type = "choose-elem-button", name = "ua-quality-module", elem_type = "item-with-quality",
+    type = "choose-elem-button", name = "upl-quality-module", elem_type = "item-with-quality",
     elem_filters = quality_module_filters(player),
     tooltip = strip_tooltip("quality-module"),
     tags = dispatch.tags("quality-module"),
@@ -320,9 +320,9 @@ function gui.open(player)
   module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
 
   local trash = options.add({
-    type = "checkbox", name = "ua-trash", state = choices.trash_unrequested,
-    caption = { "ua-gui.trash-unrequested" },
-    tooltip = { "ua-gui.trash-unrequested-tooltip" },
+    type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
+    caption = { "upl-gui.trash-unrequested" },
+    tooltip = { "upl-gui.trash-unrequested-tooltip" },
     tags = dispatch.tags("trash"),
   })
   -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
@@ -331,23 +331,23 @@ function gui.open(player)
 
   -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
   -- half, and an unbounded label drags the whole modal out to their width.
-  local status = frame.add({ type = "label", name = "ua-status", caption = "" })
+  local status = frame.add({ type = "label", name = "upl-status", caption = "" })
   status.style.top_margin = 8
   status.style.single_line = false
   status.style.maximal_width = 360
 
-  local buttons = frame.add({ type = "flow", name = "ua-buttons", direction = "horizontal" })
+  local buttons = frame.add({ type = "flow", name = "upl-buttons", direction = "horizontal" })
   buttons.style.top_padding = 4
   -- Same handler as the titlebar's close button: cancelling IS closing.
   buttons.add({
-    type = "button", name = "ua-cancel", style = "back_button",
-    caption = { "ua-gui.cancel" }, tags = dispatch.tags("close"),
+    type = "button", name = "upl-cancel", style = "back_button",
+    caption = { "upl-gui.cancel" }, tags = dispatch.tags("close"),
   })
   local spacer = buttons.add({ type = "empty-widget" })
   spacer.style.horizontally_stretchable = true
   buttons.add({
-    type = "button", name = "ua-confirm", style = "confirm_button",
-    caption = { "ua-gui.confirm" }, tags = dispatch.tags("confirm"),
+    type = "button", name = "upl-confirm", style = "confirm_button",
+    caption = { "upl-gui.confirm" }, tags = dispatch.tags("confirm"),
   })
 
   gui.refresh(player)
@@ -466,7 +466,7 @@ dispatch.register("confirm", function(event)
 
   -- A spectator has no cursor_stack at all, so there is nowhere to put the tool.
   if not player.cursor_stack then
-    player.print({ "ua-message.no-cursor" })
+    player.print({ "upl-message.no-cursor" })
     return
   end
 
@@ -474,7 +474,7 @@ dispatch.register("confirm", function(event)
   -- failure would overwrite, and so destroy, whatever the player is holding. The modal stays
   -- open, so freeing a hand and pressing Place again is the whole recovery.
   if not (player.clear_cursor() and player.cursor_stack.set_stack({ name = TOOL, count = 1 })) then
-    player.print({ "ua-message.cursor-full" })
+    player.print({ "upl-message.cursor-full" })
     return
   end
 

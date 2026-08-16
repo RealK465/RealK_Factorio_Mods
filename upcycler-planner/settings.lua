@@ -4,7 +4,7 @@
 data:extend({
   {
     type = "bool-setting",
-    name = "upcycler-architect-show-all",
+    name = "upcycler-planner-show-all",
     setting_type = "runtime-per-user",
     default_value = false,
     order = "a",

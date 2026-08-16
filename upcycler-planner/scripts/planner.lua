@@ -814,77 +814,77 @@ end
 -- tool which then does nothing is the worst failure this GUI can have, because nothing tells
 -- the player why.
 function planner.validate(force, choices)
-  if not choices.recipe then return false, { "ua-gui.pick-a-recipe" } end
+  if not choices.recipe then return false, { "upl-gui.pick-a-recipe" } end
 
   local recipe = prototypes.recipe[choices.recipe]
-  if not recipe then return false, { "ua-gui.pick-a-recipe" } end
+  if not recipe then return false, { "upl-gui.pick-a-recipe" } end
 
   local product = single_item_product(recipe)
   if not product then
-    return false, { "ua-message.no-recycling-path", recipe.localised_name }
+    return false, { "upl-message.no-recycling-path", recipe.localised_name }
   end
 
   local ingredients, has_fluid = planner.item_ingredients(recipe)
-  if has_fluid then return false, { "ua-message.fluid-not-supported" } end
+  if has_fluid then return false, { "upl-message.fluid-not-supported" } end
 
   if not planner.recycling_recipe(product.name) then
-    return false, { "ua-message.no-recycling-path", product.localised_name }
+    return false, { "upl-message.no-recycling-path", product.localised_name }
   end
   if not recycling_closes_the_loop(recipe, product) then
-    return false, { "ua-message.recycling-mismatch", product.localised_name }
+    return false, { "upl-message.recycling-mismatch", product.localised_name }
   end
 
   local machine = choices.machine and prototypes.entity[choices.machine]
-  if not machine then return false, { "ua-message.no-machine-available" } end
+  if not machine then return false, { "upl-message.no-machine-available" } end
   if (machine.module_inventory_size or 0) == 0 then
-    return false, { "ua-message.no-module-slots", machine.localised_name }
+    return false, { "upl-message.no-module-slots", machine.localised_name }
   end
   if not (machine.allowed_effects and machine.allowed_effects["quality"]) then
-    return false, { "ua-message.no-quality-effect", machine.localised_name }
+    return false, { "upl-message.no-quality-effect", machine.localised_name }
   end
   -- The two checks above give specific reasons; this is the catch-all for the rest of the
   -- machine gate. The GUI cannot produce a mismatch, but a remembered name can outlive a mod
   -- update that changed the prototype under it, and set_recipe on such a ghost hard-errors.
   if not is_upcycling_machine(machine) or not can_craft(machine, recipe) then
-    return false, { "ua-message.no-machine-available" }
+    return false, { "upl-message.no-machine-available" }
   end
 
   local recycler = choices.recycler and prototypes.entity[choices.recycler]
   if not recycler then
-    return false, { "ua-message.no-recycler" }
+    return false, { "upl-message.no-recycler" }
   end
 
   -- Same stale-name concern as the machine: an eject vector alone does not prove the thing
   -- still recycles, and the layout plans quality modules into it.
   if not (recycler.crafting_categories and recycler.crafting_categories["recycling"]) then
-    return false, { "ua-message.no-recycler" }
+    return false, { "upl-message.no-recycler" }
   end
   if (recycler.module_inventory_size or 0) == 0 then
-    return false, { "ua-message.no-module-slots", recycler.localised_name }
+    return false, { "upl-message.no-module-slots", recycler.localised_name }
   end
   -- Mirrors the machine's gate above, and mirrors what planner.recyclers() now admits: slots
   -- the loop cannot put a quality module into are no use to it.
   if not (recycler.allowed_effects and recycler.allowed_effects["quality"]) then
-    return false, { "ua-message.no-quality-effect", recycler.localised_name }
+    return false, { "upl-message.no-quality-effect", recycler.localised_name }
   end
   local orientation = planner.recycler_orientation(recycler)
   if not orientation then
-    return false, { "ua-message.recycler-no-eject", recycler.localised_name }
+    return false, { "upl-message.recycler-no-eject", recycler.localised_name }
   end
   -- The layout widens its columns to any recycler, but the throw must land inside the
   -- machine; both stand left-aligned, so that is a minimum machine width.
   if orientation.eject_col >= machine.tile_width then
     return false, {
-      "ua-message.recycler-needs-wider-machine",
+      "upl-message.recycler-needs-wider-machine",
       recycler.localised_name, orientation.eject_col + 1,
     }
   end
 
   if not (choices.quality and prototypes.quality[choices.quality]) then
-    return false, { "ua-gui.pick-a-recipe" }
+    return false, { "upl-gui.pick-a-recipe" }
   end
   if not planner.tiers_up_to(choices.quality) then
-    return false, { "ua-gui.pick-a-recipe" }
+    return false, { "upl-gui.pick-a-recipe" }
   end
 
   -- The building materials the layout is made of. Each is a real research gate, so each gets
@@ -893,14 +893,14 @@ function planner.validate(force, choices)
   local r = resources(force, recipe, machine, choices)
   if not r.inserter then
     if planner.any_inserter(force, #ingredients) then
-      return false, { "ua-message.only-fuelled-inserters" }
+      return false, { "upl-message.only-fuelled-inserters" }
     end
-    return false, { "ua-message.too-many-ingredients" }
+    return false, { "upl-message.too-many-ingredients" }
   end
-  if not r.belt then return false, { "ua-message.no-belt" } end
-  if not r.container then return false, { "ua-message.no-chest" } end
-  if not (r.requester and r.provider) then return false, { "ua-message.no-logistic-chest" } end
-  if not r.quality_module then return false, { "ua-message.no-quality-module" } end
+  if not r.belt then return false, { "upl-message.no-belt" } end
+  if not r.container then return false, { "upl-message.no-chest" } end
+  if not (r.requester and r.provider) then return false, { "upl-message.no-logistic-chest" } end
+  if not r.quality_module then return false, { "upl-message.no-quality-module" } end
 
   -- The module is the player's pick now, so one that some building or the recipe refuses is
   -- reachable in a modded game -- and an insert plan for a refused module never gets filled.
@@ -908,18 +908,18 @@ function planner.validate(force, choices)
   for _, holder in pairs({ machine, recycler }) do
     if not accepts_module_category(holder, chosen_module.category) then
       return false, {
-        "ua-message.module-not-accepted", chosen_module.localised_name, holder.localised_name,
+        "upl-message.module-not-accepted", chosen_module.localised_name, holder.localised_name,
       }
     end
   end
   if not accepts_module_category(recipe, chosen_module.category) then
-    return false, { "ua-message.module-not-accepted-by-recipe", chosen_module.localised_name }
+    return false, { "upl-message.module-not-accepted-by-recipe", chosen_module.localised_name }
   end
 
   -- Warnings from here: planning ahead of research is legitimate, since the result is ghosts
   -- that bots will build once the technology lands.
   if not force.is_quality_unlocked(choices.quality) then
-    return true, { "ua-message.quality-not-researched", prototypes.quality[choices.quality].localised_name }, r
+    return true, { "upl-message.quality-not-researched", prototypes.quality[choices.quality].localised_name }, r
   end
   -- The quality the buildings and modules are placed AT gets the same treatment as the target:
   -- ghosts of an unresearched tier are legal to place, nothing can build them yet.
@@ -930,13 +930,13 @@ function planner.validate(force, choices)
   }) do
     if not force.is_quality_unlocked(quality) then
       return true, {
-        "ua-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
+        "upl-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
       }, r
     end
   end
   local force_recipe = force.recipes[recipe.name]
   if not force_recipe or not force_recipe.enabled then
-    return true, { "ua-message.recipe-not-researched" }, r
+    return true, { "upl-message.recipe-not-researched" }, r
   end
 
   return true, nil, r

@@ -155,7 +155,7 @@ one undo step is unchecked.
   stubbed; a placeholder is the kind of thing that ships by accident.
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **`settings.lua` exists since 2026-08-15**, carrying one per-player setting:
-  `upcycler-architect-show-all` (offer unresearched options in the pickers — the game's own
+  `upcycler-planner-show-all` (offer unresearched options in the pickers — the game's own
   selection-list option is not mod-readable). Remaining candidates, in rough order:
   - **request-from-buffers on the requester chests.** Always on today. Trash-unrequested got
     its own checkbox in the modal on 2026-08-15 (repo owner's call, checked by default);

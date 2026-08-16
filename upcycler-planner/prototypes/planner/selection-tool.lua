@@ -23,12 +23,12 @@ local select_behaviour = {
 data:extend({
   {
     type = "selection-tool",
-    name = "ua-planner",
+    name = "upl-planner",
     icons = icons,
     flags = { "only-in-cursor", "spawnable", "not-stackable" },
     hidden = true,
     subgroup = "other",
-    order = "c[automated-construction]-u[upcycler-architect]",
+    order = "c[automated-construction]-u[upcycler-planner]",
     stack_size = 1,
     select = select_behaviour,
     alt_select = select_behaviour,

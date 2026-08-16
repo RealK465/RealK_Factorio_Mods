@@ -1,6 +1,6 @@
-# Upcycler Architect
+# Upcycler Planner
 
-Pick an item and a target quality. Upcycler Architect designs the whole upcycling loop —
+Pick an item and a target quality. Upcycler Planner designs the whole upcycling loop —
 machines, recyclers, quality modules, filtered inserters and the belting between them — and
 places it in the world as ghosts for your bots to build.
 
@@ -18,7 +18,7 @@ quite right and a parameterised one asks the player to answer the same questions
 Planning it is a solved shape of problem in this game. [Mining Patch
 Planner](https://mods.factorio.com/mod/mining-patch-planner) does it for ore patches and
 [P.U.M.P.](https://mods.factorio.com/mod/pump) does it for oil fields: a selection tool, a
-small GUI of choices, and a computed layout dropped as ghosts. Upcycler Architect applies that
+small GUI of choices, and a computed layout dropped as ghosts. Upcycler Planner applies that
 model to upcycling.
 
 ## Requirements

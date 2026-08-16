@@ -1,4 +1,4 @@
-# Upcycler Architect — design record
+# Upcycler Planner — design record
 
 Decisions and their reasons, recorded as they are made. Never ships (leading dot).
 
@@ -95,17 +95,12 @@ recipe at plan time can fix exactly that.
 
 ## Decided
 
-- **Name: Upcycler Architect**, portal name `upcycler-architect`. Chosen 2026-08-15 over
-  *Upcycler Planner*, *Upcycler Generator*, *Quality Loop Planner* and *Quality Casino*.
-  "Upcycler" is the word players search for. "Architect" was preferred over the genre's usual
-  "Planner" because it avoids two collisions at once: `generator` is Factorio's own prototype
-  type for power entities, and the plain `Upcycler` mod already exists and does something else.
-  The accepted cost is that "Architect" is not the genre's word, so the mod is a little less
-  instantly legible than *… Planner* would have been.
-- **Portal name is free.** `GET /api/mods/upcycler-architect` returned 404 on 2026-08-15;
-  the method was sanity-checked against `pump`, `mining-patch-planner`, `upcycler` and
-  `quality-cycler`, all 200. Worth having done — `pure-modules` was lost to a squat by a
-  deleted account, and portal names stay taken after the account goes.
+- **Name: Upcycler Planner**, portal name `upcycler-planner`. Renamed 2026-08-16, reversing the
+  2026-08-15 choice of *Upcycler Architect* — see below.
+- **Portal name is free.** `GET /api/mods/upcycler-planner` returned 404 on 2026-08-16, and
+  `upcycler-architect` still 404s too, so nothing was lost by not claiming it. The method was
+  sanity-checked against `mining-patch-planner`, 200. Worth having done — `pure-modules` was
+  lost to a squat by a deleted account, and portal names stay taken after the account goes.
 - **Hard dependency on `quality >= 2.1.0`**, not a `quality_required` feature flag. In 2.1
   `recycler` is its own expansion mod and `quality` declares `["base >= 2.1.0",
   "recycler >= 2.1.0"]`, so depending on `quality` pulls the recycler in for free. A hard
@@ -158,7 +153,7 @@ Decided 2026-08-15 in the architecture session (reasons in `analysis/`):
 - **No flib dependency.** Its save/load-safe GUI handler registry is ~43 lines and worth
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.
-- **Prototype prefix is `ua-`** (`ua-open`, `ua-planner`). Chosen to match the house style in
+- **Prototype prefix is `upl-`** (`upl-open`, `upl-planner`). Chosen to match the house style in
   `pure-modules-realk`, which tags prototypes short (`pure-beacon`) while giving settings and
   locale mod-level keys the full mod name. `upcycler-` was rejected because the portal already
   carries a different mod named `upcycler`, which likely owns that name and its derivatives.
@@ -337,7 +332,7 @@ invariants are the ones to re-run after any row-plan change.
   enabled), machines, recyclers, belts (buildable), qualities (`is_quality_unlocked`). The
   game's own "Show all items in selection lists" option is **not exposed to the runtime API**
   (searched 2.1.14's `runtime-api.json`), so a per-player bool setting,
-  `upcycler-architect-show-all`, stands in for it — the mod's first `settings.lua`. An empty
+  `upcycler-planner-show-all`, stands in for it — the mod's first `settings.lua`. An empty
   researched subset falls back to the full list so the modal never dead-ends; the frame
   rebuilds on `on_runtime_mod_setting_changed`.
 - **The quality dropdown's offered list rides in the element's tags.** Research can finish
@@ -540,3 +535,40 @@ The same pass caught that **clearing the machine or recycler picker reset its qu
 normal**, contradicting the recipe handler one file over, which deliberately keeps the quality
 when the machine is swapped on the grounds that the player asked for legendary machines rather
 than a legendary assembler. All three pickers now keep the quality on clear.
+
+## 2026-08-16 — renamed to Upcycler Planner
+
+Repo owner's call, reversing the name chosen the previous day. *Architect* had been picked over
+the genre's usual *Planner* to sidestep two collisions at once — `generator` is Factorio's own
+prototype type for power entities, and the plain `Upcycler` mod already exists and does
+something else — with the acknowledged cost that it is not the word the genre uses. That cost
+turned out to be the one that mattered: Mining Patch Planner and P.U.M.P. are what a player is
+searching for a sibling of, so **Upcycler Planner** is legible where *… Architect* asked the
+player to work out what the mod was. The collisions it was avoiding never bit — `planner` is not
+a prototype type, and `upcycler-planner` is a distinct portal name from `upcycler`.
+
+Free to do now and only now: **nothing has shipped.** No `upcycler-architect_*` tag exists, the
+portal name was never claimed (`GET /api/mods/upcycler-architect` still 404s), and `0.1.0` is
+still the open section. After a release this would have been a new mod rather than a rename —
+the portal has no rename — so the window closes at the first upload.
+
+What moved, in one pass:
+
+- Folder, `info.json` `name`/`title`/`homepage`, and `locale/en/<name>.cfg` — the folder name and
+  `name` must match exactly or Factorio silently skips the mod.
+- The per-player setting `upcycler-architect-show-all` -> `upcycler-planner-show-all`, its two
+  locale keys, and the constant in `gui.lua`.
+- **The prototype tag `ua-` -> `upl-`**, since "UA" stood for the old title: shortcut `upl-open`,
+  selection tool `upl-planner`, the `[upl-gui]` / `[upl-message]` locale sections, every GUI
+  element name, and `dispatch.lua`'s `upl_handler` tag key. `up-` was the obvious successor and
+  was rejected as too generic — "up" reads as a direction, and the tag has to be recognisable as
+  a mod's namespace at a glance in a flat global namespace.
+
+**No migration file.** Renaming a prototype normally costs one plus a major bump, but neither
+prototype persists into a save: the shortcut is a per-player toolbar pin and the selection tool
+is `only-in-cursor`, so nothing holds a reference. `storage` keeps only the player's picks —
+recipe, quality and entity names belonging to other mods — and none of ours. An existing dev
+save loses its shortcut pin and its setting value, which is the whole cost.
+
+`changelog.txt` needed no entry: the 0.1.0 section is the unreleased initial one and never named
+the mod, so there is no published text for the rename to contradict.

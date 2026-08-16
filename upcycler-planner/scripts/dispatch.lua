@@ -12,7 +12,7 @@ local handlers = {}
 
 -- Namespaced so a stray element is traceable to this mod, and so it cannot collide with
 -- another mod's tag on an element we did not create.
-local TAG = "ua_handler"
+local TAG = "upl_handler"
 
 function dispatch.register(name, handler)
   handlers[name] = handler
