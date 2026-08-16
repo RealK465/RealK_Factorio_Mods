@@ -9,6 +9,56 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — Space Age feature flags, and the one that does not exist on 2.0
+
+The repo owner asked for the flag that makes the Space Age DLC mandatory, then for the mod to
+show up in the portal's Space Age section. Both landed, but the second ask is the one that
+actually decided the design.
+
+**The no-flag decision was reversed for a reason the old one never considered.** The original
+call weighed enforcement only, and on that ground it was right: behind a hard `quality`
+dependency, the flag gates nothing extra, because `quality` ships with Space Age and nothing
+else. What it missed is that the **mod portal tags a mod as Space Age from the expansion flags
+in its uploaded `info.json`, not from its dependency list** — so the mod was invisible in the
+portal's Space Age section no matter how hard the dependency was. That is not something the
+enforcement argument can see, and it is why the reversal is not a contradiction of the old
+entry so much as a different question.
+
+**The flag was measured rather than trusted, and the measurement paid.** Declaring a flag is a
+one-line edit that looks obviously correct, so the temptation was to write it and move on. Four
+throwaway probe mods — `info.json` only, one flag, no `quality` dependency — run against the
+two no-expansion installs settled it instead, and turned up the thing that would have shipped
+wrong: **`expansion_required` does not exist in Factorio 2.0.** The 2.0 probe declaring it
+**loaded clean on an install with no expansions at all**. Silently ignored, gating nothing — a
+dead field that reads at a glance exactly like a working gate. The engine's own startup log
+confirmed it independently: 2.1 enumerates eight feature flags, 2.0 enumerates seven, missing
+`expansion`. Vanilla `quality/info.json` agrees, declaring both flags in 2.1 and only
+`quality_required` in 2.0. Full table in `analysis/api.md` §13.
+
+So the flags fork along the same seam `info.json` already forks on, which is tidy: `main` gets
+`expansion_required` + `quality_required`, `legacy/2.0` gets `quality_required` alone. Both were
+verified to refuse a no-expansion install; `quality_required` is the one carrying the gate on
+both tracks.
+
+Two things worth knowing next time. **A refused mod crashes under `--dump-data` rather than
+printing a tidy error** — `ModManager::enterMinimalMode` in the stack trace on 2.1,
+`ModManager::loadData` on 2.0 — so the exit code alone reads as an ordinary failure and the
+stack trace is where the answer is. And **`space_travel_required` was rejected on honesty
+grounds**, not technical ones: it would have earned the portal tag too, but it unlocks planet
+and space-platform prototypes this mod never touches.
+
+What is still **unverified**: the portal tag itself. The portal API exposes no feature-flag
+field on any endpoint, so whether the Space Age section actually picks the mod up can only be
+confirmed after an upload — which needs the owner's approval for that specific release anyway.
+Wube's own statement (forum `p=698604`) names the expansion flags collectively rather than
+singling one out, and `quality_required` is among the DLC's own set, so the expectation is good
+but it is an expectation.
+
+Shipped as a paired release, prepared and stopped before upload: `0.1.2` for Factorio 2.1 and
+`0.1.3` for Factorio 2.0, both sections open at `Date: ????`. Both builds validate clean.
+
+---
+
 ## 2026-08-16 — a permanent test suite, and the eject question answered
 
 The scratch-harness era ended today: the assertion matrix every session had been rebuilding by

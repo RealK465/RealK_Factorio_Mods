@@ -26,11 +26,24 @@ ships (leading dot).
   `pure-modules-realk`. `upcycler-` was rejected because the portal already carries a different
   mod named `upcycler`, likely to own that name and its derivatives; `up-` as too generic — "up"
   reads as a direction before it reads as a namespace.
-- **Hard dependency on `quality` (`>= 2.1.0` on `main`, `>= 2.0.0` on `legacy/2.0`), no
-  `quality_required` feature flag.** The mod is worthless without quality tiers, and unlike the
-  flag a hard dependency also fixes load order — the flag would only make Space Age ownership
-  mandatory. The one line delivers the recycler on both tracks: in 2.1 `quality` declares
-  `recycler >= 2.1.0`, and in 2.0 the recycler entity ships inside `quality` itself.
+- **Hard dependency on `quality` (`>= 2.1.0` on `main`, `>= 2.0.0` on `legacy/2.0`).** The mod
+  is worthless without quality tiers, and the dependency is the half that fixes load order —
+  feature flags do not. The one line delivers the recycler on both tracks: in 2.1 `quality`
+  declares `recycler >= 2.1.0`, and in 2.0 the recycler entity ships inside `quality` itself.
+- **Space Age feature flags are declared, and the set forks by game version:
+  `quality_required` on both tracks, `expansion_required` on `main` only.** Asked for by the
+  repo owner on 2026-08-16, reversing the earlier no-flag call — that call was made when the
+  only question was enforcement, where a flag is redundant behind the `quality` dependency.
+  The deciding reason is the **mod portal**, which tags a mod as Space Age from the expansion
+  flags in its uploaded `info.json` and *not* from its dependencies, so without a flag the mod
+  never appears in the portal's Space Age section however hard its dependency is.
+  `expansion_required` is omitted on `legacy/2.0` because **the flag does not exist in 2.0** —
+  measured, it is silently ignored there and gates nothing, which would be a dead field
+  pretending to be a gate (`analysis/api.md` §13). This mirrors vanilla `quality` exactly,
+  which declares both flags in 2.1 and only `quality_required` in 2.0. `space_travel_required`
+  was rejected: it would also earn the portal tag, but it unlocks planet and space-platform
+  prototypes this mod never touches, so declaring it would be a false claim about the mod.
+  Neither flag narrows the audience in practice — `quality` already ships only with Space Age.
 - **Both game tracks, forked — `main` carries no 2.0 code.** Ported to Factorio 2.0 on
   2026-08-16 at the repo owner's ask, reversing the earlier 2.1-only call — that call rested
   on "`recycler` is 2.1-only", and 2.0's `quality` mod ships the recycler entity itself, so
