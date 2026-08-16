@@ -15,8 +15,9 @@ ships (leading dot).
   turned out not to exist, since `planner` is not a prototype type and `upcycler-planner` is a
   distinct portal name from the existing `upcycler` mod. Free to do only because nothing had
   shipped; the portal has no rename, so the window closed at the first upload.
-- **Portal name is free.** `GET /api/mods/upcycler-planner` returned 404 on 2026-08-16, method
-  sanity-checked against `mining-patch-planner` (200). Worth having done — `pure-modules` was
+- **Portal name `upcycler-planner` is ours.** First published 2026-08-16 under the RealK
+  account. Checked free beforehand (`GET /api/mods/upcycler-planner` 404 on 2026-08-16, method
+  sanity-checked against `mining-patch-planner`) — worth having done: `pure-modules` was
   lost to a squat by a deleted account, and portal names stay taken after the account goes.
 - **Prototype prefix `upl-`**, with settings and locale mod-level keys using the full
   `upcycler-planner`. Prototype names share one flat global namespace and a collision there is
@@ -45,18 +46,21 @@ ships (leading dot).
   `data-final-fixes.lua` that writes the bridge — declared in the repo `CLAUDE.md` → *Git*
   beside Pure Modules' divergent list. A cherry-pick touching a forked file is rewritten by
   hand. The verified 2.0 API surface: `analysis/factorio-2.0.md`.
-- **Version starts at `0.1.0`**, open section, `Date: ????`. The two tracks share one
-  sequential version line (repo rule, `factorio-multiversion`), so the first release pair
-  needs two numbers — which track takes the lower one is the repo owner's call at release
-  time, and is still open.
+- **First release pair shipped 2026-08-16: `0.1.0` is the Factorio 2.0 build, `0.1.1` the
+  Factorio 2.1 build** — the repo owner assigned the lower number to the 2.0 track in the
+  release request, matching the ship-2.0-first pair convention. The two tracks share one
+  sequential version line (repo rule, `factorio-multiversion`), so whatever ships next takes
+  the next free number, whichever game it targets.
 - **No flib dependency.** Its save/load-safe GUI handler registry is ~43 lines and worth
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.
 
 ## Portal presentation
 
-Material for the mod portal page, gathered ahead of any release. **This is not a release plan** —
-nothing is published, and every upload still needs the repo owner's per-release approval.
+Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-16 — license
+`default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
+description, the four gallery shots below in filename order. Every later upload or portal edit
+still needs the repo owner's per-release approval.
 
 - **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, so it
   is written for a player skimming the page rather than for a contributor. The portal takes

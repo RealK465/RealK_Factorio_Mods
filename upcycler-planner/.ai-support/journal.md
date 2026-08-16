@@ -9,6 +9,28 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — first release: 0.1.0 (Factorio 2.0) and 0.1.1 (Factorio 2.1)
+
+Published at the repo owner's request, which named the pair: the 2.0 build took `0.1.0`, the
+2.1 build `0.1.1`, shipped 2.0-first per the release-pair convention. The first publish went
+through the v2 `init_publish` API — `fmtk upload` cannot create a new mod name — and 0.1.1
+followed as an ordinary `fmtk upload`. Before upload, both builds validated against their own
+installs (exit 0, checksum line present, `--check-unused-prototype-data` silent on both), and
+both zips were verified by listing: the legacy-only `data-final-fixes.lua` ships in 0.1.0
+alone, `changelog.txt` and `README.md` byte-identical in the two.
+
+The portal page was set in the same session: license `default_gnugplv3` (a new mod defaults to
+MIT), category `utilities` (Mining Patch Planner's own), the README synced as the description
+via `fmtk details --readme`, and the four `images/` shots uploaded in filename order — all
+four ids came back non-empty on the first try, and the cache-busted `/full` GET read back two
+releases, each serving its own `factorio_version`.
+
+The changelog took the pair shape before packaging — 0.1.0 carries the entries plus the
+game-naming line, 0.1.1 is the pointer section, one identical file on both branches — and five
+grammar slips in `README.md` were fixed (it ships in the zip and is the portal description);
+no claim changed. Tags `upcycler-planner_0.1.0` and `upcycler-planner_0.1.1` mark the two
+commits.
+
 ## 2026-08-16 — ported to Factorio 2.0, forked on the legacy branch
 
 Repo owner's ask: the first version is good enough for a release, so make the 2.0 build real
