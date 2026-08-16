@@ -24,7 +24,7 @@ data:extend({
   {
     type = "selection-tool",
     name = "upl-planner",
-    icons = icons,
+    icons = icons.item,
     flags = { "only-in-cursor", "spawnable", "not-stackable" },
     hidden = true,
     subgroup = "other",

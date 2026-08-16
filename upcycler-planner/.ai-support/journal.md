@@ -9,6 +9,47 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — the shortcut icon was drawing wrong, and nobody could see it
+
+The repo owner asked for the shortcut icon as an image, and sent a screenshot of the toolbar: a
+tiny recycler shoved into the top-left with a legendary flower swallowing the rest of the button.
+`--dump-icon-sprites` reproduced it exactly — a graphical run that writes the **engine's own**
+icon composition to `script-output/<type>/<name>.png`, so a layered icon can be looked at without
+opening the game. Ours dumped 121x121 where every vanilla shortcut dumps 24x24.
+
+The cause is in `IconData::scale`, and it is a rule rather than a bug: scale and shift are
+measured against the **prototype's expected icon size**, which is 64 for an item but 32 for a
+shortcut's `icons` and 24 for `small_icons`. `icons.lua` was shared between the selection tool
+and the shortcut *deliberately*, so the two could not drift — and that sharing is exactly what
+broke it, because the same `scale = 0.28` means half again as much on a shortcut. Full write-up
+in `analysis/api.md` §11.
+
+Fixed by writing the composition once as fractions of one icon and resolving it per consumer, so
+the sharing survives with the rescale done in one place.
+
+**Then the design question turned out to be the real one.** A corner pip on a full-size recycler
+is the obvious fix and it reads as *a legendary recycler* — the owner wanted *legendary +
+recycler*, two symbols, which is what the broken version had been accidentally showing. Ten
+dispositions across two rounds were dumped and composited at the owner's real button size
+(measured off their screenshot: the style's 40 px at ~115% UI scale, 2 px padding), and the
+button went `blue` -> `green` at their ask.
+
+**The second round existed because the first pick was still clipped.** Leaning the two layers
+away from each other looked symmetric written down, but a negative shift does not grow the
+composed canvas — it pushes the layer off it, and the recycler was cut to a sliver while empty
+margin sat in the opposite corner. Nobody would have caught that by reading the numbers; the
+dump showed it, with the alpha bounding box ending 16 px short of the canvas. Settled at
+recycler 0.85 unshifted, pip 0.80 shifted 0.38 down-right — all the separation on the layer that
+grows the box.
+
+`thumbnail.png` came out of the same work: 144x144, the game's own green plate 9-sliced up with
+the composed icon inside, built from the dump rather than upscaled from a screenshot. That
+clears the last housekeeping item that was blocking a release on art grounds.
+
+**Two things worth keeping from the tooling side:** the dump needs a *staged copy* of the mod
+(`--mod-directory` must never point at this repo), and a broken layered icon shows up in the
+dumped file's dimensions before anyone looks at the picture.
+
 ## 2026-08-16 — the readme becomes the portal page, and the portal images arrive
 
 Rewrote `README.md` twice at the repo owner's ask. It is what `fmtk details --readme` uploads, so

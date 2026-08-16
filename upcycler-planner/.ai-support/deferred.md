@@ -156,8 +156,6 @@ one undo step is unchecked.
 
 ## Housekeeping
 
-- **`thumbnail.png`** — 144x144 at the mod root, needed before any release. Deliberately not
-  stubbed; a placeholder is the kind of thing that ships by accident.
 - **The one-line description still says "blueprint".** `info.json`'s `description` and the
   locale `[mod-description]` both read "designs the entire upcycling loop blueprint and places it
   as ghosts". The readme dropped the word on 2026-08-16 — the mod places ghosts and never makes a

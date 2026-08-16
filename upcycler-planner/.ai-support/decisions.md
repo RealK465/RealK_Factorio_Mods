@@ -56,11 +56,13 @@ nothing is published, and every upload still needs the repo owner's per-release 
   `GET /api/mods/<name>/full` returns `assets-mod.factorio.com/assets/<sha1>.png` and no name at
   all — checked against `pure-modules-realk` on 2026-08-16. The repo `CLAUDE.md` says the portal
   displays the filename, which holds for the description's own links but not for the gallery.
-- **`images/description/` is not gallery material.** It holds the demo GIFs the README embeds,
-  which the portal can only take as URLs: `vanilla-upcycling.gif` is
-  https://files.catbox.moe/thkeot.gif and `modded-upcycling.gif` is
-  https://files.catbox.moe/ulihf9.gif. The local copies are the masters — catbox is not ours and
-  can drop a file, and replacing one is a description edit, so the mapping has to survive.
+- **`images/description/` is not gallery material.** It holds what the README embeds, which the
+  portal can only take as URLs, so each file is mirrored on catbox:
+  `vanilla-upcycling.gif` → https://files.catbox.moe/thkeot.gif,
+  `modded-upcycling.gif` → https://files.catbox.moe/ulihf9.gif,
+  `shortcut-button.jpg` → https://files.catbox.moe/08ae4j.jpg (the shortcut button, shown inline
+  in the how-to-use steps). The local copies are the masters — catbox is not ours and can drop a
+  file, and replacing one is a description edit, so the mapping has to survive.
 - **The whole `images/` tree stays out of the zip** via `package.ignore`'s `images/**`. Tracked
   in git so a shot travels with the build it was taken from.
 
@@ -83,6 +85,26 @@ nothing is published, and every upload still needs the repo owner's per-release 
   the belt.** A measured call, not a taste one: `belt_speed` is a plain attribute with no
   quality variant the way `get_crafting_speed(quality)` has one, so a legendary belt carries
   exactly as much as a normal one.
+- **The shortcut button is `style = "green"`**, the repo owner's call on 2026-08-16 — it sits in
+  the same `b[blueprints]` order block as the vanilla planners, and green is the one of the four
+  styles (`default|blue|red|green`) not already worn by a neighbour there.
+- **The icon is two symbols, not one badged item.** Recycler at 0.85 of the icon on the centre,
+  legendary pip at 0.80 shifted 0.38 down-right — the mod turns recycling *into* quality, and a
+  small corner pip reads instead as "a legendary recycler", which is the wrong idea. The repo
+  owner's call on 2026-08-16, chosen from dispositions rendered at real button size.
+- **Neither layer carries a negative shift**, because a negative one clips against the composed
+  canvas instead of growing it (`analysis/api.md` §11). The separation therefore all sits on the
+  pip rather than being split between the two.
+- **`thumbnail.png` is the shortcut button at 144x144** — the game's own green button plate with
+  the composed icon inside, so the portal card shows the thing the player will click. Built from
+  the `--dump-icon-sprites` output rather than upscaled from a screenshot.
+- **Icon layer `scale` and `shift` are written once as fractions of the icon and resolved per
+  prototype.** They are measured against the prototype's *expected* icon size — 64 for an item,
+  32 for a shortcut's `icons`, 24 for its `small_icons` — so one shared table renders the same
+  layer at twice the intended size on a shortcut. A layer hanging outside the icon also inflates
+  the composed bounding box, and the engine shrinks everything else to fit the button, which is
+  the second half of what went wrong. `icons.lua` exports `item`, `shortcut` and `shortcut_small`
+  from one set of fractions; evidence in `analysis/api.md` §11.
 - **Pickers offer only what the force has researched.** The per-player
   `upcycler-planner-show-all` setting shows everything instead, standing in for the game's own
   "show all items in selection lists" option, which is not exposed to the runtime API. An empty

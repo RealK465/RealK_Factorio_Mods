@@ -186,6 +186,9 @@ re-opening any of these, and don't restate a reason here.
   trash-unrequested checkbox). Machine, recycler, module and pole each carry their own quality;
   the belt does not.
 - Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
+- Shortcut button style `green`. Icon layer `scale`/`shift` are written in item space and
+  rescaled per prototype — they scale against the prototype's expected icon size, not the
+  file's (`analysis/api.md` §11).
 - **`storage` holds flat strings only** — never a `{name, quality}` table.
 - Belt ring is the layout (`.ai-support/analysis/layout-belt-ring.md`); the bot loop is a
   deferred toggle, not a dead idea (`analysis/layout-bot-loop.md`).

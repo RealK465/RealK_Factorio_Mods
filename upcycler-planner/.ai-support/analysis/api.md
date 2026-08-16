@@ -23,7 +23,7 @@ Checked against the installed 2.1.14's own `doc-html/runtime-api.json`,
   technology_to_unlock is researched, even if it was already researched in a different game."*
   **Set both** for a real per-save gate.
 - `icon_size` / `small_icon_size` — schema default is 64, but vanilla uses **32 and 24**. Set
-  them explicitly.
+  them explicitly. A layered `icons` table needs more than that — see §11.
 - `toggleable`, `associated_control_input`, `style` (`default|blue|red|green`), `order`.
 
 `on_lua_shortcut` payload: `name`, `player_index`, `prototype_name`, `tick`.
@@ -328,3 +328,44 @@ elsewhere stay stable; §9 remains the running unverified list.
    between two pole ghosts: return value false, yet the connector's `connections` gains the
    ghost wire and it turns into a `real_connections` entry once both revive. Do not branch on
    the return value for ghost wires; `builder.lua` ignores it on purpose.
+
+## 11. Icon layers scale against the PROTOTYPE, not the file — verified 2026-08-16
+
+`IconData::scale` doc verbatim: *"Defaults to `(expected_icon_size / 2) / icon_size`"*, and the
+expected sizes it lists are **`32` for `ShortcutPrototype::icons`, `24` for `small_icons`, `256`
+for technologies, `128` for achievements and item groups, `64` for everything else**.
+`IconData::shift` is measured in the same space: *"the overall icon is assumed to be
+`expected_icon_size / 2` pixels in width and height"*.
+
+So an explicit `scale` or `shift` means **different things on different prototypes**, and one
+layer table cannot be shared between an item and a shortcut. This mod shared one from its first prototypes:
+`scale = 0.28`, `shift = {8, 8}` on the quality pip read as 56% of the icon at the corner on the
+selection tool (expected 64) and as **wider than the entire button, shifted half an icon out of
+frame**, on the shortcut (expected 32). Confirmed by dumping both:
+
+```
+factorio.exe --config <scratch>\config.ini --dump-icon-sprites --mod-directory <staged copy>
+```
+
+which writes the **engine's own composition** to `script-output/<prototype-type>/<name>.png` —
+`shortcut/upl-open.png` and `item/upl-planner.png` here. It needs a graphical run (not
+`--dump-data`), takes about 50 s, and is the only way to see a layered icon without opening the
+game. Vanilla shortcuts dump at 24x24; a broken one dumps far larger, so the file size alone is
+a smell.
+
+**The composed bounding box is what gets fitted to the button**, so an oversized or far-shifted
+layer does not merely overhang — it shrinks every other layer. That is why the old shortcut drew
+the recycler at about half the button: the pip had grown the box to 121x121 where a vanilla
+shortcut dumps 24x24.
+
+**And the box only grows one way.** A POSITIVE shift extends it; a NEGATIVE shift pushes the
+layer off the canvas and the overhang is **clipped**. Measured 2026-08-16: two layers leaning
+away from each other (`-0.20` and `+0.2125` of the icon) dumped 102x102 with content ending at
+(86, 88) — empty margin bottom-right, and the recycler cut down to a sliver top-left. Sliding
+the same arrangement so the lower shift is 0 kept both symbols whole. So compose from a corner,
+never symmetrically about the centre.
+
+The fix in `prototypes/planner/icons.lua`: write the composition once as fractions of one icon,
+then resolve per consumer — `unit = expected / 2` shift units to the icon, `base = unit / 64` for
+a 64px file's scale. Keeping both layers inside the icon is what keeps the box tight.
+

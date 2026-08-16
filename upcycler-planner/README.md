@@ -9,7 +9,8 @@ Like Mining Patch Planner for miners, or P.U.M.P. for oil, but for quality loops
 
 ## How to use it
 
-1. Research **recycling**. A shortcut button appears in your shortcut bar.
+1. Research **recycling**. This button appears in your shortcut bar:
+   ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
 2. Click it, then pick the item you want to upcycle and the quality you are aiming for.
 3. Change the machine, recycler, belt, module or pole if you want. Each starts on the best you
    have researched, and can be built at a quality of your choice.

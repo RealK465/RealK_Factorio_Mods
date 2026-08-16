@@ -17,8 +17,8 @@ data:extend({
     action = "lua",
     technology_to_unlock = "recycling",
     unavailable_until_unlocked = true,
-    style = "blue",
-    icons = icons,
-    small_icons = icons,
+    style = "green",
+    icons = icons.shortcut,
+    small_icons = icons.shortcut_small,
   },
 })

@@ -9,16 +9,9 @@ Date: ????
     - Build options: belt, quality module, electric pole, and whether chests trash unrequested items.
     - Machines, recyclers, modules and poles can each have their own build quality.
     - Supports modded recyclers with different sizes and eject directions.
-    - Only offers items that can actually loop, with clear messages when they cannot.
-    - Requester chests also draw from buffer chests, not only from storage and providers.
     - Electric poles planned for full power coverage and wired into one network. Higher-quality poles need fewer placements.
-    - Pickers default to the best researched option and remember your last pick.
-    - Only uses inserters that do not need fuel.
+    - Selectors default to the best researched option and remember your last pick.
   Info:
     - The shortcut appears once recycling is researched.
     - Fluid recipes are not supported yet.
-    - Belt quality has no effect, so the belt picker has no quality option.
-    - Unresearched qualities can be picked for machines, recyclers or modules — the planner warns and places ghosts that wait.
-    - Editor and cheat mod items are never used as building materials.
     - Red messages disable Place; orange messages are warnings you can build through.
-    - A pole that cannot cover the whole loop still places what it can and reports the shortfall.
