@@ -65,6 +65,15 @@ LuaEntity.set_recipe(recipe, quality)   -- positional, both optional, recipe FIR
 Supported on ghosts per changelog v0.11.0 (recipe r/w on ghosts) and v2.0.30 (crash fix for
 exactly this workflow).
 
+**`quality` is a COMMON parameter, and does apply to a ghost.** Verified live 2026-08-16:
+`create_entity{name = "entity-ghost", inner_name = "assembling-machine-3", quality =
+"legendary"}` produces a legendary ghost, read back as `ghost.quality.name`. The variant-group
+keying above excludes parameters belonging to a *different* group — `recipe` among them — not
+everything that is not `inner_name` or `tags`. `insert_plan`'s `id.quality` likewise carries a
+chosen module quality onto the ghost, and `LuaEntityPrototype.get_inventory_size(
+defines.inventory.crafter_modules, quality)` is the documented way to size a module inventory at
+a quality (`module_inventory_size` is the normal-quality figure only).
+
 **Correction 2 — modules go through `insert_plan`, not `item-request-proxy`.** Verified:
 `LuaEntity.insert_plan` is **read *and* write**, subclasses `["EntityGhost","ItemRequestProxy"]`;
 `LuaEntity.item_requests` has **no write type** — read-only in 2.1. Both reference planner mods

@@ -8,10 +8,12 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 A planner in the tradition of Mining Patch Planner and P.U.M.P.: the player picks an item and a
 target quality, and the mod designs a complete upcycling loop and drops it as ghosts.
 
-**The first version works end to end**, as of 2026-08-15: a shortcut opens a modal, the player
-picks an item, a target quality, a crafting machine, a recycler and a belt (plus a
-trash-unrequested checkbox), and Confirm hands over a placement tool whose click drops the
-whole loop as ghosts. What it emits is the belt-ring family — see
+**The first version works end to end**, as of 2026-08-15: a shortcut opens a modal and Confirm
+hands over a placement tool whose click drops the whole loop as ghosts. The modal is in two
+blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
+recycler, the last two with a quality of their own) above a **Build options** block for what it
+is built OUT OF (belt, quality module and its quality, and the trash-unrequested checkbox).
+What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
@@ -40,6 +42,12 @@ a ghost's recipe — its variant groups are keyed by `name`, so with `name = "en
 through `ghost.insert_plan` (read/write, `EntityGhost` in its subclasses), **not** an
 `item-request-proxy` — `item_requests` is read-only in 2.1. Both of these were written down
 wrongly the first time; the corrected detail is in `.ai-support/analysis/api.md` §3.
+
+The variant-group trap cuts only one way, which is easy to over-learn: `quality` is a **common**
+`create_entity` parameter rather than a member of another group, so
+`create_entity{name = "entity-ghost", inner_name = ..., quality = "legendary"}` does produce a
+legendary ghost. Verified live on 2026-08-16. What the group keying excludes is parameters
+belonging to a *different* group, `recipe` among them — not everything outside `entity-ghost`.
 
 **3. The recycler ejects like a mining drill.** `vector_to_place_result = {-0.35, -2.3}`
 (`data/recycler/data.lua:109`) on a 2x4 furnace: it throws output out of its north face. Stand
@@ -163,9 +171,11 @@ Reasons for each are in `.ai-support/design.md`.
 - **Version starts at `0.1.0`.**
 - **Shortcut -> GUI -> Confirm -> selection tool -> click.** The player selects nothing in the
   world but ground; the GUI's choices define the footprint.
-- **Inputs: recipe, target quality, crafting machine** (plus a recycler picker, which is a
-  non-choice in vanilla but matters if a mod adds another; a belt picker defaulting to the
-  fastest researched belt; and a trash-unrequested checkbox, checked by default).
+- **Inputs, in two blocks.** What the loop makes: item, target quality, crafting machine,
+  recycler. What it is built from, under a **Build options** caption: belt, quality module, and
+  the trash-unrequested checkbox (checked by default). Machine, recycler and module each carry
+  their own **quality**; the belt does not, because `belt_speed` has no quality variant. The
+  recycler row is always shown — it was a non-choice in vanilla until quality made it one.
 - **Pickers offer only what is researched.** The per-player `upcycler-architect-show-all`
   setting shows everything instead, standing in for the game's own selection-list option,
   which mods cannot read.
@@ -178,7 +188,9 @@ Reasons for each are in `.ai-support/design.md`.
   a deferred toggle**, not a dead idea — spec in `analysis/layout-bot-loop.md`.
 - **Gated on the `recycling` technology**, not on quality: without a recycler there is nothing
   to build.
-- **Modules planned, not merely requested** — quality below target, productivity at target.
+- **Modules planned, not merely requested** — quality below target, productivity at target, and
+  the target machine left **empty** when the recipe or the machine refuses productivity
+  (`allow_productivity` defaults to false, so this is the common case, not the exotic one).
 - **No flib dependency** — copy its handler-registry pattern instead.
 - **Prototype names are prefixed `ua-`** — see Naming above.
 

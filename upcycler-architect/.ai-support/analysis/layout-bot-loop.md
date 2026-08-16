@@ -50,6 +50,11 @@ tile `X_k` = the machine's left column. Passes for `Wm = 3, 4, 5`. (Vanilla's ve
 belt ring now computes this per prototype with `planner.recycler_orientation()` — reuse it
 here when this family is built.)
 
+**When this ships, carry the belt ring's terminal-module rule across** (2026-08-16): the last
+machine is left EMPTY when the recipe or the machine refuses productivity, rather than given a
+module it cannot accept, and the module quality is the player's pick. The line below predates
+that and describes the unconditional version.
+
 The terminal column has no recycler: its machine runs productivity modules and crafts at `q_t`
 from `q_t` ingredients, so its whole output is target quality and lands in its provider. **No
 requester anywhere asks for the product at `q_t`, so it simply accumulates — the tap-out is

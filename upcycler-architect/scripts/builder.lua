@@ -42,12 +42,12 @@ local function apply_modules(ghost, entity)
   -- insert_plan, not an item-request-proxy: the plan is writable on a ghost, item_requests is
   -- read-only, and the proxy would need the ghost to exist first anyway.
   --
-  -- The modules themselves are requested at normal quality regardless of the loop's target.
-  -- That is deliberate: the module tier is chosen from what is researched, and the best split
-  -- of quality against productivity only shifts once the player's own modules are high
-  -- quality, which is a refinement for later rather than something to guess at here.
+  -- The module's quality is the player's pick from the modal, normal unless they changed it.
+  -- One quality covers every module the loop plans: the best split of quality against
+  -- productivity shifts once the modules are high quality, but that is a refinement to drive
+  -- from get_roll_chances() rather than a second picker to guess with.
   ghost.insert_plan = { {
-    id = { name = modules.name, quality = "normal" },
+    id = { name = modules.name, quality = modules.quality or "normal" },
     items = { in_inventory = positions },
   } }
 end
@@ -166,6 +166,9 @@ function builder.place(plan, anchor, context)
     local ghost = surface.create_entity({
       name = "entity-ghost",
       inner_name = entity.name,
+      -- A common create_entity parameter, not one of the entity-ghost variant group, so unlike
+      -- `recipe` it does apply here. nil means normal.
+      quality = entity.quality,
       position = position_of(anchor, entity),
       direction = entity.direction,
       force = force,

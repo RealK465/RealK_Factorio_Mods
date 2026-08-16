@@ -96,10 +96,6 @@ variants do exactly that and keep the skeleton — rather than inventing new geo
 Mining Patch Planner's `coord_convert` / `coord_revert` (`mpp_util.lua:22-47`) is the pattern:
 write the layout once, rotate on output.
 
-### Machine and module quality pickers
-Let the player build the upcycler itself out of quality machines and quality modules. The native
-`-with-quality` `choose-elem-button` widgets already exist for this.
-
 ### Chest picker in the modal
 Floated by the repo owner on 2026-08-15 when AAI Containers made the automatic chest choice
 pick a 4x4 warehouse. The default (and current behaviour) is a hard filter: chests must be
@@ -124,6 +120,13 @@ The current rule — quality below target, productivity at target — is correct
 normal-quality modules**. Once the player's own modules are high quality the optimal split shifts
 productivity-ward even on lower tiers. Drive this from `get_roll_chances()` when it lands, not
 from a copied wiki table.
+
+**Sharper since 2026-08-16**, when the module and its quality became the player's pick: one
+quality now covers every module the loop plans, and the terminal machine is left empty when the
+recipe or the machine refuses productivity. So the question is no longer only "which split" but
+"which split at the quality the player chose" — and a second picker for the productivity module
+was deliberately not added: guessing at the split with two widgets is worse than computing it
+from one.
 
 ### Self-recycling items
 Steel and friends have no ingredient-reversal recipe, only the lossy 25%-of-itself fallback. A

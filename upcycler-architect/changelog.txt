@@ -5,18 +5,20 @@ Date: ????
     - Initial release.
     - Adds a shortcut button that opens a planner. Pick an item, a target quality, a crafting machine and a recycler, then click the ground to place the whole upcycling loop as ghosts.
     - The loop is designed for your choices rather than pasted from a fixed blueprint: one machine per quality tier, each pinned to that tier, with a recycler beneath every tier below the target feeding recovered ingredients straight back in.
-    - Quality modules go into every machine below the target tier and into the recyclers. The machine at the target tier gets productivity modules instead, since there is no higher quality left for it to roll.
+    - Quality modules go into every machine below the target tier and into the recyclers. The machine at the target tier gets productivity modules instead, since there is no higher quality left for it to roll, and is left empty when the recipe or the machine does not allow productivity.
     - Machines, recyclers, belts, inserters, chests and modules are all chosen from what you have researched.
-    - The belt the ring is built from can be picked in the planner; the fastest researched belt is the default.
+    - A Build options section at the bottom of the planner sets what the loop is built out of: the belt its ring is made from, the quality module that fills the machines below the target and the recyclers, and whether the chests trash what they were not asked for, which by default they do. Both pickers start on the best you have researched and remember what you picked last.
+    - The crafting machine, the recycler and the quality module can each be given a quality of their own, so a loop can be built out of legendary machines and legendary modules. That is a separate choice from the target quality, which is what the loop produces.
     - Modded recyclers are stood in whatever rotation makes their output land in the machine above, and the loop widens its columns to fit a recycler bigger than its machine; one whose throw cannot reach into the machine at all is refused with an explanation.
     - Only offers items that can actually be looped, and explains why when one cannot.
     - The buffer feeding each recycler requests its item as well as catching it off the belt, so the loop can be topped up by bots, and the first stage can be fed straight from what your base already produces.
-    - Requester chests are set to request from buffer chests, and by default to trash unrequested items; a checkbox in the planner turns the trashing off.
+    - The loop's requester chests are allowed to draw from your buffer chests, not only from storage and providers.
     - The planner offers only researched items, machines, qualities, belts and recyclers; a per-player setting shows everything instead, like the game's own selection-list option.
     - Only inserters that need no fuel are used. If every researched inserter runs on fuel, which is how a fresh Space Age game starts, the planner says so instead of planning a loop that would starve.
   Info:
     - The shortcut appears once recycling is researched.
     - Recipes that use fluids are not supported yet.
-    - The recycler picker is only shown when more than one recycler exists, which needs a mod that adds one.
+    - Belts are not affected by quality, so the belt picker has no quality to set.
+    - A quality you have not researched yet can still be picked for the machines, recyclers or modules. The planner warns, places the ghosts anyway, and they wait for the research.
     - Items from editor and cheat mods are never chosen as building materials.
     - Problems that disable the Place button show in red; warnings you can build through show in orange.

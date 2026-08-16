@@ -146,8 +146,8 @@ even a turbo belt's `max_underground_distance` of 10. A dedicated return column 
 of width, removes the underground entirely, and removes the belt-tier dependency with it.
 
 Belt tier: the fastest belt whose recipe is enabled for the force (P.U.M.P.'s "best researched"
-pattern, `reference-mods.md`) — as the **default**. The modal has a belt picker that overrides
-it; a name that stops being a transport belt falls back to the researched best at plan time.
+pattern, `reference-mods.md`) — as the **default**. The modal's **Build options** block has a
+belt picker that overrides it; a name that stops being a transport belt falls back to the researched best at plan time.
 
 ## Growth rule
 
@@ -184,8 +184,19 @@ the belt, not something to request.
 ## Modules
 
 `k < t` -> quality; `k = t` -> productivity; recyclers -> quality; all at the best unlocked
-*tier*, at normal *quality*. Before productivity modules are researched the terminal machine
-falls back to quality modules — a small yield loss, not a broken loop. Correct for normal-quality modules and matches every decoded
+*tier*, at the **quality the player picked** — one quality covers every module the loop plans,
+normal unless they changed it. The module itself is overridable in the Build options block, and
+a name that stops being a quality module falls back to the researched best exactly as the belt
+does. Before productivity modules are researched the terminal machine falls back to quality
+modules — a small yield loss, not a broken loop.
+
+**The terminal machine gets nothing at all when productivity is refused outright**, which is the
+common case and not the exotic one: `allow_productivity` defaults to false and only a handful of
+vanilla intermediates opt in, and a machine can allow quality without allowing productivity.
+Both are checked, as is the module's own `allowed_module_categories` against machine and recipe.
+A refused module would sit in the insert plan forever, unfilled and unexplained.
+
+Correct for normal-quality modules and matches every decoded
 blueprint. See `quality-math.md` §2 for why this stops being optimal once the player's modules
 are themselves high quality — a later refinement, ideally driven by
 `LuaQualityPrototype.get_roll_chances()` rather than a hardcoded table.

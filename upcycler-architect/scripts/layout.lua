@@ -138,14 +138,24 @@ function layout.build(params)
     -- Shared by the harvest inserter (whitelist) and the extract inserter (blacklist).
     local ingredient_filters = quality_filters(ingredient_names, quality)
 
+    -- Quality modules have nothing left to roll into once the ingredients already are the
+    -- target quality, so the last machine crafts for yield instead -- and gets nothing at all
+    -- when the recipe refuses productivity, which the planner signals with a nil. Written as an
+    -- if rather than `is_terminal and terminal or quality`, because that idiom silently falls
+    -- through to the quality module on exactly the nil this has to respect.
+    local machine_module = params.modules.quality_module
+    if is_terminal then machine_module = params.modules.terminal_module end
+
     add({
       name = machine.name, dx = col, dy = ROW_MACHINE,
       w = machine.width, h = machine.height, direction = NORTH,
+      -- Two unrelated qualities on one entity: `quality` is the machine's own, the thing the
+      -- player picked; `recipe_quality` is the tier this column is pinned to craft at.
+      quality = machine.quality,
       recipe = params.recipe.name, recipe_quality = quality,
-      -- Quality modules have nothing left to roll into once the ingredients already are the
-      -- target quality, so the last machine crafts for yield instead.
       modules = {
-        name = is_terminal and params.modules.productivity or params.modules.quality,
+        name = machine_module,
+        quality = params.modules.quality,
         count = machine.module_slots,
       },
     })
@@ -192,8 +202,13 @@ function layout.build(params)
         -- points at the machine -- vanilla's recycler throws north as authored, Age of
         -- Production's salvager has to stand facing west to do the same.
         w = recycler.width, h = recycler.height, direction = recycler.direction,
+        quality = recycler.quality,
         -- A recycler cannot take productivity modules at all; quality is the whole point here.
-        modules = { name = params.modules.quality, count = recycler.module_slots },
+        modules = {
+          name = params.modules.quality_module,
+          quality = params.modules.quality,
+          count = recycler.module_slots,
+        },
       })
 
       -- Product: off the ring into a buffer, then into the recycler. The buffer is what lets

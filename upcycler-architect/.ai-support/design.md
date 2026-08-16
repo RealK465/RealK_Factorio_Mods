@@ -122,9 +122,12 @@ Decided 2026-08-15 in the architecture session (reasons in `analysis/`):
   The GUI's choices define the footprint; the tool only answers *where*. The tool item carries
   `only-in-cursor` so Q discards it.
 - **Three GUI inputs**, as asked: recipe, target quality, and the crafting machine — plus the
-  recycler, which is a fourth picker only because a modded game may have more than one (vanilla
-  pre-fills it and it is a non-choice). A belt picker and a trash checkbox joined the modal
-  later the same day — see the "modal grows" section below.
+  recycler, which at the time was a fourth picker only because a modded game may have more than
+  one (vanilla pre-filled it and the row was hidden). A belt picker and a trash checkbox joined
+  the modal later the same day — see the "modal grows" section below.
+  **Superseded 2026-08-16**: the modal is two blocks now, the recycler row is always shown
+  because its quality made it a real choice in vanilla too, and the belt, the trash checkbox and
+  a new quality-module picker all live in a **Build options** block.
 - **Belt ring first.** The faithful generalisation of the reference design, specified in
   `analysis/layout-belt-ring.md`. Chosen over the smaller bot loop because product circulation
   stays on its own belts, so it behaves identically in an isolated pocket and in a base-wide
@@ -138,7 +141,10 @@ Decided 2026-08-15 in the architecture session (reasons in `analysis/`):
   a button that cannot yet produce anything.
 - **Modules are planned, not just requested**: quality below the target tier, **productivity at
   it** (nothing left to roll into), quality in the recyclers (their `allowed_effects` excludes
-  productivity anyway). Best unlocked tier, normal quality. Correct for normal-quality modules;
+  productivity anyway). Best unlocked tier, normal quality.
+  **Amended 2026-08-16**: the terminal machine is left EMPTY when the recipe or the machine
+  refuses productivity outright, which is the common case rather than the exotic one; and the
+  module's quality is the player's pick rather than fixed at normal. Correct for normal-quality modules;
   the optimal split shifts once the player's own modules are high quality, which is a later
   refinement best driven by `LuaQualityPrototype.get_roll_chances()` rather than a hardcoded
   table.
@@ -412,3 +418,125 @@ drift from the column arithmetic they derive from; and **prune tests membership 
 planner-exported predicates** (`is_belt`, `is_quality`) rather than restating the rules. The
 Confirm snapshot moved into `state.arm()` as a whole-table copy so a new choice field cannot
 be silently left out of it. Verified by the same harness, extended to 36/36.
+
+## 2026-08-16 — a Build options block, and quality on the things the loop is built from
+
+Repo owner's ask, modelled on Mining Patch Planner's *Miscellaneous settings* panel: a section at
+the bottom of the modal for the knobs that tune the output rather than describe it.
+
+**Two blocks now.** The top frame is what the loop **makes** — item, target quality, machine,
+recycler. Under a `caption_label` reading *Build options* sits a second frame holding what it is
+built **out of**: a strip of unlabelled icon pickers (belt, quality module) and the
+trash-unrequested checkbox, which moved down out of the top block. The pickers carry no row label
+on purpose — the strip reads by icon, the way the game's own tool settings do — so each tooltip
+opens with its own name in `[font=default-bold]`, which is exactly the row label it would have
+had. The status line moved out of the content frame onto the window, wrapped and capped at 360px:
+the longest validation messages run to a sentence and a half and an unbounded label drags the
+whole modal out to their width.
+
+**Quality is pickable on the machine, the recycler and the quality module**, through
+`elem_type = "entity-with-quality"` / `"item-with-quality"`. **Not on the belt**, and that is a
+measured call rather than a taste one: `belt_speed` is a plain attribute with no quality variant
+the way `get_crafting_speed(quality)` has one, so a legendary belt carries exactly as much as a
+normal one.
+
+Verified live, 39/39, with the usual `--create` harness (assertions appended to a scratch copy's
+`control.lua`, full research, ghosts placed on real ground and read back):
+
+- **`create_entity{name = "entity-ghost", inner_name = ..., quality = ...}` really does produce a
+  ghost of that quality.** `quality` is a *common* `create_entity` parameter rather than one of
+  the `entity-ghost` variant group, so unlike `recipe` it does apply here. This was the one
+  genuinely unverified fact in the change, and it is the counter-example to the variant-group
+  trap in `analysis/api.md` §3 — not everything outside the group is inert, only the parameters
+  that belong to *another* group.
+- `insert_plan`'s `id.quality` carries the picked module quality onto the ghost.
+- Module slot counts are read with `get_inventory_size(defines.inventory.crafter_modules,
+  quality)`. `module_inventory_size` is documented as the normal-quality figure only, and
+  `quality_affects_module_slots` — false for every vanilla machine — can raise it on a modded one.
+
+**Storage stays flat strings.** The `-with-quality` widgets speak `{name, quality}` tables, but
+the choices are kept as separate `machine` / `machine_quality` pairs. Two reasons, both silent
+failures: `control.lua`'s stated contract is that storage holds nothing but strings, and
+`state.arm`'s snapshot is a **shallow** copy — a nested table would stay *shared* with the live
+choices rather than frozen at Confirm, so reopening the modal with a tool in hand would change
+what was about to be placed.
+
+**The recycler row is no longer hidden in vanilla.** It used to appear only when a mod added a
+second recycler, on the grounds that one recycler is not a choice. With quality pickable it is a
+choice on any modset, so the row is always shown and the `#recyclers == 1` special case that went
+with it is gone — a remembered recycler now simply persists, as the belt already did.
+
+### The bug the module work uncovered
+
+`RecipePrototype.allow_productivity` defaults to **false**, and only ~43 of base's 193 recipes opt
+in. The terminal machine has always been given a productivity module, and nothing ever consulted
+`recipe.allowed_effects` — so for every upcyclable item that is not a vanilla intermediate (the
+harness picks `wooden-chest`) the loop was planning a module the machine cannot accept, which
+would sit unfilled in the insert plan forever.
+
+Fixed at the repo owner's call by **leaving those slots empty**. A machine can allow quality
+without allowing productivity, so both the recipe's and the machine's `allowed_effects` are
+consulted. Research is deliberately kept as a separate axis: *not researched yet* still falls back
+to the quality module, which is a small loss of yield rather than a gap, while *not allowed at
+all* leaves the slots empty.
+
+Worth noting how the fix had to be written. `is_terminal and terminal_module or quality_module`
+falls through to the quality module on exactly the nil that means "leave it empty" — the idiom
+quietly does the opposite of the fix — so it is an explicit `if`.
+
+Three smaller gates went in beside it, all the same class: a rule the loop depends on that
+nothing was checking.
+
+- **`is_upcyclable` now requires `allowed_effects["quality"]` on the recipe.** `can_set_quality`
+  is a different rule with a confusingly similar name — craftable *at* a quality, versus quality
+  modules working on it at all — and a recipe passing one while failing the other would have
+  carried an insert plan for a module it can never accept, while the recyclers kept rolling
+  ingredients up regardless — a loop that limps rather than stops, which is the harder kind to
+  diagnose. The **recycling** recipe is gated the same way and for the same reason, since the
+  recyclers carry quality modules too. No vanilla recipe is affected either way: the offered
+  item count stayed at 185.
+
+  The alternative not taken: leave the *non-terminal* machines' slots empty for such a recipe
+  and let the recyclers carry the climb alone, which would keep those items in the picker at
+  roughly half the roll rate. Excluding them is simpler and honest — a loop the mod cannot
+  build properly is better refused than shipped degraded — but the option is real, so it is
+  written down rather than left to be re-derived.
+- **`planner.recyclers()` requires the same of the recycler**, with a matching `validate` gate so
+  a remembered recycler cannot outlive the rule.
+- **`validate` checks the picked module's category** against the machine, the recycler and the
+  recipe (`allowed_module_categories`, nil meaning everything is allowed). The player picks the
+  module now, so one that something refuses is reachable in a modded game.
+
+### Still unverified
+
+The **GUI itself has not been run**. There is no way to create a player headlessly — no
+`create_test_player` in 2.1's API, and `--create` / `--benchmark` join nobody — so every check
+above exercises `planner`, `layout` and `builder` and none of them touch `gui.lua` beyond proving
+it parses. The specific thing to watch on first open is whether **`elem_filters` is accepted on
+the `-with-quality` elem types**; the docs say the applicable filter follows `elem_type`, and the
+machine picker passed the same `EntityPrototypeFilter` as a plain `"entity"` picker before this
+change, but it is an assumption until the modal opens. It fails loudly if wrong — a rejected
+filter is a hard error at `add()`, not a silent empty list.
+
+The second unknown is quieter and matters more to the design: **whether a custom `tooltip` on a
+`choose-elem-button` still shows once the button holds a value**, or whether the chosen
+prototype's own tooltip takes over. The whole icon strip rests on it — those two pickers carry no
+row label, so the tooltip is the only thing naming them. 2.0 added a separate `elem_tooltip`
+attribute for showing a prototype tooltip on any element, which reads as evidence that plain
+`tooltip` is not the same channel, but the docs do not say and there is no headless way to ask.
+If the elem tooltip does win, the fix is a small label above each button inside the strip —
+which is the labelled-rows layout the repo owner explicitly did not pick, so ask before doing it.
+
+A code-review pass the same day found one more instance of the same class and it is fixed: the
+**terminal machine's productivity module was never category-checked**, though the quality
+module beside it was. They are different module categories (`productivity` vs `quality`), so
+a machine or recipe restricting `allowed_module_categories` to quality would have passed
+validation and then refused the module — precisely the defect the terminal rule exists to
+prevent. Gated inside `resources()` rather than as a fourth `validate` branch, so the existing
+`or quality_module` fallback absorbs it and plan/validate agreement holds by construction.
+Vanilla sets `allowed_module_categories` on nothing at all, so this is mod-only.
+
+The same pass caught that **clearing the machine or recycler picker reset its quality to
+normal**, contradicting the recipe handler one file over, which deliberately keeps the quality
+when the machine is swapped on the grounds that the player asked for legendary machines rather
+than a legendary assembler. All three pickers now keep the quality on clear.

@@ -1,5 +1,6 @@
--- The modal: pick an item, a target quality, a machine, a recycler and a belt, set the trash
--- checkbox, then Place.
+-- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
+-- and, under a "Build options" caption, what it is built OUT OF: the belt, the quality module,
+-- and whether the chests trash their surplus.
 --
 -- Built from scratch every time it opens and destroyed when it closes. At a couple dozen
 -- elements that is simpler than repainting a persistent frame, and it makes stale state
@@ -30,12 +31,20 @@ local function frame_of(player)
 end
 
 local function widgets(frame)
-  local table_ = frame["ua-content"]["ua-table"]
   return {
-    machine = table_["ua-machine"],
-    status = frame["ua-content"]["ua-status"],
+    machine = frame["ua-content"]["ua-table"]["ua-machine"],
+    status = frame["ua-status"],
     confirm = frame["ua-buttons"]["ua-confirm"],
   }
+end
+
+-- The -with-quality pickers hand back a {name, quality} table and take one, but storage keeps
+-- the two halves as separate plain strings. Two reasons, and both fail silently: control.lua's
+-- contract is that storage holds nothing but strings, and state.arm's snapshot is a SHALLOW
+-- copy -- a nested table would stay shared with the live choices instead of frozen at Confirm.
+local function with_quality(name, quality)
+  if not name then return nil end
+  return { name = name, quality = planner.build_quality(quality) }
 end
 
 -- Machines are offered per recipe, so the list has to be rebuilt whenever the item changes.
@@ -89,6 +98,11 @@ end
 local function recycler_filters(player)
   return narrowed(player, function(force) return planner.buildable(force, planner.recyclers()) end,
     { { filter = "crafting-category", crafting_category = "recycling" } })
+end
+
+local function quality_module_filters(player)
+  return narrowed(player, planner.unlocked_quality_modules,
+    name_filter(planner.quality_modules()))
 end
 
 -- The list the dropdown was BUILT from rides in its tags: research can finish while the
@@ -152,13 +166,8 @@ function gui.open(player)
   local entry = state.of(player.index)
   local choices = entry.choices
 
-  -- Default anything not chosen yet, so the modal opens usable rather than empty. With a
-  -- single recycler there is nothing to choose, so it is set rather than defaulted -- the row
-  -- below is hidden in that case and the player would have no way to correct a stale value.
-  local recyclers = planner.recyclers()
-  if #recyclers == 1 then
-    choices.recycler = recyclers[1]
-  elseif not choices.recycler then
+  -- Default anything not chosen yet, so the modal opens usable rather than empty.
+  if not choices.recycler then
     choices.recycler = planner.best_recycler(player.force)
   end
   -- Highest offered target by default -- and a remembered choice that is no longer offered
@@ -172,6 +181,15 @@ function gui.open(player)
   if not choices.belt then
     choices.belt = planner.belt(player.force)
   end
+  if not choices.quality_module then
+    choices.quality_module = planner.quality_module(player.force)
+  end
+  -- The quality the buildings and modules are placed AT, which is nothing to do with the
+  -- target above. Normal until the player says otherwise, and normalised on the way in so a
+  -- tier some mod has since removed can never reach a picker.
+  choices.machine_quality = planner.build_quality(choices.machine_quality)
+  choices.recycler_quality = planner.build_quality(choices.recycler_quality)
+  choices.quality_module_quality = planner.build_quality(choices.quality_module_quality)
   -- nil means the checkbox has never been touched; it starts checked.
   if choices.trash_unrequested == nil then
     choices.trash_unrequested = true
@@ -197,10 +215,12 @@ function gui.open(player)
     tags = dispatch.tags("close"),
   })
 
+  -- What the loop makes.
   local content = frame.add({
     type = "frame", name = "ua-content", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
+  content.style.horizontally_stretchable = true
   local rows = content.add({ type = "table", name = "ua-table", column_count = 2 })
 
   -- Each row is a label whose caption and tooltip follow the same locale convention, so the
@@ -241,33 +261,65 @@ function gui.open(player)
 
   label("machine")
   local machine_button = rows.add({
-    type = "choose-elem-button", name = "ua-machine", elem_type = "entity",
+    type = "choose-elem-button", name = "ua-machine", elem_type = "entity-with-quality",
     elem_filters = machine_filters(player, choices.recipe),
     tags = dispatch.tags("machine"),
   })
-  machine_button.elem_value = choices.machine
+  machine_button.elem_value = with_quality(choices.machine, choices.machine_quality)
 
-  -- Vanilla ships exactly one recycler, so the row would be a choice between one thing. It
-  -- appears only when a mod has added another.
-  if #recyclers > 1 then
-    label("recycler")
-    local recycler_button = rows.add({
-      type = "choose-elem-button", name = "ua-recycler", elem_type = "entity",
-      elem_filters = recycler_filters(player),
-      tags = dispatch.tags("recycler"),
-    })
-    recycler_button.elem_value = choices.recycler
+  -- Vanilla ships exactly one recycler, so this used to be a choice between one thing and the
+  -- row was hidden. It is a real choice on any modset now, because the quality the recyclers
+  -- are BUILT at is picked here.
+  label("recycler")
+  local recycler_button = rows.add({
+    type = "choose-elem-button", name = "ua-recycler", elem_type = "entity-with-quality",
+    elem_filters = recycler_filters(player),
+    tags = dispatch.tags("recycler"),
+  })
+  recycler_button.elem_value = with_quality(choices.recycler, choices.recycler_quality)
+
+  -- What the loop is built out of. These pickers carry no row label -- they read as a strip of
+  -- icons, the way the game's own tool settings do -- so each tooltip has to name its own
+  -- control: the row label it would have had, promoted to a bold first line.
+  local function strip_tooltip(key)
+    return {
+      "", "[font=default-bold]", { "ua-gui." .. key }, "[/font]\n",
+      { "ua-gui." .. key .. "-tooltip" },
+    }
   end
 
-  label("belt")
-  local belt_button = rows.add({
+  local caption = frame.add({
+    type = "label", style = "caption_label", caption = { "ua-gui.build-options" },
+  })
+  caption.style.top_margin = 8
+
+  local options = frame.add({
+    type = "frame", name = "ua-options", style = "inside_shallow_frame_with_padding",
+    direction = "vertical",
+  })
+  options.style.horizontally_stretchable = true
+
+  local strip = options.add({ type = "flow", name = "ua-strip", direction = "horizontal" })
+
+  -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
+  -- get_crafting_speed(quality), so a legendary belt would carry exactly as much.
+  local belt_button = strip.add({
     type = "choose-elem-button", name = "ua-belt", elem_type = "entity",
     elem_filters = belt_filters(player),
+    tooltip = strip_tooltip("belt"),
     tags = dispatch.tags("belt"),
   })
   belt_button.elem_value = choices.belt
 
-  local trash = content.add({
+  local module_button = strip.add({
+    type = "choose-elem-button", name = "ua-quality-module", elem_type = "item-with-quality",
+    elem_filters = quality_module_filters(player),
+    tooltip = strip_tooltip("quality-module"),
+    tags = dispatch.tags("quality-module"),
+  })
+  module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
+
+  local trash = options.add({
     type = "checkbox", name = "ua-trash", state = choices.trash_unrequested,
     caption = { "ua-gui.trash-unrequested" },
     tooltip = { "ua-gui.trash-unrequested-tooltip" },
@@ -275,9 +327,14 @@ function gui.open(player)
   })
   -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
   -- box graphic stays put, so the mark ends up hanging half out of the square.
-  trash.style.top_margin = 4
+  trash.style.top_margin = 8
 
-  content.add({ type = "label", name = "ua-status", caption = "" })
+  -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
+  -- half, and an unbounded label drags the whole modal out to their width.
+  local status = frame.add({ type = "label", name = "ua-status", caption = "" })
+  status.style.top_margin = 8
+  status.style.single_line = false
+  status.style.maximal_width = 360
 
   local buttons = frame.add({ type = "flow", name = "ua-buttons", direction = "horizontal" })
   buttons.style.top_padding = 4
@@ -317,7 +374,8 @@ dispatch.register("recipe", function(event)
   choices.recipe = planner.recipe_for_item(event.element.elem_value)
 
   -- The machine list depends on the recipe, so a machine that can no longer craft it is
-  -- replaced rather than left behind to fail validation confusingly.
+  -- replaced rather than left behind to fail validation confusingly. Its QUALITY survives the
+  -- swap: the player asked for legendary machines, not for a legendary assembler specifically.
   local recipe = choices.recipe and prototypes.recipe[choices.recipe]
   if recipe and not util.contains_value(planner.machines_for(recipe), choices.machine) then
     choices.machine = planner.best_machine(player.force, recipe)
@@ -329,7 +387,7 @@ dispatch.register("recipe", function(event)
   if frame then
     local machine_button = widgets(frame).machine
     machine_button.elem_filters = machine_filters(player, choices.recipe)
-    machine_button.elem_value = choices.machine
+    machine_button.elem_value = with_quality(choices.machine, choices.machine_quality)
   end
   gui.refresh(player)
 end)
@@ -344,12 +402,22 @@ dispatch.register("quality", function(event)
 end)
 
 dispatch.register("machine", function(event)
-  state.of(event.player_index).choices.machine = event.element.elem_value
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  choices.machine = value and value.name
+  -- Clearing the button keeps the quality. The recipe handler already reasons that the player
+  -- asked for legendary machines rather than for a legendary assembler specifically, and
+  -- clearing to re-pick is the same intent; resetting to normal would quietly undo it.
+  if value then choices.machine_quality = planner.build_quality(value.quality) end
   gui.refresh(game.get_player(event.player_index))
 end)
 
 dispatch.register("recycler", function(event)
-  state.of(event.player_index).choices.recycler = event.element.elem_value
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  choices.recycler = value and value.name
+  -- Kept on clear, same reasoning as the machine above.
+  if value then choices.recycler_quality = planner.build_quality(value.quality) end
   gui.refresh(game.get_player(event.player_index))
 end)
 
@@ -358,10 +426,25 @@ dispatch.register("belt", function(event)
   local choices = state.of(event.player_index).choices
   choices.belt = event.element.elem_value
   -- An emptied button falls straight back to the fastest researched belt, and shows it, so the
-  -- row always displays the belt that would actually be placed.
+  -- strip always displays the belt that would actually be placed.
   if not choices.belt then
     choices.belt = planner.belt(player.force)
     event.element.elem_value = choices.belt
+  end
+  gui.refresh(player)
+end)
+
+dispatch.register("quality-module", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  choices.quality_module = value and value.name
+  if value then choices.quality_module_quality = planner.build_quality(value.quality) end
+  -- Same rule as the belt: emptied means "back to the best I have researched", and shown.
+  if not choices.quality_module then
+    choices.quality_module = planner.quality_module(player.force)
+    event.element.elem_value =
+      with_quality(choices.quality_module, choices.quality_module_quality)
   end
   gui.refresh(player)
 end)

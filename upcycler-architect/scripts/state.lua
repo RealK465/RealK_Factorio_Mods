@@ -55,6 +55,14 @@ function state.prune()
     if c.recycler and not recyclers[c.recycler] then c.recycler = nil end
     if c.belt and not planner.is_belt(c.belt) then c.belt = nil end
     if c.quality and not planner.is_quality(c.quality) then c.quality = nil end
+    if c.quality_module and not planner.is_quality_module(c.quality_module) then
+      c.quality_module = nil
+    end
+    -- The qualities the buildings and modules are placed AT are choices in their own right,
+    -- separate from the target above, and a mod can take a tier out from under any of them.
+    for _, key in pairs({ "machine_quality", "recycler_quality", "quality_module_quality" }) do
+      if c[key] and not planner.is_quality(c[key]) then c[key] = nil end
+    end
     entry.pending = nil
   end
 end

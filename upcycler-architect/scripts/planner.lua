@@ -149,6 +149,12 @@ end
 
 function planner.is_upcyclable(recipe)
   if not recipe.can_set_quality then return false end
+  -- Two different rules with confusingly similar names: can_set_quality is whether the recipe
+  -- can be CRAFTED at a quality, allow_quality (via allowed_effects) is whether quality modules
+  -- work on it at all. Both have to hold: without the second, every machine in the loop carries
+  -- an insert plan for a module it can never accept, while the recyclers keep rolling
+  -- ingredients up regardless -- so the loop limps instead of stopping, which is worse to find.
+  if not (recipe.allowed_effects and recipe.allowed_effects["quality"]) then return false end
   if recipe.hidden_from_player_crafting then return false end
 
   -- A recycling recipe would pass every test below by accident: it takes an item and returns
@@ -161,6 +167,14 @@ function planner.is_upcyclable(recipe)
 
   local _, has_fluid = planner.item_ingredients(recipe)
   if has_fluid then return false end
+
+  -- The recyclers carry quality modules too, so the RECYCLING recipe has to allow the effect
+  -- for the same reason the crafting one does. Generated recipes inherit it, so this only ever
+  -- bites when a mod restricts one by hand.
+  local recycling = planner.recycling_recipe(product.name)
+  if recycling and not (recycling.allowed_effects and recycling.allowed_effects["quality"]) then
+    return false
+  end
 
   return recycling_closes_the_loop(recipe, product)
 end
@@ -342,6 +356,14 @@ function planner.is_quality(name)
   return false
 end
 
+-- The quality a chosen building or module is placed at, as opposed to choices.quality, which is
+-- the quality the loop PRODUCES. A remembered tier a mod has since removed reads as normal here
+-- rather than erroring at placement time.
+function planner.build_quality(name)
+  if name and planner.is_quality(name) then return name end
+  return "normal"
+end
+
 function planner.unlocked_targets(force)
   local out = {}
   for _, name in pairs(planner.target_qualities()) do
@@ -410,6 +432,8 @@ function planner.recyclers()
   for name, entity in pairs(prototypes.entity) do
     if entity.crafting_categories and entity.crafting_categories["recycling"]
       and (entity.module_inventory_size or 0) > 0
+      -- Truthiness, not ~= nil: a disallowed effect may be absent or materialised as false.
+      and entity.allowed_effects and entity.allowed_effects["quality"]
       and entity.items_to_place_this
     then
       names[#names + 1] = name
@@ -506,11 +530,38 @@ local function best_module(force, effect)
   end)
 end
 
-function planner.modules(force)
-  return {
-    quality = best_module(force, "quality"),
-    productivity = best_module(force, "productivity"),
-  }
+-- Every quality module in the game: the picker's fallback filter, and prune's membership test.
+function planner.quality_modules()
+  if memo.quality_modules then return memo.quality_modules end
+  local names = {}
+  for name in pairs(module_candidates("quality")) do names[#names + 1] = name end
+  memo.quality_modules = names
+  return names
+end
+
+function planner.is_quality_module(name)
+  return module_candidates("quality")[name] ~= nil
+end
+
+function planner.unlocked_quality_modules(force)
+  local out = {}
+  for _, name in pairs(planner.quality_modules()) do
+    if planner.is_unlocked(force, name) then out[#out + 1] = name end
+  end
+  return out
+end
+
+-- allowed_module_categories is nil when everything is allowed and a name -> true dictionary
+-- otherwise. Machines, recyclers and recipes all carry one, and all of them have to agree
+-- before a module can go in.
+local function accepts_module_category(holder, category)
+  local allowed = holder.allowed_module_categories
+  return not allowed or allowed[category] == true
+end
+
+-- The default pick, and what an emptied picker snaps back to -- the belt's own pattern.
+function planner.quality_module(force)
+  return best_module(force, "quality")
 end
 
 function planner.belt(force)
@@ -584,12 +635,21 @@ end
 
 -- Building a plan
 
-local function footprint_of(entity)
+-- Quality can ADD module slots (quality_affects_module_slots -- off for every vanilla machine,
+-- but a modded one may set it), and module_inventory_size is documented as the normal-quality
+-- figure only. So the count is read at the quality the building will actually be placed at.
+local function module_slots(entity, quality)
+  return entity.get_inventory_size(defines.inventory.crafter_modules, quality)
+    or entity.module_inventory_size
+end
+
+local function footprint_of(entity, quality)
   return {
     name = entity.name,
+    quality = quality,
     width = entity.tile_width,
     height = entity.tile_height,
-    module_slots = entity.module_inventory_size,
+    module_slots = module_slots(entity, quality),
   }
 end
 
@@ -602,21 +662,59 @@ local function chosen_belt(choices)
   return nil
 end
 
+-- The quality module is the second material with a player override, for the same reason as the
+-- belt: a cheaper module is a legitimate call. Anything that is not a real quality module -- a
+-- stale name from a removed mod -- falls back rather than erroring.
+local function chosen_quality_module(choices)
+  if choices.quality_module and planner.is_quality_module(choices.quality_module) then
+    return choices.quality_module
+  end
+  return nil
+end
+
 -- Everything the layout needs, gathered in one place. `validate` below checks exactly the same
 -- things, so a validated set of choices always produces a plan -- if the two ever drift apart,
 -- the player gets a Place button that silently does nothing.
-local function resources(force, ingredient_count, choices)
-  local modules = planner.modules(force)
+local function resources(force, recipe, machine, choices)
+  local quality_module = chosen_quality_module(choices) or planner.quality_module(force)
+
+  -- What the LAST machine gets. It crafts from ingredients already at the target, so quality
+  -- modules have nothing left to roll into and it crafts for yield instead -- but productivity
+  -- is refused far more often than it looks: allow_productivity defaults to FALSE and only a
+  -- handful of vanilla intermediates opt in, and a machine can allow quality without allowing
+  -- productivity. A refused module would sit in the insert plan forever, so those machines are
+  -- left EMPTY rather than filled with something they cannot take.
+  local terminal_module
+  if recipe.allowed_effects and recipe.allowed_effects["productivity"]
+    and machine.allowed_effects and machine.allowed_effects["productivity"]
+  then
+    -- A productivity module is a different module CATEGORY from the quality one, so the check
+    -- validate runs on the quality module says nothing about this one. Gated here rather than
+    -- in validate so the fallback below absorbs it and the two cannot drift apart.
+    local productivity = best_module(force, "productivity")
+    if productivity then
+      local category = prototypes.item[productivity].category
+      if not (accepts_module_category(machine, category)
+        and accepts_module_category(recipe, category))
+      then
+        productivity = nil
+      end
+    end
+    -- Not researched YET is a different question from not allowed at all: falling back to the
+    -- quality module keeps the last tier rolling, a small loss of yield rather than a gap.
+    terminal_module = productivity or quality_module
+  end
+
   return {
-    inserter = planner.inserter(force, ingredient_count),
+    inserter = planner.inserter(force, #planner.item_ingredients(recipe)),
     belt = chosen_belt(choices) or planner.belt(force),
     container = planner.container(force),
     requester = planner.logistic_container(force, "requester"),
     provider = planner.logistic_container(force, "passive-provider"),
-    quality_module = modules.quality,
-    -- Falling back to quality modules keeps the last tier working before productivity modules
-    -- are researched; it is a small loss of yield, not a broken loop.
-    productivity_module = modules.productivity or modules.quality,
+    quality_module = quality_module,
+    terminal_module = terminal_module,
+    -- One quality for every module the loop plans, so the player sets it once.
+    module_quality = planner.build_quality(choices.quality_module_quality),
   }
 end
 
@@ -636,6 +734,11 @@ function planner.plan(force, choices, gathered)
   local orientation = planner.recycler_orientation(recycler)
   if not orientation or orientation.eject_col >= machine.tile_width then return nil end
 
+  -- The quality the BUILDINGS are placed at, which is nothing to do with choices.quality --
+  -- that one is the quality the loop produces.
+  local machine_quality = planner.build_quality(choices.machine_quality)
+  local recycler_quality = planner.build_quality(choices.recycler_quality)
+
   local tiers = planner.tiers_up_to(choices.quality)
   if not tiers then return nil end
 
@@ -648,7 +751,7 @@ function planner.plan(force, choices, gathered)
     requests[ingredient.name] = planner.request_count(ingredient, recipe)
   end
 
-  local r = gathered or resources(force, #ingredients, choices)
+  local r = gathered or resources(force, recipe, machine, choices)
   if not (r.inserter and r.belt and r.container and r.requester and r.provider and r.quality_module) then
     return nil
   end
@@ -669,19 +772,26 @@ function planner.plan(force, choices, gathered)
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
     above_target = above_target,
-    machine = footprint_of(machine),
+    machine = footprint_of(machine, machine_quality),
     -- The recycler's footprint is the ROTATED one: the planner picks the rotation that makes
     -- its eject land in the machine above, and width and height swap with it.
     recycler = {
       name = recycler.name,
+      quality = recycler_quality,
       width = orientation.width,
       height = orientation.height,
-      module_slots = recycler.module_inventory_size,
+      module_slots = module_slots(recycler, recycler_quality),
       direction = orientation.direction,
     },
     belt = r.belt, inserter = r.inserter, container = r.container,
     requester = r.requester, provider = r.provider,
-    modules = { quality = r.quality_module, productivity = r.productivity_module },
+    -- `quality` here is the quality the module ITEMS are requested at; the two module names
+    -- beside it are which module goes where.
+    modules = {
+      quality_module = r.quality_module,
+      terminal_module = r.terminal_module,
+      quality = r.module_quality,
+    },
     requests = requests,
     -- One stack of the product in front of each recycler: enough to keep it busy through a
     -- gap on the belt, and self-limiting rather than hoarding.
@@ -752,6 +862,11 @@ function planner.validate(force, choices)
   if (recycler.module_inventory_size or 0) == 0 then
     return false, { "ua-message.no-module-slots", recycler.localised_name }
   end
+  -- Mirrors the machine's gate above, and mirrors what planner.recyclers() now admits: slots
+  -- the loop cannot put a quality module into are no use to it.
+  if not (recycler.allowed_effects and recycler.allowed_effects["quality"]) then
+    return false, { "ua-message.no-quality-effect", recycler.localised_name }
+  end
   local orientation = planner.recycler_orientation(recycler)
   if not orientation then
     return false, { "ua-message.recycler-no-eject", recycler.localised_name }
@@ -775,7 +890,7 @@ function planner.validate(force, choices)
   -- The building materials the layout is made of. Each is a real research gate, so each gets
   -- its own message rather than one vague "something is missing". The gathered table rides on
   -- every ok return so plan() can reuse it instead of re-running the same scans.
-  local r = resources(force, #ingredients, choices)
+  local r = resources(force, recipe, machine, choices)
   if not r.inserter then
     if planner.any_inserter(force, #ingredients) then
       return false, { "ua-message.only-fuelled-inserters" }
@@ -787,10 +902,37 @@ function planner.validate(force, choices)
   if not (r.requester and r.provider) then return false, { "ua-message.no-logistic-chest" } end
   if not r.quality_module then return false, { "ua-message.no-quality-module" } end
 
+  -- The module is the player's pick now, so one that some building or the recipe refuses is
+  -- reachable in a modded game -- and an insert plan for a refused module never gets filled.
+  local chosen_module = prototypes.item[r.quality_module]
+  for _, holder in pairs({ machine, recycler }) do
+    if not accepts_module_category(holder, chosen_module.category) then
+      return false, {
+        "ua-message.module-not-accepted", chosen_module.localised_name, holder.localised_name,
+      }
+    end
+  end
+  if not accepts_module_category(recipe, chosen_module.category) then
+    return false, { "ua-message.module-not-accepted-by-recipe", chosen_module.localised_name }
+  end
+
   -- Warnings from here: planning ahead of research is legitimate, since the result is ghosts
   -- that bots will build once the technology lands.
   if not force.is_quality_unlocked(choices.quality) then
     return true, { "ua-message.quality-not-researched", prototypes.quality[choices.quality].localised_name }, r
+  end
+  -- The quality the buildings and modules are placed AT gets the same treatment as the target:
+  -- ghosts of an unresearched tier are legal to place, nothing can build them yet.
+  for _, quality in pairs({
+    planner.build_quality(choices.machine_quality),
+    planner.build_quality(choices.recycler_quality),
+    r.module_quality,
+  }) do
+    if not force.is_quality_unlocked(quality) then
+      return true, {
+        "ua-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
+      }, r
+    end
   end
   local force_recipe = force.recipes[recipe.name]
   if not force_recipe or not force_recipe.enabled then
