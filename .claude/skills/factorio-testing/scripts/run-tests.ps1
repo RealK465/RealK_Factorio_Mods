@@ -84,13 +84,22 @@ if (-not (Get-Command 'factorio-test' -ErrorAction SilentlyContinue)) {
 
 # Pre-seed the framework mod so the CLI never reaches its own download path, whose default
 # credential source is %APPDATA%\Factorio - the play install, off-limits in this workspace.
+# Version-matched to the install: the newest portal release for THIS game's major.minor,
+# because the overall-newest is a 2.1-only build that a 2.0 install refuses to load.
 if (-not (Get-ChildItem -LiteralPath $modsDir -Filter 'factorio-test_*.zip' -ErrorAction SilentlyContinue)) {
-  Write-Host 'Downloading the factorio-test mod (dev-install credentials).'
-  $playerData = Join-Path $FactorioPath 'player-data.json'
-  fmtk mods install --modsPath $modsDir --playerData $playerData factorio-test
-  if ($LASTEXITCODE -ne 0) {
-    throw 'fmtk could not fetch factorio-test - is the dev install logged in to the portal?'
+  $gameMajor = ($baseVer -split '\.')[0..1] -join '.'
+  Write-Host "Downloading the factorio-test mod for Factorio $gameMajor (dev-install credentials)."
+  $pd = Get-Content -LiteralPath (Join-Path $FactorioPath 'player-data.json') -Raw | ConvertFrom-Json
+  if (-not ($pd.'service-username' -and $pd.'service-token')) {
+    throw 'This dev install is not logged in to the portal, so factorio-test cannot be fetched.'
   }
+  $portal = Invoke-RestMethod -UseBasicParsing -Uri 'https://mods.factorio.com/api/mods/factorio-test'
+  $release = $portal.releases | Where-Object { $_.info_json.factorio_version -eq $gameMajor } |
+    Sort-Object { [datetime]$_.released_at } | Select-Object -Last 1
+  if (-not $release) { throw "No factorio-test release exists for Factorio $gameMajor." }
+  $url = 'https://mods.factorio.com' + $release.download_url +
+    "?username=$($pd.'service-username')&token=$($pd.'service-token')"
+  Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile (Join-Path $modsDir $release.file_name)
 }
 
 $cliArgs = @('run', '-p', $ModPath, '--factorio-path', $exe, '-d', $DataDir, '--no-output-file')
