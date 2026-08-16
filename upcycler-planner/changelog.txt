@@ -4,7 +4,6 @@ Date: ????
   Major Features:
     - Initial release.
     - Pick an item and target quality, configure the loop, and place the whole thing as ghosts.
-    - One machine per quality tier with recyclers feeding ingredients back in below the target.
     - Quality modules fill machines and recyclers below the target; the top machine gets productivity when allowed.
     - Build options: belt, quality module, electric pole, and whether chests trash unrequested items.
     - Machines, recyclers, modules and poles can each have their own build quality.
