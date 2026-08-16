@@ -393,3 +393,45 @@ already **carries** a player is enough, and headless GUI testing follows. The on
 player comes from the framework's bundled save, an external artifact — the specs'
 `before_all` asserts a connected player exists and says what to do when it does not.
 
+
+## 13. Space Age feature flags — the set forks between 2.0 and 2.1, verified 2026-08-16
+
+**`expansion_required` does not exist in Factorio 2.0.** The flag set is not the same on both
+tracks, which matters because a flag the game does not know is *silently ignored* rather than
+rejected — it would sit in `info.json` looking like a gate and enforcing nothing.
+
+The engine enumerates its flags at startup, and the two versions disagree by exactly one:
+
+| Install | Flags logged by `ModManager.cpp` |
+|---|---|
+| 2.1.14 | `expansion`, `expansion-shaders`, `freezing`, `quality`, `rail-bridges`, `segmented-units`, `space-travel`, `spoiling` — **eight** |
+| 2.0.77 | the same **minus `expansion`** — **seven** |
+
+Vanilla's own `quality/info.json` matches: 2.1's declares `expansion_required` **and**
+`quality_required`, 2.0's declares only `quality_required`.
+
+**Measured, not inferred.** Four one-file probe mods (`info.json` only, a single flag, no
+`quality` dependency) run through `validate.ps1` against the no-expansion installs:
+
+| Probe | 2.1 Vanilla | 2.0 Vanilla |
+|---|---|---|
+| `quality_required` | **refused** — `ModManager::enterMinimalMode` | **refused** — `ModManager::loadData` |
+| `expansion_required` | — | **loaded clean, exit 0** |
+
+Controls: the same `quality_required` probe loads clean on the 2.1 SA install (`Checksum of
+ff-probe: 0`), so the probes are well-formed and ownership is the only variable. A refusal
+surfaces as a *crash* under `--dump-data`, not a tidy message — there is no GUI to fall back
+to — so read the stack trace, not the exit code alone.
+
+Two consequences worth not re-deriving:
+
+- **Any one expansion flag makes the expansion mandatory**, and no flag is needed for the mod
+  to *consume* quality at runtime. This mod declares none of the prototype properties the
+  flags unlock; the flags are here as an ownership gate and a portal marker.
+- **The mod portal's "Space Age" tag keys off the expansion flags in the uploaded
+  `info.json`, not the dependency list** — so a mod depending on `quality` alone is *not*
+  tagged. Wube's statement names the flags collectively ("*the expansion flags (eg,
+  `space_travel_required`)*", forum `p=698604`), with `quality_required` among the DLC's own
+  set. **Unverified** for this mod: the portal API exposes no flag field, so the tag can only
+  be confirmed after an upload. `space_travel_required` would tag it too but is a false claim
+  here — it unlocks planet and space-platform prototypes this mod never touches.

@@ -92,10 +92,14 @@ work: reference only, never edited, never redistributed.
 
 The hard dependency on `quality` is deliberate and does double duty: the mod is meaningless
 without quality tiers, and it delivers the recycler on both tracks — in 2.1 `quality` itself
-declares `"recycler >= 2.1.0"`, and in 2.0 the recycler entity ships inside `quality`. **No
-`quality_required` feature flag is declared** — the flag would make Space Age ownership
-mandatory without fixing load order, which is the wrong half of what is needed. Reach for
-`feature_flags[...]` only if some behaviour should light up optionally.
+declares `"recycler >= 2.1.0"`, and in 2.0 the recycler entity ships inside `quality`. The
+dependency is also the only half of this that fixes load order; the flags below do not.
+
+**Space Age feature flags are declared, and the set forks by game version** — `quality_required`
+on both tracks, `expansion_required` on `main` **only**. Do not add `expansion_required` to
+`legacy/2.0`: the flag does not exist in Factorio 2.0, so it is silently ignored there and gates
+nothing. Do not add `space_travel_required` to either. Reasons in `.ai-support/decisions.md`; the
+measurements, including the flag set each version actually enumerates, in `analysis/api.md` §13.
 
 ## The 2.0 build
 
@@ -209,7 +213,8 @@ re-opening any of these, and don't restate a reason here.
 - Both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0`. No 2.0 code on `main` — the
   port is forked files on the legacy branch, declared in the repo `CLAUDE.md` → *Git*. Version
   starts at `0.1.0`.
-- Hard `quality >= 2.1.0` dependency, no feature flag. No flib dependency.
+- Hard `quality >= 2.1.0` dependency. Space Age flags declared, forking by version:
+  `quality_required` both tracks, `expansion_required` on `main` only. No flib dependency.
 - **Ghosts, one at a time — never a blueprint string.** The API forces this; see fact 1 above.
 - Shortcut → modal → Confirm → selection tool → click, gated on the `recycling` technology. The
   player selects nothing in the world but ground.
