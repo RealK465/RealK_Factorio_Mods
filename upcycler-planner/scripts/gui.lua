@@ -105,6 +105,11 @@ local function quality_module_filters(player)
     name_filter(planner.quality_modules()))
 end
 
+local function pole_filters(player)
+  return narrowed(player, planner.buildable_poles,
+    { { filter = "type", type = "electric-pole" } })
+end
+
 -- The list the dropdown was BUILT from rides in its tags: research can finish while the
 -- modal is open, and an index into a re-derived list would then name the wrong quality.
 local function quality_options(player)
@@ -143,12 +148,20 @@ function gui.refresh(player)
     }
     -- A message alongside ok is a warning the player can build through -- it used to be
     -- silently dropped here, which made the warnings unreachable.
+    local warned = message ~= nil
     if message then
       caption[#caption + 1] = "\n"
       caption[#caption + 1] = message
     end
+    -- The pole pass reports its shortfall on the plan rather than through validate, because
+    -- only the built geometry knows it. Same orange as any other build-through warning.
+    if plan.unpowered then
+      warned = true
+      caption[#caption + 1] = "\n"
+      caption[#caption + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
+    end
     w.status.caption = caption
-    w.status.style.font_color = message and COLOR_WARNING or COLOR_PLAIN
+    w.status.style.font_color = warned and COLOR_WARNING or COLOR_PLAIN
   else
     w.status.caption = message or { "upl-gui.pick-a-recipe" }
     w.status.style.font_color = COLOR_ERROR
@@ -184,12 +197,18 @@ function gui.open(player)
   if not choices.quality_module then
     choices.quality_module = planner.quality_module(player.force)
   end
+  -- The pole differs from the pair above: clearing it is a real choice ("no poles"),
+  -- recorded in no_poles, so only a never-touched picker gets the default.
+  if not choices.pole and not choices.no_poles then
+    choices.pole = planner.pole(player.force)
+  end
   -- The quality the buildings and modules are placed AT, which is nothing to do with the
   -- target above. Normal until the player says otherwise, and normalised on the way in so a
   -- tier some mod has since removed can never reach a picker.
   choices.machine_quality = planner.build_quality(choices.machine_quality)
   choices.recycler_quality = planner.build_quality(choices.recycler_quality)
   choices.quality_module_quality = planner.build_quality(choices.quality_module_quality)
+  choices.pole_quality = planner.build_quality(choices.pole_quality)
   -- nil means the checkbox has never been touched; it starts checked.
   if choices.trash_unrequested == nil then
     choices.trash_unrequested = true
@@ -319,6 +338,14 @@ function gui.open(player)
   })
   module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
 
+  local pole_button = strip.add({
+    type = "choose-elem-button", name = "upl-pole", elem_type = "entity-with-quality",
+    elem_filters = pole_filters(player),
+    tooltip = strip_tooltip("pole"),
+    tags = dispatch.tags("pole"),
+  })
+  pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
+
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
     caption = { "upl-gui.trash-unrequested" },
@@ -447,6 +474,17 @@ dispatch.register("quality-module", function(event)
       with_quality(choices.quality_module, choices.quality_module_quality)
   end
   gui.refresh(player)
+end)
+
+dispatch.register("pole", function(event)
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  choices.pole = value and value.name
+  -- The one picker where an emptied button does NOT snap back: clearing means "place no
+  -- poles", and the empty button showing nothing is exactly that state on display.
+  choices.no_poles = not value
+  if value then choices.pole_quality = planner.build_quality(value.quality) end
+  gui.refresh(game.get_player(event.player_index))
 end)
 
 dispatch.register("trash", function(event)

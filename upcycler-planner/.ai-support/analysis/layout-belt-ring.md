@@ -155,6 +155,16 @@ Columns `k = 0 .. t-1` are identical up to the quality names and the x-offset `k
 terminal column differs.** So the emitter is one loop plus one special case, and adding a target
 tier adds exactly one column.
 
+## Pole columns
+
+`layout.build` takes an optional `column_gap`: a run of `G` empty columns between adjacent tier
+columns, blind to what goes in them, making the effective pitch `P + G` and
+`W = 2 + t*(P + G) + Wm`. Zero by default, leaving every plan byte-identical. The one caller
+that sets it is the pole pass (`poles.md`), whose growth retry opens a pole-wide gap when the
+free tiles inside the ring cannot fit enough poles. The gaps change no row and sit outside
+every tier column, so the recycler stays tangent under its machine and the eject reasoning
+above is untouched.
+
 ## Request counts
 
 The reference book computes ingredient request counts with the parameter formula

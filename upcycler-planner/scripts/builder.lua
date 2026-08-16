@@ -95,6 +95,22 @@ local function apply_requests(ghost, entity, trash_unrequested)
   end
 end
 
+-- Wires the pole ghosts into their planned network. Explicit rather than trusted to happen:
+-- since 2.0 wires are first-class blueprint content, and whether a bare scripted ghost
+-- auto-connects on revive is unverified -- a ghost-to-ghost wire is verified machinery and
+-- previews the network for the player besides. The default wire_origin is player, which
+-- keeps the wires visible and hand-editable; reach_check stays on, so the engine has the
+-- final word on any span the plan got wrong.
+local function connect_poles(pole_ghosts)
+  for _, entry in pairs(pole_ghosts) do
+    local target = entry.wire_to and pole_ghosts[entry.wire_to]
+    if target and entry.ghost.valid and target.ghost.valid then
+      entry.ghost.get_wire_connector(defines.wire_connector_id.pole_copper, true)
+        .connect_to(target.ghost.get_wire_connector(defines.wire_connector_id.pole_copper, true))
+    end
+  end
+end
+
 -- Trees and rocks are cleared by marking them, the same way a player would, rather than being
 -- deleted outright -- the loop's ghosts and these orders then get built by the same bots.
 -- Returns what it NEWLY marked, so a refused placement can be rolled back without cancelling
@@ -162,6 +178,10 @@ function builder.place(plan, anchor, context)
   local placed = 0
   -- Already a real boolean: plan() owns the default (including old-snapshot normalisation).
   local trash_unrequested = plan.trash_unrequested
+  -- Pole ghosts, keyed by their order among the plan's poles: entity.wire_to points into
+  -- that same order, and may point at a pole created LATER in the loop, so wiring runs as a
+  -- second pass once every ghost exists.
+  local pole_ghosts, pole_count = {}, 0
   for _, entity in pairs(plan.entities) do
     local ghost = surface.create_entity({
       name = "entity-ghost",
@@ -176,14 +196,18 @@ function builder.place(plan, anchor, context)
       raise_built = true,
     })
 
+    if entity.pole then pole_count = pole_count + 1 end
     if ghost then
       placed = placed + 1
       apply_recipe(ghost, entity)
       apply_modules(ghost, entity)
       apply_filters(ghost, entity)
       apply_requests(ghost, entity, trash_unrequested)
+      if entity.pole then pole_ghosts[pole_count] = { ghost = ghost, wire_to = entity.wire_to } end
     end
   end
+
+  connect_poles(pole_ghosts)
 
   return placed
 end

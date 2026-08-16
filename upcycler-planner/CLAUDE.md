@@ -12,7 +12,8 @@ target quality, and the mod designs a complete upcycling loop and drops it as gh
 hands over a placement tool whose click drops the whole loop as ghosts. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF (belt, quality module and its quality, and the trash-unrequested checkbox).
+is built OUT OF (belt, quality module and its quality, electric pole and its quality, and the
+trash-unrequested checkbox).
 What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
@@ -101,6 +102,7 @@ prototypes/planner/                 shortcut, selection tool, and the icon layer
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        builder.lua   ghosts on the ground
+  poles.lua    pole coverage, connectivity and growth -- pure like layout.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
@@ -200,6 +202,11 @@ Reasons for each are in `.ai-support/design.md`.
   (`allow_productivity` defaults to false, so this is the common case, not the exotic one).
 - **No flib dependency** — copy its handler-registry pattern instead.
 - **Prototype names are prefixed `upl-`** — see Naming above.
+- **Electric poles are planned in** (2026-08-16) — a Build options picker with its own
+  quality; researched-best 1x1 default, clearable to "no poles"; free tiles first, added pole
+  columns only when needed; best effort plus an orange count when even that cannot cover; one
+  wired network via ghost copper wires. Algorithm in `.ai-support/analysis/poles.md`, engine
+  facts (the measured powering rule among them) in `analysis/api.md` §10.
 
 ## Open questions
 

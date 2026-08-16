@@ -104,9 +104,14 @@ is geometrically impossible without reworking the row plan. A picker would there
 choose *among* 1x1 chests (vanilla vs a modded 1x1), which is a thin choice; add it only if
 someone actually wants a specific modded chest.
 
-### Poles and roboports
-The build places neither. Power and bot coverage are the player's problem, same as the reference
-blueprints. Revisit only if it turns out to be a common complaint.
+### Roboports
+**Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
+first, pole columns only when needed, best effort plus a warning when even that falls short
+(`analysis/poles.md`). Roboports still are not placed: bot coverage stays the player's
+problem, as in the reference blueprints. The loop's requester chests do want a network
+though, so a roboport option is the natural next candidate — it would ride the same
+free-tile/growth machinery with a 4x4 footprint and the logistic/construction radii in place
+of a supply area. Revisit if it turns out to be a common ask.
 
 ## Planner intelligence
 

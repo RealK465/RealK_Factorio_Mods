@@ -572,3 +572,56 @@ save loses its shortcut pin and its setting value, which is the whole cost.
 
 `changelog.txt` needed no entry: the 0.1.0 section is the unreleased initial one and never named
 the mod, so there is no published text for the rename to contradict.
+
+## 2026-08-16 — electric poles join the build
+
+Repo owner's ask: build the loop with poles — a picker for the pole and its quality, the pole
+layout optimal for its range, every electric consumer inside supply, and sizes beyond 1x1
+handled. Four calls made up front, all the owner's: the default is the best researched **1x1**
+pole (largest supply area — a substation is never sprung on the player, though every size is
+pickable), and clearing the picker means "place no poles"; the layout grows only when free
+tiles cannot reach full coverage; a pole that cannot cover even then places best-effort with a
+warning rather than refusing; and the picker is one `entity-with-quality` widget like the rest
+of the strip.
+
+**The shape: a fourth pure module.** `scripts/poles.lua` runs after `layout.build` inside
+`planner.plan`: occupancy read off the plan's own entities, candidate positions wherever the
+footprint fits, greedy set cover under the quality-adjusted supply radius, a bridge pass for
+wire-reach connectivity, one growth retry through a new `column_gap` layout param (kept only
+when strictly fewer consumers stay unpowered), and Prim spanning wires the builder draws onto
+the ghosts (`pole_copper`, ghost-to-ghost). Algorithm and measured shapes:
+`analysis/poles.md`; engine facts: `analysis/api.md` §10.
+
+Two pieces of the design carry their reasons:
+
+- **Coverage counts only the largest wired component.** Raw geometric coverage would call a
+  consumer powered when its only pole sits on an unwired island — a lie that surfaces in game
+  as a mystery — and counting it unpowered is also what makes a connectivity failure drive
+  growth.
+- **`chosen_pole` is the one resolver with a none-state.** `choices.no_poles` (a boolean,
+  `trash_unrequested`'s precedent) tells "cleared on purpose" apart from "never touched";
+  only the explicit clear suppresses the researched-best default, and the pole handler is the
+  one picker whose emptied button does not snap back — an empty button *is* the "no poles"
+  state on display. `resources()` was deliberately not made its home: everything there is
+  mandatory-if-valid, and the pole is the one optional material.
+
+**Verified with the usual harness, 28/28** (`--create`, full research, plans built for five
+choice sets, ghosts placed on real ground and read back), which also settled three engine
+facts now in `api.md` §10: the powering rule is collision-box **overlap** with the supply
+square (a machine straddling the edge with its centre outside IS powered); revived pole
+ghosts auto-connect within reach; and ghost-to-ghost `connect_to` on `pole_copper` returns
+false while creating the wire — the builder ignores the return value on purpose. Measured
+solver behaviour worth keeping: rare-tier default is five medium poles in free tiles with no
+footprint change; the same loop under legendary-quality medium poles takes **one**; substation
+plus legendary target grows 17→25 wide and covers with two; the big electric pole lands
+best-effort with seven consumers warned about.
+
+A three-agent review pass the same session (correctness, simplicity, conventions) returned
+one real defect and one cleanup, both applied and re-verified at 28/28. The defect: the
+coverage stand-in shrank every consumer by a flat 0.3 — right for machines and the recycler,
+but an inserter's collision box insets 0.35, so for inserters the stand-in was a SUPERSET of
+the real box and could claim power the game would not deliver at a knife-edge distance —
+exactly the lie the honest tally exists to prevent. The margin is now computed per prototype
+from its real collision box (larger axis, clamped short of half a tile), so the subset
+property holds for modded entities too. The cleanup folded a twice-written centre-distance
+formula into one `distance_sq`. The conventions pass found nothing to change.

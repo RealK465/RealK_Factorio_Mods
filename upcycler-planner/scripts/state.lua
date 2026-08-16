@@ -58,9 +58,11 @@ function state.prune()
     if c.quality_module and not planner.is_quality_module(c.quality_module) then
       c.quality_module = nil
     end
+    -- c.no_poles is a plain boolean, never a prototype reference -- nothing to prune there.
+    if c.pole and not planner.is_pole(c.pole) then c.pole = nil end
     -- The qualities the buildings and modules are placed AT are choices in their own right,
     -- separate from the target above, and a mod can take a tier out from under any of them.
-    for _, key in pairs({ "machine_quality", "recycler_quality", "quality_module_quality" }) do
+    for _, key in pairs({ "machine_quality", "recycler_quality", "quality_module_quality", "pole_quality" }) do
       if c[key] and not planner.is_quality(c[key]) then c[key] = nil end
     end
     entry.pending = nil

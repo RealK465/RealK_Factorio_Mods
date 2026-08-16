@@ -293,3 +293,33 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    the front item. Assumed from mining-drill behaviour; the reference designs ship widely and
    depend on it. This is the one to watch in the first in-game test.
 7. `LuaQualityPrototype.next` nil-ability at the top of the chain.
+
+## 10. Electric poles and wires — verified 2026-08-16
+
+All measured with the pole-placement harness (real game via `--create`, full research, real
+entities and ghosts on real ground, 28/28). Numbered after §9 so the section references
+elsewhere stay stable; §9 remains the running unverified list.
+
+1. **The powering rule is collision-box OVERLAP with the supply square.** With a medium
+   pole's 7x7 area, an assembling machine placed so its collision box straddles the area's
+   edge — centre *outside* — reads the pole's own `electric_network_id`. Fully outside reads
+   nil, as does an inserter whose collision box sits just past the edge. Any positive overlap
+   powers the consumer; `poles.lua`'s `covers()` implements exactly this, shrinking each
+   consumer's tile rect by its own prototype's collision-box inset on the larger axis
+   (vanilla machines and the recycler 0.3, inserters 0.35), so the stand-in is a subset of
+   the real box and can only under-promise.
+2. **`supply_area_distance` is a radius from the pole's centre** (area `2d x 2d`, the
+   substation's 9 giving 18x18), and **quality scales it unconditionally**: `+level` supply,
+   `+2*level` wire reach (levels: uncommon 1, rare 2, epic 3, legendary 5 — 4 is skipped).
+   Read via `LuaEntityPrototype.get_supply_area_distance(quality)` /
+   `get_max_wire_distance(quality)` — the same quality-parameterised-getter family as
+   `get_crafting_speed`. A legendary medium pole covers 17x17: one powers the whole rare
+   belt ring where normal quality needs five.
+3. **Revived pole ghosts auto-connect to poles within wire reach.** Two bare ghosts with no
+   ghost wire, revived, came back wired. The explicit ghost wires the builder draws are for
+   the preview and for pinning the intended spanning tree, not load-bearing against vanilla.
+4. **Ghost-to-ghost copper wiring works, but `connect_to` RETURNS FALSE while creating the
+   wire.** `get_wire_connector(defines.wire_connector_id.pole_copper, true).connect_to(other)`
+   between two pole ghosts: return value false, yet the connector's `connections` gains the
+   ghost wire and it turns into a `real_connections` entry once both revive. Do not branch on
+   the return value for ghost wires; `builder.lua` ignores it on purpose.

@@ -9,6 +9,7 @@
 local planner = {}
 
 local layout = require("scripts.layout")
+local poles = require("scripts.poles")
 
 local memo = {}
 
@@ -287,6 +288,10 @@ local function belt_candidates()
   return candidates("belts", function(entity) return entity.type == "transport-belt" end)
 end
 
+local function pole_candidates()
+  return candidates("poles", function(entity) return entity.type == "electric-pole" end)
+end
+
 -- The layout stands every inserter between two adjacent rows, so its hands must reach exactly
 -- one tile straight ahead. Without this gate the long-handed inserter -- reach 2, electric,
 -- unlocked by the very first technology, and faster-rotating than the plain inserter -- wins
@@ -342,11 +347,23 @@ function planner.buildable_belts(force)
   return out
 end
 
+function planner.buildable_poles(force)
+  local out = {}
+  for name, entity in pairs(pole_candidates()) do
+    if entity_is_buildable(force, entity) then out[#out + 1] = name end
+  end
+  return out
+end
+
 -- Membership tests for state.prune, exported so what prune keeps cannot drift from what
 -- plan() accepts: is_belt is chosen_belt's own test, is_quality is membership in the chain
 -- tiers_up_to walks.
 function planner.is_belt(name)
   return belt_candidates()[name] ~= nil
+end
+
+function planner.is_pole(name)
+  return pole_candidates()[name] ~= nil
 end
 
 function planner.is_quality(name)
@@ -571,6 +588,18 @@ function planner.belt(force)
   end)
 end
 
+-- The default pole: the researched 1x1 with the largest supply area. 1x1 only -- a
+-- substation or other multi-tile pole is a deliberate upgrade the player picks by hand,
+-- never sprung on them -- though every width stays pickable through the button. Scored at
+-- normal like best_machine, which also ranks identically at any quality: the quality bonus
+-- (+level to the supply radius) lands on every pole alike.
+function planner.pole(force)
+  return best_by(pole_candidates(), function(_, entity)
+    if not (is_single_tile(entity) and entity_is_buildable(force, entity)) then return nil end
+    return entity.get_supply_area_distance("normal")
+  end)
+end
+
 -- Bulk inserters move a whole stack per swing, which matters on a loop that is mostly moving
 -- items between adjacent buildings. Filters are not optional: the harvest and extract
 -- inserters both need one slot per ingredient. Fuelled inserters are excluded outright: the
@@ -672,6 +701,17 @@ local function chosen_quality_module(choices)
   return nil
 end
 
+-- The pole is the one OPTIONAL build material: nil is a real answer ("place none"), not a
+-- stale-name signal. choices.no_poles is what tells "cleared on purpose" apart from "never
+-- touched" -- only the explicit clear suppresses the researched-best default.
+local function chosen_pole(force, choices)
+  if choices.no_poles then return nil end
+  local name = choices.pole
+  if not (name and planner.is_pole(name)) then name = planner.pole(force) end
+  if not name then return nil end
+  return name, planner.build_quality(choices.pole_quality)
+end
+
 -- Everything the layout needs, gathered in one place. `validate` below checks exactly the same
 -- things, so a validated set of choices always produces a plan -- if the two ever drift apart,
 -- the player gets a Place button that silently does nothing.
@@ -716,6 +756,38 @@ local function resources(force, recipe, machine, choices)
     -- One quality for every module the loop plans, so the player sets it once.
     module_quality = planner.build_quality(choices.quality_module_quality),
   }
+end
+
+-- How far a consumer's collision box sits inside its tile rect, taken on the LARGER axis so
+-- the shrunken stand-in poles.lua tests against stays a subset of the real box whatever
+-- rotation the layout placed the entity at. The engine powers on collision-box overlap
+-- (api.md S10), so a subset can under-promise -- an extra pole, an over-honest warning --
+-- but never claim power the game would not deliver. Vanilla: machines and the recycler
+-- inset 0.3, inserters 0.35. Clamped short of half a tile so a degenerate collision box
+-- cannot yield an empty stand-in nothing could ever cover.
+local function consumer_margin(entity)
+  local box = entity.collision_box
+  local ltx, lty = xy(box.left_top)
+  local rbx, rby = xy(box.right_bottom)
+  local inset_x = (entity.tile_width - (rbx - ltx)) / 2
+  local inset_y = (entity.tile_height - (rby - lty)) / 2
+  return math.min(math.max(inset_x, inset_y, 0), 0.45)
+end
+
+-- Which of the plan's entity names draw electric power, and the stand-in margin for each --
+-- checked once per distinct name, so poles.lua never touches prototypes. Belts and chests
+-- have no electric energy source and drop out on their own; a modded burner machine drops
+-- out too, and correctly so, since a pole cannot feed it.
+local function electric_consumers(entities)
+  local out = {}
+  for _, e in pairs(entities) do
+    if out[e.name] == nil then
+      local entity = prototypes.entity[e.name]
+      out[e.name] = (entity and entity.electric_energy_source_prototype ~= nil)
+        and consumer_margin(entity) or false
+    end
+  end
+  return out
 end
 
 -- `gathered` is the resources table validate() already collected in the same code path, so
@@ -768,7 +840,7 @@ function planner.plan(force, choices, gathered)
     above_target[#above_target + 1] = chain[i]
   end
 
-  local plan = layout.build({
+  local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
     above_target = above_target,
@@ -796,7 +868,30 @@ function planner.plan(force, choices, gathered)
     -- One stack of the product in front of each recycler: enough to keep it busy through a
     -- gap on the belt, and self-limiting rather than hoarding.
     product_buffer = prototypes.item[product.name].stack_size,
-  })
+  }
+  local plan = layout.build(layout_params)
+
+  -- The pole pass runs over the finished geometry: free tiles first, a widened re-run only
+  -- when they cannot reach full coverage, best effort with a count when even that falls
+  -- short. The pass needs the raw params too, so its growth retry rebuilds the layout
+  -- rather than patching coordinates the gap columns would have shifted.
+  local pole_name, pole_quality = chosen_pole(force, choices)
+  if pole_name then
+    local pole = prototypes.entity[pole_name]
+    local result = poles.plan(layout_params, plan, {
+      name = pole_name, quality = pole_quality,
+      width = pole.tile_width, height = pole.tile_height,
+      -- Quality genuinely grows a pole's reach (+level to the supply radius, +2*level to
+      -- the wire reach), so the layout is computed at the quality the poles are placed at.
+      supply_distance = pole.get_supply_area_distance(pole_quality),
+      wire_distance = pole.get_max_wire_distance(pole_quality),
+    }, electric_consumers(plan.entities))
+    if result.layout then plan = result.layout end
+    for _, entity in pairs(result.entities) do
+      plan.entities[#plan.entities + 1] = entity
+    end
+    if result.unpowered > 0 then plan.unpowered = result.unpowered end
+  end
 
   -- Carried on the plan rather than through the layout: which chests exist is geometry, whether
   -- their surplus is trashed is the player's call at Confirm. `~= false` keeps a snapshot from
@@ -923,11 +1018,16 @@ function planner.validate(force, choices)
   end
   -- The quality the buildings and modules are placed AT gets the same treatment as the target:
   -- ghosts of an unresearched tier are legal to place, nothing can build them yet.
-  for _, quality in pairs({
+  local pole_name, pole_quality = chosen_pole(force, choices)
+  local build_qualities = {
     planner.build_quality(choices.machine_quality),
     planner.build_quality(choices.recycler_quality),
     r.module_quality,
-  }) do
+  }
+  -- The pole's build quality matters twice over: it gates who can build the ghosts, and it
+  -- sets the reach the whole pole layout is computed at.
+  if pole_name then build_qualities[#build_qualities + 1] = pole_quality end
+  for _, quality in pairs(build_qualities) do
     if not force.is_quality_unlocked(quality) then
       return true, {
         "upl-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
@@ -937,6 +1037,13 @@ function planner.validate(force, choices)
   local force_recipe = force.recipes[recipe.name]
   if not force_recipe or not force_recipe.enabled then
     return true, { "upl-message.recipe-not-researched" }, r
+  end
+
+  -- Poles are optional, so a game where none is researched yet gets a warning rather than a
+  -- refusal -- the loop itself is fine, it just arrives dark. Unreachable in vanilla: the
+  -- small pole unlocks with the same technology as the electric inserter.
+  if not choices.no_poles and not pole_name then
+    return true, { "upl-message.no-pole-researched" }, r
   end
 
   return true, nil, r

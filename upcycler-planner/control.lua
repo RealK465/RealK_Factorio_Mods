@@ -94,7 +94,11 @@ local function place_selection(event)
 
   entry.pending = nil
   player.clear_cursor()
-  player.print({ "upl-message.placed", placed })
+  if plan.unpowered then
+    player.print({ "upl-message.placed-unpowered", placed, plan.unpowered })
+  else
+    player.print({ "upl-message.placed", placed })
+  end
 end
 
 script.on_event(defines.events.on_player_selected_area, place_selection)

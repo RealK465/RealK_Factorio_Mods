@@ -87,7 +87,12 @@ function layout.build(params)
   -- of Production's 4-wide salvager under a 3-wide assembler) just gets dead columns beside
   -- the machine. The last column carries no recycler, so it only needs the machine.
   local pitch = math.max(machine.width, recycler.width)
-  local width = 2 + (#tiers - 1) * pitch + machine.width
+  -- An optional run of empty columns between adjacent tier columns, blind to what goes in
+  -- them. poles.lua's growth pass is the one caller that sets it, when the free tiles inside
+  -- the ring cannot fit enough poles. Zero by default, leaving every plan byte-identical.
+  local gap = params.column_gap or 0
+  local step = pitch + gap
+  local width = 2 + (#tiers - 1) * step + machine.width
   local height = r.height
 
   local entities = {}
@@ -131,7 +136,7 @@ function layout.build(params)
 
   for index, quality in pairs(tiers) do
     local is_terminal = index == #tiers
-    local col = 1 + (index - 1) * pitch
+    local col = 1 + (index - 1) * step
     local col_feed = col
     local col_buffer = col + 1
     local col_product = col + machine.width - 1
