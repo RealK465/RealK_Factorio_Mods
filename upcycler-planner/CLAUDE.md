@@ -163,10 +163,10 @@ bump from the first release onward. Which tags were rejected and why is in
 
 - Commit scope is `upcycler-planner`. Repo-wide changes use `repo`.
 - **Never commit, push or publish unprompted** — repo `CLAUDE.md`, and approval is per request.
-- **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, and
-  `images/` is the gallery in filename order. Both are player-facing and settled; what each
-  image is, and where the readme's demo gifs are hosted, is in `.ai-support/decisions.md` →
-  *Portal presentation*. Gathering them is not a release — publishing still needs the owner's
+- **`README.md` is the portal description** and **`faq.md` the portal FAQ tab**, uploaded
+  verbatim by `fmtk details --readme` / `--faq`; `images/` is the gallery in filename order.
+  All are player-facing and settled; what each image is, and where the readme's demo gifs are
+  hosted, is in `.ai-support/decisions.md` → *Portal presentation*. Gathering them is not a release — publishing still needs the owner's
   approval for that specific upload.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
   sync if the root copy is ever refreshed.
