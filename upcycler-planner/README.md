@@ -3,13 +3,13 @@
 **Pick an item and a target quality. The mod designs the whole upcycling loop and places it as
 ghosts for your bots to build.**
 
-Like Mining Patch Planner designs mining outposts miners, or P.U.M.P. designs oil outposts, Upcycler Planner design quality upcycling loops.
+Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outposts, Upcycler Planner designs quality upcycling loops.
 
 ![Planning a loop and placing it as ghosts](https://files.catbox.moe/thkeot.gif)
 
 ## How to use it
 
-1. Mod is only enabled after **Recycling** tech has been researched. Then this button appears in your shortcut bar:
+1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
 3. You can change things like: the machine, recycler, belt, module or pole if you want. It tries to default to the best item researched, and can be built at a quality of your choice.
@@ -26,7 +26,7 @@ passive provider chest at the end of the loop.
 
 ## Works with your mods
 
-This was the main motivation to creating this mod.
+This was the main motivation for creating this mod.
 
 Modded machines, recyclers, modules, belts, poles and chests can be selected.
 Only researched options are offered, and a setting can show everything instead.
@@ -36,14 +36,14 @@ Only researched options are offered, and a setting can show everything instead.
 ## Good to know
 
 - Build it inside a logistic network. The loop uses requester and provider chests.
-- Recipes using fluids are not supported yet but it's a priority for future update.
+- Recipes using fluids are not supported yet, but it's a priority for a future update.
 - Items that recycle into themselves, like steel, cannot be looped.
 
 ## Requirements
 
 Factorio with **Space Age**, which is where quality and recyclers come from.
 
-Main development/testing branch is Factorio 2.1 even a barely tested port exists for Factorio 2.0.
+The main development/testing branch is Factorio 2.1, though a barely tested port exists for Factorio 2.0.
 
 ## Credits
 
