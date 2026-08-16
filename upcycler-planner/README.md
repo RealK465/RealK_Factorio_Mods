@@ -47,10 +47,11 @@ The main development/testing branch is Factorio 2.1, though a barely tested port
 
 ## Credits
 
-Inspired by kvdveer's [Upcyclers](https://forums.factorio.com/viewtopic.php?t=121438) blueprint
-book, and by two planners that showed how good this kind of mod can feel:
-rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner) and Xcone's
-[P.U.M.P.](https://mods.factorio.com/mod/pump).
+Inspired by kvdveer's [Upcyclers](https://forums.factorio.com/viewtopic.php?t=121438) blueprint book.
+
+Also by two planners that showed how good this kind of mod can feel:
+  - rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
+  - Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
 
 ## License
 
