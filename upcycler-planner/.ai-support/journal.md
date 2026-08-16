@@ -9,6 +9,47 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — two release pairs, and the description that lived in three places
+
+The flag work above shipped, and then shipped again an hour later to fix something the first
+release carried out the door.
+
+**Released 0.1.2 (2.1) / 0.1.3 (2.0)** on the owner's approval. The portal tag question the
+entry above left open is now **answered: the public page shows a "Space Age Mod" label**, so
+`quality_required` alone earns it and `space_travel_required` was never needed
+(`analysis/api.md` §13). Worth knowing that the tag appears only on the HTML page — no JSON
+API endpoint exposes it, which is exactly why it could not be checked before uploading.
+
+**Then the owner caught what the release had missed: `[mod-description]` in the locale file
+still said "Pick" where `info.json` said "Choose".** That is the more instructive half of the
+day, because the locale entry **overrides `info.json`** — so the in-game mod browser had been
+showing the old wording the whole time, and every check that had been run looked at
+`info.json` and passed. The description effectively lives in three places (`info.json`, the
+locale `[mod-description]`, and the README's opening line, which is the portal's long
+description) and only the first two are the same string. **Released 0.1.4 (2.0) / 0.1.5 (2.1)**
+to correct it, with the zips verified by asserting the locale string and `info.json`
+description are byte-equal *inside the built zip* rather than on disk.
+
+Two process notes worth keeping:
+
+- **The portal summary read stale immediately after an upload, then corrected itself.** After
+  the first pair it still showed the old wording even through a cache-buster, which read as
+  "the portal does not refresh summary from later uploads" and nearly bought an unnecessary
+  `edit_details` write. It was just the CDN lag `factorio-release` already warns about. Give it
+  time before concluding a portal write did not land.
+- **`git tag` ran even though the `git commit` in the same batch had failed**, pinning the tag
+  to the pre-release commit. Caught because the tag was checked against HEAD before pushing;
+  it had not left the machine. Verify what a tag points at before pushing it — a release tag is
+  supposed to reproduce the uploaded zip exactly.
+
+Also reconciled drift that predated all this: `thumbnail.png` had never received the 7720ccd
+pip fix on `legacy/2.0`, and the two `info.json` descriptions had diverged — invisible to
+`git diff` because `info.json` is a declared divergent file, but the portal renders the
+description of whichever release is newest, so the wording would have flip-flopped between
+tracks on alternating releases.
+
+---
+
 ## 2026-08-16 — Space Age feature flags, and the one that does not exist on 2.0
 
 The repo owner asked for the flag that makes the Space Age DLC mandatory, then for the mod to
