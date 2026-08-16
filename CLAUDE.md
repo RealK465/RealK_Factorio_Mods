@@ -64,25 +64,14 @@ machine-specific and lives in `CLAUDE.local.md`.
 
 ### Adding a folder
 
-The class decides how many places need updating, and getting it wrong is silent — it surfaces
-later as an accidental commit, or as an edit to someone else's mod.
+A new root folder has to be declared in up to four places — `.gitignore`, the `settings.json`
+deny list, `CLAUDE.local.md`, and its own `CLAUDE.md` — and **which of them depends on the
+class**. Getting it wrong is silent: it surfaces later as an accidental commit, or as an edit to
+someone else's mod. The matrix and the reasoning are in
+**`.claude/references/adding-a-folder.md`**; read it before adding one.
 
-| Class | `.gitignore` | `settings.json` deny | `CLAUDE.local.md` | own `CLAUDE.md` |
-|---|---|---|---|---|
-| Deliverable | — tracked | — | — | yes |
-| Local mod | yes | — | yes | yes |
-| Patched vendor | yes | — | yes | yes |
-| Frozen vendor | yes | **yes** | yes | no — never write into it |
-| Reference | yes | **yes** | yes | no |
-
-A deny rule needs **both** `Edit(<folder>/**)` and `Write(<folder>/**)`; they are separate tools
-and denying one leaves the other open. Neither constrains Bash, so `sed -i` or `cp` still reaches
-a frozen folder — the deny list raises the cost of a mistake, it does not make one impossible.
-
-`.claude/scripts/check-folder-scope.ps1` checks all four columns against what is on disk. Run it
-after adding a folder. It exists because all three lists had already drifted: a frozen-vendor mod
-was sitting in `.gitignore` with no deny rule and no mention in `CLAUDE.local.md`, and a patched
-one was in none of them.
+`.claude/scripts/check-folder-scope.ps1` verifies all four columns against what is on disk. Run
+it after. It exists because the lists had already drifted once.
 
 ## Mods in this repo
 
@@ -90,17 +79,17 @@ Tracked unpacked folders are this repo's own mods:
 
 - **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
 
-- **`space-forge/`** — Space Forge. A large overhaul, in early development; nothing is implemented yet. **Unpublished**, Factorio 2.1 only. Ships as a pair with the mod below, and the two carry independent version sequences. Scope, art direction and compatibility stance are all still open — the mod's `CLAUDE.md` and `.ai-support/design.md` are where decisions get recorded.
+- **`space-forge/`** — Space Forge. A large overhaul, in early development; nothing is implemented yet. **Unpublished**, Factorio 2.1 only. Ships as a pair with the mod below, and the two carry independent version sequences. Scope, art direction and compatibility stance are all still open — the mod's `CLAUDE.md` and `.ai-support/` are where decisions get recorded, and that folder covers the graphics mod too.
 
 - **`space-forge-graphics/`** — Space Forge Graphics. The art half of the mod above: sprites, icons and sounds, **and no Lua at all**. Splitting art out keeps a balance patch small for players; the rule that keeps it working is that this mod never gains a data stage. Same pattern as `space-exploration-graphics` and `Krastorio2Assets`. **Unpublished.**
 
-- **`upcycler-architect/`** — Upcycler Architect. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and drops it as ghosts. In early development — scaffolding only, no `data.lua` or `control.lua` yet, so it loads and does nothing. **Unpublished**, Factorio 2.1 only, and the only mod here with a hard `quality` dependency. Scope is still open; the mod's `CLAUDE.md` and `.ai-support/design.md` hold the decisions and the verified API findings — chiefly that ghosts must be placed one at a time, because blueprint strings only work in menu simulations.
+- **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and drops it as ghosts. In development — the first version works end to end (shortcut → modal → Confirm → selection tool → ghosts), with researched-gated pickers and support for modded recyclers, though the loop's long-run in-game behaviour is still being proven. **Unpublished**, Factorio 2.1 only, and the only mod here with a hard `quality` dependency. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly that ghosts must be placed one at a time, because blueprint strings only work in menu simulations.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
 A mod folder must be named `<name>` or `<name>_<version>`, matching its `info.json` exactly, or Factorio silently won't load it.
 
-A mod folder may carry an **`.ai-support/`** directory: guides, notes and design docs written for the agent rather than for the game. Read it when working on that mod — it is the mod's local context. It is tracked in git so it travels with the mod, and invisible to both Factorio and `fmtk package` (leading dot). Never put anything the mod needs to run in there — nothing in it ships.
+A mod folder may carry an **`.ai-support/`** directory: notes written for the agent rather than for the game. Read its `index.md` first when working on that mod — it is the mod's local context. Rules for what goes in one and how it is kept: *AI support folders* below.
 
 A mod folder may also carry an **`images/`** directory: full-size screenshots for the mod portal's gallery. Tracked in git, since a shot belongs with the build it was taken from, but **it must be listed in that mod's `package.ignore`** — unlike `.ai-support/` it has no leading dot, so `fmtk package` sweeps it into the zip by default and ships megabytes of screenshots to every player. Name files for what they show, hyphenated, no spaces: the portal displays the filename. The mod's **`thumbnail.png`** is the opposite case — 144x144 at the mod root, and it *is* meant to ship.
 
@@ -130,6 +119,52 @@ Keeping sources outside the mod folder is what stops `fmtk package` sweeping a 2
 - Blender `.blend1`/`.blend2` autosaves are git-ignored — don't commit them.
 - Throwaway test renders belong in the session scratchpad, not here.
 
+## AI support folders — `.ai-support/`
+
+Notes written for the agent rather than for the game: decisions and their reasons, verified API
+findings, parked work. Tracked in git so they travel with the mod, invisible to both Factorio
+and `fmtk package` (leading dot), and **nothing in them ships**. Optional per mod — but a mod
+that has one follows the rules below, because the failure mode is silent. A broken prototype
+fails loudly; a stale note is read as ground truth and reasoned from with full confidence.
+
+**The contract with `CLAUDE.md`.** A mod's `CLAUDE.md` holds **rules to follow**;
+`.ai-support/` holds **the record of why**. Each fact lives in exactly one of them. A
+`CLAUDE.md` may state a decision as a one-line rule and point at the register for its reason —
+it must not restate the reason. A rule without its reason is still correct to follow; a reason
+without its rule is inert. `upcycler-planner/CLAUDE.md` → *The four technical facts worth not
+re-deriving* is the shape to copy.
+
+**Every file is exactly one genre, and the genre sets its lifecycle.** Mixing two in one file
+is what makes a design doc unreadable: a register has to be edited in place and a journal must
+never be edited, so a file that is both can satisfy neither.
+
+| Genre | File | Lifecycle |
+|---|---|---|
+| **Index** | `index.md` — **required whenever the folder exists** | edited; one line per file, what is in it *and when to read it* |
+| **Register** — what is true now | `decisions.md`, `deferred.md` | **edited in place**; a superseded entry is rewritten or deleted, never annotated |
+| **Journal** — what happened | `journal.md` | **append-only, newest first**; entries may go stale, they are history — only a moved file path is ever repaired in place |
+| **Evidence** — verified facts | `analysis/*.md`, with its own `index.md` | edited on re-verification; carries `verified_against` front matter, and every claim a confidence marker |
+| **Subject design** | `<subject>-design.md` | edited; covers one thing — an entity, a feature |
+
+**Four maintenance rules:**
+
+- **Write the entry in the same session as the work**, exactly as `changelog.txt` is handled. A
+  decision recorded later is a decision recorded wrong.
+- **Superseding means rewriting the register and appending the story to the journal.** Never
+  leave two live answers to one question.
+- **Adding a file without indexing it is an incomplete change.** A stale `index.md` is worse
+  than none.
+- **Mark what is not verified.** Anything not confirmed against the installed `doc-html/` or
+  `data/` says so in those words, and names the version it was checked at.
+
+Anything that generalises past one mod belongs in a skill under `.claude/skills/` instead.
+
+**`.claude/scripts/check-ai-support.ps1` is the check** — index shape, API and game-data
+citations, evidence freshness, and every relative path in every tracked `.md`. Run it after
+adding, moving or re-verifying a file. It cannot check whether a claim is still *true*, which is
+what the same-session rule above is for. Working detail — front matter, the split rules, which
+file a thing goes in — is in **`.claude/references/ai-support.md`**.
+
 ## Git
 
 The whole mods directory is one repository. `.gitignore` inverts the usual default: everything the game or another author put here is excluded (`*.zip`, `mod-list.json`, `mod-settings.dat`, `exemples/`, third-party mod folders, `CLAUDE.local.md`, `--dump-data` leftovers), and only this repo's own mod folders are tracked.
@@ -140,28 +175,14 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
 - A `.gitignore` negation cannot rescue a file inside an ignored *directory*. `exemples/**/README.md` stays ignored because `exemples/` itself is excluded.
 - **Never run `git clean -x`** (or `-X`) here. Almost everything in this folder is ignored-but-precious: it would delete the downloaded mods, `exemples/`, and the game's own settings.
 - **Annotated tags `<name>_<version>` mark published releases** — created and pushed only as part of an authorised release, never unprompted. No tag for the version in a mod's `info.json` means that version is still **open**: changelog work belongs in its existing top section, not a new one. The decision procedure is in the `factorio-release` skill.
-- **The remote is private, so branch protection is off — temporarily.** `main` and `legacy/2.0`
-  were both protected until 2026-08-08: pull requests required, force-pushes and branch deletion
-  blocked. GitHub Free offers neither classic protection nor rulesets on a *private* repository,
-  so taking the repo private disabled both (`403: Upgrade to GitHub Pro or make this repository
-  public`, verified 2026-08-08). The repo is expected to go public again — **restore protection
-  as part of that same move**, not later, restoring these exact values on both branches via
-  `gh api -X PUT repos/RealK465/RealK_Factorio_Mods/branches/<branch>/protection`. The PUT
-  replaces the whole object and silently drops any field left out, so send all of it:
-
-  | field | value |
-  |---|---|
-  | `required_pull_request_reviews` | `dismiss_stale_reviews` true; `required_approving_review_count` 0; `require_code_owner_reviews`, `require_last_push_approval` false |
-  | `required_conversation_resolution` | true |
-  | `enforce_admins`, `allow_force_pushes`, `allow_deletions` | false |
-  | `required_linear_history`, `block_creations`, `lock_branch`, `allow_fork_syncing` | false |
-  | `required_status_checks`, `restrictions` | null |
-
-  Until then **nothing on the remote refuses a direct push, a force-push or a branch deletion**,
-  so the committing rule below is the entire floor rather than a second layer — where a mistaken
-  force-push used to bounce, it now lands. Note this costs less than it appears: `enforce_admins`
-  was off, so the pull-request rule never bound the owner anyway, and force-push and deletion
-  were the only rules that actually did.
+- **The remote is private, so branch protection is off — temporarily**, since GitHub Free offers
+  neither classic protection nor rulesets on a private repository (verified 2026-08-08). So
+  **nothing on the remote refuses a direct push, a force-push or a branch deletion**, and the
+  committing rule below is the entire floor rather than a second layer — where a mistaken
+  force-push used to bounce, it now lands. The repo is expected to go public again; **restore
+  protection as part of that same move**, not later, following
+  **`.claude/references/branch-protection.md`**, which carries the exact field values the
+  restoring PUT has to send.
 - **`main` is Factorio 2.1; `legacy/2.0` is Factorio 2.0.** Both are long-lived trunks, not a
   branch and a one-off side branch: `legacy/2.0` is where *every* 2.0 build of *every* mod in
   this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
@@ -298,3 +319,15 @@ Reference detail lives in `.claude/skills/`, tracked in this repo. **Invoke the 
 Roughly: `factorio-mod-development` is the code, `factorio-mod-setup` is the wrapper around it, the rest are the steps on either side.
 
 Several tasks span two: a release is `factorio-release` **and** `factorio-changelog`; renaming a prototype is `factorio-mod-development` (the code), `factorio-mod-setup` (the migration) **and** `factorio-release` (the major bump); a backport release is `factorio-multiversion`, `factorio-validate` (against a 2.0 install) **and** both of the release pair. Invoke all of them.
+
+**`.claude/references/` is the other half.** A skill covers Factorio knowledge and is invoked by
+its description; a reference file is a *repo procedure* needed at one identifiable moment, linked
+by name from the section of this file that owns it. It stays out of `skills/` on purpose — a
+skill's description is itself preloaded every session, so filing a once-a-year procedure as a
+skill would cost context permanently to save it occasionally.
+
+| Reference | Read it when |
+|---|---|
+| `ai-support.md` | adding, moving or re-verifying a note in a mod's `.ai-support/` |
+| `adding-a-folder.md` | adding a folder to the repo root — the four declaration lists and which class needs which |
+| `branch-protection.md` | the remote goes public again, and protection has to be restored on both branches |
