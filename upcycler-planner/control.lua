@@ -112,3 +112,30 @@ end)
 script.on_event(defines.events.on_player_removed, function(event)
   state.forget(event.player_index)
 end)
+
+-- Test suite, active only when the factorio-test framework mod is loaded -- never in a normal
+-- game. Registered last so the framework's own hooks (it drives runs off on_tick, which this
+-- mod does not use) land after every real handler above. Run via the factorio-testing skill.
+if script.active_mods["factorio-test"] then
+  -- Replaces the plain state.init registration above -- deliberately, and only in test runs:
+  -- the graphics tier loads a --create save, and freeplay's intro dialog plus crash-site
+  -- cutscene would otherwise block the first join waiting for a human click.
+  script.on_init(function()
+    state.init()
+    if remote.interfaces["freeplay"] then
+      remote.call("freeplay", "set_skip_intro", true)
+      remote.call("freeplay", "set_disable_crashsite", true)
+    end
+  end)
+
+  require("__factorio-test__/init")({
+    "tests.pure.layout_spec",
+    "tests.pure.poles_spec",
+    "tests.state_spec",
+    "tests.planner_spec",
+    "tests.plan_spec",
+    "tests.builder_spec",
+    "tests.loop_spec",
+    "tests.gui_spec",
+  }, { default_ticks_between_tests = 1 })
+end

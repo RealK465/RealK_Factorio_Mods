@@ -294,9 +294,19 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    validation.** The runtime attribute is `LuaEntityPrototype.filter_count` (nil on
    non-filtering kinds); `planner.inserter(force, filters_needed)` requires it, and validate
    answers `too-many-ingredients` when no researched inserter has enough slots.
-6. **The recycler eject's runtime stall-and-resume semantics** when the target machine rejects
-   the front item. Assumed from mining-drill behaviour; the reference designs ship widely and
-   depend on it. This is the one to watch in the first in-game test.
+6. ~~The recycler eject's runtime stall-and-resume semantics when the target machine rejects
+   the front item.~~ **Resolved 2026-08-16, measured by the permanent suite**
+   (`tests/loop_spec.lua`: real revived machine + tangent recycler, powered, 40 gears, 900
+   ticks). Worse than the polite stall that was assumed: an above-tier item in the recycler's
+   **output wedges the recycler entirely** — furnace output semantics, the next result cannot
+   merge with the differently-qualitied stack, so no craft ever starts (`products_finished`
+   stayed 0 on both buildings) and the eject never gets a chance to bypass it. **The blacklist
+   relief inserter is therefore load-bearing, not a safety net**: with it present the stuck
+   item drained to the chest, the recycler processed all 40 gears and the machine crafted on.
+   In both arrangements nothing was lost and nothing wrong-quality reached the pinned machine.
+   Deterministic seeding for the suite: a script `insert` into
+   `defines.inventory.crafter_output` works on a recycler (2.1.14) and stands in for a lucky
+   roll.
 7. `LuaQualityPrototype.next` nil-ability at the top of the chain.
 
 ## 10. Electric poles and wires — verified 2026-08-16
@@ -368,4 +378,18 @@ never symmetrically about the centre.
 The fix in `prototypes/planner/icons.lua`: write the composition once as fractions of one icon,
 then resolve per consumer — `unit = expected / 2` shift units to the icon, `base = unit / 64` for
 a 64px file's scale. Keeping both layers inside the icon is what keeps the box tight.
+
+## 12. Headless runs have a connected player — verified 2026-08-16
+
+**A singleplayer save's player stays flagged connected under `--benchmark`.** No client
+attaches, yet `#game.connected_players == 1`, and that player's `gui.screen`, `cursor_stack`,
+`mod_settings` and `clear_cursor()` all behave — the whole `gui_spec` suite (modal built,
+handlers driven through the dispatcher, Confirm arming the tool into the cursor) passes in a
+headless run of the factorio-test CLI's bundled save. Measured 2.1.14, factorio-test 3.1.0.
+
+This overturns the long-standing working assumption here that *"there is no way to create a
+player without a client"* — still true for `--create` (which joins nobody), but a save that
+already **carries** a player is enough, and headless GUI testing follows. The one caveat: the
+player comes from the framework's bundled save, an external artifact — the specs'
+`before_all` asserts a connected player exists and says what to do when it does not.
 
