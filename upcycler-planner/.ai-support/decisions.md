@@ -65,6 +65,10 @@ still needs the repo owner's per-release approval.
 - **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, so it
   is written for a player skimming the page rather than for a contributor. The portal takes
   GitHub-flavoured markdown, and images only as URLs to somewhere else.
+- **`faq.md` is the portal FAQ tab**, synced by `fmtk details --faq` and shipped in the zip
+  like `README.md` — deliberately not in `package.ignore`, it is a few hundred bytes of player
+  help. One entry so far (added 2026-08-16, the owner's pick): the pickers are research-gated,
+  and the *Show unresearched options* per-player setting lifts the gate.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
   window first, then the vanilla loops, then the modded one. The gallery has no order but upload
   order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
