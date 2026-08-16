@@ -1,0 +1,16 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: ????
+  Major Features:
+    - Initial release.
+    - Pick an item and target quality, configure the loop, and place the whole thing as ghosts.
+    - Quality modules fill machines and recyclers below the target; the top machine gets productivity when allowed.
+    - Build options: belt, quality module, electric pole, and whether chests trash unrequested items.
+    - Machines, recyclers, modules and poles can each have their own build quality.
+    - Supports modded recyclers with different sizes and eject directions.
+    - Electric poles planned for full power coverage and wired into one network. Higher-quality poles need fewer placements.
+    - Selectors default to the best researched option and remember your last pick.
+  Info:
+    - The shortcut appears once recycling is researched.
+    - Fluid recipes are not supported yet.
+    - Red messages disable Place; orange messages are warnings you can build through.
