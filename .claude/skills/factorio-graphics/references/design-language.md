@@ -19,9 +19,11 @@ evolution · why sprites read amateur · case studies · reference material.
 ## The design plan — the required first artifact
 
 A sprite begins as a short written plan, not as geometry. Put it in
-`assets/<mod-name>/<subject>/design.md` (or the mod's `.ai-support/` if it is
-more discussion than spec). Every section below appears in it; a section that
-is genuinely empty says why.
+`assets/<mod-name>/<subject>/design.md` (or, if it is more discussion than
+spec, the mod's `.ai-support/<subject>-design.md` — that is the subject-design
+genre in the repo `CLAUDE.md` → *AI support folders*, and it must be listed in
+that folder's `index.md`). Every section below appears in it; a section that is
+genuinely empty says why.
 
 1. **Function & hero** — what the machine does, and the single working part
    that does it. That part gets the visual budget and is modelled first, at
