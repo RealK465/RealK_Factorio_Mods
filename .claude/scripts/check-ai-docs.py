@@ -4,10 +4,14 @@
 check-ai-support.ps1 checks the SHAPE of an .ai-support folder (index present, every file
 listed). This checks the CONTENT of the notes against things that can actually contradict them:
 
-  1. API citations   `LuaSurface.create_entity` resolves against the installed
-                     doc-html/runtime-api.json
-  2. Game data       `data/recycler/data.lua:109` names a file that exists, at a line it has
-  3. Freshness       every analysis/**/*.md declares verified_against, matching the install
+  1. API citations   `LuaSurface.create_entity` resolves against doc-html/runtime-api.json -
+                     an evidence file is held to its own pinned install exactly; unpinned
+                     notes (journal, registers) pass on any pinned install, since those
+                     genres are allowed to age
+  2. Game data       `data/recycler/data.lua:109` names a file that exists, at a line it has,
+                     under the same install rule as the API citations
+  3. Freshness       every analysis/**/*.md declares verified_against, matching a pinned
+                     install - the one beside this repo, or one holding another worktree of it
   4. Links           every relative path written in a doc resolves to something on disk
 
 The point is coupling: a note that has drifted from the game should BREAK, not sit there being
@@ -15,13 +19,17 @@ quietly believed. Citations pass today, which is what makes the check worth havi
 the day the pinned install is replaced, naming exactly which claims need re-checking.
 
 The install is the folder holding this repo's mods/ directory, so the script self-locates: run
-it from the legacy worktree and it checks against 2.0 instead. Exit 0 = clean, 1 = problems.
+it from the legacy worktree and it checks against 2.0 instead. Evidence pinned to the OTHER
+track's version (a 2.0 file read from main, api.md read from legacy) resolves through the git
+worktrees, each of which sits in its own install - so one clone checks both, and only a version
+no pinned install carries is a freshness problem. Exit 0 = clean, 1 = problems.
 """
 
 import io
 import json
 import os
 import re
+import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,24 +84,67 @@ def resolves(target, here, docrel):
     return any(p == t or p.rstrip("/").endswith("/" + t) for p in REPO_PATHS)
 
 
-# ---------------------------------------------------------------- installed API
+# ---------------------------------------------------------------- installed APIs
+#
+# Evidence is pinned to a game version, and this repo deliberately spans two: main sits in the
+# 2.1 install and legacy/2.0 sits, as a worktree, in the 2.0 one. Each evidence file is checked
+# against the install matching its own verified_against, found through the worktrees, so a 2.0
+# note is not "stale" on main nor a 2.1 note on legacy. Foreign installs load lazily - a repo
+# whose evidence all matches the local install never pays for the second parse.
 
-api_path = os.path.join(INSTALL, "doc-html", "runtime-api.json")
-installed_version = None
-class_members = {}
 
-if not os.path.exists(api_path):
-    notes.append("no doc-html/runtime-api.json beside the repo - API and freshness checks skipped")
-else:
+def load_api(install):
+    api_path = os.path.join(install, "doc-html", "runtime-api.json")
+    if not os.path.exists(api_path):
+        return None, {}
     api = json.load(io.open(api_path, encoding="utf-8"))
-    installed_version = api.get("application_version")
+    members = {}
     for c in api.get("classes", []):
         names = set()
         for m in c.get("methods", []):
             names.add(m["name"])
         for a in c.get("attributes", []):
             names.add(a["name"])
-        class_members[c["name"]] = names
+        members[c["name"]] = names
+    return api.get("application_version"), members
+
+
+def worktree_installs():
+    try:
+        out = subprocess.run(["git", "worktree", "list", "--porcelain"], cwd=REPO,
+                             capture_output=True, text=True).stdout
+    except OSError:
+        return []
+    return [os.path.dirname(line[len("worktree "):])
+            for line in out.splitlines() if line.startswith("worktree ")]
+
+
+installed_version, class_members = load_api(INSTALL)
+if installed_version is None:
+    notes.append("no doc-html/runtime-api.json beside the repo - API and freshness checks skipped")
+
+api_by_version = {installed_version: (class_members, INSTALL)}
+_unloaded_installs = [p for p in worktree_installs()
+                      if os.path.normpath(p) != os.path.normpath(INSTALL)]
+
+
+def api_for(version):
+    """(class_members, install) for the install pinned at `version`; the local pair if none is."""
+    while version not in api_by_version and _unloaded_installs:
+        other = _unloaded_installs.pop()
+        v, members = load_api(other)
+        if v and v not in api_by_version:
+            api_by_version[v] = (members, other)
+    return api_by_version.get(version, (class_members, INSTALL))
+
+
+def ensure_all_apis():
+    """Load every worktree install, for the any-pinned-install checks on unpinned notes."""
+    while _unloaded_installs:
+        other = _unloaded_installs.pop()
+        v, members = load_api(other)
+        if v and v not in api_by_version:
+            api_by_version[v] = (members, other)
 
 # ------------------------------------------------------------------- the checks
 
@@ -111,16 +162,36 @@ for path in markdown_files():
     r = rel(path)
     is_note = "/.ai-support/" in ("/" + r)
 
+    # Which install this file's claims are made against: the one carrying its own
+    # verified_against when some worktree of this repo pins it, the local install otherwise.
+    front = FRONT.match(text)
+    fm = dict(re.findall(r"(?m)^([a-z_]+):\s*(.+?)\s*$", front.group(1))) if front else {}
+    claimed = fm.get("verified_against")
+    file_members, file_install = api_for(claimed) if claimed else (class_members, INSTALL)
+    file_version = claimed if claimed in api_by_version else installed_version
+    is_evidence = "/.ai-support/analysis/" in ("/" + r) and not r.endswith("/index.md")
+
     # 1. API citations - only inside .ai-support, where claims are made about the engine.
-    if is_note and class_members:
+    #    Evidence files pin a version and are held to that install exactly. The other genres
+    #    (journal, registers) carry no pin and the journal is ALLOWED to go stale, so their
+    #    citations pass if any pinned install knows them - a name that exists nowhere is still
+    #    a typo worth failing.
+    if is_note and file_members:
         for cls, mem in set(CITE.findall(text)):
             n_cite += 1
-            if cls not in class_members:
-                problems.append("%s : cites `%s.%s` - no such class in %s"
-                                % (r, cls, mem, installed_version))
-            elif mem not in class_members[cls]:
-                problems.append("%s : cites `%s.%s` - not a member of %s in %s"
-                                % (r, cls, mem, cls, installed_version))
+            if is_evidence:
+                if cls not in file_members:
+                    problems.append("%s : cites `%s.%s` - no such class in %s"
+                                    % (r, cls, mem, file_version))
+                elif mem not in file_members[cls]:
+                    problems.append("%s : cites `%s.%s` - not a member of %s in %s"
+                                    % (r, cls, mem, cls, file_version))
+            else:
+                ensure_all_apis()
+                if not any(m and cls in m and mem in m[cls]
+                           for m, _ in api_by_version.values()):
+                    problems.append("%s : cites `%s.%s` - not known to any pinned install"
+                                    % (r, cls, mem))
 
     # 2. Game-data citations. Line numbers shift on every game update, which is exactly why
     #    they are worth checking rather than trusting. Notes only: repo docs and skills mention
@@ -128,29 +199,38 @@ for path in markdown_files():
     #    legitimately absent from another install.
     for target, line in (set(GAMEDATA.findall(text)) if is_note else set()):
         n_data += 1
-        full = os.path.join(INSTALL, target.replace("/", os.sep))
-        if not os.path.exists(full):
-            problems.append("%s : cites `%s` - not present in this install" % (r, target))
-            continue
-        count = sum(1 for _ in io.open(full, encoding="utf-8", errors="replace"))
-        if int(line) > count:
-            problems.append("%s : cites `%s:%s` - the file has only %d lines"
-                            % (r, target, line, count))
+        if is_evidence:
+            installs = [(file_install, file_version)]
+        else:
+            ensure_all_apis()
+            installs = [(inst, v) for v, (_, inst) in api_by_version.items() if v]
+        ok, short_msg, missing_msg = False, None, None
+        for inst, v in installs:
+            full = os.path.join(inst, target.replace("/", os.sep))
+            if not os.path.exists(full):
+                missing_msg = missing_msg or ("%s : cites `%s` - not present in the %s install"
+                                              % (r, target, v))
+                continue
+            count = sum(1 for _ in io.open(full, encoding="utf-8", errors="replace"))
+            if int(line) <= count:
+                ok = True
+                break
+            short_msg = short_msg or ("%s : cites `%s:%s` - the file has only %d lines in %s"
+                                      % (r, target, line, count, v))
+        if not ok:
+            problems.append(short_msg or missing_msg)
 
     # 3. Freshness. Required on evidence files; the version is what matters, not elapsed time -
     #    the install is pinned deliberately and only moves when someone replaces it by hand.
-    if "/.ai-support/analysis/" in ("/" + r) and not r.endswith("/index.md"):
+    if is_evidence:
         n_front += 1
-        m = FRONT.match(text)
-        if not m:
+        if not front:
             problems.append("%s : evidence file with no front matter - needs verified_against" % r)
-        else:
-            fm = dict(re.findall(r"(?m)^([a-z_]+):\s*(.+?)\s*$", m.group(1)))
-            if "verified_against" not in fm:
-                problems.append("%s : front matter has no verified_against" % r)
-            elif installed_version and fm["verified_against"] != installed_version:
-                problems.append("%s : verified against %s, install is %s - re-check its claims"
-                                % (r, fm["verified_against"], installed_version))
+        elif "verified_against" not in fm:
+            problems.append("%s : front matter has no verified_against" % r)
+        elif installed_version and claimed not in api_by_version:
+            problems.append("%s : verified against %s, but no pinned install carries that version"
+                            " - re-check its claims" % (r, claimed))
 
     # 4. Relative links, both markdown links and this repo's backticked-path convention.
     #    The house style names a file by its bare name once the sentence has established the
@@ -186,6 +266,9 @@ for path in markdown_files():
 # ------------------------------------------------------------------------ report
 
 print("install: %s (%s)" % (INSTALL, installed_version or "version unknown"))
+for v, (_, p) in sorted((k, v) for k, v in api_by_version.items() if k):
+    if v != installed_version:
+        print("  also: %s (%s)" % (p, v))
 print("checked: %d API citations, %d game-data citations, %d evidence files, %d paths"
       % (n_cite, n_data, n_front, n_link))
 for n in notes:
