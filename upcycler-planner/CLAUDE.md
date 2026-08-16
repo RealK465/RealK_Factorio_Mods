@@ -18,11 +18,13 @@ What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
-**Played with in game, not yet proven.** The data stage validates, several rounds of live
-feedback have been folded back in (research gating, modded chests and recyclers, GUI fixes),
-and the planner and layout are exercised by a headless harness — but the loop's long-run
-*behaviour*, above all whether the recycler's eject stalls politely when its machine rejects a
-rolled-up ingredient, is still unproven. That is the standing thing to watch in game.
+**Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
+73-test suite under `tests/` — planner, layout, poles, builder, state, the eject loop and the
+GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure host-Lua and
+static tiers). The old standing question is answered by measurement: a rolled-up ingredient
+**wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
+(`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
+long played session, where rolls arrive by probability rather than scripted seeding.
 
 **Published, on two tracks** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`,
 since the 0.1.0 / 0.1.1 pair of 2026-08-16. Run the `factorio-release` skill's "Published or
@@ -58,8 +60,11 @@ what every reference design does, and the constraint the whole layout hangs off.
 **per-prototype** (Age of Production's salvager throws out its east flank), so
 `planner.recycler_orientation()` computes the rotation that lands the throw in the machine
 above, and any recycler width fits — the columns widen to it. The paired
-machine is pinned to one quality tier and quality matching is *exact*, so a rolled-up ingredient
-jams the eject; that is what the blacklist inserter beneath the recycler is for.
+machine is pinned to one quality tier and quality matching is *exact*, so a rolled-up
+ingredient does not merely jam the eject — measured 2026-08-16, it **wedges the recycler
+completely** (the next result cannot merge with the differently-qualitied output stack, so no
+craft ever starts). The blacklist inserter beneath the recycler is load-bearing for that
+reason, and `tests/loop_spec.lua` fails if it stops working.
 
 **4. A recycling recipe is never evidence an item is buildable.** Researching `recycling`
 unlocks every generated `*-recycling` recipe at once — grinding a tier-3 module *produces*
@@ -118,6 +123,12 @@ scripts/                            one file per runtime concern, required by co
   layout.lua   pure geometry        builder.lua   ghosts on the ground
   poles.lua    pole coverage, connectivity and growth -- pure like layout.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
+tests/                              the permanent suite (factorio-test); registered in
+                                    control.lua behind the active_mods guard, excluded from
+                                    the zip by package.ignore. Run via `factorio-testing`.
+  *_spec.lua                        in-game specs: planner, plan, builder, state, loop, gui
+  pure/                             layout + poles geometry, runs on host Lua too
+  support/research.lua              the five research states as helpers
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
@@ -174,6 +185,12 @@ bump from the first release onward. Which tags were rejected and why is in
   session that produced them in `.ai-support/journal.md`.** Both, not either — the repo
   `CLAUDE.md` → *AI support folders* has the rules. Anything that generalises beyond this mod
   belongs in a skill under `.claude/` instead.
+- **Run the headless suite at checkpoints, not after every edit** — before wrapping up a
+  session that changed `scripts/` or `control.lua`, and before asking for a commit (~15 s via
+  the `factorio-testing` skill); the graphics pass belongs to releases. Testing is a gate,
+  never the development loop's tax. New behaviour still gets its spec in the same session,
+  the way `changelog.txt` is handled — the suite exists because the alternative was
+  re-deriving a scratch harness every session.
 - **Always pass `--check-unused-prototype-data` when validating.** It is the only thing that
   catches a misspelled prototype property, which the loader ignores rather than rejecting, and
   the exit code stays 0 either way — so the log has to be read. See the `factorio-validate`

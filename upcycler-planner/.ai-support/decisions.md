@@ -201,6 +201,32 @@ still needs the repo owner's per-release approval.
   `recycling` unlocks every generated `*-recycling` recipe at once, so a naive "some enabled
   recipe produces it" test reads unresearched modules and cheat-mod infinity chests as unlocked.
 
+## Testing
+
+- **The mod carries a permanent four-tier test suite; the throwaway `--create` scratch
+  harnesses are retired.** Decided 2026-08-16 with the repo owner (framework, installs, GUI
+  scope and the eject investigation each approved explicitly). In-game tier: the
+  **factorio-test** framework driven by its npm CLI — the only maintained, 2.1-compatible
+  option (everything else in the ecosystem is dead) — with specs in `tests/`, registered
+  behind `script.active_mods["factorio-test"]` in `control.lua`, `"tests/**"` in
+  `package.ignore`, and **never** a `factorio-test` entry in `dependencies`. Pure tier:
+  `tests/pure/` runs on host Lua too, sub-second. Static tier: luacheck + emmylua_check
+  against fmtk-generated types. Mechanics, runner scripts and the hard-won Windows plumbing
+  live in the repo's `factorio-testing` skill, not here.
+- **The suite pins the historical harness numbers as regressions** — widths 11/13, the five
+  pole scenarios (including big-pole's honest 7 unpowered), the 185 upcyclable items, the
+  wooden-chest empty terminal — so a drift in any of them is a release-visible event, not a
+  silent reshape.
+- **The blacklist relief inserter is load-bearing, by measurement.** The eject investigation
+  (journal 2026-08-16, evidence `analysis/api.md` §9.6) showed a rolled-up ingredient in the
+  recycler's output wedges the recycler completely; only the relief inserter keeps the loop
+  alive. Any future layout change must keep it, and a test now fails if the behaviour
+  regresses.
+- **GUI specs run in both tiers.** Headless works because a save's player stays connected
+  under `--benchmark` (`analysis/api.md` §12); the graphics tier remains the real-client
+  check, unattended thanks to a current-version save, freeplay's skip-intro remotes, and the
+  runner's close-on-finish watcher.
+
 ## Rejected
 
 Written down so they are not re-litigated. A rejected idea that is not recorded comes back.

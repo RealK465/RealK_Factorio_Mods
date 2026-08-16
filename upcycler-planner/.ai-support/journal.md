@@ -9,6 +9,70 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — a permanent test suite, and the eject question answered
+
+The scratch-harness era ended today: the assertion matrix every session had been rebuilding by
+hand is now a committed 73-test suite under `tests/`, run by the new repo skill
+`factorio-testing`. Deep research (three web fan-outs: frameworks, outside-game testing, real
+mod CI) picked **factorio-test** — the only maintained, 2.1-ready framework; the owner
+approved the framework, all tool installs, GUI as core scope and the eject investigation, and
+the shape held through implementation: in-game specs for state/planner/plan/builder/loop/gui,
+`tests/pure/` for layout and poles running both in-game and on host Lua (14 specs,
+sub-second), and a static tier (luacheck clean at 0/0; emmylua_check against fmtk-generated
+2.1.14 typedefs, 0 errors with warnings listed).
+
+**The standing caution is resolved, and the answer is worse and better than assumed**
+(evidence: `analysis/api.md` §9.6): a rolled-up ingredient in the recycler's output does not
+politely stall the eject — it **wedges the recycler entirely** (furnace output semantics; 40
+gears sat unprocessed, `products_finished` 0 on both buildings), and only the blacklist relief
+inserter keeps the loop alive: with it, the stuck plate drained to the chest, all 40 gears
+recycled, the machine crafted on, nothing lost, nothing wrong-quality delivered. The relief
+inserter is load-bearing, now guarded by a test. Deterministic seeding: script-inserting into
+`defines.inventory.crafter_output` works and stands in for a lucky roll.
+
+**gui.lua ran for the first time — in both tiers.** The discovery that made it cheap: a
+singleplayer save's player stays *connected* under `--benchmark` (§12 of api.md), so even the
+headless suite drives the real modal through `dispatch.on_gui_event` with real widgets — the
+whole flow up to Confirm arming the tool into the cursor. The graphics tier verifies the same
+against a real client, unattended after three fights: the CLI's bundled 2.0-era save shows a
+migration dialog (fix: create a current-version save each run), freeplay's intro blocks the
+first join (fix: `set_skip_intro`/`set_disable_crashsite` baked in at save creation, test-only
+code path), and graphics mode never closes itself (fix: the runner watches for the framework's
+finish marker and kills only dev-install processes). The owner sat through the two failed
+window-opening attempts; the third ran hands-free.
+
+The historical numbers all reproduced on first run — widths 11 and 13, the five pole
+scenarios including big-pole's 15-wide growth with exactly 7 honestly-unpowered consumers,
+the 185 offered items, wooden-chest's empty terminal machine, the 100-plate request cap — so
+the suite genuinely is the old matrix, made permanent. Two of the day's failures were the
+suite teaching *me*: `{ field = nil }` is an empty table (the refusal test passed vacuously
+until a remove-sentinel fixed it), and pole-wire assertions must test connectivity, not edge
+counts, because ghost poles auto-preview-connect on top of the builder's spanning tree.
+Smaller API facts: `get_filter()` hands back a plain string; `tags()` marks the *next* block
+defined, not the enclosing one; spec files are required before `game` exists.
+
+Windows plumbing worth its journal line: the CLI spawns a bare `npx`, which cannot resolve on
+Windows — a scoop shim (`node.exe` + `npx-cli.js`) fixed it, worth reporting upstream — and
+its default portal-credential source is `%APPDATA%\Factorio`, dodged permanently by seeding
+the framework mod through fmtk with the **dev install's** `player-data.json`. Installed and
+recorded in `CLAUDE.local.md`: factorio-test-cli 3.6.0, Lua 5.5, luacheck 1.2.0,
+emmylua_check 0.25.1.
+
+A three-agent review closed the session. Conventions: nothing. Simplicity: a stale comment
+pointer, and the vanilla params fixture duplicated across the two pure specs — now one copy
+in `tests/support/layout_params.lua`. Correctness: four, the real one being that the
+quality-dropdown spec **could not fail** — nothing changed research mid-test, so the
+tag-frozen list and a fresh derivation were identical; it now un-researches two quality
+technologies before firing and selects index 4 of a list a re-deriving handler would have
+shrunk to two. All fixed; all tiers re-run green (73/73 headless, 73/73 in the real client
+through the runner's `-Graphics` path, pure 14/14, static clean). The owner set the cadence —
+checkpoints rather than per-edit, suites opt-in per mod, the graphics pass at releases — now
+written into this mod's `CLAUDE.md`, the `factorio-testing` skill, and `factorio-release`
+step 3. The runner was also prepared for the legacy track (data dirs keyed per install,
+`recycler` auto-dropped where an install ships none), and the skill's 2.0 section is the
+session checklist for it: fork `loop_spec` for the `furnace_*` inventory names, re-measure
+the 185.
+
 ## 2026-08-16 — first release: 0.1.0 (Factorio 2.0) and 0.1.1 (Factorio 2.1)
 
 Published at the repo owner's request, which named the pair: the 2.0 build took `0.1.0`, the
