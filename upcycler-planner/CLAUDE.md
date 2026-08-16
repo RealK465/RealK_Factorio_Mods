@@ -24,10 +24,11 @@ and the planner and layout are exercised by a headless harness — but the loop'
 *behaviour*, above all whether the recycler's eject stalls politely when its machine rejects a
 rolled-up ingredient, is still unproven. That is the standing thing to watch in game.
 
-**Unpublished.** No `upcycler-planner_*` git tag exists, so version `0.1.0` is the open
-section in `changelog.txt` (`Date: ????`) and stays open until the first authorised release.
-New work joins that section rather than opening a second one — the `factorio-changelog`
-skill's rules and the `factorio-release` skill's "Published or open?" check govern.
+**Published, on two tracks** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`,
+since the 0.1.0 / 0.1.1 pair of 2026-08-16. Run the `factorio-release` skill's "Published or
+open?" check rather than trusting a number written here: `git tag -l 'upcycler-planner_*'` is
+what has shipped, and a changelog section still stamped `Date: ????` is what has not. Both
+tracks draw from one shared version sequence — `factorio-multiversion` → Version numbering.
 
 ## The four technical facts worth not re-deriving
 

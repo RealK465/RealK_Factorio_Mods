@@ -54,5 +54,4 @@ rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planne
 
 ## License
 
-GPLv3. See
-[LICENSE](https://github.com/RealK465/RealK_Factorio_Mods/blob/main/upcycler-planner/LICENSE).
+GPLv3. See [LICENSE](https://github.com/RealK465/RealK_Factorio_Mods/blob/main/upcycler-planner/LICENSE).
