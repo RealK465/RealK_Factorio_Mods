@@ -36,6 +36,34 @@ ships (leading dot).
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.
 
+## Portal presentation
+
+Material for the mod portal page, gathered ahead of any release. **This is not a release plan** —
+nothing is published, and every upload still needs the repo owner's per-release approval.
+
+- **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, so it
+  is written for a player skimming the page rather than for a contributor. The portal takes
+  GitHub-flavoured markdown, and images only as URLs to somewhere else.
+- **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
+  window first, then the vanilla loops, then the modded one. The gallery has no order but upload
+  order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
+  place that intent survives until the release that uses it.
+  - `01-planner-menu.jpg` — the modal, legendary target, 5 machines and 4 recyclers.
+  - `02-legendary-upcycling-assemblers.jpg` — the vanilla loop that menu plans.
+  - `03-epic-upcycling-substations.jpg` — a vanilla epic loop, substations as the pole.
+  - `04-modded-upcycling.jpg` — the same planner against modded machines and belts.
+- **Numbering the files costs nothing, because the portal does not show gallery filenames.**
+  `GET /api/mods/<name>/full` returns `assets-mod.factorio.com/assets/<sha1>.png` and no name at
+  all — checked against `pure-modules-realk` on 2026-08-16. The repo `CLAUDE.md` says the portal
+  displays the filename, which holds for the description's own links but not for the gallery.
+- **`images/description/` is not gallery material.** It holds the demo GIFs the README embeds,
+  which the portal can only take as URLs: `vanilla-upcycling.gif` is
+  https://files.catbox.moe/thkeot.gif and `modded-upcycling.gif` is
+  https://files.catbox.moe/ulihf9.gif. The local copies are the masters — catbox is not ours and
+  can drop a file, and replacing one is a description edit, so the mapping has to survive.
+- **The whole `images/` tree stays out of the zip** via `package.ignore`'s `images/**`. Tracked
+  in git so a shot travels with the build it was taken from.
+
 ## Interaction
 
 - **Shortcut → modal → Confirm → one-shot selection tool → click.** The player selects nothing

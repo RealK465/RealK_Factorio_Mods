@@ -158,6 +158,11 @@ one undo step is unchecked.
 
 - **`thumbnail.png`** — 144x144 at the mod root, needed before any release. Deliberately not
   stubbed; a placeholder is the kind of thing that ships by accident.
+- **The one-line description still says "blueprint".** `info.json`'s `description` and the
+  locale `[mod-description]` both read "designs the entire upcycling loop blueprint and places it
+  as ghosts". The readme dropped the word on 2026-08-16 — the mod places ghosts and never makes a
+  blueprint — so the blurb the in-game mod list shows is now the odd one out. Align before the
+  first release.
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **`settings.lua` exists since 2026-08-15**, carrying one per-player setting:
   `upcycler-planner-show-all` (offer unresearched options in the pickers — the game's own

@@ -108,6 +108,8 @@ scripts/                            one file per runtime concern, required by co
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
+images/                             portal page material, never shipped: gallery shots numbered
+                                    in upload order, and description/ for the readme's demo gifs
 .ai-support/index.md                the map — read it first
 .ai-support/decisions.md            what is settled, and why
 .ai-support/deferred.md             parked work, each entry with enough context to pick up cold
@@ -148,9 +150,11 @@ bump from the first release onward. Which tags were rejected and why is in
 
 - Commit scope is `upcycler-planner`. Repo-wide changes use `repo`.
 - **Never commit, push or publish unprompted** — repo `CLAUDE.md`, and approval is per request.
-- `README.md` and the `info.json` / locale descriptions are player-facing and become the portal
-  description verbatim via `fmtk details --readme`. All three currently describe an unfinished
-  mod on purpose; rewrite them before the first release rather than after.
+- **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, and
+  `images/` is the gallery in filename order. Both are player-facing and settled; what each
+  image is, and where the readme's demo gifs are hosted, is in `.ai-support/decisions.md` →
+  *Portal presentation*. Gathering them is not a release — publishing still needs the owner's
+  approval for that specific upload.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
   sync if the root copy is ever refreshed.
 - **Design decisions go in `.ai-support/decisions.md` as they are made, with the reason, and the

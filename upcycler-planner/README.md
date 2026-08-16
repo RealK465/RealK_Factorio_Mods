@@ -31,6 +31,8 @@ passive provider chest at the end of the loop.
 Modded machines, recyclers, modules, belts, poles and chests are all picked up automatically.
 Only researched options are offered, and a setting can show everything instead.
 
+![Planning a loop with modded machines and recyclers](https://files.catbox.moe/ulihf9.gif)
+
 ## Good to know
 
 - Build it inside a logistic network. The loop uses requester and provider chests.

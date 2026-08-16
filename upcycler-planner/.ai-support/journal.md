@@ -9,6 +9,28 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-16 — the readme becomes the portal page, and the portal images arrive
+
+Rewrote `README.md` twice at the repo owner's ask. It is what `fmtk details --readme` uploads, so
+it is written for someone skimming the portal rather than for a contributor: a hook, four numbered
+steps, one line per bullet in the build list, the modded-content claim, and four limits under
+*Good to know*. Two of the edits were corrections rather than taste — "blueprint" left the opening
+because the mod places ghosts and never makes one, and the licence link now points at GitHub,
+since a relative `[LICENSE](LICENSE)` does not resolve on the portal.
+
+The owner then supplied the images: four screenshots for the gallery, and two demo GIFs for the
+description body, hosted on catbox. How the portal takes an image was checked rather than assumed
+— Mining Patch Planner's own description embeds media as bare markdown images, an mp4 among
+them — and the gallery turned out to re-host under hashed URLs, with no filename surviving, which is
+what makes numbering the gallery files free. It is all in `decisions.md` → *Portal presentation*.
+**Nothing is published and nothing is scheduled to be**; the material is gathered so a later
+release does not have to guess at it.
+
+Renamed on arrival: underscores to hyphens, the gallery files prefixed `01`..`04` in the order the
+owner asked for (menu, then vanilla, then modded), and `images/gif helpers/` to
+`images/description/` — a folder with a space in it gets quoted wrongly by something eventually,
+and the new name says what the files are for rather than how they were made.
+
 ## 2026-08-16 — electric poles join the build
 
 Repo owner's ask: build the loop with poles — a picker for the pole and its quality, the pole
