@@ -189,6 +189,16 @@ still needs the repo owner's per-release approval.
   unattended loop cannot keep a burner fed. When every researched inserter needs fuel — how a
   fresh Space Age game genuinely starts — validation says so instead of planning a loop that
   would starve.
+- **Belt-stacking inserters are never planned in** (the repo owner's call, 2026-08-17). A
+  stacking hand holds out for a full belt stack of one item-and-quality, and a quality loop
+  trickles dozens of item/quality combinations past every position — community-documented
+  freezes in recycler builds (ktz.me, 2026-04-08, *Factorio: Recycler Belt Stacking*; community
+  claim, not re-measured locally). The pick could not defend itself: vanilla's bulk-inserter and
+  stack-inserter tie the scorer outright — both `bulk`, both rotation 0.04 — so the winner was
+  engine iteration order. `inserter_max_belt_stack_size` is what tells them apart;
+  `inserter_candidates()` excludes anything above one, a spec guards it, and `loop_spec`'s
+  relief rig stands the planner's own pick so the wedge-relief measurement covers the inserter
+  the layout actually plans.
 - **Electric poles are planned in.** Researched-best **1x1** pole by default (largest supply
   area; a substation is never sprung on the player, though every size is pickable), clearable to
   "no poles"; free tiles first, added pole columns only when needed; best effort plus an orange
@@ -203,7 +213,9 @@ still needs the repo owner's per-release approval.
 - **Fluid recipes**, with a message. Placing unconnected pipe stubs would reproduce the
   reference book's own defect; worth doing properly rather than early — `deferred.md`.
 - **Self-recycling items** (steel and friends). A recycler-only loop needs thousands of inputs
-  per legendary, and no shared design anywhere uses one.
+  per legendary; the few shared designs that wash self-recyclers are a different architecture
+  (recycler walls with no crafting stage — `analysis/blueprints.md` §9) with the same dire
+  economics.
 - **Recipes whose `allowed_effects` excludes quality**, checked on the recycling recipe too
   since the recyclers carry quality modules as well. `can_set_quality` is a different rule with
   a confusingly similar name — craftable *at* a quality, versus quality modules working on it at

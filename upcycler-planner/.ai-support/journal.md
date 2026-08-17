@@ -9,6 +9,84 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — the docs audited against the research, and 0.2.0 opened
+
+The repo owner asked for a no-exaggeration accuracy pass over every doc, folding in the
+research. Reading everything back caught two errors in the previous entry, both worth the
+correction on record. **The "per one recycler" claim was wrong**: the wiki's exact table —
+re-fetched forensically after two extractions disagreed — puts AM3 at 208.5 : 30.4 : 9.8 :
+2.9 : 1 crafters plus **52.8 recyclers** per sustained legendary crafter (about one recycler
+per five machines); the "1 recycler" figure came from the page's *per-recycler-normalised*
+table, a different table. `deferred.md` carried the error for a day and is fixed. And **"no
+published design was found doing the tangent eject" overstated it**: the decoded reference
+book — this mod's own ancestor, `analysis/blueprints.md` §1 — is built on the tangent
+arrangement. The defensible finding is narrower: the wiki documents the mechanic, no surveyed
+page presents the inserter-free machine feed as a feature, and the zero-circuit claim stands
+unqualified.
+
+What the pass added, each with its verification: `quality-math.md` §1 gained the 2.1.7 roll
+rework (`next_probability` ×10 so a 100% effect guarantees an increase; `chain_probability`
+now carries the multi-step rule — installed `data/changelog.txt`, sections confirmed by
+line-mapping); §2 the wiki's exact per-tier module splits (fetched twice identically —
+fractional productivity starts at the middle tiers even with normal modules); §3 the exact
+pyramid and recycler counts; §6 the FFF-442 attribution — the agents' 2.1.12 dating of the
+asteroid ban was checked against the changelog and rejected, 2.1.7 as the doc already said —
+and the LDS shuffle's post-ban standing (community claim, t=133951). `blueprints.md` grew §9:
+the reference lineage's afterlife (every reported bug is a hand-parameterisation slip; Kane99's
+fork is the maintained successor) and the softened negative finding — recycler-only artifacts
+do exist for self-recyclers, so that refusal now rests on economics, not absence, with the
+matching bullets in `decisions.md` and `deferred.md` reworded. `api.md` §6 gained
+`inserter_max_belt_stack_size` with the bulk/stack tie pinned to file:line, §7 the 2.1.7 read
+family. `layout-bot-loop.md` gained the survey's scale evidence for the bot family.
+`README.md` and `faq.md` needed nothing.
+
+**The open section was re-graded 0.1.6 → 0.2.0 at the owner's direction** — the next release
+is to carry a major feature — section header and `info.json` moved together per
+`factorio-release`. The stack-inserter exclusion entry rides along unchanged.
+
+---
+
+## 2026-08-17 — the layout on trial against the wild, and the stack-inserter exclusion
+
+The repo owner asked how the generated layout stands against community upcycler designs. Three
+web fan-outs (architecture families; concrete shared blueprints; creators and theory) came back
+with the design validated on every structural axis: per-tier pinned columns are both the
+dominant published family and what the maths says to build (the wiki's upcycling-math tutorial,
+exyr.org's Feb-2026 equilibrium solution, dfamonteiro's matrices all agree), terminal
+productivity is the universal optimum, buffer chests are the community's own fix for roll
+variance, and the 2.1.7 asteroid-casino ban — announced in FFF #442; the research agent
+misattributed it to 2.1.12 and the installed `data/changelog.txt` line 334 settled it — moved
+the endgame meta back onto exactly this loop family. Two things no published design was found
+doing: running with zero circuits, and the tangent eject feeding the machine with no inserter —
+every published build ejects onto belts. kvdveer's own thread carries the argument for a
+generator over a book: its reported bugs (a legendary filter left on the epic stamp, requester
+counts of 1000, missing undergrounds) are all hand-parameterisation slips, plus third-party
+fix-forks. What the wild does better, already known and now confirmed: fluids, machines-per-tier
+scaling, and circuit quantity-stops.
+
+One code change fell out. The community documents belt-stacking inserters freezing in
+quality-recycler builds (a stacking hand holds out for a full belt stack of one item-and-quality;
+ktz.me, 2026-04-08), and the pick could not defend against it: bulk-inserter and stack-inserter
+tie the scorer outright — both `bulk`, both rotation 0.04 — so the winner was engine iteration
+order. The owner's call: belt-stacking inserters are never planned. `inserter_candidates()` now
+excludes `inserter_max_belt_stack_size > 1`, with a spec whose premise is asserted loudly so it
+cannot pass hollow. The review also caught that `loop_spec`'s relief rig stood a hand-chosen
+fast-inserter, so the wedge-relief measurement had never covered the inserter the layout
+actually plans — the rig now takes `planner.inserter()`'s own pick, and the measurement holds
+with the bulk inserter: a partial hand drains the stuck plate from the recycler output. Suite
+74/74 headless (was 73), pure and static tiers clean; changelog section 0.1.6 opened with the
+entry, `info.json` bumped to match.
+
+Throughput, answered from the same research: no rival architecture beats this family — what
+beats the current build is the same skeleton scaled. The wiki's sustained ratios for AM3 are
+208:30:10:3:1 crafters per single recycler, so the taper is ~7x then ~3x, not a flat 10x, and
+one recycler outruns a whole column (2.1.13 made recycling faster still). The wild's throughput
+shapes are circuit-blocked belt bulks and bot farms; the route here, if scaling is ever asked
+for, stays "repeat columns per tier" (`deferred.md`), with the ring as the eventual bandwidth
+ceiling and the deferred bot loop as the shape past it.
+
+---
+
 ## 2026-08-16 — two release pairs, and the description that lived in three places
 
 The flag work above shipped, and then shipped again an hour later to fix something the first

@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-16
+verified: 2026-08-17
 ---
 # Verified API reference
 
@@ -198,6 +198,15 @@ shorter) and `player` (sets `last_user` and feeds the undo queue).
   unlocks the long-handed inserter** (`data/base/prototypes/technology.lua:1925`), which is
   electric, filterable and faster-rotating than the plain inserter, and would otherwise win the
   pick for the whole early game and grab from the wrong row at every position in the layout.
+  **`inserter_max_belt_stack_size`** (Inserter subclass, optional uint8) is the belt-stacking
+  tell: above 1 the prototype can build belt stacks, and the planner excludes such inserters
+  outright (the reason — community-documented stalls in quality loops — is in
+  `../decisions.md`). The exclusion cannot ride on `bulk`, because vanilla's bulk-inserter and
+  Space Age's stack-inserter tie the pick exactly: both `bulk = true`
+  (`data/base/prototypes/entity/entities.lua:5480`,
+  `data/space-age/prototypes/entity/entities.lua:2682`), both `rotation_speed = 0.04`
+  (base :5507, space-age :2714), and only the stack-inserter carries
+  `max_belt_stack_size = 4` (space-age :2686).
 - `LuaRecipePrototype`: **`categories` is an array in 2.1** (singular `category` does not
   exist); `ingredients`, `products`, `main_product`, `energy`, `maximum_productivity`,
   **`can_set_quality`** (the runtime mirror of the data-stage `allow_quality`; a bare
@@ -225,8 +234,11 @@ hidden and must be skipped). The schema marks `next` non-optional but the top ti
 ends the chain — **nil-check it anyway** (§9).
 
 `LuaForce.is_quality_unlocked(q)`, `unlock_quality`, `lock_quality`.
-2.1.12 added `LuaQualityPrototype.roll_quality()`, 2.1.13 `get_roll_chances()` — engine-supplied
-odds, better than any hardcoded table for a future "expected output" display.
+2.1.7 added the `chain_probability` / `previous_probability` read family (the roll rework's
+runtime mirror — `quality-math.md` §1); 2.1.12 added `LuaQualityPrototype.roll_quality()`,
+2.1.13 `get_roll_chances()` — engine-supplied odds, better than any hardcoded table for a
+future "expected output" display. All three versions confirmed against the installed
+`data/changelog.txt` (2026-08-17).
 
 ## 8. Recycler and recycling-recipe ground truth
 
