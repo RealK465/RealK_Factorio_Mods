@@ -189,7 +189,9 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
   and the 2.0 track stops getting work. It is checked out as a **worktree in the 2.0 dev
   install's own `mods/`**, so the 2.0 build is live and testable exactly as `main` is in the 2.1
-  one. Path in `CLAUDE.local.md`; workflow in the `factorio-multiversion` skill.
+  one. **The repo forks; it never gates** — 2.0 compatibility lives on `legacy/2.0` as forked
+  files, never as a version check, a feature-flag probe or a shim on `main`, however small.
+  Path in `CLAUDE.local.md`; workflow and worked examples in the `factorio-multiversion` skill.
 - **Only a mod's own source may differ between the two branches.** `CLAUDE.md`, `README.md`,
   everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
@@ -244,6 +246,11 @@ Review happens against the working tree, not against a commit.
 
 No emoji. Attribution trailers follow the agent's default — no override either way.
 
+**ASCII only, and pass the message as a file.** A non-ASCII character (`§`, an en dash, a curly
+quote) or a nested quote inside a `-m` string is mangled by the shell before git ever sees it,
+and the fix is a history rewrite. Write the message to a scratch file and `git commit -F <file>`;
+likewise `git tag -a -F` for an annotated release tag.
+
 `changelog.txt` is the player-facing record and is written separately — never paste commit subjects into it, and never paste changelog prose into a commit.
 
 ## Publishing — the rule
@@ -257,6 +264,20 @@ Never run unprompted: `fmtk publish`, `fmtk upload`, `fmtk details`, or any dire
 ## Changelog upkeep
 
 **Updating `changelog.txt` is part of the change, not a follow-up task.** After work a player could notice — prototypes, recipes, balance, graphics, locale, settings, bugfixes — adapt the mod's changelog in the same session, unprompted, through the `factorio-changelog` skill; its open-section rules and the `factorio-release` skill's "Published or open?" check decide whether entries join the open section or a new one opens. Purely internal work gets no entry: refactors with no visible effect, `.ai-support/`, `assets/`, skills and repo docs. In doubt whether a player would notice, they usually would — write the entry.
+
+## Shell and paths
+
+Windows, PowerShell-first, and every path in this workspace holds spaces and a dot. Three
+things bite, all of them silently:
+
+- **Multi-line file content goes through the `Write` tool, never a shell heredoc.** Heredocs
+  here have truncated content and mangled escapes — an escaped newline in a Lua string became
+  a shipped bug once.
+- **Windows-style absolute paths for anything that is not a shell builtin** — Python, `fmtk`,
+  Blender, the `.claude/scripts` and skill scripts. A Unix-style path resolves to nothing under
+  several of them, and the run either fails or, worse, does nothing and exits 0.
+- **Prefer an absolute path over `cd`.** The working directory already persists between calls,
+  and chaining `cd <dir> && <cmd>` is what turns a one-line command into a retry.
 
 ## Code style
 
@@ -276,6 +297,9 @@ developers. Write for a glance.
   internally.
 - **Messages: what happened.** Cut consequences the player can already see.
 - **No mod-internal jargon.** Factorio terms are fine; layout implementation details are not.
+- **Don't restyle the owner's own wording.** An `info.json` `description`, a README line or a
+  changelog entry the owner wrote is their voice — correct an error in it, never rewrite it to
+  taste.
 
 ## Factorio version and local API sources
 
