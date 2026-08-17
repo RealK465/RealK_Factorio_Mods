@@ -232,8 +232,9 @@ re-opening any of these, and don't restate a reason here.
 - Modules are planned rather than requested, and the terminal machine is left **empty** when the
   recipe or the machine refuses productivity.
 - Modded recyclers work by rotation, not convention — see fact 3.
-- Chests are 1x1. Inserters reach one tile and are never fuelled. Poles default to the best
-  researched 1x1 and are clearable to none (`analysis/poles.md`, `analysis/api.md` §10).
+- Chests are 1x1. Inserters reach one tile, are never fuelled and never belt-stacking. Poles
+  default to the best researched 1x1 and are clearable to none (`analysis/poles.md`,
+  `analysis/api.md` §10).
 - Refused, each with a message: fluid recipes, self-recycling items, and recipes that refuse
   quality modules.
 

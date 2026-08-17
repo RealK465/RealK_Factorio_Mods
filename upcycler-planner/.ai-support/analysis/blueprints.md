@@ -201,3 +201,35 @@ Divergences worth remembering: terminal-machine modules are productivity in the 
 books but bare or quality in several hand builds (the maths says productivity, see
 `quality-math.md`); bulk variants scale by repeating machines *within* a column, which is the
 shape any future "scale" input should take rather than inventing new geometry.
+
+## 9. The reference lineage since — web survey, 2026-08-17
+
+Community claims, read from the pages named — not decoded; no strings were re-pulled.
+
+- **kvdveer's thread accumulated exactly the failure modes a generator prevents.** Reported
+  against the book: a stack inserter filtering *legendary* on the rare/epic stamps where it
+  should filter that stamp's own tier (gr0mpel, 2024-11, fixed by a third party 2025-02);
+  requesters asking 1000 of every ingredient on the uncommon/rare EM variants (Magrath,
+  2025-10); missing undergrounds in the legendary EM variant, repaired in a separate repost
+  (factorioprints `-OHyv1-dMNiDqGbQmexO`). Every one is a hand-parameterisation slip. The
+  author never updated the OP; fixes arrived as forks.
+- **The maintained successor is Kane99's expanded book** (factoriobin `whtgdo`, ~2025-11,
+  ~1.2k downloads): kvdveer's stamps repaired, plus foundry, EM-plant and multi-machine "bulk"
+  assembler variants, fluid variants, and combinator automation — the widest machine coverage
+  in the lineage.
+- **Popularity landscape**: the most-favorited upcycler artifact on Factorio Prints is a
+  *single-machine circuit cycler* ("Quality Grinder Parametrized", 273 favourites) — the
+  smallest and slowest of the §8 families; kvdveer's thread stands at ~48k views, konage's
+  video-guide thread (forum t=124772) at ~97k.
+- **The §8 negative finding softens.** Recycler-only artifacts do exist for self-recycling
+  items: "Anything Upcycler" (factorio-blueprints.com) states outright it works *only* on
+  items that recycle into themselves, and a radar recycler wall was shared on factoriobin
+  (`yjaf28`). They are recycler walls with no crafting stage, so `quality-math.md` §3's
+  economics apply unchanged — the refusal of self-recyclers now rests on those economics, not
+  on absence of prior art.
+- **The tangent eject is engine-documented but rarely advertised.** The wiki's Recycler page
+  states the eject works "much like a mining drill" with no inserter needed, and the decoded
+  book (§1) is built on the tangent arrangement — it is where this mod learned it. But the
+  surveyed pages mostly run recycler output onto belts or into chests, and none of the read
+  pages presents the inserter-free machine feed as a feature. The zero-circuit claim is
+  cleaner: no surveyed book or stamp runs without combinators or logistic conditions.

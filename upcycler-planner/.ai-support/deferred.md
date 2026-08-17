@@ -86,11 +86,23 @@ the feed inserter is unfiltered, so it would lift them out of the chest and jam 
 pinned machine before the bots ever saw them.
 
 ### Scaling beyond one machine per tier
-**Status:** not planned, but the shape is known.
+**Status:** not planned, but the shape is known — numbers verified against the wiki 2026-08-17.
 
-Sustained-throughput ratios taper about tenfold per tier, so the compact one-per-tier column is a
-convenience build. If a "scale" input is ever added, **repeat columns per tier** — the wild "bulk"
-variants do exactly that and keep the skeleton — rather than inventing new geometry.
+Sustained-throughput ratios taper steeply, so the compact one-per-tier column is a convenience
+build. The wiki's upcycling-math tutorial (page edited 2026-01-22, table fetched 2026-08-17)
+puts the AM3 loop at 208.5 : 30.4 : 9.8 : 2.9 : 1 crafters plus **52.8 recyclers** per
+sustained legendary crafter — about 7x on the first step, about 3x thereafter — and the EM
+plant at 61.9 : 17.4 : 7.5 : 3.2 : 1 plus 16.5 recyclers. So recyclers run about one per five
+machines, never 1:1; at this mod's one-machine-per-tier scale a single recycler keeps up with
+the whole column (kvdveer's thread claims the same — community claim), which makes the
+per-column tangent recycler deliberate over-provision — cheap, and it preserves the
+eject-and-relief mechanism. If a "scale" input is ever added, **repeat columns per tier** —
+the wild "bulk" variants do exactly that and keep the skeleton — rather than inventing new
+geometry. The ring is the eventual ceiling (one belt of shared circulation); the wild's builds
+past that point are bot farms, which is what the bot-loop toggle above becomes at scale.
+Compute the taper from `LuaQualityPrototype.get_roll_chances()` rather than copying the wiki
+table, and read recycle times from the generated recipes — the formula moved again in 2.1.13
+(`analysis/api.md` §8).
 
 ### Layout rotation
 Mining Patch Planner's `coord_convert` / `coord_revert` (`mpp_util.lua:22-47`) is the pattern:
@@ -135,8 +147,11 @@ from one.
 
 ### Self-recycling items
 Steel and friends have no ingredient-reversal recipe, only the lossy 25%-of-itself fallback. A
-recycler-only loop needs thousands of inputs per legendary and **no shared design anywhere uses
-one**, so these are refused. Revisit only if the niche turns out to matter.
+recycler-only loop needs thousands of inputs per legendary, so these are refused. The
+2026-08-17 web survey softened the old "no shared design anywhere uses one": a few
+recycler-only artifacts do exist for exactly this niche (`analysis/blueprints.md` §9), but
+they are a different architecture — recycler walls with no crafting stage — with the same dire
+economics (`analysis/quality-math.md` §3). Revisit only if the niche turns out to matter.
 
 ### Modded quality tiers
 The quality chain is walked via `prototypes.quality["normal"].next` rather than hard-coded, so it

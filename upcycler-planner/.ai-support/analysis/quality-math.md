@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-15
+verified: 2026-08-17
 ---
 # Quality maths, recycler mechanics, and how closed loops fail
 
@@ -31,15 +31,29 @@ Two rules the layout depends on:
   blacklist inserter exists.
 - **Fluids are exempt from quality entirely.**
 
-2.1.12/2.1.13 added `LuaQualityPrototype.roll_quality()` and `get_roll_chances()`, so a mod can
-ask the engine for real odds instead of embedding this table.
+**2.1.7 reworked the roll's internals** (installed `data/changelog.txt`, section confirmed by
+line-mapping 2026-08-17): quality `next_probability` was multiplied by 10 (to 1), so a 100%
+total quality effect now *guarantees* an increase — module effect values moved by the inverse
+factor, so the effective per-module chances above are unchanged (the scale seam is recorded in
+`factorio-2.0.md`) — and the multi-step jump became data-driven: `next_probability` now affects
+only the first step, and the new `QualityPrototype::chain_probability` carries the steps after
+it, so FFF-375's "10 times lower per step" is a data default rather than an engine constant.
+2.1.12/2.1.13 added `LuaQualityPrototype.roll_quality()` and `get_roll_chances()` (both
+versions confirmed against the installed changelog 2026-08-17), so a mod can ask the engine
+for real odds instead of embedding this table.
 
 ## 2. Module placement — the correction to folklore
 
-*"Quality below target, productivity at target"* is optimal **only for normal-quality modules**.
-The wiki's own tables shift productivity-ward as module quality rises — legendary Q3 modules in
-an electromagnetic plant want 1 quality + 4 productivity even at the normal stage. The optimal
-split is a function of (machine x module tier) and is sometimes fractional across a bank.
+*"Quality below target, productivity at target"* is an approximation even for normal-quality
+modules. The wiki's exact optima (page edited 2026-01-22; the tables fetched twice with
+identical numbers, 2026-08-17) put fractional productivity at the middle tiers already at
+normal module quality — AM3 from normal to legendary: 4q+0p, 3.75q+0.25p, 3.2q+0.8p,
+2.8q+1.2p, 0q+4p; EM plant: 5q+0p, 4.7q+0.3p, 3.6q+1.4p, 2.6q+2.4p, 0q+5p — and the split
+shifts further productivity-ward as module quality rises (legendary Q3 in an electromagnetic
+plant want 1 quality + 4 productivity even at the normal stage). The fractions are bank
+averages, so they only bite at multi-machine scale; at one machine per tier the flat
+all-quality rule costs a few percent at the middle tiers. The optimal split is a function of
+(machine x module tier).
 
 **The terminal rule is universal**, though: quality modules on the target-tier machine are pure
 waste — there is nothing above the ceiling to roll into — and productivity strictly beats empty
@@ -68,9 +82,12 @@ All 2.0-era analyses; mechanics unchanged.
 - **~300% total productivity makes a recycle loop break even** (0.25 x 4 = 1). Wube sized the
   `maximum_productivity` cap (default 3.0) for exactly this (FFF-375). Built-in +50% counts
   toward the cap, not on top of it.
-- **Tier sizing tapers ~10x per step** for sustained throughput (e.g. chemical plant: ~332
-  normal + ~39 uncommon + ~11 rare + ~3 epic machines plus ~90 recyclers per one sustained
-  legendary crafter). **The compact one-machine-per-tier column is a convenience casino, not a
+- **Tier sizing tapers ~7x on the first step and ~3x after** for sustained throughput — the
+  wiki's exact table (fetched 2026-08-17): AM3 208.5 : 30.4 : 9.8 : 2.9 : 1 crafters plus 52.8
+  recyclers per sustained legendary crafter; EM plant 61.9 : 17.4 : 7.5 : 3.2 : 1 plus 16.5.
+  Recyclers run about one per five machines. (The older community figure of ~10x per step —
+  e.g. chemical plant ~332/~39/~11/~3 plus ~90 recyclers — stands as the same order of
+  magnitude.) **The compact one-machine-per-tier column is a convenience casino, not a
   throughput build.** Worth saying honestly in the GUI or docs. If scaling is ever added, scale
   *columns per tier* — the wild "bulk" variants put 3 machines in a column and keep the same
   skeleton.
@@ -101,10 +118,11 @@ All 2.0-era analyses; mechanics unchanged.
 
 ## 5. Prior art and demand
 
-- **No mod generates upcycler layouts.** `upcycler` and `quality-condenser` replace the mechanic
-  with a magic machine; `quality-cycler` edits quality inside an existing blueprint;
-  scottmsul/upcycle and the exyr / dfamonteiro analyses stop at numbers; shared "smart upcycler"
-  posts are hand blueprints with manual chest and inserter setup.
+- **No other mod generates upcycler layouts** (re-surveyed 2026-08-17; this mod shipped
+  2026-08-16). `upcycler` and `quality-condenser` replace the mechanic with a magic machine;
+  `quality-cycler` edits quality inside an existing blueprint; scottmsul/upcycle and the
+  exyr / dfamonteiro analyses stop at numbers; shared "smart upcycler" posts are hand
+  blueprints with manual chest and inserter setup.
 - Explicit player requests for automation exist on the forums, and some of the demand is a
   **discoverability gap** — players not knowing that quality modules work in a recycler at all.
   That is an argument for the GUI surfacing derived facts (footprint now, expected output
@@ -113,18 +131,24 @@ All 2.0-era analyses; mechanics unchanged.
 ## 6. Out of scope, and why
 
 - **Asteroid-chunk reprocessing laundering** — dead since 2.1.7, which disallowed quality
-  modules on crusher reprocessing recipes (first-party, in the local changelog).
+  modules on crusher reprocessing recipes (first-party, `data/changelog.txt` line 334,
+  section re-confirmed 2026-08-17; announced in FFF #442 — a research agent's 2.1.12
+  attribution was checked against the changelog and rejected).
 - **Biter-egg / spoilage tricks** — ordinary recipes with a farm input; the generic loop covers
   them.
 - **The LDS "blue chip casino"** — a recipe-choice heuristic (expensive single-ingredient
   intermediates), not a distinct mechanic. The generic loop handles those recipes natively.
+  Post-ban the community rates the LDS shuffle the strongest legendary-material source left on
+  2.1 (forum t=133951, 2026-06 — community claim): foundry cast-LDS plus recycler runs
+  lossless at ≥300% productivity. Still a recipe choice riding a standard craft+recycle loop,
+  so nothing for the layout to add.
 
 ## 7. Sources
 
-wiki.factorio.com `Tutorial:Quality_upcycling_math`, `Quality`, `Recycler`, `Productivity`,
-`Electromagnetic_plant`, `Foundry`, `Cryogenic_plant`; factorio.com/blog/post/fff-375;
-dfamonteiro.com pure-recycler-loop and recycler-assembler-loop posts;
-exyr.org/2026/solving-factorio-quality/; forum threads t=121438 (the reference lineage),
+wiki.factorio.com `Tutorial:Quality_upcycling_math` (exact tables re-fetched 2026-08-17),
+`Quality`, `Recycler`, `Productivity`, `Electromagnetic_plant`, `Foundry`, `Cryogenic_plant`;
+factorio.com/blog/post/fff-375; dfamonteiro.com pure-recycler-loop and recycler-assembler-loop
+posts; exyr.org/2026/solving-factorio-quality/; forum threads t=121438 (the reference lineage),
 t=122116 (single-machine), t=124099 (bot cell), t=120584 (variance ruling), t=118900 and
-t=121103 (recycle-time formula), t=127564, t=128439; github.com/scottmsul/upcycle;
-factoriobin posts 8wj94j, whtgdo, yjaf28, a10b2v.
+t=121103 (recycle-time formula), t=127564, t=128439, t=133951 (LDS shuffle post-ban);
+github.com/scottmsul/upcycle; factoriobin posts 8wj94j, whtgdo, yjaf28, a10b2v.

@@ -107,7 +107,10 @@ roboports (same as the belt ring).
 ## Prior art
 
 Bot-transport upcyclers do exist in the wild — a 20x7 "quality upscaler" cell on the forums, and
-the bot-sorted storage-bin family described in `blueprints.md` §8. This layout is a tidier
-derivation from the verified mechanics rather than a copy of any one of them, so it is the one
-part of the design with no directly attested reference build. **Test it properly before
-shipping**, rather than trusting the derivation.
+the bot-sorted storage-bin family described in `blueprints.md` §8. The 2026-08-17 survey added
+scale evidence at both ends: a 508-assembler / 187-recycler EM-plant bot farm (factoriobin
+`qu4ky0`) and a parameterised bot cell with a request-sizing formula in its description
+(factorioprints `-ODB2KCdbgFzMT1Cf8pW`) — community claims, pages read, strings not decoded.
+This layout is a tidier derivation from the verified mechanics rather than a copy of any one of
+them, so it is the one part of the design with no directly attested reference build. **Test it
+properly before shipping**, rather than trusting the derivation.
