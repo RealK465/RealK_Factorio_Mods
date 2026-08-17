@@ -2,9 +2,9 @@
 Version: 0.3.0
 Date: ????
   Features:
+    - A settings window, opened with the Settings button beside the planner's close button.
     - Inserters and chests can now be configured in the build options too.
     - The top machine's module can now be configured in the build options too.
-    - A settings window, opened with the Settings button beside the planner's close button.
     - A new setting, 'Show all build options', brings every hidden selector back.
   Changes:
     - Build options with a single choice are now hidden. Enable them in the settings window if
