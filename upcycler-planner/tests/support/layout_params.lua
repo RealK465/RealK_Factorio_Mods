@@ -19,9 +19,17 @@ function layout_params.vanilla(overrides)
       name = "recycler", quality = "normal", width = 2, height = 4, module_slots = 4,
       direction = defines.direction.north,
     },
-    belt = "transport-belt", inserter = "fast-inserter", container = "iron-chest",
-    requester = "requester-chest", provider = "passive-provider-chest",
-    modules = { quality_module = "quality-module", terminal_module = "productivity-module", quality = "normal" },
+    -- A bare name where the thing has no quality (belt, pipe), a { name, quality } pair where
+    -- the player picks one -- the same split planner.plan hands over.
+    belt = "transport-belt",
+    inserter = { name = "fast-inserter", quality = "normal" },
+    requester = { name = "requester-chest", quality = "normal" },
+    container = { name = "iron-chest", quality = "normal" },
+    provider = { name = "passive-provider-chest", quality = "normal" },
+    modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      terminal_module = { name = "productivity-module", quality = "normal" },
+    },
     requests = { ["iron-plate"] = 100 },
     product_buffer = 50,
   }

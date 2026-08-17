@@ -9,6 +9,311 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — two regressions from the cleanup, reported from the game
+
+The owner opened the mod and found the item and machine pickers dead: *"when i click on 'Item to
+Upcycle' it does nothing anymore"*, and then the detail that named the cause — *"i can see a frame
+but it disappears directly ... it opens and closes instantly"*.
+
+**The cleanup pass had put those two handlers on the rebuild path, and `on_gui_click` shares a
+dispatcher with `on_gui_elem_changed`.** So a click reached the handler *as the engine was opening
+the button's own chooser*, the handler rebuilt the modal, and the rebuild destroyed the button with
+the chooser on top of it. No error, nothing in the log — the picker just flashes. Only those two
+pickers could hit it, because they are the only two that rebuild.
+
+The fix is an equality guard rather than an event-name test: do nothing unless the value actually
+changed. It keeps the specs able to drive the dispatcher with a hand-shaped event, and it wants the
+*normalised* quality on the machine side — the button always reports one, the stored one is nil
+until the player picks a tier, so a raw comparison reads every first click as a change.
+
+**The third report was the placement, and it was a deeper mistake than the clamp admitted.** The
+settings window is placed from the modal's width, inferred as `resolution - 2x` — exact for a
+centred frame, and the modal is draggable. Dragged left the inference overshoots, so the window
+went to the far right of the screen: *"they coordinates are being inversed"*, which is what an
+overshoot looks like from the outside. The earlier clamp only kept it on screen; it did not make it
+right. Now the **last plausible measurement is remembered per player** and reused whenever the
+current reading falls outside the range a real modal can occupy. That is what makes a dragged modal
+work at all, since nothing in the API reports whether a frame was moved.
+
+Both are pinned, and both were confirmed by removing the fix and watching the new test fail. Worth
+recording that the cleanup's own reviewers did not catch either: one was invisible without a real
+client (no spec clicked a picker without changing it), and the other needed a player to drag a
+window. **Suite: 116 passing**, and `api.md` gains §20 for the click-before-chooser ordering.
+
+
+## 2026-08-17 — a cleanup pass, and the handlers stopped repainting by hand
+
+Four reviewers over the same 0.3.0 diff, one each on reuse, simplification, efficiency and
+altitude. Two of them independently named the same two extractions, which is the useful signal:
+the modal and the settings window were building **the same fourteen-line titlebar** (three
+separately load-bearing details in it — the filler's own `drag_target`, its 24px height matched to
+`frame_action_button`, and the label's `ignored_by_interaction`), and five pickers each carried
+their own copy of "the keys of a memoised candidate map, memoised". Both are now one helper:
+`add_titlebar` and `names_of`.
+
+**The altitude finding was the one worth the pass.** The recipe and machine handlers hand-repainted
+four widgets each — machine filter, inserter value, the top module's filter and value, the pipe's
+visibility — while the file header states the design is *rebuild, not repaint*. That was true when
+a rebuild re-centred the modal and stole `player.opened`; this release fixed both, so the handlers
+now just call `gui.open`. Twenty lines deleted, `widgets()` gone with them, and the pipe's
+visibility — which had exactly one repaint site and would have needed a second the moment another
+picker depended on the recipe — is derived in the one place that derives everything else. The
+three specs that held an element reference across a handler now re-fetch, which is the honest
+consequence: the modal really is rebuilt.
+
+Smaller: `gui.open` gave up its 59-line defaulting preamble to `apply_defaults`; `filters_needed`
+and the `#fluids == 1` test moved into `planner` as `filters_needed(recipe)` and `needs_pipe(recipe)`,
+since both are planning rules the GUI was re-deriving; `quality_options` turned out to be `offered`
+with different arguments; `module_items` became one `prototypes.get_item_filtered` call and now
+feeds `module_candidates`, which was walking every item prototype once per effect;
+`electric_inserter_candidates` filters the inserter table instead of rescanning every entity in
+the game; and `validate` asks `is_quality_unlocked` once per distinct tier instead of once per
+material — nine calls where the ordinary game has one answer.
+
+**One block was deleted rather than moved.** `gui.open` normalised nine `*_quality` keys on every
+open, and every read already goes through `planner.build_quality` or `with_quality`. It changed
+nothing, but it read as load-bearing, so each new picker had been adding a line to it.
+
+Four findings were recorded instead of acted on (`deferred.md`), the largest being that choice
+reconciliation is written twice — purely in `planner.chosen_*`, destructively in the GUI — and has
+already drifted enough to make one of validate's refusal messages unreachable. **Suite: 115
+passing**, unchanged in count, which is the point: nothing here was meant to change behaviour.
+
+
+## 2026-08-17 — Preferences became Settings, and a review found two live bugs
+
+The owner asked for the titlebar's sliders glyph to become a button reading **Settings**, and for
+the word *preferences* to go with it. The rename is mechanical — window, button, locale keys,
+element names, dispatch tags, `gui.open_prefs` → `gui.open_settings` — and it is also the more
+honest name: the two values genuinely are the mod's own per-player *settings*, editable from the
+game's own menu.
+
+The button was the interesting part. `frame_action_button` is a fixed 24x24 square with no room
+for a word, but its **parent** `frame_button` is the same chrome without the size, so a plain
+`button` in that style sits in the titlebar looking like the close X beside it once
+`minimal_width` (108 by default), `height` (28) and padding come down to a titlebar's 24. The
+sprite went with the glyph: `prototypes/planner/gui-sprites.lua` deleted and its `require`
+removed, leaving the data stage at two prototype files. `api.md` §18 keeps the inversion finding
+anyway, reframed — it is the answer for the next icon button, not a description of this one.
+
+Then the owner reported the caption was black at rest. **`frame_button` inherits `button`'s font
+colours, and vanilla's `button_default_font_color` is an empty table — pure black — with the
+hovered colour matching it.** On a titlebar that reads inside out. `LuaStyle` exposes
+`font_color`, `hovered_font_color` and `clicked_font_color` at runtime, so three lines on the
+element do by hand what `invert_colors_of_picture_when_hovered_or_toggled` does for a glyph:
+white at rest, black under the cursor.
+
+**A code review ran in parallel and earned its seat.** Two reviewers, one on the runtime Lua and
+one on conventions, tests and the published files; both returned *With fixes*. Two findings were
+live bugs, and both were reproduced by tests written after the fact — then confirmed by removing
+the fix and watching them fail:
+
+- **Opening a chest while the settings window was up tore the planner down.** `close_settings`
+  reclaimed `player.opened` unconditionally, and the API warns that opening a GUI inside
+  `on_gui_closed` makes the engine force-close whichever one it was *not* asked for — here the
+  modal, whose own close handler then destroyed it. Guarded on `player.opened ~= nil`.
+- **A dragged modal pushed the window off the screen.** Its x is inferred from the modal's
+  *centred* location and the titlebar makes the modal draggable: dragged right the width came out
+  negative, dragged left it overshot. Silent both ways — the button just looked dead. Negative
+  falls back to centring, and the x is clamped to keep the window reachable.
+
+Neither was findable by running the suite, which was green on both. The rest were documentation,
+and the worst of them were in files that ship: a **trailing space** in `changelog.txt` (a silent
+parse failure — the changelog simply stops rendering), a `decisions.md` entry claiming four FAQ
+entries where `faq.md` had two, a README sentence promising most pickers appear only with mods
+when six of nine are visible in vanilla, and two behaviour changes the changelog never mentioned
+at all. The FAQ gained the entry the register had already claimed for it. **Suite: 115 passing.**
+
+
+## 2026-08-17 — the inserter and the three chests became pickers
+
+Asked for by the repo owner: *"currently the inserters and the requester chests are being auto
+selected, can you make it possible for the user to choose them in the menu?"*, with two
+conditions — no stack inserters, and research-gated like everything else — and "default to the
+best available, the current criteria seem to work". Four decisions came back from the questions:
+**all three** chest roles rather than the requester alone, a quality on each picker, burners
+never offered, and a minor bump (0.3.0 / 0.3.1). This closes the *Chest picker in the modal*
+entry that had sat in `deferred.md` since 2026-08-15, when AAI Containers made the auto-pick
+grab a 4x4 warehouse.
+
+**Nothing new was invented.** The strip already had the shape five times over, so the work was
+mostly instantiating it: a memoised candidate scan, a `buildable`-narrowed picker list, an
+`is_*` membership test for prune, a `chosen_*` that falls back on a stale name, a default the
+handler snaps an emptied button back to. Three places needed a real decision instead:
+
+- **The chest roles became a table** (`CHEST_ROLES` + `CHEST_ACCEPTS`) rather than three copies
+  of one predicate, which is what let the modal build all three buttons from a loop and share
+  one dispatch handler keyed by a tag. `planner.container()` and `planner.logistic_container()`
+  collapsed into `planner.chest(force, role)`.
+- **The quality had to reach the ghosts**, so `inserter`, `container`, `requester` and
+  `provider` are now `{ name, quality }` pairs in the layout params, matching the machine and
+  the recycler. The bare-string-means-no-quality invariant fell out of that and is now written
+  down in `decisions.md`.
+- **`prune`'s quality list became a `_quality$` key match.** It was about to grow to eight names,
+  and the failure mode of forgetting one is exactly what `state.arm`'s whole-table copy loop was
+  fixed for.
+
+**Two things the data dump caught that reasoning had not.** Base ships four 1x1 containers no
+item can place — the crash-site pair and the two tips-and-tricks chests — so the show-all picker
+offered scenery until both new lists gained the `items_to_place_this` gate the machine list has
+always had. And the filter-slot refusal looked untestable in vanilla (all six inserters carry
+five slots) until a query over every recipe in the dump turned up exactly one upcyclable recipe
+needing six: fusion reactor equipment. Both are recorded in `analysis/api.md` §15.
+
+**Suite: 100 passing, green on the first run** (90 before), plus luacheck 0/0 and emmylua_check
+with no errors. The new specs are the picker lists and their three exclusions, the per-role
+chest membership, the filter-slot refusal, picks and stale picks reaching (or not reaching) the
+plan, prune keeping and dropping the new choices, and three GUI ones — the defaults, a role-keyed
+chest write with its siblings untouched, and a recipe change re-picking an outgrown inserter. The
+data stage still loads clean.
+
+**Reading the diff back caught one thing the tests could not.** The new by-name filter-slot
+refusal advised "pick an inserter with more filter slots" in a game where none has any — so the
+three inserter refusals were reordered to ask `any_inserter` first: nothing available with enough
+slots blames the recipe, and only past that gate is the pick named. That makes the vanilla path
+the honest one and leaves the by-name branch reachable only with a modded inserter, which the
+spec now says out loud instead of pretending to cover it.
+
+**Then the top machine's module became the ninth picker**, asked for in the same session:
+*"only pre-select productivity modules, if no productivity is allowed no pre-select any module,
+make as available option only modules that are supported by the machine/recipe"*. Three things
+came out of it beyond the picker itself.
+
+The **quality-module fallback is gone**. When no productivity module was researched yet, the
+terminal machine used to be filled with a quality module — a small yield gain, but a choice made
+on the player's behalf at exactly the tier where quality has nothing left to roll into. The
+default is now productivity or nothing, and the picker is where the alternative lives.
+
+**The offered list needed a measured rule, and the obvious one was wrong.** "Every effect the
+module carries must be allowed" would mean a speed module cannot go in an oil refinery — the
+refinery disallows `quality` and the speed module carries `quality: -0.025`. A throwaway probe
+spec (four holders × four modules, `can_insert` and a real insert, agreeing in all sixteen cases)
+settled it: only the effects a module applies **positively** have to be allowed. The refinery
+takes the speed module and refuses a quality module; the recycler refuses productivity. Written
+up as `analysis/api.md` §16, including the second reading vanilla cannot distinguish and why the
+conservative one is implemented.
+
+**Nine buttons stopped fitting a row**, so the strip is a five-column table now — what moves the
+items on the first row, what powers and equips them on the second. The two module pickers also
+stopped sharing one quality: that was deliberate while the terminal module was *derived* from the
+quality module, and became wrong the moment it was a choice of its own.
+
+**Suite: 108 passing**, again green on the first run. The additions are the measured acceptance
+rule against real prototypes whose `allowed_effects` differ, the per-pair offered list (gears
+offer productivity, wooden chests do not), the productivity-or-nothing default, the pick reaching
+the plan at its own quality while the recyclers keep theirs, clearing meaning empty, and two GUI
+ones — a recipe swap dropping a module the new pair refuses, and a machine swap re-resolving it.
+
+**And then the strip learned to hide itself.** Third request of the session: *"can you hide the
+selectors if only 1 option is available?"*, with a list of pickers that must always be there —
+item, target quality, machine, belt, quality module, pole — and one extra rule, that the pipe is
+out until the recipe takes a fluid. The pole appeared on **both** lists in the request (named as a
+hide example and then as always-visible); the explicit list won, and it has an independent reason:
+clearing the pole picker means "no poles", so it is a choice at any count. The top machine's
+module is exempt for exactly the same reason, which is the rule that resolved it rather than a
+special case.
+
+Two consequences worth recording. **A hidden picker takes its quality with it** — a vanilla game
+can no longer ask for legendary recyclers or legendary logistic chests — which reverses the
+2026-08-16 decision that the recycler row is always shown *because* its quality became pickable.
+Flagged to the owner rather than quietly absorbed, and written into `decisions.md` as the trade it
+is. And **the five-column table went away again**: it had been added an hour earlier because nine
+buttons in a row would widen the modal, and the hide rule makes six the common case, so a single
+row is right again. `visible` is documented as "taking no space in the layout", which is what
+makes hiding a row inside a table reflow cleanly instead of leaving a hole.
+
+`planner.buildable_pipes` was deleted as dead: the pipe picker narrows its own names list now,
+because a *type* filter cannot be counted and the count is what decides visibility. **Suite: 109
+passing**, green on the first run again; the new spec pins the four hidden pickers against
+planner-level counts, so a modset that adds a second recycler fails the premise loudly instead of
+silently contradicting the spec's claim.
+
+**Fourth request: the settings moved into the modal.** *"In the main modal there is a button
+'Preferences' that when we click it opens a 2nd modal... maybe we could do the same thing?"* — with
+a screenshot of Factory Planner, and two preferences named: the existing *show unresearched* and a
+new *show all build options*, which is precisely the escape hatch the hide rule above needed. The
+owner also asked, mid-session, how FP actually does it. It has **no `settings.lua` at all** —
+every preference is in `player_table.preferences`, filled by a `reload()` that keeps existing
+values — and its nesting is `player.opened = modal_frame` with the main dialog's close handler
+guarded by a stored `modal_dialog_type` flag, plus `player.opened = main_frame` on the way out
+under the comment *"player.opened needs to be set because on_gui_closed sets it to nil"*.
+
+Read, then deliberately not copied on the storage half. A throwaway probe spec settled three
+engine questions in one 15-second run (now `analysis/api.md` §17): a mod **can** write its own
+per-player setting, that write **does** raise `on_runtime_mod_setting_changed`, and handing
+`player.opened` to another frame **does** get the modal destroyed. The first two make settings
+strictly better than storage *here* — one value with two faces, one repaint path for both, and a
+preference that survives into the next save, which FP's storage ones do not. FP's reason for
+storage is thirty preferences of many widget types; this mod has two booleans. The third measured
+answer is why `control.lua` now refuses a close on the modal while `gui.prefs_open(player)`, with
+the window's existence as the guard rather than a stored flag — it cannot drift from the screen.
+
+No gear exists in `data/core/prototypes/utility-sprites.lua`; the button is `utility/preset`, the
+settings-sliders glyph vanilla uses for map-gen presets, and the owner picked it over a literal
+iron-gear-wheel icon. Two small things fell out on the way: `strip_tooltip` became
+`titled_tooltip` now that the titlebar uses it too, and both titlebars gained names — unnamed,
+their buttons were reachable only by child index, which is what had kept the close button out of
+the suite. Checkbox captions come from the `mod-setting-name` / `mod-setting-description` locale
+categories, so the window and the settings menu cannot word one preference two ways.
+
+**Suite: 112 passing**, green on the first run. The three new specs are the ones that would have
+caught this feature's real failure modes: the window opening without taking the modal down with it
+(the guard), the modal closing taking the window along, and ticking *show all build options*
+rebuilding the modal with all four hidden pickers plus the fluid-less pipe visible. luacheck
+caught one shadowed upvalue in a new spec helper; nothing else.
+
+**Then the owner saw the button in game: dark at rest, white on hover — backwards.** The cause was
+a style, not the sprite: `frame_action_button` sets
+`invert_colors_of_picture_when_hovered_or_toggled` (`data/core/prototypes/style.lua:2797`), so it
+supplies the hover state itself and the glyph it is given must be white. Vanilla's `close.png` is;
+`preset.png` is black. Fixed with an `upl-preferences` sprite prototype — vanilla's own file with
+`invert_colors = true`, verified white in both mip levels before writing it, and verified *read* by
+a hand-built `--check-unused-prototype-data` run (zero unused properties: the only thing that
+separates applied from silently ignored). No art drawn, none shipped. Detail in
+`analysis/api.md` §18, along with the SpritePath rule that a bare prototype name is legal.
+
+**And the error that arrived with it was a dev-loop artifact worth writing down.** The owner's
+running game threw `Unknown sprite "upl-preferences"` from `on_lua_shortcut` while the dump showed
+the prototype present and every checker green. Prototypes are read **once at process startup**;
+loading a save re-runs `control.lua` from disk but never the data stage — so that process was
+holding new GUI code over an old prototype set. A full restart is the fix, and no player can reach
+the state. The same round's graphics run failed too, and separately: its log ends `Closed during
+loading` at 19 s, killed mid sprite-load rather than erroring. Re-run clean, **112 passing in a
+real client**, which is what actually proves the sprite resolves at runtime.
+
+**Last round of the session: the window's default position, and a six-per-row grid.** The owner
+sent a mock — Preferences to the right of the planner, top edges level — and asked that build
+options never exceed six per row. The grid was a one-line change (`flow` -> `table` with
+`column_count = 6`); the position was not, because **nothing in the API reads an element's rendered
+size**. The way out is that an auto-centered frame's `location` gives its size back:
+`size = resolution - 2 * location`, locale-proof where a hardcoded width is not.
+
+Two things had to be measured in a real client, and a throwaway spec did both with
+`take_screenshot{show_gui = true}` plus the centred-location trick (`analysis/api.md` §19).
+**`location` reads 0,0 until a frame has been laid out** — the tick after it is built — so the
+placement can only measure off a modal already on screen; the first attempt read it during a
+rebuild, computed a width off a zero and put the window at x = 2575 on a 2560-wide screen. That is
+also why a rebuild now **keeps the modal exactly where it was** instead of re-centring: the top
+edge the window is levelled against stops moving, the modal stops jumping out from under the cursor
+when a preference is flipped, and no re-placement is needed at all. **And a hidden child takes no
+cell in a table**: six visible of nine measured 610px tall against 720px for all nine, which is one
+strip row plus the recycler row — identical heights would have meant cells held. Confirmed by
+screenshot: one dense row of six, and 6 + 3 when everything shows.
+
+The suite earned its keep twice in this round. It caught `place_beside_modal` being defined *below*
+`gui.open`, where the name resolved as a nil global — a non-recoverable error on the first
+preference flip, from a change that looked obviously correct. And the screenshots needed the probe
+to run alone: the framework prints every result to the console and `research_all_technologies()`
+raises a queue of achievement toasts that draw over the modal and outlast a 600-tick wait.
+`player.clear_console()` fixed the first, isolation the second. **Suite: still 112 passing** -- the
+grid's column count is the one piece of geometry a headless spec can see, and it joined an existing
+test rather than becoming another one.
+
+Also corrected two stale numbers in `decisions.md` while reading it: the suite pins **210**
+upcyclable items and big-pole's honest **3** unpowered, not the 185 and 7 from before 0.2.0.
+
+---
+
 ## 2026-08-17 — released: 0.2.0 (Factorio 2.0) and 0.2.1 (Factorio 2.1)
 
 Published at the repo owner's request ("you can release 0.2, update also description and faq

@@ -21,6 +21,16 @@ local function choices_with(overrides)
   return choices
 end
 
+-- The machine crafting at the target tier. Both halves of the test are fixture facts owned by
+-- choices_with, so finding nothing means the fixture moved, not that the plan is wrong -- which
+-- is why this asserts rather than handing back a nil for each caller to trip over separately.
+local function terminal_machine(plan)
+  for _, e in pairs(plan.entities) do
+    if e.name == "assembling-machine-3" and e.recipe_quality == "rare" then return e end
+  end
+  assert(false, "no machine crafting at the target quality -- the fixture moved")
+end
+
 local function count_by_name(plan, name)
   local n = 0
   for _, e in pairs(plan.entities) do
@@ -158,14 +168,37 @@ describe("planner.plan", function()
     end)
   end)
 
+  describe("the top machine's module is a pick", function()
+    test("a picked module reaches the terminal machine at its own quality", function()
+      local plan = planner.plan(force(), choices_with({
+        terminal_module = "speed-module-3", terminal_module_quality = "epic",
+      }))
+      local terminal = terminal_machine(plan)
+      assert(terminal.modules.name == "speed-module-3",
+        "terminal module " .. tostring(terminal.modules.name))
+      assert(terminal.modules.quality == "epic",
+        "terminal module quality " .. tostring(terminal.modules.quality))
+      -- The quality modules below keep their own quality: the two pickers are independent now.
+      for _, e in pairs(plan.entities) do
+        if e.name == "recycler" then
+          assert(e.modules.name == "quality-module-3" and e.modules.quality == "normal",
+            "the recyclers followed the terminal module's quality")
+        end
+      end
+    end)
+
+    test("clearing the picker leaves the top machine empty", function()
+      local plan = planner.plan(force(), choices_with({ no_terminal_module = true }))
+      local terminal = terminal_machine(plan)
+      assert(terminal.modules.name == nil,
+        "cleared, yet the terminal machine holds " .. tostring(terminal.modules.name))
+    end)
+  end)
+
   describe("modules on the terminal machine", function()
     test("gears allow productivity: the last machine crafts for yield", function()
       local plan = planner.plan(force(), choices_with())
-      local terminal
-      for _, e in pairs(plan.entities) do
-        if e.name == "assembling-machine-3" and e.recipe_quality == "rare" then terminal = e end
-      end
-      assert(terminal, "no terminal machine found")
+      local terminal = terminal_machine(plan)
       assert(terminal.modules.name == "productivity-module-3",
         "terminal module " .. tostring(terminal.modules.name))
     end)
@@ -175,18 +208,70 @@ describe("planner.plan", function()
       -- would quietly hand the terminal machine a quality module instead of nothing.
       local plan = planner.plan(force(), choices_with({ recipe = "wooden-chest" }))
       assert(plan, "wooden chest plan failed")
-      local terminal, lower = nil, {}
+      -- The terminal machine, and every tier below it: this test is about the difference.
+      local terminal = terminal_machine(plan)
+      local lower = {}
       for _, e in pairs(plan.entities) do
-        if e.name == "assembling-machine-3" then
-          if e.recipe_quality == "rare" then terminal = e else lower[#lower + 1] = e end
-        end
+        if e.name == "assembling-machine-3" and e ~= terminal then lower[#lower + 1] = e end
       end
-      assert(terminal, "no terminal machine found")
       assert(terminal.modules.name == nil,
         "terminal must stay empty, holds " .. tostring(terminal.modules.name))
       for _, e in pairs(lower) do
         assert(e.modules.name == "quality-module-3", "lower tier lost its quality module")
       end
+    end)
+  end)
+
+  describe("the picked inserter and chests reach the plan", function()
+    test("a pick, at its own quality, replaces the default everywhere it appears", function()
+      local plan = planner.plan(force(), choices_with({
+        inserter = "fast-inserter", inserter_quality = "rare",
+        requester = "buffer-chest", requester_quality = "uncommon",
+        container = "iron-chest",
+        provider = "storage-chest", provider_quality = "epic",
+      }))
+      assert(plan, "plan failed")
+      -- Only the requester and the provider are role-checked against the pick: buffer-chest and
+      -- storage-chest are the wrong logistic mode, so both fall back rather than being built.
+      assert(count_by_name(plan, "fast-inserter") > 0, "the picked inserter was not planned")
+      assert(count_by_name(plan, "bulk-inserter") == 0, "the default inserter survived the pick")
+      assert(count_by_name(plan, "iron-chest") > 0, "the picked buffer chest was not planned")
+      assert(count_by_name(plan, "steel-chest") == 0, "the default buffer survived the pick")
+      assert(count_by_name(plan, "buffer-chest") == 0, "a buffer chest is not a requester")
+      assert(count_by_name(plan, "requester-chest") > 0, "the requester role fell back wrongly")
+      assert(count_by_name(plan, "storage-chest") == 0, "a storage chest is not a provider")
+
+      for _, e in pairs(plan.entities) do
+        if e.name == "fast-inserter" then
+          assert(e.quality == "rare", "inserter quality " .. tostring(e.quality))
+        elseif e.name == "iron-chest" then
+          assert(e.quality == "normal", "an unset chest quality must read as normal")
+        end
+      end
+    end)
+
+    test("the defaults are the best researched, at normal", function()
+      local plan = planner.plan(force(), choices_with())
+      assert(count_by_name(plan, "bulk-inserter") > 0, "default inserter missing")
+      assert(count_by_name(plan, "steel-chest") > 0, "default buffer chest missing")
+      for _, e in pairs(plan.entities) do
+        if e.name == "bulk-inserter" or e.name == "steel-chest" then
+          assert(e.quality == "normal", e.name .. " defaulted to " .. tostring(e.quality))
+        end
+      end
+    end)
+
+    test("a stale pick falls back rather than erroring", function()
+      -- The belt's rule, one role at a time: a name that is no longer a candidate of that role
+      -- is not a signal to place nothing, it is a signal to use the default.
+      local plan = planner.plan(force(), choices_with({
+        inserter = "stack-inserter", requester = "steel-chest", provider = "iron-chest",
+      }))
+      assert(plan, "a stale pick must not break the plan")
+      assert(count_by_name(plan, "stack-inserter") == 0, "a belt-stacker reached the plan")
+      assert(count_by_name(plan, "bulk-inserter") > 0, "the inserter did not fall back")
+      assert(count_by_name(plan, "requester-chest") > 0, "the requester did not fall back")
+      assert(count_by_name(plan, "passive-provider-chest") == 1, "the provider did not fall back")
     end)
   end)
 

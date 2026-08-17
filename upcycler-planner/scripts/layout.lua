@@ -120,15 +120,29 @@ function layout.build(params)
     add({ name = params.belt, dx = dx, dy = dy, w = 1, h = 1, direction = direction })
   end
 
+  -- The inserter and the chests arrive as { name, quality } pairs -- the machine and the recycler
+  -- already do, and the player picks a quality for each. The belt and the pipe stay bare names:
+  -- they are the engine's own quality exceptions, so there is nothing to carry.
   local function inserter(dx, dy, direction, filters, filter_mode)
     add({
-      name = params.inserter, dx = dx, dy = dy, w = 1, h = 1, direction = direction,
+      name = params.inserter.name, quality = params.inserter.quality,
+      dx = dx, dy = dy, w = 1, h = 1, direction = direction,
       filters = filters, filter_mode = filter_mode,
     })
   end
 
-  local function chest(name, dx, dy, requests)
-    add({ name = name, dx = dx, dy = dy, w = 1, h = 1, requests = requests })
+  -- A module arrives as a { name, quality } pair too, or nil for "leave this machine empty" --
+  -- which the terminal machine gets whenever nothing useful can go in it. The entity keeps the
+  -- flat shape the builder reads, so a nil pair becomes a nil name rather than a missing table.
+  local function module_slot(spec, count)
+    return { name = spec and spec.name, quality = spec and spec.quality, count = count }
+  end
+
+  local function chest(spec, dx, dy, requests)
+    add({
+      name = spec.name, quality = spec.quality, dx = dx, dy = dy, w = 1, h = 1,
+      requests = requests,
+    })
   end
 
   local function pipe(dx, dy)
@@ -209,11 +223,7 @@ function layout.build(params)
       -- player picked; `recipe_quality` is the tier this column is pinned to craft at.
       quality = machine.quality,
       recipe = params.recipe.name, recipe_quality = quality,
-      modules = {
-        name = machine_module,
-        quality = params.modules.quality,
-        count = machine.module_slots,
-      },
+      modules = module_slot(machine_module, machine.module_slots),
     })
 
     -- Ingredients at this tier come off the ring into the feed chest, then into the machine.
@@ -260,11 +270,7 @@ function layout.build(params)
         w = recycler.width, h = recycler.height, direction = recycler.direction,
         quality = recycler.quality,
         -- A recycler cannot take productivity modules at all; quality is the whole point here.
-        modules = {
-          name = params.modules.quality_module,
-          quality = params.modules.quality,
-          count = recycler.module_slots,
-        },
+        modules = module_slot(params.modules.quality_module, recycler.module_slots),
       })
 
       -- Product: off the ring into a buffer, then into the recycler. The buffer is what lets

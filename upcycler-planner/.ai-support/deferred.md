@@ -105,14 +105,6 @@ table, and read recycle times from the generated recipes — the formula moved a
 Mining Patch Planner's `coord_convert` / `coord_revert` (`mpp_util.lua:22-47`) is the pattern:
 write the layout once, rotate on output.
 
-### Chest picker in the modal
-Floated by the repo owner on 2026-08-15 when AAI Containers made the automatic chest choice
-pick a 4x4 warehouse. The default (and current behaviour) is a hard filter: chests must be
-1x1, largest researched inventory wins — the layout's chest positions are one tile, so bigger
-is geometrically impossible without reworking the row plan. A picker would therefore only
-choose *among* 1x1 chests (vanilla vs a modded 1x1), which is a thin choice; add it only if
-someone actually wants a specific modded chest.
-
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short
@@ -135,12 +127,11 @@ normal-quality modules**. Once the player's own modules are high quality the opt
 productivity-ward even on lower tiers. Drive this from `get_roll_chances()` when it lands, not
 from a copied wiki table.
 
-**Sharper since 2026-08-16**, when the module and its quality became the player's pick: one
-quality now covers every module the loop plans, and the terminal machine is left empty when the
-recipe or the machine refuses productivity. So the question is no longer only "which split" but
-"which split at the quality the player chose" — and a second picker for the productivity module
-was deliberately not added: guessing at the split with two widgets is worse than computing it
-from one.
+**Sharper again on 2026-08-17**, when the top machine's module became its own picker with its own
+quality (the repo owner's call). So the
+only part left to compute is the *split itself*: which module goes in which tier, at the
+qualities the player chose. The mod no longer guesses at anything else — every module it plans is
+either picked or defaulted from a rule the player can see and override.
 
 ### Self-recycling items
 Steel and friends have no ingredient-reversal recipe, only the lossy 25%-of-itself fallback. A
@@ -169,9 +160,12 @@ one undo step is unchecked.
 ## Housekeeping
 
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
-- **`settings.lua` exists since 2026-08-15**, carrying one per-player setting:
-  `upcycler-planner-show-all` (offer unresearched options in the pickers — the game's own
-  selection-list option is not mod-readable). Remaining candidates, in rough order:
+- **`settings.lua` exists since 2026-08-15**, carrying two per-player settings as of
+  2026-08-17: `upcycler-planner-show-all` (offer unresearched items — the game's own
+  selection-list option is not mod-readable) and `upcycler-planner-show-all-build-options` (show
+  every picker whatever the count). Both are edited from the modal's own settings window as
+  well as from the settings menu, so **a third setting needs no new GUI** — one line in
+  `EDITED_SETTINGS` in `gui.lua` and its two locale keys. Remaining candidates, in rough order:
   - **request-from-buffers on the requester chests.** Always on today. Trash-unrequested got
     its own checkbox in the modal on 2026-08-15 (repo owner's call, checked by default);
     request-from-buffers stayed fixed because it is purely additive. A per-player setting
@@ -179,3 +173,41 @@ one undo step is unchecked.
   - product buffer size (currently one stack of the item).
   - whether to place obstacle-clearing deconstruction orders at all.
 - **Locale beyond `en`** — the cfg is structured for it; no other translations exist.
+- **Choice reconciliation is written twice, once per layer** (found in review, 2026-08-17).
+  `planner`'s `chosen_*` family answers "the pick if it is still valid, else the default" purely;
+  `gui.apply_defaults` and the recipe and machine handlers answer the same question destructively,
+  in a different idiom. They have already drifted once: `resolve_terminal_module` corrects on
+  `module_fits` (machine **and** recipe), `chosen_terminal_module` only on `is_module` — which is
+  why validate's terminal-module refusal branch is currently unreachable through the modal. One
+  `planner.reconcile(force, choices)` that runs the family and writes back would leave the GUI
+  displaying only. ~50 lines moved and four `gui_spec` cases touched, so it wants a reason: the
+  **roboport picker** below is the one that pays for it, since a new picker has to be taught two
+  resolvers in two files.
+- **`build_qualities` is a hand-list where `state.prune` derives** (found in review, 2026-08-17).
+  `planner.validate` names the seven build materials whose quality it checks; a picker added later
+  and forgotten here loses its "quality not researched yet" warning silently — exactly the failure
+  `state.prune`'s `_quality$` match refuses to accept. Deriving it means walking the resources
+  table for anything carrying a `quality`, which would also start checking materials nobody has
+  checked before, so it is a behaviour change rather than a refactor. Worth doing with the
+  reconcile above, not before it.
+- **Two helpers express the show-all rule, and which one a picker uses decides whether it can be
+  hidden** (found in review, 2026-08-17). `narrowed` hands back a filter table and throws the
+  count away; `offered` hands back names and keeps it, and `worth_showing` needs a count. So the
+  hide-exempt set is currently "whichever pickers were written with `narrowed`" — belt and pole —
+  rather than a decision. Unifying them means giving belt and pole name lists, which changes what
+  show-all offers for them (non-buildable prototypes drop out): the repo owner's call, and no
+  planned feature needs it yet.
+- **`planner.CHEST_ROLES` carries the modal's display order** — a GUI ordering decision living in
+  the planner layer, noted 2026-08-17. Negligible today; it would matter if a second surface ever
+  wanted a different order.
+- **The pipe's fluid rule has no test that can fail** (found in review, 2026-08-17). The SA modset
+  ships one pipe, so `worth_showing` keeps the picker hidden whether or not the recipe takes a
+  fluid, and `#fluids == 1` could be deleted without a spec noticing. What the spec does pin is
+  that picking a fluid recipe repaints the picker's visibility at all. Closing it needs a fixture
+  pipe prototype in the test mod — the same trick would settle the recycler and chest rules, which
+  are pinned only in the one-option direction for the same reason.
+- **`player.opened` is not re-armed when a player rejoins.** `on_gui_closed` is documented not to
+  fire when a GUI closes because the player disconnected, died or became a spectator, so a modal
+  left open across a rejoin keeps its frame and loses the focus — Esc stops closing it until it is
+  closed by button or shortcut. Predates the settings window; either close the GUI on
+  `on_player_left_game` or re-arm on `on_player_joined_game`, both one handler.

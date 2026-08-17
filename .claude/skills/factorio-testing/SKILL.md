@@ -161,7 +161,9 @@ the portal (the overall-newest release is a 2.1-only build a 2.0 game refuses to
 
 Findings from the port, so nobody re-predicts them: `defines.inventory.crafter_input`/
 `crafter_output` already exist on 2.0 — 2.1 only removed the old `furnace_*` aliases — so
-`loop_spec` needed no fork. The one forked spec is `tests/planner_spec.lua` on `legacy/2.0`:
-the 2.0 track offers **187** upcyclable items where 2.1 offers 185. Suite changes flow
+`loop_spec` needed no fork. The one forked spec is `tests/planner_spec.lua` on `legacy/2.0`,
+because the two tracks offer a different number of upcyclable items and the spec pins each
+track's count exactly — the figures move as the planner's rules do, so they live in that spec
+and in the mod's own docs rather than being copied here. Suite changes flow
 main → cherry-pick, with that file rewritten by hand like the mod's other divergent files
 (repo `CLAUDE.md` → Git); `factorio-multiversion` governs the branch mechanics.

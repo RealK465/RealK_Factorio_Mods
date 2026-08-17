@@ -208,7 +208,7 @@ describe("layout.build per-tier wiring", function()
     -- The wooden-chest regression: `is_terminal and terminal or quality` silently falls
     -- through to the quality module on exactly the nil that means "leave it empty".
     local built = layout.build(params_with({
-      modules = { quality_module = "quality-module", terminal_module = nil, quality = "normal" },
+      modules = { quality_module = { name = "quality-module", quality = "normal" } },
     }))
     local with_module, without = 0, 0
     for _, m in pairs(by_name(built, "assembling-machine-2")) do

@@ -122,6 +122,36 @@ crafts. The machine orientation table (AM west, chem/bio west, foundry/cryo east
 reads identically from 2.0's data. **The 2.0 track offers 212 upcyclable items** with fluids
 admitted, against 2.1's 210 — the forked `planner_spec` pin.
 
+## The 0.3.0 GUI work ports unchanged — verified 2026-08-17
+
+Checked when the settings window, its titlebar button and the six-column grid were built
+against 2.1 (`api.md` §17–19), so the backport does not have to discover it: **every mechanism they
+rest on exists on 2.0.77, with the same names and the same documented wording.** Nothing in that
+feature set needs a forked file beyond the ones already forked.
+
+- **`frame_button` exists, with the same graphical sets** (`data/core/prototypes/style.lua:2744`,
+  against 2.1's :2754), and `LuaStyle` carries `minimal_width`, `height`, `padding` and `font` —
+  so the captioned Settings button ports verbatim, sizing included.
+- **`frame_action_button` inverts its picture on hover here too** —
+  `invert_colors_of_picture_when_hovered_or_toggled = true` at
+  `data/core/prototypes/style.lua:2787`, inside the block opening at :2783 (2.1: the same property
+  at :2797). Nothing here depends on it now that the button is captioned; it is why the close X is
+  white, and what an icon button on this track would have to obey.
+- **`LuaPlayer::mod_settings` carries the same "can be changed by overwriting" sentence**, so the
+  settings window can edit the mod's own per-player settings here as well, rather than needing a
+  storage-backed copy on this track alone.
+- **`LuaControl::opened` is writable and documented to "ask the existing GUI to close"**, so the
+  nesting guard in `control.lua` is load-bearing on 2.0 too, not 2.1 defensiveness.
+- **`LuaGuiElement` exposes `column_count` and `location` and no size reads** — the same three
+  facts the grid and the window placement are built on, including the constraint that forces the
+  centred-location measurement.
+
+**What is verified here is the API surface, not the runtime behaviour.** Three things were
+*measured* on 2.1 and are only expected — not observed — on 2.0: that writing a per-player setting
+raises `on_runtime_mod_setting_changed`, that `location` reads 0,0 until a frame has been laid out,
+and that a hidden child takes no cell in a table. The suite covers the first and third on whichever
+track it runs, so pointing it at the 2.0 worktree settles them.
+
 ## UNVERIFIED on 2.0
 
 - Whether `set_recipe(recipe, quality)` on a ghost errors or quietly ignores the quality for a

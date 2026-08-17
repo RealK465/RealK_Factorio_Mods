@@ -43,8 +43,17 @@ script.on_event(defines.events.on_gui_checked_state_changed, dispatch.on_gui_eve
 
 script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
-  if element and element.valid and element.name == gui.FRAME then
-    gui.close(game.get_player(event.player_index))
+  if not (element and element.valid) then return end
+  local player = game.get_player(event.player_index)
+  if element.name == gui.SETTINGS_FRAME then
+    gui.close_settings(player)
+  elseif element.name == gui.FRAME and not gui.settings_open(player) then
+    -- The guard is not defensive: only one element at a time can own player.opened, so the
+    -- settings window taking it ASKS the modal to close and this handler is where that
+    -- arrives (measured 2.1.14 -- without the check the modal is destroyed the instant the
+    -- window opens). A real Esc can only reach here while the modal still owns `opened`,
+    -- which is exactly when no settings window exists.
+    gui.close(player)
   end
 end)
 
@@ -104,8 +113,11 @@ end
 script.on_event(defines.events.on_player_selected_area, place_selection)
 script.on_event(defines.events.on_player_alt_selected_area, place_selection)
 
+-- Both settings arrive here whichever surface changed them: the modal's own settings
+-- window writes the setting rather than keeping a private copy, so its ticks and the game's
+-- settings menu take one path.
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
-  if event.setting ~= gui.SHOW_ALL_SETTING or not event.player_index then return end
+  if not (event.player_index and gui.is_setting(event.setting)) then return end
   gui.on_setting_changed(game.get_player(event.player_index))
 end)
 

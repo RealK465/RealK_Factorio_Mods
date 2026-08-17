@@ -81,8 +81,9 @@ per-release approval.
   GitHub-flavoured markdown, and images only as URLs to somewhere else.
 - **`faq.md` is the portal FAQ tab**, synced by `fmtk details --faq` and shipped in the zip
   like `README.md` — deliberately not in `package.ignore`, it is a few hundred bytes of player
-  help. One entry so far (added 2026-08-16, the owner's pick): the pickers are research-gated,
-  and the *Show unresearched options* per-player setting lifts the gate.
+  help. Three entries: the research gate and the setting that lifts it (2026-08-16, the owner's
+  pick), where the hidden pickers went (2026-08-17 — the question this release generates), and
+  why a two-fluid recipe is refused.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
   window first, then the vanilla loops, then the modded ones. The gallery has no order but upload
   order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
@@ -123,20 +124,36 @@ per-release approval.
   button that cannot yet produce anything.
 - **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
   crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
-  belt, quality module, electric pole, pipe, and the trash-unrequested checkbox (checked by
-  default). The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
+  belt, inserter, requester chest, buffer chest, output chest, quality module, top machine
+  module, electric pole, pipe, and the trash-unrequested checkbox (checked by default). The
+  inserter, the three chests and the top machine's module joined the strip on 2026-08-17 at the
+  repo owner's request, closing the parked chest picker and the parked productivity-module one;
+  **nothing the plan places is auto-picked any more** except the underground pipe, which is
+  derived from the pipe rather than chosen. The strip is a six-column grid — see its own bullet
+  below.
+  The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
   over an auto-pick) carries no quality — like the belt, nothing about it scales with quality —
   and matters only when the recipe takes a fluid; its underground counterpart is derived, not
   picked, since no prototype links the pair (`<name>-to-ground` convention first, longest
   researched reach as the fallback).
-  The recycler row is always shown — one recycler stopped being a non-choice once its quality
-  became pickable. The Build options pickers carry no row labels on purpose: the strip reads by
+  The Build options pickers carry no row labels on purpose: the strip reads by
   icon, the way the game's own tool settings do, so each tooltip opens with its own name in
   `[font=default-bold]`.
-- **Quality is pickable on the machine, the recycler, the quality module and the pole — not on
-  the belt.** A measured call, not a taste one: `belt_speed` is a plain attribute with no
-  quality variant the way `get_crafting_speed(quality)` has one, so a legendary belt carries
-  exactly as much as a normal one.
+- **Quality is pickable on every entity picker except the belt and the pipe.** A measured call,
+  not a taste one, and the engine states the rule itself: every entity type gets its own quality
+  bonus apart from transport belt, pipe and rail
+  (`quality/locale/en/quality.cfg`, *quality-bonus-exceptions*). So `belt_speed` is a plain
+  attribute with no quality variant the way `get_crafting_speed(quality)` has one — a legendary
+  belt carries exactly as much as a normal one — while the machine, recycler, module, pole,
+  inserter and all three chests each have a bonus worth choosing. For the two added on
+  2026-08-17 those bonuses are swing speed and inventory size
+  (`quality_affects_inventory_size` **defaults true** on `ContainerPrototype`, so a chest gets
+  it without base opting in; `analysis/api.md` §15).
+- **A build material with a quality travels as a `{ name, quality }` pair**, from `resources()`
+  through the layout params to the ghost; a bare string means the thing has no quality
+  dimension at all. The machine and the recycler already worked this way, so the belt and the
+  pipe staying strings is the invariant rather than an inconsistency — the shape says which
+  kind of material it is.
 - **The shortcut button is `style = "green"`**, the repo owner's call on 2026-08-16 — it sits in
   the same `b[blueprints]` order block as the vanilla planners, and green is the one of the four
   styles (`default|blue|red|green`) not already worn by a neighbour there.
@@ -160,7 +177,80 @@ per-release approval.
 - **Pickers offer only what the force has researched.** The per-player
   `upcycler-planner-show-all` setting shows everything instead, standing in for the game's own
   "show all items in selection lists" option, which is not exposed to the runtime API. An empty
-  researched subset falls back to the full list so the modal never dead-ends.
+  researched subset falls back to the full list so the modal never dead-ends. Ticked in the
+  settings window below as well as in the game's settings menu.
+- **A picker is only shown when it has something to choose between** (repo owner's call,
+  2026-08-17). One option is not a choice, so a picker offering exactly one thing is hidden —
+  which in a vanilla game is the recycler, the requester chest, the output chest and the pipe, and
+  a modset that adds an alternative brings each of them back. The count is taken on the list the
+  picker would really offer, so the setting above moves it too. Seven pickers are exempt: the
+  item, the target quality, the machine, the belt and the quality module are the choice whatever
+  the count, and the pole and the top machine's module have a *clear* that is itself the second
+  option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
+  of the request. The pipe carries one extra condition of its own: it stays out of the strip until
+  the chosen recipe takes a fluid, since it plumbs nothing otherwise.
+  A hidden picker is still built, still holds the default the plan uses, and hides its row label
+  with it; only the widget is gone. `visible` is documented as *"taking no space in the layout"*,
+  which is what lets a hidden row reflow instead of leaving a hole.
+  **What hiding costs, and the way out.** A hidden picker takes its *quality* with it, so hiding
+  alone would put legendary recyclers and legendary logistic chests out of reach in a vanilla
+  game. That is why the **`upcycler-planner-show-all-build-options`** setting exists (owner's
+  call, 2026-08-17): with it on, every picker is shown whatever the count — the pipe included even
+  for a recipe with no fluid, since a player asking to see everything means everything. So the
+  count rule is the default rather than a ceiling: a hidden picker's quality is reached through
+  the setting, not through a permanently visible row.
+- **The two settings live in the modal, in a second frame** (owner's call, 2026-08-17,
+  patterned on Factory Planner's Preferences dialog): a **Settings** button in the titlebar opens
+  a small window holding *Show unresearched items* and *Show all build options*. It is called
+  Settings rather than Preferences throughout — window, button and locale — because that is what
+  the two values are: the mod's own per-player settings, editable from the game's menu as well.
+  **The button is captioned rather than drawn** (owner's call, 2026-08-17). The base game ships no
+  gear, and its settings-sliders glyph (`preset`, for map-generation presets) reads as a preset
+  switcher; `frame_button` — `frame_action_button`'s own parent — gives a caption the same chrome
+  as the close X beside it, without the fixed 24x24 square. **The caption is white and darkens on
+  hover**, set on the element rather than in a style prototype: `frame_button` inherits `button`'s
+  font colours, which are black in both states and read inside out on a titlebar. That is the same
+  reversal `frame_action_button`'s picture inversion performs for a glyph — and an icon button here
+  would still need a *white* one, plus a sprite prototype of its own: `analysis/api.md` §18, kept
+  for the next one.
+  **They stay mod SETTINGS rather than moving into `storage`**, which is where Factory Planner
+  keeps its own: a mod may overwrite its own per-player settings and doing so raises
+  `on_runtime_mod_setting_changed` exactly as the settings menu does (both measured,
+  `analysis/api.md` §17). So the window is a second face on one value instead of a second value —
+  one repaint path serves both surfaces, and a setting follows the player into their next save,
+  which a storage-backed one would not. FP's reason for storage does not apply here: it has thirty
+  preferences of many widget types and no use for the settings menu.
+  **It opens beside the modal, to its right with the top edges level** (owner's layout,
+  2026-08-17), not centred on top of it. No API reads an element's rendered size, so the modal's
+  own centred `location` is the measurement — auto_center puts a frame at (resolution - width) / 2,
+  so its width is `resolution - 2x`, which stays right in every language where a hardcoded offset
+  would drift. **That inference holds only while the modal is centred, and its titlebar makes it
+  draggable** — dragged right of centre the width comes out negative and the window would land on
+  top of the modal, dragged left it overshoots and the window would land off the screen, both
+  silently — and neither is detectable directly, since nothing reports whether a frame was moved.
+  So the **last plausible measurement is remembered per player** and reused when the current one
+  falls outside the range a real modal can occupy; the x is also clamped to keep the window
+  reachable when the modal sits too far right for anything to fit beside it. `gui_spec` pins the
+  centred, dragged-left and dragged-right cases.
+- **A picker handler does nothing unless its value actually changed.** `on_gui_click` and
+  `on_gui_elem_changed` share one dispatcher, so a click reaches the handler carrying the value
+  already in the button — and the two handlers that rebuild the modal would otherwise destroy the
+  element while the engine was opening its chooser on it (`analysis/api.md` §20). Two consequences worth keeping: **a rebuild leaves the modal exactly where it was**
+  rather than re-centring, so the top edge the window is levelled against does not move (and the
+  modal no longer jumps out from under the cursor when a setting is flipped), and a modal whose
+  `location` still reads 0,0 — one built this same tick, which no player action reaches — centres
+  the window instead of measuring off a zero. Timings and figures: `analysis/api.md` §19.
+  **The window takes `player.opened`, which asks the modal to close** — one element at a time can
+  own it. So `control.lua` honours a close on the modal only when no settings window exists;
+  the window's existence is the guard, rather than a stored flag as in FP, because it cannot drift
+  from what is on screen. Closing the window destroys it and hands `opened` back, in that order.
+  Closing the modal takes the window with it; a rebuild triggered by flipping a setting does
+  not, which is why `gui.close` and the modal-only teardown are separate functions.
+- **The build options are a six-column grid** (owner's call, 2026-08-17). A `table`, not a flow,
+  so the row length is a rule rather than an accident: nine pickers on one line drag the modal
+  wider than the block above it, and a modset adding a tenth would keep dragging. Measured in a
+  real client: an invisible child takes **no cell**, so the vanilla six pack into one clean row and
+  all nine wrap 6 + 3 with no holes (`analysis/api.md` §19).
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
   `{name, quality}` tables the `-with-quality` widgets speak. Two silent failures ride on this:
   `control.lua`'s stated contract is that storage holds nothing but strings, and `state.arm`'s
@@ -182,14 +272,29 @@ per-release approval.
 - **One machine per tier.** The compact "casino" every shared blueprint ships. Honest framing:
   a convenience build, not a throughput build — sustained ratios taper about tenfold per tier.
   If scaling is ever added, repeat *columns per tier* rather than inventing new geometry.
-- **Modules are planned, not merely requested**: quality below the target tier, productivity at
-  it (nothing left to roll into), quality in the recyclers. The terminal machine is left
-  **empty** when the recipe or the machine refuses productivity — `allow_productivity` defaults
-  to false and only ~43 of base's 193 recipes opt in, so this is the common case rather than the
-  exotic one. Research is a separate axis on purpose: *not researched yet* still falls back to
-  the quality module, a small loss of yield rather than a gap. Correct for normal-quality
-  modules; the optimal split shifts once the player's own modules are high quality, which is a
-  later refinement better driven by `get_roll_chances()` than by a hardcoded table.
+- **Modules are planned, not merely requested**: quality below the target tier, the player's
+  pick at it, quality in the recyclers.
+- **The top machine's module is its own picker, defaulting to productivity or to nothing**
+  (repo owner's call, 2026-08-17). At the target tier quality has nothing left to roll into, so
+  the default is the strongest researched module that actually raises productivity — and
+  **nothing at all** when the recipe or the machine refuses it, which is the common case:
+  `allow_productivity` defaults to false and only ~43 of base's 193 recipes opt in. With no
+  productivity module researched the top machine is left **empty** rather than given a quality
+  module: that would be choosing for the player, and the picker is where the choice belongs. Clearing the picker
+  means "leave the top machine empty", the pole's rule, recorded in `no_terminal_module` so an
+  explicit clear is not re-defaulted at open.
+- **The two module pickers own their qualities separately.** One shared module quality was
+  deliberate while the terminal module was derived from the quality module; once it became a
+  choice of its own, one quality would have tied two unrelated decisions together.
+- **A picker offers only what the machine AND the recipe accept**, which needed a measured rule
+  rather than the obvious one: only the effects a module applies **positively** have to be
+  allowed (`analysis/api.md` §16). Both halves are re-resolved when either the machine or the
+  recipe changes, so a pick the new pair refuses is replaced rather than left to fail validation
+  — the machine picker's own pattern. The quality-module picker keeps offering every quality
+  module and refusing at validation instead: its own gate (`recipe` and machine must allow the
+  quality effect) has already run by then, so there is nothing left for a list to exclude.
+  The optimal split — how much quality against how much productivity — is still the open
+  question, and still better driven by `get_roll_chances()` than by a hardcoded table.
 - **Modded recyclers work by rotation, not by convention.** `vector_to_place_result` is
   per-prototype, so `planner.recycler_orientation()` computes the rotation that lands the throw
   in the machine above. Width is not a constraint — column pitch is `max(Wm, Wr)`. The one hard
@@ -198,11 +303,34 @@ per-release approval.
 - **Chests are hard-constrained to 1x1.** Every chest position in the layout is exactly one
   tile, so footprint is a geometric constraint of the row plan rather than a preference. A
   modded 1x1 chest with more slots still wins legitimately; anything bigger is out regardless of
-  research.
-- **Fuelled inserters are never planned in**, and every planned inserter must reach one tile. An
-  unattended loop cannot keep a burner fed. When every researched inserter needs fuel — how a
-  fresh Space Age game genuinely starts — validation says so instead of planning a loop that
-  would starve.
+  research — the picker cannot offer it either.
+- **The three chest roles are fixed; only the chest is the player's.** `requester`, `container`
+  and `provider` are one predicate each, and each picker offers only its own kind: a requester
+  chest cannot be swapped for a buffer chest, nor the plain relief buffer for a logistic one.
+  The reason is the loop's own contract — the buffers inside it must not talk to the player's
+  network, or the loop competes with the base for its own intermediates — so the role is
+  geometry-and-semantics while the chest is taste. Largest researched inventory remains the
+  default per role.
+- **Both new pickers gate on `items_to_place_this`**, the same test the machine list uses. Found
+  on 2026-08-17 by reading the data dump rather than by reasoning: base ships 1x1 *containers*
+  for the crash site and the tips-and-tricks simulations (`red-chest`, `blue-chest`,
+  `crash-site-chest-1/2`) that no item places, and without the gate they appear in the picker
+  the moment *Show unresearched items* is on.
+- **Fuelled inserters are never planned in and never offered**, and every planned inserter must
+  reach one tile. An unattended loop cannot keep a burner fed. When every researched inserter
+  needs fuel — how a fresh Space Age game genuinely starts — validation says so instead of
+  planning a loop that would starve, which is why the burners stay in `inserter_candidates()`
+  while the picker and the pick both read the electric subset.
+- **A chosen inserter must still carry a filter slot per ingredient, and the refusal names the
+  pick only when a better inserter actually exists.** The harvest and relief positions need the
+  slots, so the requirement is not negotiable, and quietly substituting a different inserter
+  would hide the player's own choice — but a message advising "pick one with more slots" is worse
+  than useless when none has any. So `any_inserter` decides: nothing available with enough slots
+  blames the *recipe* (every vanilla case — all six vanilla inserters carry five, and exactly one
+  vanilla upcyclable recipe needs six, fusion reactor equipment), and only past that gate is the
+  pick named. **The by-name branch therefore needs a modded inserter to reach and carries no
+  spec**, which is written into the spec that covers the reachable side. A recipe change re-picks
+  an outgrown inserter, exactly as it re-picks a machine that can no longer craft.
 - **Belt-stacking inserters are never planned in** (the repo owner's call, 2026-08-17). A
   stacking hand holds out for a full belt stack of one item-and-quality, and a quality loop
   trickles dozens of item/quality combinations past every position — community-documented
@@ -281,7 +409,7 @@ per-release approval.
   against fmtk-generated types. Mechanics, runner scripts and the hard-won Windows plumbing
   live in the repo's `factorio-testing` skill, not here.
 - **The suite pins the historical harness numbers as regressions** — widths 11/13, the five
-  pole scenarios (including big-pole's honest 7 unpowered), the 185 upcyclable items, the
+  pole scenarios (including big-pole's honest 3 unpowered), the 210 upcyclable items, the
   wooden-chest empty terminal — so a drift in any of them is a release-visible event, not a
   silent reshape.
 - **The blacklist relief inserter is load-bearing, by measurement.** The eject investigation
@@ -305,8 +433,8 @@ Written down so they are not re-litigated. A rejected idea that is not recorded 
   ring, so the recycler band is empty beside the recycler. The lesson generalises — check a
   constraint against the code, not against the document that described the design before it was
   built.
-- **Labelled rows in the Build options strip.** The repo owner's explicit call for the icon
-  strip. It is also the standing fallback if a chosen prototype's own tooltip turns out to
+- **Labelled rows in the Build options grid.** The repo owner's explicit call for the icon
+  grid. It is also the standing fallback if a chosen prototype's own tooltip turns out to
   override the custom one — ask before switching.
 - **Degrading rather than excluding quality-refusing recipes.** Leaving the non-terminal
   machines' slots empty and letting the recyclers carry the climb alone would keep those items

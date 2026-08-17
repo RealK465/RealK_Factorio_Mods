@@ -29,12 +29,14 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 The old caution — the recycler-eject stall — is **resolved, by measurement** (2026-08-16,
 `analysis/api.md` §9.6): a rolled-up ingredient wedges the recycler outright, and the
 blacklist relief inserter is what keeps the loop alive; a permanent test now guards it. The
-mod carries a 90-test suite (`tests/`, run via the repo's `factorio-testing` skill) covering
+mod carries a permanent suite (`tests/`, run via the repo's `factorio-testing` skill) covering
 planner, layout, poles, builder, state, the live eject and fluid mechanisms
 (`loop_spec` / `fluid_spec`) and — since the connected-player discovery of §12 —
-`gui.lua` in both headless and real-client runs.
+`gui.lua` in both headless and real-client runs. **The count lives in the mod's `CLAUDE.md`
+and nowhere else** — it was stated in both and drifted, which is the whole argument for one
+owner per fact.
 
 What suite-green still does **not** prove: a multi-tier loop's endurance in a played game,
-where quality rolls arrive probabilistically over hours rather than by scripted seeding —
-keep half an eye on long sessions — and the `legacy/2.0` build, which the suite has not yet
-been pointed at.
+where quality rolls arrive probabilistically over hours rather than by scripted seeding — keep
+half an eye on long sessions. The `legacy/2.0` build is no longer on that list: the whole suite
+was pointed at 2.0.77 on 2026-08-16 and passes there (`factorio-testing` → The 2.0 track).

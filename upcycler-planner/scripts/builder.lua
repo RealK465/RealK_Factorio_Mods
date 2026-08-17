@@ -43,9 +43,10 @@ local function apply_modules(ghost, entity)
   -- read-only, and the proxy would need the ghost to exist first anyway.
   --
   -- The module's quality is the player's pick from the modal, normal unless they changed it.
-  -- One quality covers every module the loop plans: the best split of quality against
-  -- productivity shifts once the modules are high quality, but that is a refinement to drive
-  -- from get_roll_chances() rather than a second picker to guess with.
+  -- Since 0.3.0 there are two picks, not one -- the quality module and the top machine's own --
+  -- so this reads whichever quality the plan attached to this module rather than a single
+  -- loop-wide one. What is still deferred is the SPLIT: which module belongs in which tier once
+  -- the player's modules are themselves high quality, to drive from get_roll_chances().
   ghost.insert_plan = { {
     id = { name = modules.name, quality = modules.quality or "normal" },
     items = { in_inventory = positions },
