@@ -208,6 +208,20 @@ The first image in that list is the one the portal leads with — pick the hero 
 deliberately. All of this is a **public write** and needs the repo owner's explicit approval
 for that release, exactly like the upload.
 
+**Never build the `images/edit` list from a loop's return values without checking every one.**
+Uploaded back-to-back, `images/add` starts returning an *empty* id partway through — no error,
+no non-zero exit, just a blank where the id should be (measured 2026-08-17: one of five
+survived, then three of five on the retry). Because the list *is* the gallery, feeding those
+partial results straight into `images/edit` deletes every image whose id went missing, and the
+call still answers `{"success":true}`. Collect the ids first, assert you have one per file, and
+only then set the order. Uploads that fail this way succeed immediately when retried on their
+own, so a short pause and a retry per file is enough.
+
+Re-uploading an unchanged file is free and safe: images are **content-addressed**, so a file
+already on the portal returns the id it already had. That means the fix for a trimmed gallery is
+simply to re-upload everything and set the full list — the unchanged images keep their original
+ids and nothing is orphaned.
+
 **Reading the page back is CDN-cached.** `GET /api/mods/<name>/full` served the *pre-edit*
 values immediately after three successful writes — license still `mit`, images `0`,
 description empty — which reads exactly like the writes silently failing. Add a cache-buster
