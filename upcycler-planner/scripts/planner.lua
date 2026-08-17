@@ -324,9 +324,15 @@ local function reaches_adjacent_tiles(entity)
     and math.abs(dx) < 0.5 and dy > 0.5 and dy < 1.5
 end
 
+-- Belt-stacking inserters (Space Age's stack inserter) are never candidates: a stacking hand
+-- holds out for a full belt stack of ONE item-and-quality, and a quality loop trickles dozens
+-- of item/quality combinations past every position, so the hand starves while the building
+-- behind it backs up. `bulk` alone cannot tell them from the safe bulk inserter -- the two
+-- otherwise tie the pick outright -- but only stackers carry a belt stack size above one.
 local function inserter_candidates()
   return candidates("inserters", function(entity)
     return entity.type == "inserter" and reaches_adjacent_tiles(entity)
+      and (entity.inserter_max_belt_stack_size or 1) <= 1
   end)
 end
 
