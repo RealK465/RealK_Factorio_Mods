@@ -70,7 +70,12 @@ describe("state.prune -- drop what no longer qualifies", function()
       quality = "rare",
       quality_module = "quality-module",
       pole = "small-electric-pole",
+      inserter = "fast-inserter",
+      requester = "requester-chest",
+      container = "steel-chest",
+      provider = "passive-provider-chest",
       machine_quality = "uncommon",
+      inserter_quality = "rare",
       trash_unrequested = false,
     })
     state.prune()
@@ -84,6 +89,11 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.quality_module == "quality-module", "module pruned wrongly")
     assert(c.pole == "small-electric-pole", "pole pruned wrongly")
     assert(c.machine_quality == "uncommon", "machine_quality pruned wrongly")
+    assert(c.inserter == "fast-inserter", "inserter pruned wrongly")
+    assert(c.requester == "requester-chest", "requester pruned wrongly")
+    assert(c.container == "steel-chest", "buffer chest pruned wrongly")
+    assert(c.provider == "passive-provider-chest", "provider pruned wrongly")
+    assert(c.inserter_quality == "rare", "inserter_quality pruned wrongly")
     assert(c.trash_unrequested == false, "boolean choice touched by prune")
   end)
 
@@ -100,6 +110,12 @@ describe("state.prune -- drop what no longer qualifies", function()
       quality_module = "speed-module",
       pole = "stone-wall",
       pole_quality = "not-a-quality",
+      inserter = "stack-inserter",       -- builds belt stacks
+      requester = "steel-chest",         -- plain chest in a logistic role
+      container = "requester-chest",     -- logistic chest in the plain role
+      provider = "requester-chest",      -- the wrong logistic mode
+      inserter_quality = "not-a-quality",
+      container_quality = "not-a-quality",
     })
     state.prune()
     local c = entry.choices
@@ -112,6 +128,14 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.quality_module == nil, "speed module survived as quality module")
     assert(c.pole == nil, "wall survived as pole")
     assert(c.pole_quality == nil, "bogus build quality survived")
+    assert(c.inserter == nil, "belt-stacking inserter survived")
+    assert(c.requester == nil, "plain chest survived in a logistic role")
+    assert(c.container == nil, "logistic chest survived as the plain buffer")
+    assert(c.provider == nil, "requester chest survived as the provider")
+    -- Matched by key, not listed by name: every *_quality choice is pruned, including ones
+    -- added after prune was written.
+    assert(c.inserter_quality == nil, "bogus inserter quality survived")
+    assert(c.container_quality == nil, "bogus chest quality survived")
   end)
 
   test("prune always clears pending", function()

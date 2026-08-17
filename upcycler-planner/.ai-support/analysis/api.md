@@ -492,3 +492,202 @@ full research, real entities and ticks) plus the installed `prototype-api.json` 
    `direction = west` plus `set_recipe("battery")` reads back facing west — and a placed
    battery plan revived whole crafts from an outside tap on one stub, which pins the
    planner→layout→builder chain end to end.
+
+## 15. Quality on inserters and chests, and what a picker may offer — measured 2026-08-17
+
+Everything here was read from the installed 2.1.14's own files or from its `--dump-data` output;
+nothing is recalled.
+
+**Quality bonuses have a documented exception list, and it is short.**
+`data/quality/locale/en/quality.cfg` → `tips-and-tricks-item-description.quality-bonus-exceptions`
+names exactly three: transport belt, pipe, straight rail. Everything else *"gets its own unique
+bonus"*. **Confidence: verified** — it is the game's own player-facing text, and it matches the
+one belt fact this mod already measured (`belt_speed` has no quality variant).
+
+**A chest's bonus is inventory size, and it is on by default.**
+`ContainerPrototype::quality_affects_inventory_size` has `"default": true` in
+`prototype-api.json`, and `LogisticContainerPrototype` inherits it. Base never sets it — the only
+`quality_affects_*` assignments in `data/quality/prototypes/base-data-updates.lua` are the cargo
+wagon's inventory and the fluid wagon's capacity — so vanilla chests carry the bonus *because of
+the default*, not because anyone opted in. Read it per quality with
+`get_inventory_size(defines.inventory.chest, quality)`. **Confidence: verified from the property
+default; the resulting slot count per tier was not measured**, and does not matter here — the
+default pick ranks chests at normal, which is quality-invariant when every chest scales alike.
+
+**An inserter's bonus is swing speed**, read with `get_inserter_rotation_speed(quality)` (the
+method takes an optional quality; the `rotation_speed` *attribute* is for cars and turrets and
+reads nil on an inserter). **Confidence: verified that the API is quality-aware and that
+inserters are not on the exception list; the per-tier multiplier was not measured.**
+
+**Filter slots do not scale with quality.** `filter_count` is a plain `InserterPrototype`
+property, default 0, and **every one of the six vanilla inserters sets it to 5** (base
+`entities.lua`, space-age `transport-belts.lua`). So the loop's one-slot-per-ingredient
+requirement can only be outrun by a recipe, never fixed by a better quality.
+
+**Exactly one vanilla upcyclable recipe needs more than five filter slots.** Counted over the
+whole `data-raw-dump.json`: recipes with ≥ 6 *item* ingredients, a single fixed item product, and
+a `<product>-recycling` recipe whose products are exactly that ingredient set — one hit,
+`fusion-reactor-equipment` (6: fission reactor equipment, fusion power cell, tungsten plate,
+carbon fiber, supercapacitor, quantum processor). **Confidence: verified against the dump**, and
+it is what `planner_spec` uses to reach the filter-slot refusal without a fixture mod.
+
+**Base ships 1x1 containers no item can place.** `red-chest`, `blue-chest`, `crash-site-chest-1`
+and `crash-site-chest-2` are `type = "container"` with a 0.7x0.7 collision box and **no
+`place_result` item anywhere in the dump** (the logo and spaceship-wreck containers are the same
+but are larger than one tile, so a footprint test already excludes them). A 1x1 test alone
+therefore admits scenery: the picker lists gate on `items_to_place_this ~= nil`, which is the
+same gate `is_upcycling_machine` has always used. **Confidence: verified against the dump.**
+
+## 16. What a machine or recipe accepts a module for — measured 2026-08-17
+
+The question: `allowed_effects` lists the effects a machine permits, and a module carries several
+at once — a productivity module 3 is `productivity +0.1, consumption +0.8, pollution +0.1,
+speed -0.15`. Is a module refused when **any** of its effects is missing from the list, or only
+some of them? The two readings disagree about real vanilla pairs, so it was measured rather than
+reasoned: a throwaway spec created each holder, called
+`get_module_inventory().can_insert()` and then actually inserted, and read the result back.
+
+| holder | allows | speed-3 | productivity-3 | quality-3 | efficiency-3 |
+|---|---|---|---|---|---|
+| `oil-refinery` | consumption, pollution, productivity, speed | **yes** | yes | **no** | yes |
+| `recycler` | consumption, pollution, quality, speed | yes | **no** | yes | yes |
+| `assembling-machine-3` | + quality + productivity | yes | yes | yes | yes |
+| `electric-furnace` | same as AM3 | yes | yes | yes | yes |
+
+**The rule is: every effect the module applies with a POSITIVE value must be allowed; a negative
+component on a disallowed effect is ignored.** The refinery takes a speed module whose
+`quality` component is `-0.025` while refusing a quality module whose `quality` is `+0.025`, and
+the recycler refuses productivity for the same reason. `can_insert` and the actual insert agreed
+in all sixteen cases. **Confidence: verified by measurement on 2.1.14**, headless.
+
+A second reading fits the same sixteen results — "the effect named by the module's *category*
+must be allowed" — and vanilla cannot separate the two, because no vanilla module has a positive
+effect outside its own category. The positive-effect rule is implemented because it needs no
+category-to-effect name mapping (vanilla's `efficiency` category has no matching effect name at
+all, and a modded category could be called anything), and because where the two disagree it is
+the **conservative** one: it declines to offer a module the engine might refuse, rather than
+planning an insert plan that can never be filled.
+
+Two facts worth having beside it, both from the same dump:
+
+- **No vanilla recipe restricts anything.** Zero of them set `allowed_effects` or
+  `allowed_module_categories`; the recipe-side restriction is a modded-only concern. What recipes
+  *do* set is `allow_productivity`, which lands in `allowed_effects` — false by default, which is
+  why the top machine is planned empty for most recipes.
+- **No vanilla crafting machine restricts categories** either — every `allowed_module_categories`
+  is nil, i.e. all allowed. So in a vanilla game the category half of the rule never fires, and
+  the effect half does all the work.
+
+## 17. Per-player settings a mod may write, and who owns `player.opened` — measured 2026-08-17
+
+Three questions the settings window rests on, each settled by a throwaway spec run against the
+real engine rather than by reading the docs twice. All three **measured**, headless, 2.1.14.
+
+- **A mod can write its own per-player setting at runtime.** `LuaPlayer::mod_settings` is marked
+  read-only, and its own description says the exception out loud: *"individual settings can be
+  changed by overwriting their ModSetting table. Mods can only change their own settings."*
+  `player.mod_settings["upcycler-planner-show-all"] = { value = true }` takes effect immediately
+  and reads back changed. This is what lets a GUI edit a setting instead of shadowing it in
+  `storage`.
+- **That write raises `on_runtime_mod_setting_changed`**, identically to a change made in the
+  game's own settings menu. Measured through the effect rather than by registering a second
+  handler — which would have *replaced* the mod's own, silently: with the modal open, writing the
+  setting destroyed the frame, i.e. the mod's existing handler had run and rebuilt it. So a
+  checkbox handler should write the setting and stop; one repaint path then serves both surfaces.
+- **Assigning `player.opened` a second frame asks the first one to close, and that reaches
+  `on_gui_closed`.** The docs say *"If this attribute is non-nil, then writing `nil` or a new GUI
+  to it will ask the existing GUI to close"*; what they do not say is that a handler destroying
+  its frame on that event will therefore destroy it when a *nested* window opens. Measured: with
+  the modal owning `opened`, handing `opened` to another frame left the modal destroyed. Any
+  nested window therefore needs a guard on the parent's close handler. The engine also **nils
+  `opened`** when a window closes, so focus has to be handed back explicitly or Esc stops working
+  — Factory Planner's `modal_dialog.lua` carries that exact comment beside the exact same line.
+
+## 18. A frame action button inverts its own glyph on hover — game data, 2026-08-17
+
+**The mod no longer ships a titlebar icon** — the settings button is captioned (`decisions.md`),
+and the `upl-preferences` sprite this was measured on was deleted with it on 2026-08-17. Kept
+because the finding is about the *style*, not about that sprite: it is the answer for the next
+icon button anyone puts in a frame's titlebar here, and it explains why vanilla's own are white.
+
+**Verified in game data, and by a real-client run.** `frame_action_button` sets
+`invert_colors_of_picture_when_hovered_or_toggled = true`
+(`data/core/prototypes/style.lua:2797`; the property is `ButtonStyleSpecification::
+invert_colors_of_picture_when_hovered_or_toggled`). So the style, not the sprite, supplies the
+second state — which decides what a titlebar glyph has to look like at rest:
+
+- **The glyph must be WHITE.** `core/graphics/icons/close.png` is a white X, and the style darkens
+  it on hover. Hand the same button a *black* glyph and it reads exactly backwards: dark at rest,
+  white under the cursor. `core/graphics/icons/mip/preset.png` — the settings sliders, and the
+  nearest thing to a gear the base game ships — is black, which is how this was found.
+- **`invert_colors` on a sprite prototype is the cheap fix**, and the loader really does read it:
+  a `--check-unused-prototype-data` run reported **zero** unused properties for the sprite it was
+  measured on, which is the check that separates "applied" from "silently ignored" for any
+  property. It inverts RGB and leaves alpha alone, so a black glyph on
+  transparency becomes a white one (checked against the file itself, both mip levels).
+- **A bare prototype name is a legal `SpritePath`** — *"either the name of a SpritePrototype
+  defined in the data stage, or a path in form type/name"* — so a `sprite` naming one directly needed
+  no prefix. Proven in a real client while the mod shipped one: every GUI spec built that
+  titlebar, and the sprite resolved.
+
+**The trap this cost an error to learn, and it is a dev-loop trap, not a mod bug.** Prototypes are
+read **once, at process startup**; loading a save re-runs `control.lua` from disk but never the
+data stage. So a running game that picks up new control code while keeping its old prototype set
+fails with `Unknown sprite "<name>"` on a sprite the data stage plainly defines. **Restart the game
+after adding any prototype** — reloading the save is not enough, and no player can ever hit this
+because their code and prototypes always come from one startup.
+
+## 19. GUI geometry: what can be read, when, and how a table treats a hidden child — measured 2026-08-17
+
+**Measured in a real client** (graphics tier, 2560x1440 at display_scale 1.25), because none of it
+is observable headless: a headless run never lays a frame out.
+
+- **Nothing reads an element's rendered size.** `LuaGuiElement` offers `location` and `anchor` and
+  no dimensions at all, and `anchor` only pins a `gui.relative` element to one of the game's own
+  windows — it cannot align to another mod's frame. Factory Planner tracks its own dimensions for
+  exactly this reason.
+- **An auto-centered frame's `location` IS its size**, which is the way out: auto_center puts a
+  frame at `(resolution - size) / 2`, so `size = resolution - 2 * location`. Locale-proof, unlike
+  a hardcoded width.
+- **`location` reads 0,0 until the frame has been laid out**, which is the tick *after* it is
+  built. Measured: a frame read in the same handler that created it gave `0,0`; five ticks later
+  the same frame gave `1087,415`. So a position can only be measured off a frame already on
+  screen — reading it during a rebuild yields zero, and a width computed from that puts the
+  neighbour off the screen (which is exactly what happened before the guard went in).
+- **A hidden child takes no cell in a `table`.** The build-options grid is `column_count = 6` with
+  nine pickers, three of them `visible = false` in a vanilla modset. Frame heights, from the
+  centred-location measurement: **six visible = 610px, all nine = 720px**. The 110px is one extra
+  strip row plus the recycler row returning — if hidden children held their cells both states
+  would have been two rows and identical. Confirmed by screenshot: one row of six, no gaps, and
+  6 + 3 when all nine show. `visible`'s documented *"taking no space in the layout"* extends to a
+  table cell, so a grid needs no filtering to stay dense.
+- **`game.take_screenshot{show_gui = true}` works in the graphics test tier** and is the only way
+  to *see* a GUI, but two overlays sit on top of it: the framework prints every result to the
+  console, and `research_all_technologies()` raises a long queue of achievement toasts that draw
+  over the middle of the screen and outlast a 600-tick wait. `player.clear_console()` handles the
+  first; the second only clears by running the screenshot spec on its own, with no research.
+
+## 20. A click on a choose-elem-button reaches the handler before the chooser opens — measured 2026-08-17
+
+**Measured in a real client, by breaking it.** `control.lua` routes `on_gui_click` and
+`on_gui_elem_changed` to one dispatcher, so a picker's handler runs for both — and the click
+arrives *while the engine is opening the element's own chooser window*.
+
+- **The click carries the value already in the button**, not a new one. A handler that cannot tell
+  a click from a pick will therefore re-apply the current value on every click.
+- **Destroying the element during that click destroys the chooser with it.** The modal's recipe
+  and machine handlers were changed to rebuild the modal rather than repaint widgets by hand; the
+  rebuild destroys the button, and the picker then flashes open and vanishes in the same frame.
+  Reported from the game as *"it opens and closes instantly"* — there is no error and nothing in
+  the log.
+- **The fix that keeps both properties is an equality guard**: do nothing unless the value
+  actually changed. It needs no event-name test, so the specs can still drive the dispatcher with
+  a hand-shaped event. Compare against the *normalised* stored value — the button always reports a
+  quality, and the stored one is nil until the player picks a tier, so a raw comparison reads
+  every first click as a change.
+
+**A frame's width can only be inferred while it is centred, and the player can drag it.** §19's
+`size = resolution - 2 * location` is exact for an auto-centred frame and silently wrong for a
+moved one: dragged left it overshoots, dragged right it goes negative. Neither is detectable
+directly, but both leave the range a real frame can occupy — so the mod keeps the last
+*plausible* measurement per player and reuses it, rather than trusting each reading.

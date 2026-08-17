@@ -12,7 +12,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. You can change things like: the machine, recycler, belt, module, pole or pipe if you want. It tries to default to the best item researched, and can be built at a quality of your choice.
+3. You can change things like: the machine, recycler, belt, inserter, chests, modules, pole or pipe if you want. It tries to default to the best item researched, and can be built at a quality of your choice. A picker only appears when you actually have a choice, so a few of them — the recycler, two of the chests, and the pipe — stay hidden in a vanilla game and show up once a mod adds an alternative. The **Settings** button in the title bar opens the planner's own settings, where **Show all build options** puts every one of them back, quality boxes included.
 4. Press **Place**, then click the ground.
 
 ## What it builds
@@ -20,7 +20,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 It builds a blueprint with Upcycler Belt Loop containing:
 
 - A column for each quality with a crafting machine and recycler with requester chests.
-- Quality modules below the target, productivity modules in the top machine.
+- Quality modules below the target, and your pick in the top machine — a productivity module by default, or none where the recipe cannot use one.
 - Belts, filtered inserters, chests, electric poles... already set up.
 
 Trees and rocks in the way are marked for deconstruction, and your finished items collect in a
@@ -30,8 +30,8 @@ passive provider chest at the end of the loop.
 
 This was the main motivation for creating this mod.
 
-Modded machines, recyclers, modules, belts, poles, pipes and chests can be selected.
-Only researched options are offered, and a setting can show everything instead.
+Modded machines, recyclers, modules, belts, inserters, chests, poles and pipes can be selected.
+Only researched options are offered, and the planner's settings can show everything instead.
 
 ![Planning a loop with modded machines and recyclers](https://files.catbox.moe/ulihf9.gif)
 

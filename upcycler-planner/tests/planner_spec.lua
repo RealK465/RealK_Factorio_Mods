@@ -4,6 +4,7 @@
 -- Assertion values assume the SA modset (base + quality + recycler + space-age + elevated-rails),
 -- which is what the factorio-testing skill's runner loads and what the dev install carries.
 
+local util = require("util")
 local planner = require("scripts.planner")
 local research = require("tests.support.research")
 
@@ -176,6 +177,36 @@ describe("the inserter rules", function()
     assert(planner.any_inserter(force(), 99) == nil, "any_inserter ignored the filter demand")
   end)
 
+  test("the picker list is the electric, one-tile, non-stacking set", function()
+    research.full(force())
+    local offered = util.list_to_map(planner.inserters())
+
+    -- The three exclusions, each with its premise asserted loudly: if a prototype's shape ever
+    -- changes, revisit the rule rather than letting this spec pass hollow.
+    assert(offered["fast-inserter"] and offered["bulk-inserter"],
+      "the ordinary electric inserters must be offered")
+    assert(prototypes.entity["long-handed-inserter"], "SA modset should carry the long-handed one")
+    assert(not offered["long-handed-inserter"], "a reach-2 inserter cannot serve adjacent rows")
+    assert((prototypes.entity["stack-inserter"].inserter_max_belt_stack_size or 1) > 1,
+      "stack-inserter stopped belt-stacking -- revisit the exclusion and this spec")
+    assert(not offered["stack-inserter"], "a belt-stacking inserter must never be offered")
+    assert(prototypes.entity["burner-inserter"].burner_prototype, "the burner inserter burns fuel")
+    assert(not offered["burner-inserter"],
+      "a fuelled inserter must never be offered -- nothing in the plan refuels it")
+
+    -- Membership is the same set, which is what state.prune tests a remembered pick against.
+    assert(planner.is_inserter("fast-inserter"), "is_inserter missed a real candidate")
+    assert(not planner.is_inserter("stack-inserter"), "is_inserter admitted a stacker")
+    assert(not planner.is_inserter("burner-inserter"), "is_inserter admitted a burner")
+    assert(not planner.is_inserter("iron-chest"), "is_inserter admitted a chest")
+
+    -- Filter slots: five on every vanilla inserter, and nil for anything not offered, which is
+    -- what makes "nothing chosen" and "a chosen inserter that cannot filter" different answers.
+    assert(planner.inserter_filter_count("fast-inserter") == 5, "vanilla filter slots")
+    assert(planner.inserter_filter_count("burner-inserter") == nil, "a non-candidate has no count")
+    assert(planner.inserter_filter_count(nil) == nil, "nothing chosen has no count")
+  end)
+
   test("belt-stacking inserters are never candidates", function()
     research.full(force())
     -- Guard the premise loudly: the stack inserter is bulk and electric, so the belt-stack
@@ -192,6 +223,112 @@ describe("the inserter rules", function()
   end)
 end)
 
+describe("modules the machine and recipe accept", function()
+  before_all(function() research.full(force()) end)
+
+  -- The measured rule (api.md S16): only the effects a module applies POSITIVELY have to be
+  -- allowed. Both halves are asserted against real prototypes whose allowed_effects differ, so a
+  -- vanilla retune of either shows up here rather than as a module nothing can fill.
+  test("a positive effect must be allowed; a negative side effect need not be", function()
+    local refinery = prototypes.entity["oil-refinery"]
+    local recycler = prototypes.entity["recycler"]
+    assert(not refinery.allowed_effects["quality"], "test premise: refinery must refuse quality")
+    assert(not recycler.allowed_effects["productivity"],
+      "test premise: recycler must refuse productivity")
+
+    -- The speed module carries quality -0.025, and the refinery still takes it (measured).
+    assert(planner.accepts_module(refinery, prototypes.item["speed-module-3"]),
+      "a negative quality component must not exclude a speed module")
+    assert(not planner.accepts_module(refinery, prototypes.item["quality-module-3"]),
+      "a quality module cannot go where quality is refused")
+    assert(not planner.accepts_module(recycler, prototypes.item["productivity-module-3"]),
+      "a productivity module cannot go where productivity is refused")
+    -- The efficiency module's only effect is negative, so nothing can exclude it.
+    assert(planner.accepts_module(refinery, prototypes.item["efficiency-module-3"]),
+      "an all-negative module must be accepted anywhere")
+  end)
+
+  test("the offered list is what the pair accepts, and nothing else", function()
+    -- Gears allow productivity; wooden chests do not (allow_productivity defaults to false), so
+    -- the same machine offers a different list per recipe -- which is the whole point of the pair.
+    local machine = prototypes.entity["assembling-machine-3"]
+    local function offered(recipe_name)
+      return util.list_to_map(planner.modules_for(machine, prototypes.recipe[recipe_name]))
+    end
+
+    local gears = offered("iron-gear-wheel")
+    assert(gears["productivity-module-3"], "gears allow productivity: it must be offered")
+    assert(gears["quality-module-3"] and gears["speed-module-3"] and gears["efficiency-module-3"],
+      "the other three categories must be offered too")
+
+    local chests = offered("wooden-chest")
+    assert(not chests["productivity-module-3"],
+      "a recipe that refuses productivity must not offer productivity modules")
+    assert(chests["speed-module-3"], "a refused productivity does not refuse speed")
+
+    -- module_fits is the same question by name, which is what the modal re-picks on.
+    assert(planner.module_fits("productivity-module-3", machine, prototypes.recipe["iron-gear-wheel"]))
+    assert(not planner.module_fits("productivity-module-3", machine, prototypes.recipe["wooden-chest"]))
+    assert(not planner.module_fits("iron-plate", machine, prototypes.recipe["iron-gear-wheel"]),
+      "a plain item is not a module")
+    assert(not planner.module_fits(nil, machine, prototypes.recipe["iron-gear-wheel"]),
+      "nothing chosen fits nothing")
+  end)
+
+  test("the terminal default is a productivity module, or nothing at all", function()
+    local machine = prototypes.entity["assembling-machine-3"]
+    assert(planner.terminal_module(force(), machine, prototypes.recipe["iron-gear-wheel"])
+      == "productivity-module-3", "the strongest researched productivity module must win")
+    -- The rule the picker exists to make visible: no productivity allowed means no module, NOT a
+    -- quality module -- which is what the first version quietly fell back to.
+    assert(planner.terminal_module(force(), machine, prototypes.recipe["wooden-chest"]) == nil,
+      "a recipe refusing productivity must default to nothing")
+  end)
+
+  test("is_module is membership in every module, not in a role", function()
+    assert(planner.is_module("productivity-module-3") and planner.is_module("efficiency-module"),
+      "real modules must be members")
+    assert(not planner.is_module("iron-plate"), "a plate is not a module")
+    assert(#planner.modules() == 12,
+    "the SA modset ships twelve modules -- four families of three; got " .. #planner.modules())
+  end)
+end)
+
+describe("the chest roles", function()
+  before_all(function() research.full(force()) end)
+
+  test("each role offers only 1x1 chests in its own logistic mode", function()
+    for _, role in pairs(planner.CHEST_ROLES) do
+      local names = planner.chests(role)
+      assert(#names > 0, "no chests offered for role " .. role)
+      for _, name in pairs(names) do
+        local entity = prototypes.entity[name]
+        assert(entity.tile_width == 1 and entity.tile_height == 1,
+          name .. " is not 1x1 -- the layout's chest positions are one tile")
+        if role == "container" then
+          assert(entity.type == "container" and not entity.logistic_mode,
+            name .. " talks to the logistic network and must not be a plain buffer")
+        else
+          local mode = role == "requester" and "requester" or "passive-provider"
+          assert(entity.type == "logistic-container" and entity.logistic_mode == mode,
+            name .. " is not a " .. mode .. " chest")
+        end
+      end
+    end
+  end)
+
+  test("membership is per role: a requester chest is not a buffer, and vice versa", function()
+    assert(planner.is_chest("requester-chest", "requester"), "requester membership")
+    assert(not planner.is_chest("requester-chest", "container"),
+      "a logistic chest must never pass as the plain buffer")
+    assert(not planner.is_chest("steel-chest", "requester"), "a plain chest is no requester")
+    assert(not planner.is_chest("passive-provider-chest", "requester"), "roles must not blur")
+    -- An infinity chest reports a logistic_mode too, and a chest that conjures items out of
+    -- nothing is never a correct buffer in a loop whose job is to conserve one population.
+    assert(not planner.is_chest("infinity-chest", "provider"), "infinity chest admitted")
+  end)
+end)
+
 describe("the building-material picks at full research", function()
   before_all(function() research.full(force()) end)
 
@@ -203,10 +340,9 @@ describe("the building-material picks at full research", function()
     assert(planner.belt(f) == "turbo-transport-belt", "fastest researched belt (SA modset)")
     -- 1x1 with the largest supply area; the substation is pickable but never the default.
     assert(planner.pole(f) == "medium-electric-pole", "default pole")
-    assert(planner.container(f) == "steel-chest", "plain buffer chest")
-    assert(planner.logistic_container(f, "requester") == "requester-chest", "requester pick")
-    assert(planner.logistic_container(f, "passive-provider") == "passive-provider-chest",
-      "provider pick")
+    assert(planner.chest(f, "container") == "steel-chest", "plain buffer chest")
+    assert(planner.chest(f, "requester") == "requester-chest", "requester pick")
+    assert(planner.chest(f, "provider") == "passive-provider-chest", "provider pick")
     assert(planner.quality_module(f) == "quality-module-3", "strongest quality module")
     assert(planner.pipe(f) == "pipe", "pipe pick")
     -- Wube's own pair follows the <pipe>-to-ground convention, so the guess lands first.
@@ -267,6 +403,28 @@ describe("validate", function()
     assert(refusal({ recycler = NONE }) == "upl-message.no-recycler", "missing recycler")
     assert(refusal({ recycler = "assembling-machine-1" }) == "upl-message.no-recycler",
       "non-recycler in the recycler slot")
+  end)
+
+  test("a recipe no inserter can filter blames the recipe, picked or not", function()
+    -- Filter slots are needed one per ingredient, and there is exactly one vanilla upcyclable
+    -- recipe that needs more than the five every vanilla inserter carries: fusion reactor
+    -- equipment, at six (measured against the data dump, 2026-08-17). Since NOTHING available can
+    -- serve it, the message must blame the recipe whether or not an inserter was picked -- naming
+    -- the pick would advise a fix that does not exist here.
+    --
+    -- The by-name refusal on the other side of that gate needs a modded inserter with more slots
+    -- to reach, so it is deliberately not covered by a spec; it is the branch below in
+    -- validate(), reached only when any_inserter finds something the pick is worse than.
+    local ingredients = #planner.item_ingredients(prototypes.recipe["fusion-reactor-equipment"])
+    assert(ingredients == 6, "test premise: expected six ingredients, got " .. ingredients)
+    assert(planner.any_inserter(force(), ingredients) == nil,
+      "test premise: no vanilla inserter should have six filter slots")
+
+    local base = { recipe = "fusion-reactor-equipment", machine = "assembling-machine-3" }
+    assert(refusal(base) == "upl-message.too-many-ingredients", "unpicked shortfall")
+    local picked = { recipe = base.recipe, machine = base.machine, inserter = "fast-inserter" }
+    assert(refusal(picked) == "upl-message.too-many-ingredients",
+      "a pick must not turn an impossible recipe into advice about the pick")
   end)
 
   test("a fresh force fails on inserters first, with the fuel message", function()

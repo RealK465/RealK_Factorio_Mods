@@ -286,6 +286,17 @@ local function candidates(kind, accept)
   return map
 end
 
+-- The keys of a candidate map, as an array, memoised in turn. Five pickers want a list where the
+-- scans are keyed by name, and five hand-written copies of this loop is five chances to leave the
+-- wrong memo key behind -- which returns the wrong picker's list with no error at all.
+local function names_of(key, map)
+  if memo[key] then return memo[key] end
+  local names = {}
+  for name in pairs(map) do names[#names + 1] = name end
+  memo[key] = names
+  return names
+end
+
 local function belt_candidates()
   return candidates("belts", function(entity) return entity.type == "transport-belt" end)
 end
@@ -327,11 +338,35 @@ end
 -- of item/quality combinations past every position, so the hand starves while the building
 -- behind it backs up. `bulk` alone cannot tell them from the safe bulk inserter -- the two
 -- otherwise tie the pick outright -- but only stackers carry a belt stack size above one.
+-- items_to_place_this is the machine list's "a player could ever build this" gate, and both
+-- picker lists need it for the same reason: without it a picker offers entities no item places
+-- the moment show-all is on.
+local function is_loop_inserter(entity)
+  return entity.type == "inserter" and reaches_adjacent_tiles(entity)
+    and (entity.inserter_max_belt_stack_size or 1) <= 1
+    and entity.items_to_place_this ~= nil
+end
+
 local function inserter_candidates()
-  return candidates("inserters", function(entity)
-    return entity.type == "inserter" and reaches_adjacent_tiles(entity)
-      and (entity.inserter_max_belt_stack_size or 1) <= 1
-  end)
+  return candidates("inserters", is_loop_inserter)
+end
+
+-- What the picker offers, and the only inserters planner.inserter scores over: the rules above
+-- plus electric-only. The loop runs unattended and nothing in the plan delivers fuel, so a
+-- burner must never reach the picker -- while inserter_candidates keeps them, which is what lets
+-- any_inserter tell "everything researched needs fuel" apart from "nothing has enough filters".
+local function electric_inserter_candidates()
+  if memo["electric-inserters"] then return memo["electric-inserters"] end
+  -- Filtered from the table above rather than scanned again: this is a subset of it by
+  -- definition, and that scan walks every entity prototype in the game.
+  local map = {}
+  for name, entity in pairs(inserter_candidates()) do
+    if not (entity.burner_prototype or entity.fluid_energy_source_prototype) then
+      map[name] = entity
+    end
+  end
+  memo["electric-inserters"] = map
+  return map
 end
 
 -- Every chest position in the layout is one tile, so anything bigger is not a candidate --
@@ -339,6 +374,40 @@ end
 -- overlapped into each other.
 local function is_single_tile(entity)
   return entity.tile_width == 1 and entity.tile_height == 1
+end
+
+-- The three chest roles the layout builds with, one predicate each. Keyed rather than written out
+-- three times, because everything downstream -- the picker's list, the default pick, prune's
+-- membership test -- is the same question asked once per role. The order is the one the modal
+-- shows them in: what feeds the loop, what relieves it, what it hands back to the base.
+--
+-- `container` is deliberately a PLAIN chest: the buffers inside the loop must not talk to the
+-- player's network, or the loop would compete with the base for its own intermediates. The two
+-- logistic roles test `type` strictly, because an infinity chest reports a logistic_mode too and
+-- a chest that conjures items out of nothing is never a correct buffer in a loop whose whole job
+-- is to conserve one population of items.
+planner.CHEST_ROLES = { "requester", "container", "provider" }
+
+local CHEST_ACCEPTS = {
+  container = function(entity)
+    return entity.type == "container" and not entity.logistic_mode
+  end,
+  requester = function(entity)
+    return entity.type == "logistic-container" and entity.logistic_mode == "requester"
+  end,
+  provider = function(entity)
+    return entity.type == "logistic-container" and entity.logistic_mode == "passive-provider"
+  end,
+}
+
+-- Placeability is load-bearing here, not defensive: base ships 1x1 CONTAINERS for the crash
+-- site and the tips-and-tricks simulations (red-chest, blue-chest, crash-site-chest-1/2) that no
+-- item can place, so a footprint test alone puts scenery in the picker (analysis/api.md S15).
+local function chest_candidates(role)
+  local accepts = CHEST_ACCEPTS[role]
+  return candidates("chest-" .. role, function(entity)
+    return accepts(entity) and is_single_tile(entity) and entity.items_to_place_this ~= nil
+  end)
 end
 
 -- The subsets the pickers offer while "show all" is off. Force-filtered, so fresh on every
@@ -378,12 +447,22 @@ function planner.buildable_poles(force)
   return out
 end
 
-function planner.buildable_pipes(force)
-  local out = {}
-  for name, entity in pairs(pipe_candidates()) do
-    if entity_is_buildable(force, entity) then out[#out + 1] = name end
-  end
-  return out
+-- The two families whose offered set cannot be written as a prototype TYPE filter: an inserter
+-- has to reach exactly one tile and never build belt stacks, a chest has to be one tile in the
+-- right logistic role. Handed to the GUI as names, so those rules hold with show-all on too.
+-- Memoised like the candidate scans they read, since neither list depends on a force.
+function planner.inserters()
+  return names_of("inserter_names", electric_inserter_candidates())
+end
+
+-- Pipes as names, for the picker's own reason rather than the chests': the list's LENGTH decides
+-- whether a pipe picker is worth showing at all, and a type filter cannot be counted.
+function planner.pipes()
+  return names_of("pipe_names", pipe_candidates())
+end
+
+function planner.chests(role)
+  return names_of("chest_names_" .. role, chest_candidates(role))
 end
 
 -- Membership tests for state.prune, exported so what prune keeps cannot drift from what
@@ -401,6 +480,38 @@ function planner.is_pipe(name)
   return pipe_candidates()[name] ~= nil
 end
 
+function planner.is_inserter(name)
+  return electric_inserter_candidates()[name] ~= nil
+end
+
+function planner.is_chest(name, role)
+  return chest_candidates(role)[name] ~= nil
+end
+
+-- How many filter slots a plan for this recipe needs, and whether it plumbs anything. Both are
+-- the planner's rules, asked by the modal so a picker can be sized or hidden before a plan
+-- exists -- which is why they take a recipe that may be nil and answer for "nothing picked yet".
+-- Written out rather than `and ... or 1`: a recipe with no item ingredients counts 0, and 0 or 1
+-- is 0.
+function planner.filters_needed(recipe)
+  if not recipe then return 1 end
+  return #planner.item_ingredients(recipe)
+end
+
+function planner.needs_pipe(recipe)
+  if not recipe then return false end
+  local _, fluids = planner.item_ingredients(recipe)
+  return #fluids == 1
+end
+
+-- Filter slots on a chosen inserter, nil when nothing valid is chosen. One slot per ingredient is
+-- a hard requirement of the harvest and relief positions, and every vanilla inserter carries
+-- five, so only a modded recipe can outrun a pick.
+function planner.inserter_filter_count(name)
+  if not (name and planner.is_inserter(name)) then return nil end
+  return prototypes.entity[name].filter_count or 0
+end
+
 function planner.is_quality(name)
   for _, quality in pairs(planner.quality_chain()) do
     if quality == name then return true end
@@ -414,6 +525,14 @@ end
 function planner.build_quality(name)
   if name and planner.is_quality(name) then return name end
   return "normal"
+end
+
+-- Build materials that carry a quality travel as a { name, quality } pair -- the shape the
+-- machine and the recycler already use, and the shape the pickers hand back. A bare string means
+-- the thing has no quality dimension at all: belt and pipe, the engine's own exceptions.
+function planner.with_quality(name, quality)
+  if not name then return nil end
+  return { name = name, quality = planner.build_quality(quality) }
 end
 
 function planner.unlocked_targets(force)
@@ -600,13 +719,22 @@ end
 
 -- Modules and building materials
 
+-- Every module item in the game. The engine filters prototypes itself, so this is one call
+-- rather than a walk of every item; memoised like the entity candidate scans above.
+local function module_items()
+  if memo.module_items then return memo.module_items end
+  memo.module_items = prototypes.get_item_filtered({ { filter = "type", type = "module" } })
+  return memo.module_items
+end
+
 -- Items with a positive amount of the effect, name -> effect size. Pure prototype data, so
--- memoised like the entity candidate tables above.
+-- memoised like the entity candidate tables above. Reads the module table rather than every item
+-- in the game: only a module carries module_effects.
 local function module_candidates(effect)
   memo.modules = memo.modules or {}
   if memo.modules[effect] then return memo.modules[effect] end
   local map = {}
-  for name, item in pairs(prototypes.item) do
+  for name, item in pairs(module_items()) do
     local value = item.module_effects and item.module_effects[effect]
     if value and value > 0 then map[name] = value end
   end
@@ -625,23 +753,26 @@ end
 
 -- Every quality module in the game: the picker's fallback filter, and prune's membership test.
 function planner.quality_modules()
-  if memo.quality_modules then return memo.quality_modules end
-  local names = {}
-  for name in pairs(module_candidates("quality")) do names[#names + 1] = name end
-  memo.quality_modules = names
-  return names
+  return names_of("quality_modules", module_candidates("quality"))
 end
 
 function planner.is_quality_module(name)
   return module_candidates("quality")[name] ~= nil
 end
 
-function planner.unlocked_quality_modules(force)
+-- The ITEM counterpart of planner.buildable: which of these item names the force can make. What
+-- the module pickers narrow their lists with, since a module is an item and has no entity to be
+-- buildable.
+function planner.unlocked(force, names)
   local out = {}
-  for _, name in pairs(planner.quality_modules()) do
+  for _, name in pairs(names) do
     if planner.is_unlocked(force, name) then out[#out + 1] = name end
   end
   return out
+end
+
+function planner.unlocked_quality_modules(force)
+  return planner.unlocked(force, planner.quality_modules())
 end
 
 -- allowed_module_categories is nil when everything is allowed and a name -> true dictionary
@@ -650,6 +781,73 @@ end
 local function accepts_module_category(holder, category)
   local allowed = holder.allowed_module_categories
   return not allowed or allowed[category] == true
+end
+
+-- Whether this holder -- a machine prototype or a recipe prototype, which carry the same two
+-- fields -- accepts this module at all. The category rule is documented; the effect rule is
+-- MEASURED (`analysis/api.md` §16), because the obvious reading is wrong: only the effects a
+-- module applies **positively** have to be allowed. A negative side effect on a disallowed effect
+-- is fine, which is why a speed module goes in an oil refinery (quality -0.025, quality not
+-- allowed there) while a quality module is refused outright.
+function planner.accepts_module(holder, item)
+  if not accepts_module_category(holder, item.category) then return false end
+  for effect, value in pairs(item.module_effects or {}) do
+    if value > 0 and not (holder.allowed_effects and holder.allowed_effects[effect]) then
+      return false
+    end
+  end
+  return true
+end
+
+function planner.modules()
+  return names_of("module_names", module_items())
+end
+
+function planner.is_module(name)
+  return module_items()[name] ~= nil
+end
+
+-- One module's refusals, in the order worth reporting: the buildings it goes into, then the
+-- recipe. Returns the message, or nil when nothing refuses it.
+local function module_refusal(item, holders, recipe)
+  for _, holder in pairs(holders) do
+    if not planner.accepts_module(holder, item) then
+      return { "upl-message.module-not-accepted", item.localised_name, holder.localised_name }
+    end
+  end
+  if not planner.accepts_module(recipe, item) then
+    return { "upl-message.module-not-accepted-by-recipe", item.localised_name }
+  end
+end
+
+-- What the terminal machine's picker offers: the modules this machine and this recipe both
+-- accept. Not memoised -- it depends on the pair, and the scan is a dozen items.
+function planner.modules_for(machine, recipe)
+  local names = {}
+  for name, item in pairs(module_items()) do
+    if planner.accepts_module(machine, item) and planner.accepts_module(recipe, item) then
+      names[#names + 1] = name
+    end
+  end
+  return names
+end
+
+function planner.module_fits(name, machine, recipe)
+  local item = name and module_items()[name]
+  if not item then return false end
+  return planner.accepts_module(machine, item) and planner.accepts_module(recipe, item)
+end
+
+-- The default for the terminal machine: the strongest researched module that actually raises
+-- productivity and that the pair accepts -- or **nothing**, which is the common case, since
+-- allow_productivity defaults to false and only a handful of vanilla recipes opt in. Never a
+-- quality module: at the target tier there is nothing left to roll into.
+function planner.terminal_module(force, machine, recipe)
+  return best_by(module_candidates("productivity"), function(name, value)
+    if not planner.is_unlocked(force, name) then return nil end
+    if not planner.module_fits(name, machine, recipe) then return nil end
+    return value
+  end)
 end
 
 -- The default pick, and what an emptied picker snaps back to -- the belt's own pattern.
@@ -708,13 +906,12 @@ end
 
 -- Bulk inserters move a whole stack per swing, which matters on a loop that is mostly moving
 -- items between adjacent buildings. Filters are not optional: the harvest and extract
--- inserters both need one slot per ingredient. Fuelled inserters are excluded outright: the
--- loop is meant to run unattended, and a burner that runs dry stops the whole ring.
+-- inserters both need one slot per ingredient. Fuelled ones never reach this pick at all -- the
+-- candidate table it reads is the electric one.
 function planner.inserter(force, filters_needed)
-  return best_by(inserter_candidates(), function(_, entity)
+  return best_by(electric_inserter_candidates(), function(_, entity)
     if (entity.filter_count or 0) < filters_needed then return nil end
     if not entity_is_buildable(force, entity) then return nil end
-    if entity.burner_prototype or entity.fluid_energy_source_prototype then return nil end
     -- A method, not the `rotation_speed` attribute -- that one is for cars and turrets and
     -- reads nil on an inserter.
     return (entity.bulk and 1000 or 0) + entity.get_inserter_rotation_speed("normal")
@@ -730,28 +927,12 @@ function planner.any_inserter(force, filters_needed)
   end)
 end
 
--- A plain container, not a logistic one: the buffers inside the loop must not talk to the
--- player's network, or the loop would compete with the base for its own intermediates.
-function planner.container(force)
-  local map = candidates("containers", function(entity)
-    return entity.type == "container" and not entity.logistic_mode and is_single_tile(entity)
-  end)
-  return best_by(map, function(_, entity)
-    if not entity_is_buildable(force, entity) then return nil end
-    return entity.get_inventory_size(defines.inventory.chest) or 0
-  end)
-end
-
--- Strictly the logistic-container type: infinity containers report a logistic_mode too, and a
--- chest that conjures items out of nothing is never a correct buffer in a loop whose whole job
--- is to conserve one population of items. Largest inventory wins so the choice is deterministic
--- rather than whatever prototype iteration happens to reach first.
-function planner.logistic_container(force, mode)
-  local map = candidates("logistic-" .. mode, function(entity)
-    return entity.type == "logistic-container" and entity.logistic_mode == mode
-      and is_single_tile(entity)
-  end)
-  return best_by(map, function(_, entity)
+-- The default chest for a role: largest researched inventory, so the pick is deterministic
+-- rather than whatever prototype iteration happens to reach first. Scored at normal for the
+-- pole's reason -- quality grows every chest's inventory alike, since
+-- quality_affects_inventory_size defaults true -- so the ranking is the same at any tier.
+function planner.chest(force, role)
+  return best_by(chest_candidates(role), function(_, entity)
     if not entity_is_buildable(force, entity) then return nil end
     return entity.get_inventory_size(defines.inventory.chest) or 0
   end)
@@ -825,55 +1006,80 @@ local function chosen_pole(force, choices)
   return name, planner.build_quality(choices.pole_quality)
 end
 
+-- The inserter follows the belt's pattern with one addition: a pick can be individually
+-- inadequate. Filter slots are needed one per ingredient, so a modded recipe can outgrow an
+-- otherwise perfectly good inserter -- and quietly building the loop out of a different one
+-- would hide the player's own choice, so the prototype is handed back for validate to name.
+local function chosen_inserter(force, choices, filters_needed)
+  local slots = planner.inserter_filter_count(choices.inserter)
+  if not slots then return planner.inserter(force, filters_needed) end
+  if slots >= filters_needed then return choices.inserter end
+  return nil, prototypes.entity[choices.inserter]
+end
+
+-- The belt's rule once per chest role: a picked chest wins, a stale name falls back.
+local function chosen_chest(force, choices, role)
+  local name = choices[role]
+  if name and planner.is_chest(name, role) then return name end
+  return planner.chest(force, role)
+end
+
+-- The terminal machine's module is the pole's shape rather than the belt's: nil is a real answer
+-- ("leave the top machine empty"), so `no_terminal_module` is what tells an explicit clear from a
+-- never-touched picker. A pick that this machine or recipe refuses is NOT corrected here --
+-- validate names it, the way it does for the quality module.
+local function chosen_terminal_module(force, choices, machine, recipe)
+  if choices.no_terminal_module then return nil end
+  local name = choices.terminal_module
+  if name and planner.is_module(name) then return name end
+  return planner.terminal_module(force, machine, recipe)
+end
+
 -- Everything the layout needs, gathered in one place. `validate` below checks exactly the same
 -- things, so a validated set of choices always produces a plan -- if the two ever drift apart,
 -- the player gets a Place button that silently does nothing.
 local function resources(force, recipe, machine, choices)
   local quality_module = chosen_quality_module(choices) or planner.quality_module(force)
 
-  -- What the LAST machine gets. It crafts from ingredients already at the target, so quality
-  -- modules have nothing left to roll into and it crafts for yield instead -- but productivity
-  -- is refused far more often than it looks: allow_productivity defaults to FALSE and only a
-  -- handful of vanilla intermediates opt in, and a machine can allow quality without allowing
-  -- productivity. A refused module would sit in the insert plan forever, so those machines are
-  -- left EMPTY rather than filled with something they cannot take.
-  local terminal_module
-  if recipe.allowed_effects and recipe.allowed_effects["productivity"]
-    and machine.allowed_effects and machine.allowed_effects["productivity"]
-  then
-    -- A productivity module is a different module CATEGORY from the quality one, so the check
-    -- validate runs on the quality module says nothing about this one. Gated here rather than
-    -- in validate so the fallback below absorbs it and the two cannot drift apart.
-    local productivity = best_module(force, "productivity")
-    if productivity then
-      local category = prototypes.item[productivity].category
-      if not (accepts_module_category(machine, category)
-        and accepts_module_category(recipe, category))
-      then
-        productivity = nil
-      end
-    end
-    -- Not researched YET is a different question from not allowed at all: falling back to the
-    -- quality module keeps the last tier rolling, a small loss of yield rather than a gap.
-    terminal_module = productivity or quality_module
-  end
+  -- What the LAST machine gets, and the player's own pick since 0.3.0. It crafts from ingredients
+  -- already at the target, so quality modules have nothing left to roll into and it crafts for
+  -- yield instead -- but productivity is refused far more often than it looks: allow_productivity
+  -- defaults to FALSE, only a handful of vanilla recipes opt in, and a machine can allow quality
+  -- without allowing productivity. A refused module would sit in the insert plan forever, so the
+  -- default is a productivity module or nothing at all. It is deliberately never a quality module
+  -- any more: that old fallback chose for the player, and this is now a choice they can see and
+  -- make (repo owner's call, 2026-08-17).
+  local terminal_module = chosen_terminal_module(force, choices, machine, recipe)
 
   -- Gathered even for a fluid-free recipe: the scans are memoised and buildability is cheap,
   -- and validate only ever CHECKS these two when the recipe actually takes a fluid.
   local pipe = chosen_pipe(choices) or planner.pipe(force)
 
+  local inserter, inserter_shortfall =
+    chosen_inserter(force, choices, #planner.item_ingredients(recipe))
+
+  local function chest(role)
+    return planner.with_quality(chosen_chest(force, choices, role), choices[role .. "_quality"])
+  end
+
   return {
-    inserter = planner.inserter(force, #planner.item_ingredients(recipe)),
+    -- Everything with a quality leaves here as a { name, quality } pair, which is the shape the
+    -- layout takes; the belt and the pipe stay bare names because they have no quality at all.
+    inserter = planner.with_quality(inserter, choices.inserter_quality),
+    -- Set only when the CHOSEN inserter is the thing that fell short, so validate can say so
+    -- instead of blaming the recipe.
+    inserter_shortfall = inserter_shortfall,
     belt = chosen_belt(choices) or planner.belt(force),
     pipe = pipe,
     pipe_to_ground = planner.pipe_to_ground_for(force, pipe),
-    container = planner.container(force),
-    requester = planner.logistic_container(force, "requester"),
-    provider = planner.logistic_container(force, "passive-provider"),
-    quality_module = quality_module,
-    terminal_module = terminal_module,
-    -- One quality for every module the loop plans, so the player sets it once.
-    module_quality = planner.build_quality(choices.quality_module_quality),
+    container = chest("container"),
+    requester = chest("requester"),
+    provider = chest("provider"),
+    -- Pairs like every other build material with a quality. The two module pickers own their own
+    -- qualities: the top machine's module became a separate choice from the quality modules
+    -- below it, so one shared quality would have tied two unrelated decisions together.
+    quality_module = planner.with_quality(quality_module, choices.quality_module_quality),
+    terminal_module = planner.with_quality(terminal_module, choices.terminal_module_quality),
   }
 end
 
@@ -966,7 +1172,7 @@ function planner.plan(force, choices, gathered)
   -- the filter slots left after the target's own, nearest tiers first (a roll lands one tier
   -- up ten times more often than two), so a short-slotted inserter degrades instead of failing.
   local chain = planner.quality_chain()
-  local extra_slots = (prototypes.entity[r.inserter].filter_count or 1) - 1
+  local extra_slots = (prototypes.entity[r.inserter.name].filter_count or 1) - 1
   local above_target = {}
   for i = #tiers + 1, math.min(#chain, #tiers + extra_slots) do
     above_target[#above_target + 1] = chain[i]
@@ -1007,14 +1213,16 @@ function planner.plan(force, choices, gathered)
       module_slots = module_slots(recycler, recycler_quality),
       direction = orientation.direction,
     },
-    belt = r.belt, inserter = r.inserter, container = r.container,
-    requester = r.requester, provider = r.provider,
-    -- `quality` here is the quality the module ITEMS are requested at; the two module names
-    -- beside it are which module goes where.
+    -- The belt is a bare name; the inserter and the three chests are { name, quality } pairs,
+    -- because the player picks a quality for each of them and the belt has none to pick.
+    belt = r.belt,
+    inserter = r.inserter,
+    requester = r.requester, container = r.container, provider = r.provider,
+    -- One pair per module, or nil for "leave that machine empty" -- which only ever happens to
+    -- the terminal one.
     modules = {
       quality_module = r.quality_module,
       terminal_module = r.terminal_module,
-      quality = r.module_quality,
     },
     requests = requests,
     -- One stack of the product in front of each recycler: enough to keep it busy through a
@@ -1149,10 +1357,21 @@ function planner.validate(force, choices)
   -- every ok return so plan() can reuse it instead of re-running the same scans.
   local r = resources(force, recipe, machine, choices)
   if not r.inserter then
-    if planner.any_inserter(force, #ingredients) then
-      return false, { "upl-message.only-fuelled-inserters" }
+    -- Order matters. When nothing available has enough filter slots the RECIPE is the problem
+    -- whatever was picked, and naming the pick would advise a fix that does not exist -- which
+    -- is every vanilla case, since all six vanilla inserters carry five slots and exactly one
+    -- vanilla upcyclable recipe needs six. Only once something better is genuinely available is
+    -- the pick worth naming, so that branch needs a modded inserter to reach.
+    if not planner.any_inserter(force, #ingredients) then
+      return false, { "upl-message.too-many-ingredients" }
     end
-    return false, { "upl-message.too-many-ingredients" }
+    if r.inserter_shortfall then
+      return false, {
+        "upl-message.inserter-too-few-filters",
+        r.inserter_shortfall.localised_name, #ingredients,
+      }
+    end
+    return false, { "upl-message.only-fuelled-inserters" }
   end
   if not r.belt then return false, { "upl-message.no-belt" } end
   if not r.container then return false, { "upl-message.no-chest" } end
@@ -1163,19 +1382,16 @@ function planner.validate(force, choices)
     if not r.pipe_to_ground then return false, { "upl-message.no-pipe-to-ground" } end
   end
 
-  -- The module is the player's pick now, so one that some building or the recipe refuses is
-  -- reachable in a modded game -- and an insert plan for a refused module never gets filled.
-  local chosen_module = prototypes.item[r.quality_module]
-  for _, holder in pairs({ machine, recycler }) do
-    if not accepts_module_category(holder, chosen_module.category) then
-      return false, {
-        "upl-message.module-not-accepted", chosen_module.localised_name, holder.localised_name,
-      }
-    end
+  -- The modules are the player's picks, so one that some building or the recipe refuses is
+  -- reachable in a modded game -- and an insert plan for a refused module never gets filled. The
+  -- quality module goes into machines AND recyclers; the terminal one only into the top machine,
+  -- and is optional, so nil is not a refusal.
+  local refused = module_refusal(prototypes.item[r.quality_module.name], { machine, recycler },
+    recipe)
+  if not refused and r.terminal_module then
+    refused = module_refusal(prototypes.item[r.terminal_module.name], { machine }, recipe)
   end
-  if not accepts_module_category(recipe, chosen_module.category) then
-    return false, { "upl-message.module-not-accepted-by-recipe", chosen_module.localised_name }
-  end
+  if refused then return false, refused end
 
   -- Warnings from here: planning ahead of research is legitimate, since the result is ghosts
   -- that bots will build once the technology lands.
@@ -1188,16 +1404,29 @@ function planner.validate(force, choices)
   local build_qualities = {
     planner.build_quality(choices.machine_quality),
     planner.build_quality(choices.recycler_quality),
-    r.module_quality,
+    r.quality_module.quality,
+    r.inserter.quality,
+    r.requester.quality,
+    r.container.quality,
+    r.provider.quality,
   }
+  if r.terminal_module then
+    build_qualities[#build_qualities + 1] = r.terminal_module.quality
+  end
   -- The pole's build quality matters twice over: it gates who can build the ghosts, and it
   -- sets the reach the whole pole layout is computed at.
   if pole_name then build_qualities[#build_qualities + 1] = pole_quality end
+  -- Nine entries, and in the ordinary game every one of them is "normal" -- so ask the force
+  -- once per distinct tier rather than once per material, on a path every refresh runs.
+  local asked = {}
   for _, quality in pairs(build_qualities) do
-    if not force.is_quality_unlocked(quality) then
-      return true, {
-        "upl-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
-      }, r
+    if not asked[quality] then
+      asked[quality] = true
+      if not force.is_quality_unlocked(quality) then
+        return true, {
+          "upl-message.build-quality-not-researched", prototypes.quality[quality].localised_name,
+        }, r
+      end
     end
   end
   local force_recipe = force.recipes[recipe.name]

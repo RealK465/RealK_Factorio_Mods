@@ -61,10 +61,23 @@ function state.prune()
     end
     -- c.no_poles is a plain boolean, never a prototype reference -- nothing to prune there.
     if c.pole and not planner.is_pole(c.pole) then c.pole = nil end
+    if c.inserter and not planner.is_inserter(c.inserter) then c.inserter = nil end
+    -- Membership only: whether the MACHINE and RECIPE accept it is validate's business, and a
+    -- prune that guessed at it would silently drop a pick the modal is about to explain.
+    -- c.no_terminal_module is a plain boolean, like c.no_poles -- nothing to prune.
+    if c.terminal_module and not planner.is_module(c.terminal_module) then
+      c.terminal_module = nil
+    end
+    for _, role in pairs(planner.CHEST_ROLES) do
+      if c[role] and not planner.is_chest(c[role], role) then c[role] = nil end
+    end
     -- The qualities the buildings and modules are placed AT are choices in their own right,
     -- separate from the target above, and a mod can take a tier out from under any of them.
-    for _, key in pairs({ "machine_quality", "recycler_quality", "quality_module_quality", "pole_quality" }) do
-      if c[key] and not planner.is_quality(c[key]) then c[key] = nil end
+    -- Matched by key rather than listed by name, for state.arm's reason: a picker added later
+    -- must not be able to keep a tier that no longer exists just because nobody remembered to
+    -- add its key here. The target `quality` has no underscore, so it keeps its own test above.
+    for key, quality in pairs(c) do
+      if key:match("_quality$") and not planner.is_quality(quality) then c[key] = nil end
     end
     entry.pending = nil
   end

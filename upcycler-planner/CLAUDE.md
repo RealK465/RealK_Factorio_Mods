@@ -12,14 +12,19 @@ target quality, and the mod designs a complete upcycling loop and drops it as gh
 hands over a placement tool whose click drops the whole loop as ghosts. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF (belt, quality module and its quality, electric pole and its quality, pipe,
-and the trash-unrequested checkbox).
+is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, quality module,
+top machine module, electric pole, pipe, and the trash-unrequested checkbox. Everything in that
+strip but the belt and the pipe carries a quality of its own — and a picker with only one option
+is hidden, so a vanilla game sees six of the nine — laid out as a **six-column grid**, since a
+hidden picker takes no cell. A **settings window** opens beside the modal, top edges level, from a
+captioned **Settings** button in its titlebar, holding the two per-player settings: show
+unresearched items, and show every picker whatever the count.
 What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (90 tests as of 2026-08-17) — planner, layout, poles, builder, state,
+suite under `tests/` (116 tests as of 2026-08-17) — planner, layout, poles, builder, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -129,7 +134,7 @@ The shape follows the community convention in the `factorio-mod-setup` skill: gr
 data.lua                            entry point; requires the prototype files
 data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_quality into mod-data
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
-settings.lua                        one per-player setting: show unresearched options
+settings.lua                        the two per-player settings the modal's window edits
 prototypes/planner/                 shortcut, selection tool, and the icon layers they share
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
@@ -228,22 +233,49 @@ re-opening any of these, and don't restate a reason here.
 - Shortcut → modal → Confirm → selection tool → click, gated on the `recycling` technology. The
   player selects nothing in the world but ground.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
-  then a **Build options** block for what it is built **out of** (belt, quality module, pole,
-  pipe, trash-unrequested checkbox). Machine, recycler, module and pole each carry their own
-  quality; the belt and the pipe do not.
+  then a **Build options** block for what it is built **out of** (belt, inserter, the three
+  chests, quality module, top machine module, pole, pipe, trash-unrequested checkbox). Every
+  picker carries its own quality except the belt and the pipe, which the engine gives no quality
+  bonus.
+- A build material with a quality travels as a `{ name, quality }` pair from `resources()`
+  through the layout params to the ghost; a bare string means it has no quality dimension at
+  all. That is the *plan* pipeline — `storage` still holds the two halves as flat strings, per
+  the rule below.
 - Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
+- **The two settings are edited in a second frame beside the modal**, and are mod *settings*
+  rather than a private copy in `storage`; one `on_runtime_mod_setting_changed` handler repaints
+  for the window and the settings menu alike. A nested window owns `player.opened`, so
+  `control.lua` honours a close on the modal only when no settings window exists, and
+  `gui.close_settings` hands the focus back only when nothing else has taken it. Reasons:
+  `decisions.md`; measurements: `analysis/api.md` §17.
+- **A picker with fewer than two options is hidden** — the recycler, the requester chest, the
+  output chest and the pipe in a vanilla game — and the pipe is also hidden until the recipe takes
+  a fluid. Exempt: item, target, machine, belt, quality module, and the two whose *clear* is the
+  second option (pole, top machine module). A hidden picker still holds its default, and hides its
+  row label with it. What that costs — a hidden picker takes its quality box with it — is what
+  *Show all build options* exists to undo, the pipe's fluid condition included.
 - Shortcut button style `green`. Icon layer `scale`/`shift` are written in item space and
   rescaled per prototype — they scale against the prototype's expected icon size, not the
   file's (`analysis/api.md` §11).
 - **`storage` holds flat strings only** — never a `{name, quality}` table.
 - Belt ring is the layout (`.ai-support/analysis/layout-belt-ring.md`); the bot loop is a
   deferred toggle, not a dead idea (`analysis/layout-bot-loop.md`).
-- Modules are planned rather than requested, and the terminal machine is left **empty** when the
-  recipe or the machine refuses productivity.
+- Modules are planned rather than requested. The top machine's module is its own picker,
+  defaulting to the best researched **productivity** module and to **nothing** when the recipe or
+  the machine refuses productivity — never to a quality module. Clearing it means "leave that
+  machine empty".
+- A picker offers only modules the machine **and** the recipe accept, by the measured rule that
+  only a module's *positive* effects must be allowed (`analysis/api.md` §16); both are
+  re-resolved when either half of the pair changes.
 - Modded recyclers work by rotation, not convention — see fact 3.
-- Chests are 1x1. Inserters reach one tile, are never fuelled and never belt-stacking. Poles
-  default to the best researched 1x1, stand in a dedicated utility column before each machine
-  (shared with the pipe run on fluid recipes, sized to both) and are clearable to none
+- Chests are 1x1, and each of the three roles offers only its own kind — the role is fixed, the
+  chest is the player's. Inserters reach one tile, are never fuelled and never belt-stacking, and
+  a chosen one that is short of filter slots is named in the refusal **only when a better one
+  exists** — otherwise the recipe is blamed, which is every vanilla case. Both
+  picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
+  scenery chests.
+- Poles default to the best researched 1x1, stand in a dedicated utility column before each
+  machine (shared with the pipe run on fluid recipes, sized to both) and are clearable to none
   (`analysis/poles.md`, `analysis/api.md` §10).
 - Fluid recipes are planned as per-column pipe runs ending in underground stubs beneath the
   ring belts; machines rotate per prototype to meet the run (fact 5 above). **Nothing is ever
