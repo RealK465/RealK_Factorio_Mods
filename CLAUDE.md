@@ -202,18 +202,8 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   where 2.1 offers 210, so the regression pin forks with it), plus `data-final-fixes.lua`,
   which exists **only** on `legacy/2.0` — the 2.0 shims live on that branch alone, never
   version-gated into `main`.
-  `README.md` used to be on that list and no longer is: the 1.0.2/1.0.3 rewrite dropped the
-  claim that a module's cost does not grow with its quality, which was the only 2.1-only
-  sentence in it, so both tracks now ship the same file.
-  **`changelog.txt` came off that list on 2026-08-07** and is kept identical too. The mod portal
-  renders one changelog per mod, from the newest uploaded release, so a section living only on
-  the other branch never reaches the website — the rule and the evidence are in the
-  `factorio-multiversion` skill. **The two copies were reconciled on 2026-08-08**, in the
-  1.0.6 / 1.0.7 pair: both branches now carry one identical file listing every released
-  section, 1.0.0 through 1.0.7, each naming the game it targets. Verified against the live
-  site — `GET /api/mods/<name>/full` returns all eight sections where it previously returned
-  five. Published zips still carry whichever copy shipped with them and cannot be corrected;
-  the reconciliation applies from 1.0.6 onward.
+  `README.md` and `changelog.txt` are **not** on that list — both are kept identical on the two
+  branches, for reasons the `factorio-multiversion` skill carries.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
   is drift, and the fix is to bring it back in line rather than to leave the branches guessing.
 
