@@ -9,6 +9,31 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — the fluid feature ports to 2.0, one seam wide
+
+The 0.2.0 feature commit cherry-picked onto `legacy/2.0` with exactly one conflict — the
+forked `planner_spec` item-count pin — and exactly one API seam: **`LuaFluidBoxPrototype`
+carries `volume` as an attribute on 2.0 where 2.1.7 replaced it with `get_volume()`**, so the
+legacy `planner.lua` fork scores pipes by `box.volume`. Everything else the feature reads was
+verified present and identically shaped in 2.0.77's own `runtime-api.json` before the pick
+(`pipe_connections` with `direction`/`positions`/`connection_type`, `production_type`,
+`max_underground_distance`); the two long-forked files took the main-side hunks cleanly and
+were hand-reviewed to confirm the 2.0 adaptations (the mod-data bridge, the category shape,
+the `contains_value` local) survived.
+
+The class-3 questions — does 2.0's engine merge input boxes per recipe, does the outside tap
+feed through the ring — were answered by running the whole suite on the 2.0 install rather
+than assuming: **90/90 on 2.0.77** (pure 20/20, static clean, data stage exit 0 with the
+legacy-only `data-final-fixes.lua` loading), with `fluid_spec`'s live rigs — the unrotated EM
+plant on a west run, the player-side underground tap, the revive-and-craft pipeline — passing
+unchanged. **The 2.0 track offers 212 upcyclable items** (187 base + the same 25 single-fluid
+items), measured and pinned in the forked spec; `main` re-ran green the same session (90/90,
+pure, static). Both branches' evidence: `analysis/factorio-2.0.md`, difference #4 and the
+new measured-identical section. Release numbering for the eventual 2.0/2.1 pair stays the
+owner's call at release time; legacy `info.json` remains at its released 0.1.4 until then.
+
+---
+
 ## 2026-08-17 — nothing outside the ring: the header becomes outward stubs
 
 The repo owner reviewed the freshly-built fluid geometry and redrew its boundary: **nothing

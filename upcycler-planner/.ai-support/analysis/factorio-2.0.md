@@ -1,6 +1,6 @@
 ---
 verified_against: 2.0.77
-verified: 2026-08-16
+verified: 2026-08-17
 ---
 # Factorio 2.0 — the API surface this mod touches
 
@@ -11,7 +11,7 @@ forked files on `legacy/2.0` can be maintained without re-deriving any of it. Th
 end-to-end proof is the `--create` harness run of 2026-08-16: 38/38 on 2.0.77 against 37/37 on
 2.1.14, with byte-equivalent plans placed and read back on each (`../journal.md`).
 
-## The three real differences
+## The four real differences
 
 1. **`LuaRecipePrototype` has no `categories` attribute on 2.0** — the shape is one `category`
    string plus `additional_categories` (an array; guarded with `or {}` since its optionality
@@ -35,6 +35,13 @@ end-to-end proof is the `--create` harness run of 2026-08-16: 38/38 on 2.0.77 ag
 3. **`util.contains_value` is not in 2.0's `core/lualib/util.lua`** (2.1 added it at line
    809). The legacy `gui.lua` carries a local copy with identical semantics; `main` keeps
    calling util's. `util.list_to_map` exists in both.
+4. **`LuaFluidBoxPrototype.volume` is the attribute on 2.0; `get_volume()` arrives with
+   2.1.7.** The one seam the 0.2.0 fluid feature added (2026-08-17): `planner.pipe()` scores
+   pipes by volume, so the legacy copy reads `box.volume` where `main` calls
+   `box.get_volume("normal")`. Everything else the feature reads — `fluidbox_prototypes`,
+   `pipe_connections` with `direction` / `positions` / `connection_type`, `production_type`,
+   `LuaEntityPrototype.max_underground_distance` — is identical at 2.0.77, checked against
+   this install's own `runtime-api.json`.
 
 ## Identical on 2.0.77 — verified, nothing to port
 
@@ -104,10 +111,18 @@ nothing to gate. If an expected-output display ever lands (`../deferred.md`), **
 must handle the scale seam, ideally via `get_roll_chances()`, which is 2.1.13-only — the
 display would need its own 2.0 answer.
 
+## Measured identical on 2.0.77 — the fluid feature's engine behaviour
+
+The class-3 questions the 0.2.0 port raised were answered by running the suite on this
+install (90/90, 2026-08-17), not by assuming: the engine merges a recipe's input boxes into
+one live box on 2.0 exactly as `api.md` §14 measures for 2.1 (the unrotated EM plant crafts
+from a west-side run), a player-side underground tap through the ring belt feeds the run, a
+script ghost keeps its direction beside a fluid recipe, and the placed-revived battery plan
+crafts. The machine orientation table (AM west, chem/bio west, foundry/cryo east, EM north)
+reads identically from 2.0's data. **The 2.0 track offers 212 upcyclable items** with fluids
+admitted, against 2.1's 210 — the forked `planner_spec` pin.
+
 ## UNVERIFIED on 2.0
 
 - Whether `set_recipe(recipe, quality)` on a ghost errors or quietly ignores the quality for a
   recipe whose `allow_quality` is false — the bridge exists so the planner never asks.
-- The GUI (`gui.lua`) has not been opened on 2.0 any more than on 2.1 — no headless path to a
-  player exists on either. The 2.0 fork adds no GUI-side code beyond the `contains_value`
-  local, so the standing first-open checklist in `../journal.md` applies unchanged.

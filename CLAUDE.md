@@ -196,8 +196,8 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   files are `info.json`, `prototypes/modules/definitions.lua`,
   `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else. For
   Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`,
-  `scripts/gui.lua` and `tests/planner_spec.lua` (the 2.0 track offers 187 upcyclable items
-  where 2.1 offers 185, so the regression pin forks with it), plus `data-final-fixes.lua`,
+  `scripts/gui.lua` and `tests/planner_spec.lua` (the 2.0 track offers 212 upcyclable items
+  where 2.1 offers 210, so the regression pin forks with it), plus `data-final-fixes.lua`,
   which exists **only** on `legacy/2.0` — the 2.0 shims live on that branch alone, never
   version-gated into `main`.
   `README.md` used to be on that list and no longer is: the 1.0.2/1.0.3 rewrite dropped the
