@@ -45,3 +45,7 @@ Nothing here is promised, but it's what's being considered next:
 - **Compatibility with other mods** — a good reason to add further tiers of modules or
   beacons tied to other planets, if the right mod comes along.
 - **More languages** — the mod is English only for now.
+
+## AI-Assisted Development
+
+The development of this mod was done with help of AI coding assistants.

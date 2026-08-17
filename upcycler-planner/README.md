@@ -53,6 +53,10 @@ Also by two planners that showed how good this kind of mod can feel:
   - rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
   - Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
 
+## AI-Assisted Development
+
+The development of this mod was done with help of AI coding assistants.
+
 ## License
 
 GPLv3. See [LICENSE](https://github.com/RealK465/RealK_Factorio_Mods/blob/main/upcycler-planner/LICENSE).

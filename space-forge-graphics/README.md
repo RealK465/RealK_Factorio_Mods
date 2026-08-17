@@ -11,6 +11,10 @@ Install **Space Forge**, which requires this mod and will pull it in.
 The art is the heavy half of an overhaul and the half that changes least. Splitting it out
 means a balance patch to Space Forge is a few kilobytes rather than a full re-download.
 
+## AI-Assisted Development
+
+The development of this mod was done with help of AI coding assistants.
+
 ## License
 
 GPLv3 — see [`LICENSE`](LICENSE).
