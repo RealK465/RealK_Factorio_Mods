@@ -40,17 +40,18 @@ Only researched options are offered, and the planner's settings can show everyth
 
 ## Requirements
 
-Factorio with **Space Age**. 
+Factorio with **Space Age**.
 
-Even if supports both Factorio 2.1 and 2.0, the main development branch is Factorio 2.1.
+Supports both Factorio 2.1 and 2.0. The main development branch is Factorio 2.1.
 
 ## Credits
 
 Inspired by kvdveer's [Upcyclers](https://forums.factorio.com/viewtopic.php?t=121438) blueprint book.
 
 Also by two planners that showed how good this kind of mod can feel:
-  - rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
-  - Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
+
+- rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
+- Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
 
 ## AI-Assisted Development
 

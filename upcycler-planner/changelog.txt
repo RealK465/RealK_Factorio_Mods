@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.1
+Date: 2026-08-17
+  Changes:
+    - Version 0.3.0, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
-Date: ????
+Date: 2026-08-17
   Features:
     - A settings window, opened with the Settings button beside the planner's close button.
     - Inserters and chests can now be configured in the build options too.
@@ -11,6 +16,7 @@ Date: ????
       you want them back, quality boxes included.
     - The pipe selector only appears for a recipe that takes a fluid, and only when there is
       more than one pipe to choose from.
+    - Releasing for Factorio 2.0. Version 0.3.1 is the Factorio 2.1 build of the same change.
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.1
 Date: 2026-08-17
