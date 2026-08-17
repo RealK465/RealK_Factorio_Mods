@@ -9,6 +9,99 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — nothing outside the ring: the header becomes outward stubs
+
+The repo owner reviewed the freshly-built fluid geometry and redrew its boundary: **nothing
+may be built outside the belt loop — not the pipe header, not even a pole** — with the fluid
+offered as underground pipes on the two sides, the player choosing how to wire them up.
+
+So the external header and its crossing rows (+2 height) went the same day they arrived.
+Each utility column's run now spans the full interior height and ends in a pipe-to-ground
+stub at each end — surface opening INTO the run (south at the harvest row, north at the
+unload row), underground reaching outward beneath the ring belts. The player stands a
+matching underground pipe outside, north or south, one tap per column, and interconnects
+them however their base likes; the columns are independent networks until then. The "poles
+outside" half resolved itself: with the extra rows gone, the plan's bounding box IS the ring
+rectangle again, and the pole pass cannot place beyond the box.
+
+Cheap to change because the header was never load-bearing: an interior header was impossible
+from the start (every interior row is an inserter reach-chain), so the planned pipes were
+always vertical, and a vertical run ends in an outward stub as naturally as in a crossing.
+No planner, poles, GUI or state code moved — the whole diff is `layout.build`'s fluid
+emission (and the row-shift machinery deleted, heights back to `8 + Hm + Hr` for every
+plan). Engine side, nothing new needed measuring: a lone pipe-to-ground is an offered
+connection until a partner appears, already §14's fact 5 — the live specs were re-rigged as
+player-side taps (the hand rig taps a north stub, the revive-whole-plan pipeline taps tier
+0's south stub) and the suite held at 90/90 with the fluid heights re-pinned at 15.
+
+Recorded in `decisions.md` as its own bullet — the ring rectangle is the plan's entire
+footprint — beside the rewritten fluid bullet; `layout-belt-ring.md` §Fluid recipes and
+`api.md` §14.5/6 reworded to match.
+
+---
+
+## 2026-08-17 — fluid recipes and the utility columns: the 0.2.0 feature lands
+
+The repo owner asked for fluid-recipe support and for poles in a dedicated column — one
+column carrying both, its width adapting to what lives in it. Built end to end this session:
+26 recipes / 25 items newly plannable (185 → 210), every machine rotated per prototype so its
+fluid input meets a pipe run, and the suite grew from 74 to 90, all green (pure 20/20, static
+clean).
+
+**The shape was forced before it was chosen.** Three cheaper geometries died on paper against
+measured facts: no row can be inserted anywhere inside the ring (every top- and bottom-side
+position is part of an inserter reach-chain, and inserters reach exactly one tile), a
+horizontal trunk cannot thread the existing rows at pitch 3 (single free tiles between
+occupied ones, and a pipe-to-ground cannot be entry and exit on one tile), and a 1-wide
+column cannot host a trunk T-junction. What survives: a full-width **header outside the ring**
+(+2 rows), a **pipe-to-ground pair per utility column** diving under the top belt, and a
+**run down each column's east edge** spanning the machine's full height. The measured
+recycler-eject lesson repeated as `planner.machine_fluid_orientation()`: rotation computed
+per prototype, never assumed — and vanilla proves it immediately, because the foundry and
+cryogenic plant author their inputs on the SOUTH face (they stand facing east), while the
+EM plant's inputs sit on opposite flanks (it stays north).
+
+**Probes before geometry, and the probes paid.** A temporary in-game spec (deleted after; the
+functional rigs graduated into `tests/fluid_spec.lua`) settled §9.4 — `positions` IS the
+[N,E,S,W] rotation orbit — and found the fact that collapsed the hard case: **the engine
+merges every input box a recipe needs into one live box exposing ALL their connection
+points, and feeding any one feeds the machine** (`analysis/api.md` §14). A west run fed an
+unrotated EM plant crafting supercapacitors, so no vanilla machine needs refusing. Output
+boxes never materialise for fluid-input-only recipes, which dissolved the chemical-plant
+always-visible-outputs worry unprompted. `IngredientPrototype.fluidbox_index` exists in the
+schema but is nil throughout vanilla — the architect agent that found it also found
+`PipeConnectionDefinition.direction`, which is what the orientation arithmetic actually
+reads.
+
+**The utility columns replaced the pole growth retry.** The owner's clarified rule — column
+width = pole width, +1 when pipes join it, collapse only when both are absent — made "not
+enough room" stop being a pole failure mode, so `poles.plan` lost its layout-rebuilding
+retry and gained a two-attempt ladder: candidates inside the columns first, any free tile as
+the honest fallback, kept only when it powers strictly more. Measured deltas worth the line:
+the rare medium-pole loop now takes **3 poles in a tidy line** where free tiles took 5, and
+the big-electric-pole worst case dropped from 7 unpowered to **3**. Widths moved
+release-visibly (rare 11 → 14 with the default pole; the pinned scenarios re-measured and
+re-pinned), and the cleared-picker fluid-free plan keeps the old 11 exactly.
+
+**Design decisions of the session**, all the owner's: utility columns always (every plan with
+poles), one fluid maximum (vanilla's only two-fluid recipe is ammonia-rocket-fuel, whose
+product plain rocket-fuel covers — so zero items lost), a pipe picker in Build options (no
+quality; the pipe-to-ground derived by the `<name>-to-ground` convention with a
+longest-reach fallback, since no prototype links the pair), and no fluid status line in the
+modal. Three architect agents (minimal / clean / pragmatic) blueprinted it first; the
+minimal-diff design won — pipes emitted inside `layout.build` so any re-layout re-places
+them by construction — carrying the pragmatic architect's probe-gated sequence, and the
+clean architect's separate-fluids-module was declined for creating the exact re-run hazard
+the inline emission cannot have.
+
+**The end-to-end proof is a permanent spec**: a battery plan placed as ghosts, revived
+whole, fed from an infinity pipe on the header, crafts on real ticks
+(`fluid_spec.lua`) — the planner→layout→builder chain pinned the way `loop_spec` pins the
+eject. Quantum processor stays out on a different axis (fluid PRODUCT — needs a drain
+network, recorded in `deferred.md`), and the FAQ says so to players.
+
+---
+
 ## 2026-08-17 — the docs audited against the research, and 0.2.0 opened
 
 The repo owner asked for a no-exaggeration accuracy pass over every doc, folding in the

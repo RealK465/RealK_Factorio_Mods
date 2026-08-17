@@ -29,8 +29,9 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 The old caution — the recycler-eject stall — is **resolved, by measurement** (2026-08-16,
 `analysis/api.md` §9.6): a rolled-up ingredient wedges the recycler outright, and the
 blacklist relief inserter is what keeps the loop alive; a permanent test now guards it. The
-mod carries a 73-test suite (`tests/`, run via the repo's `factorio-testing` skill) covering
-planner, layout, poles, builder, state and — since the connected-player discovery of §12 —
+mod carries a 90-test suite (`tests/`, run via the repo's `factorio-testing` skill) covering
+planner, layout, poles, builder, state, the live eject and fluid mechanisms
+(`loop_spec` / `fluid_spec`) and — since the connected-player discovery of §12 —
 `gui.lua` in both headless and real-client runs.
 
 What suite-green still does **not** prove: a multi-tier loop's endurance in a played game,

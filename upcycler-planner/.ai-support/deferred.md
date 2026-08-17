@@ -28,22 +28,19 @@ wires are invisible to players.
 
 Add when: the plain loop is proven and someone wants throughput or a tidier ring.
 
-### Fluid recipes (pipes)
-**Status:** refused with a message in the first build.
+### A second fluid network (two-fluid recipes), and fluid products
+**Status:** out of scope of the 0.2.0 fluid support, on purpose.
 
-Fluids carry no quality and are never returned by recycling, so **one shared normal-quality fluid
-header serves every tier** — the fluid is a flat per-cycle cost, not a per-tier one. The work is
-geometric: machines must be rotated so their fluid input faces the pipe run, and the column pitch
-opens up by one to make room for it.
+Single-fluid recipes shipped 2026-08-17 (`analysis/layout-belt-ring.md` §Fluid recipes). Two
+things stayed out, each refused or excluded with its gate:
 
-`LuaFluidBoxPrototype.pipe_connections[].positions` gives the four cardinal connection points
-pre-computed per direction, so no rotation maths needs hand-rolling — but the index-to-direction
-mapping is on the UNVERIFIED list (`analysis/api.md` §9.4).
-
-Worth doing properly rather than early, because **the reference blueprints get this wrong**: their
-"with fluids" variants ship with the machine rotations normalised away and pipes that cannot
-connect (`analysis/blueprints.md` §6). A mod that knows the real recipe at plan time can fix
-exactly that, so this is a feature where we beat the shared blueprints rather than match them.
+- **Two distinct fluid ingredients** would need a second header and a second run per column.
+  Vanilla has exactly one such recipe (`ammonia-rocket-fuel`) and its product is covered by
+  the one-fluid `rocket-fuel` recipe, so this waits for a modded game that actually needs it.
+- **Fluid products** (the quantum processor's hot fluoroketone) fail the single-item-product
+  gate as they always did. Supporting them means a DRAIN network — pipes carrying output away,
+  or voiding it — which is a design of its own. The recycling side is fine (recycling never
+  returns fluids), so only the crafting stage needs the plumbing if this is ever wanted.
 
 ### Bot transport as an alternative layout
 **Status:** fully specified in `analysis/layout-bot-loop.md`, intended as a GUI toggle.
@@ -122,8 +119,8 @@ first, pole columns only when needed, best effort plus a warning when even that 
 (`analysis/poles.md`). Roboports still are not placed: bot coverage stays the player's
 problem, as in the reference blueprints. The loop's requester chests do want a network
 though, so a roboport option is the natural next candidate — it would ride the same
-free-tile/growth machinery with a 4x4 footprint and the logistic/construction radii in place
-of a supply area. Revisit if it turns out to be a common ask.
+utility-column/free-tile machinery with a 4x4 footprint and the logistic/construction radii
+in place of a supply area. Revisit if it turns out to be a common ask.
 
 ## Planner intelligence
 

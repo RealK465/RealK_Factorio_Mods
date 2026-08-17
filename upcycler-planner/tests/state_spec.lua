@@ -66,6 +66,7 @@ describe("state.prune -- drop what no longer qualifies", function()
       machine = "assembling-machine-2",
       recycler = "recycler",
       belt = "transport-belt",
+      pipe = "pipe",
       quality = "rare",
       quality_module = "quality-module",
       pole = "small-electric-pole",
@@ -78,6 +79,7 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.machine == "assembling-machine-2", "machine pruned wrongly")
     assert(c.recycler == "recycler", "recycler pruned wrongly")
     assert(c.belt == "transport-belt", "belt pruned wrongly")
+    assert(c.pipe == "pipe", "pipe pruned wrongly")
     assert(c.quality == "rare", "quality pruned wrongly")
     assert(c.quality_module == "quality-module", "module pruned wrongly")
     assert(c.pole == "small-electric-pole", "pole pruned wrongly")
@@ -93,6 +95,7 @@ describe("state.prune -- drop what no longer qualifies", function()
       machine = "steel-furnace",          -- no module slots
       recycler = "assembling-machine-1",  -- does not recycle
       belt = "iron-chest",
+      pipe = "transport-belt",
       quality = "not-a-quality",
       quality_module = "speed-module",
       pole = "stone-wall",
@@ -104,6 +107,7 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.machine == nil, "moduleless furnace survived as machine")
     assert(c.recycler == nil, "non-recycler survived")
     assert(c.belt == nil, "chest survived as belt")
+    assert(c.pipe == nil, "belt survived as pipe")
     assert(c.quality == nil, "bogus quality survived")
     assert(c.quality_module == nil, "speed module survived as quality module")
     assert(c.pole == nil, "wall survived as pole")

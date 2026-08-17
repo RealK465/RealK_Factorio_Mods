@@ -76,6 +76,7 @@ describe("the modal", function()
     widget({ "upl-options", "upl-strip", "upl-belt" })
     widget({ "upl-options", "upl-strip", "upl-quality-module" })
     widget({ "upl-options", "upl-strip", "upl-pole" })
+    widget({ "upl-options", "upl-strip", "upl-pipe" })
     assert(widget({ "upl-options", "upl-trash" }).state == true, "trash defaults checked")
 
     local c = choices()
@@ -84,6 +85,7 @@ describe("the modal", function()
     assert(c.belt == "turbo-transport-belt", "belt default " .. tostring(c.belt))
     assert(c.quality_module == "quality-module-3", "module default " .. tostring(c.quality_module))
     assert(c.pole == "medium-electric-pole", "pole default " .. tostring(c.pole))
+    assert(c.pipe == "pipe", "pipe default " .. tostring(c.pipe))
 
     -- No item picked yet: Place must be disabled and the status must say why.
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == false,
@@ -144,6 +146,15 @@ describe("the modal", function()
     fire(button)
     assert(choices().belt == "turbo-transport-belt", "belt did not snap back")
     assert(button.elem_value == "turbo-transport-belt", "snap-back not shown on the strip")
+  end)
+
+  test("clearing the pipe snaps back like the belt -- a fluid plan cannot go without one", function()
+    open_with_gears()
+    local button = widget({ "upl-options", "upl-strip", "upl-pipe" })
+    button.elem_value = nil
+    fire(button)
+    assert(choices().pipe == "pipe", "pipe did not snap back")
+    assert(button.elem_value == "pipe", "snap-back not shown on the strip")
   end)
 
   test("clearing the pole means no poles -- the one picker that stays empty", function()

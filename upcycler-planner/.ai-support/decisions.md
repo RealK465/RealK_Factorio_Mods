@@ -114,7 +114,12 @@ still needs the repo owner's per-release approval.
   button that cannot yet produce anything.
 - **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
   crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
-  belt, quality module, electric pole, and the trash-unrequested checkbox (checked by default).
+  belt, quality module, electric pole, pipe, and the trash-unrequested checkbox (checked by
+  default). The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
+  over an auto-pick) carries no quality — like the belt, nothing about it scales with quality —
+  and matters only when the recipe takes a fluid; its underground counterpart is derived, not
+  picked, since no prototype links the pair (`<name>-to-ground` convention first, longest
+  researched reach as the fallback).
   The recycler row is always shown — one recycler stopped being a non-choice once its quality
   became pickable. The Build options pickers carry no row labels on purpose: the strip reads by
   icon, the way the game's own tool settings do, so each tooltip opens with its own name in
@@ -199,19 +204,47 @@ still needs the repo owner's per-release approval.
   `inserter_candidates()` excludes anything above one, a spec guards it, and `loop_spec`'s
   relief rig stands the planner's own pick so the wedge-relief measurement covers the inserter
   the layout actually plans.
-- **Electric poles are planned in.** Researched-best **1x1** pole by default (largest supply
-  area; a substation is never sprung on the player, though every size is pickable), clearable to
-  "no poles"; free tiles first, added pole columns only when needed; best effort plus an orange
-  count when even that cannot cover; one wired network via ghost copper wires. Algorithm in
-  `analysis/poles.md`, engine facts in `analysis/api.md` §10. **Coverage counts only the largest
-  wired component** — geometric coverage alone would call a consumer powered when its only pole
-  sits on an unwired island, a lie that surfaces in game as a mystery, and the honest tally is
-  also what lets a connectivity failure drive growth.
+- **Electric poles are planned in, standing in a dedicated utility column before every machine
+  column.** The repo owner's call, 2026-08-17, superseding the free-tiles-first placement: a
+  tidy vertical line of poles, in a column sized to the pole the player picked — and shared
+  with the pipe run when the recipe takes a fluid, which is what the column-width rule adapts
+  to (pole width, +1 for pipes; both absent collapses the columns and the old compact width).
+  Researched-best **1x1** pole by default (largest supply area; a substation is never sprung on
+  the player, though every size is pickable), clearable to "no poles"; columns first, any free
+  tile as the fallback; best effort plus an orange count when even that cannot cover; one wired
+  network via ghost copper wires. Algorithm in `analysis/poles.md`, engine facts in
+  `analysis/api.md` §10. **Coverage counts only the largest wired component** — geometric
+  coverage alone would call a consumer powered when its only pole sits on an unwired island, a
+  lie that surfaces in game as a mystery.
+- **Fluid recipes are planned in** (2026-08-17, the promised 0.2.0 feature): a pipe run down
+  each utility column's east edge, spanning the full interior height, with every machine
+  rotated per prototype so a fluid input connection meets it
+  (`planner.machine_fluid_orientation`, the recycler-orientation lesson again; measured rule
+  and the merged-fluid-box behaviour in `analysis/api.md` §14). Each run ends in underground
+  stubs beneath the top and bottom ring belts; the player taps any column from either side
+  with an underground pipe of their own and wires the columns together however they like.
+  Nothing requests fluid by bots.
+- **Nothing is ever built outside the ring — poles included.** The repo owner's call,
+  2026-08-17, replacing the first-built external pipe header the same day: the ring rectangle
+  is the plan's entire footprint, so the ground the player reserves is exactly what they see,
+  and the plumbing topology outside it is theirs (a shared header, per-column feeds, tanks —
+  their base, their call). What made it cheap: an interior header is impossible anyway (every
+  interior row is an inserter reach-chain), so the only planned pipes were ever going to be
+  vertical, and vertical runs end naturally in outward underground stubs
+  (`analysis/layout-belt-ring.md` §Fluid recipes).
 
 ## What the planner refuses
 
-- **Fluid recipes**, with a message. Placing unconnected pipe stubs would reproduce the
-  reference book's own defect; worth doing properly rather than early — `deferred.md`.
+- **Recipes with two or more distinct fluid ingredients**, with a message. A second fluid
+  means a second, separate network; vanilla has exactly one such recipe (`ammonia-rocket-fuel`,
+  measured 2026-08-17) and its product is already covered by the one-fluid `rocket-fuel`
+  recipe, so the cost is zero items. Fluid PRODUCTS stay excluded by the single-item-product
+  gate — the quantum processor returns hot fluoroketone beside the item and would need a drain
+  network, a separate decision.
+- **A fluid machine with no rotation that lands an input connection on the pipe run**, refused
+  naming the machine. Unreachable in vanilla — the merged-box rule covers even the EM plant's
+  opposite-flank inputs — so this is the modded-machine guard, and the alternative was piping
+  it wrong: the reference book's own defect.
 - **Self-recycling items** (steel and friends). A recycler-only loop needs thousands of inputs
   per legendary; the few shared designs that wash self-recyclers are a different architecture
   (recycler walls with no crafting stage — `analysis/blueprints.md` §9) with the same dire

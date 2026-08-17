@@ -136,7 +136,7 @@ describe("builder.place", function()
     -- in ONE network -- an unwired island is the failure poles.lua's honesty rule exists for.
     place(gear_plan())
     local poles = ghosts_of(nauvis(), "medium-electric-pole")
-    assert(#poles == 5, "pole ghost count " .. #poles)
+    assert(#poles == 3, "pole ghost count " .. #poles)
 
     local index_of = {}
     for i, ghost in pairs(poles) do index_of[ghost.unit_number] = i end
@@ -156,6 +156,33 @@ describe("builder.place", function()
     local reached = 0
     for _ in pairs(visited) do reached = reached + 1 end
     assert(reached == #poles, "only " .. reached .. " of " .. #poles .. " poles share the network")
+  end)
+
+  test("a fluid plan's pipes land as ordinary ghosts with their directions", function()
+    -- Pipes carry no recipe, modules, filters or requests, so the builder needs no new code
+    -- for them -- this pins that a fluid plan places completely and the crossing pair reads
+    -- back with the facings the underground hop depends on.
+    local choices = {
+      recipe = "battery", quality = "rare",
+      machine = "chemical-plant", recycler = "recycler",
+      pole = "medium-electric-pole",
+    }
+    local plan = planner.plan(force(), choices)
+    assert(plan, "battery plan failed in test setup")
+    local placed = place(plan)
+    assert(placed == #plan.entities, "placed " .. tostring(placed) .. " of " .. #plan.entities)
+
+    assert(#ghosts_of(nauvis(), "pipe") == 33, "pipe ghost count")
+    local stubs = ghosts_of(nauvis(), "pipe-to-ground")
+    assert(#stubs == 6, "pipe-to-ground ghost count " .. #stubs)
+    for _, ghost in pairs(stubs) do
+      assert(ghost.direction == defines.direction.north or ghost.direction == defines.direction.south,
+        "stub ghost faces " .. tostring(ghost.direction))
+    end
+    for _, ghost in pairs(ghosts_of(nauvis(), "chemical-plant")) do
+      assert(ghost.direction == defines.direction.west, "plant ghost lost its rotation")
+      assert(ghost.get_recipe() and ghost.get_recipe().name == "battery", "plant ghost recipe")
+    end
   end)
 
   test("all or nothing: one blocker means zero ghosts and the blocking position", function()

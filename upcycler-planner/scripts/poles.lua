@@ -1,19 +1,19 @@
 -- Places electric poles over a finished plan: enough of them, wired into one network, that
--- every machine, recycler and inserter has power -- belts and chests need none. PURE, the
--- same contract as layout.lua: no storage, no game state, so the same plan grows the same
+-- every machine, recycler and inserter has power -- belts, chests and pipes need none. PURE,
+-- the same contract as layout.lua: no storage, no game state, so the same plan grows the same
 -- poles on every client.
 --
 -- Deliberately blind to layout.lua's row plan: it asks "is this tile free?", discovered from
--- the plan's own entities, never "where is the buffer sub-column?". That keeps it correct for
--- any machine, recycler and pole footprint, and it survives a row-plan change untouched.
+-- the plan's own entities, never "where is the buffer sub-column?". The one thing it accepts
+-- from the layout is the utility-column list -- the dedicated columns the plan already sized
+-- to the pole -- so poles prefer a tidy vertical line there and fall back to any free tile
+-- only when the columns alone cannot cover.
 --
 -- Cover, then connect, then be honest. A greedy set cover picks positions (within ln(n)+1 of
 -- the true minimum, which is NP-hard and nothing this small needs), a bridge pass joins stray
 -- islands, and the reported shortfall counts a consumer as powered only when a pole of the
 -- LARGEST connected network reaches it -- a covered consumer on an unwired island would be a
 -- lie that only surfaces in game as a mystery.
-
-local layout = require("scripts.layout")
 
 local poles = {}
 
@@ -109,6 +109,22 @@ local function candidate_positions(occ, width, height, pole)
     end
   end
   return out
+end
+
+-- The candidates lying wholly inside a utility column -- the pole's own dedicated ground.
+-- Pipes already sit in those columns as ordinary occupied tiles, so a fluid plan's east edge
+-- excludes itself without this function knowing pipes exist.
+local function within_columns(candidates, columns, pole)
+  local kept = {}
+  for _, c in pairs(candidates) do
+    for _, col in pairs(columns) do
+      if c.dx >= col.x and c.dx + pole.width <= col.x + col.width then
+        kept[#kept + 1] = c
+        break
+      end
+    end
+  end
+  return kept
 end
 
 local function without_overlapping(candidates, taken, pole)
@@ -218,11 +234,8 @@ local function largest_component(components)
   return best
 end
 
--- One full attempt against one layout: cover, bridge, tally.
-local function attempt(built, pole, consumer_margins)
-  local consumers = consumers_of(built.entities, consumer_margins)
-  local candidates = candidate_positions(occupied(built.entities), built.width, built.height, pole)
-
+-- One full attempt against one candidate set: cover, bridge, tally.
+local function attempt(candidates, consumers, pole)
   local placed, remaining = greedy_cover(candidates, consumers, pole)
   bridge(placed, remaining, pole)
 
@@ -278,26 +291,28 @@ end
 -- entity names to the collision-box margin their stand-in is shrunk by, false for entities
 -- that draw no power.
 --
--- Returns { entities, layout, unpowered }: pole entity dicts tagged pole = true, each
--- carrying wire_to -- the index, in their own order, of the pole it wires back to; the
--- widened layout when growth was used (nil otherwise); and how many consumers no pole of
--- the main network reaches.
-function poles.plan(layout_params, built, pole, consumer_margins)
-  local placed, unpowered = attempt(built, pole, consumer_margins)
+-- Returns { entities, unpowered }: pole entity dicts tagged pole = true, each carrying
+-- wire_to -- the index, in their own order, of the pole it wires back to -- and how many
+-- consumers no pole of the main network reaches.
+function poles.plan(built, pole, consumer_margins)
+  local consumers = consumers_of(built.entities, consumer_margins)
+  local candidates = candidate_positions(occupied(built.entities), built.width, built.height, pole)
 
-  -- Growth, tried once: a pole-wide gap column at every tier boundary, and a full re-run --
-  -- the gaps reflow every column after the first, so first-attempt positions mean nothing
-  -- there. The wider layout is kept only when it powers strictly more; a pole whose supply
-  -- is simply too small (vanilla's big electric pole) must not pay the width for nothing.
-  local grown_layout
-  if unpowered > 0 then
-    local grown_params = {}
-    for key, value in pairs(layout_params) do grown_params[key] = value end
-    grown_params.column_gap = pole.width
-    local grown = layout.build(grown_params)
-    local grown_placed, grown_unpowered = attempt(grown, pole, consumer_margins)
-    if grown_unpowered < unpowered then
-      placed, unpowered, grown_layout = grown_placed, grown_unpowered, grown
+  -- Columns first, free tiles as the honest fallback: the layout already sized the utility
+  -- columns to this pole, so the tidy vertical line is the common case -- but a pole whose
+  -- supply cannot cover from the columns alone still gets the full free-tile search rather
+  -- than a shrug. The fallback is kept only when it powers strictly more, so a tie stays
+  -- with the columns.
+  local placed, unpowered
+  local column_candidates = built.utility_columns
+    and within_columns(candidates, built.utility_columns, pole) or {}
+  if #column_candidates > 0 then
+    placed, unpowered = attempt(column_candidates, consumers, pole)
+  end
+  if not placed or unpowered > 0 then
+    local free_placed, free_unpowered = attempt(candidates, consumers, pole)
+    if not placed or free_unpowered < unpowered then
+      placed, unpowered = free_placed, free_unpowered
     end
   end
 
@@ -311,7 +326,7 @@ function poles.plan(layout_params, built, pole, consumer_margins)
     }
   end
 
-  return { entities = entities, layout = grown_layout, unpowered = unpowered }
+  return { entities = entities, unpowered = unpowered }
 end
 
 return poles

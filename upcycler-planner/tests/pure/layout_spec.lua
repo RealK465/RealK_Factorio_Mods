@@ -60,10 +60,93 @@ describe("layout.build dimensions", function()
     assert_no_overlap_and_in_bounds(built)
   end)
 
-  test("column_gap widens every boundary between tiers", function()
+  test("column_gap opens a utility column before every tier, and reports them", function()
+    -- One column per tier, the first included -- machines take their fluid on the west side,
+    -- so the leftmost machine needs a column too: 2 + 3*2 + 2*3 + 3.
     local built = layout.build(params_with({ column_gap = 2 }))
-    assert(built.width == 15, "width " .. built.width .. ", expected 2 + 2*(3+2) + 3 = 15")
+    assert(built.width == 17, "width " .. built.width .. ", expected 2 + 3*2 + 2*3 + 3 = 17")
+    assert(built.utility_columns and #built.utility_columns == 3,
+      "utility columns " .. tostring(built.utility_columns and #built.utility_columns))
+    for _, col in pairs(built.utility_columns) do
+      assert(col.width == 2, "utility column width " .. col.width)
+    end
     assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("no gap means no utility columns and the original width", function()
+    local built = layout.build(params_with())
+    assert(built.utility_columns == nil, "utility columns reported for a gapless plan")
+  end)
+end)
+
+describe("layout.build fluid plans", function()
+  local function fluid_params(overrides)
+    local params = params_with(overrides)
+    params.column_gap = 2
+    params.fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" }
+    -- The planner rotates a fluid machine so an input connection faces the pipe run; the
+    -- vanilla assembler comes out facing west.
+    params.machine = {
+      name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
+      module_slots = 2, direction = defines.direction.west,
+    }
+    return params
+  end
+
+  test("nothing leaves the ring: fluid adds no rows, and the box stays the ring rectangle", function()
+    local built = layout.build(fluid_params())
+    assert(built.width == 17, "width " .. built.width .. ", expected 17")
+    assert(built.height == 15, "height " .. built.height .. ", expected the ring's own 15")
+    -- The bounds half of the invariant is the "nothing outside the loop" rule: with the box
+    -- equal to the ring rectangle, an entity beyond it fails here.
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a full-height run per column, ending in outward underground stubs on both sides", function()
+    local built = layout.build(fluid_params())
+    local stubs, run_tiles = 0, {}
+    for _, e in pairs(built.entities) do
+      if e.name == "pipe-to-ground" then
+        stubs = stubs + 1
+        -- Surface openings face INTO the run; the undergrounds reach outward beneath the
+        -- ring belts, which is what the player's own pipe-to-ground taps from outside.
+        if e.dy == 1 then
+          assert(e.direction == defines.direction.south, "north stub faces " .. e.direction)
+        else
+          assert(e.dy == 13, "stub at row " .. e.dy .. ", expected 1 or 13")
+          assert(e.direction == defines.direction.north, "south stub faces " .. e.direction)
+        end
+      end
+      if e.name == "pipe" then run_tiles[e.dx] = (run_tiles[e.dx] or 0) + 1 end
+    end
+    assert(stubs == 6, "stub count " .. stubs .. ", expected a pair per tier")
+    -- The run fills rows 2..12 between the stubs, in the column just west of each machine
+    -- (machines start at 3, 8, 13 with gap 2).
+    for _, machine_col in pairs({ 3, 8, 13 }) do
+      assert(run_tiles[machine_col - 1] == 11,
+        "run beside machine at " .. machine_col .. " has " .. tostring(run_tiles[machine_col - 1]))
+    end
+  end)
+
+  test("machines carry the planner's rotation; the ring and tangency survive the shift", function()
+    local built = layout.build(fluid_params())
+    local machines = {}
+    for _, e in pairs(built.entities) do
+      if e.name == "assembling-machine-2" then
+        machines[#machines + 1] = e
+        assert(e.direction == defines.direction.west, "machine faces " .. tostring(e.direction))
+      end
+    end
+    assert(#machines == 3, "machine count " .. #machines)
+    for _, e in pairs(built.entities) do
+      if e.name == "recycler" then
+        local tangent = false
+        for _, m in pairs(machines) do
+          if m.dx == e.dx and m.dy + m.h == e.dy then tangent = true end
+        end
+        assert(tangent, "recycler at " .. e.dx .. "," .. e.dy .. " lost tangency under the shift")
+      end
+    end
   end)
 end)
 
