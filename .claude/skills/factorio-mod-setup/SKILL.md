@@ -172,5 +172,6 @@ Renaming or removing a prototype without a migration breaks existing saves — t
 4. `changelog.txt` with an initial section matching `version` — see the `factorio-changelog` skill.
 5. `thumbnail.png` at 144×144.
 6. `LICENSE` at the mod root — copy of the repo root's GPLv3 text. Don't add it to `package.ignore`; it needs to ship.
-7. Add the folder to the **Mods in this repo** list in `CLAUDE.md`, and check `.gitignore` doesn't swallow it.
-8. Validate the data stage — see the `factorio-validate` skill.
+7. `README.md` — player-facing mod description. Include an **AI-Assisted Development** section before the License section, with the exact text: "The development of this mod was done with help of AI coding assistants."
+8. Add the folder to the **Mods in this repo** list in `CLAUDE.md`, and check `.gitignore` doesn't swallow it.
+9. Validate the data stage — see the `factorio-validate` skill.
