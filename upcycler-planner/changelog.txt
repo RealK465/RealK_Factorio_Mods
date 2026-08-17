@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: ????
+  Changes:
+    - Belt-stacking inserters, such as the stack inserter, are never planned into the loop:
+      a stacking hand can stall waiting to fill a whole belt stack of a single quality and
+      freeze the loop.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2026-08-16
   Changes:
