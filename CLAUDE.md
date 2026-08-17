@@ -267,6 +267,16 @@ Write it the way a Factorio modder would.
 - Match the surrounding file's naming and indentation. Vanilla Lua uses 2-space indent and `snake_case`.
 - Prefer the plain solution. Don't add configuration, abstraction, or extension points nothing asked for.
 
+## Player-facing text
+
+Locale strings, README, FAQ and setting descriptions are read by players mid-game, not
+developers. Write for a glance.
+
+- **Tooltips: one short sentence.** What the player needs to choose, not how the mechanism works
+  internally.
+- **Messages: what happened.** Cut consequences the player can already see.
+- **No mod-internal jargon.** Factorio terms are fine; layout implementation details are not.
+
 ## Factorio version and local API sources
 
 Target is **Factorio 2.1**. The exact installed version and expansion set are in `CLAUDE.local.md`.

@@ -12,39 +12,37 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. You can change things like: the machine, recycler, belt, inserter, chests, modules, pole or pipe if you want. It tries to default to the best item researched, and can be built at a quality of your choice. A picker only appears when you actually have a choice, so a few of them — the recycler, two of the chests, and the pipe — stay hidden in a vanilla game and show up once a mod adds an alternative. The **Settings** button in the title bar opens the planner's own settings, where **Show all build options** puts every one of them back, quality boxes included.
+3. You are able to modify some options in the design like belts to use, electric poles, modules... each one defaults to the best researched option and can be built at a quality of your choice. Selectors with only one option are hidden, clicking **Settings** in the title bar brings them all back with **Show all build options**.
 4. Press **Place**, then click the ground.
 
 ## What it builds
 
-It builds a blueprint with Upcycler Belt Loop containing:
+The loop contains:
 
 - A column for each quality with a crafting machine and recycler with requester chests.
-- Quality modules below the target, and your pick in the top machine — a productivity module by default, or none where the recipe cannot use one.
-- Belts, filtered inserters, chests, electric poles... already set up.
+- Belts, filtered inserters, chests, electric poles... already set up and configured by you.
 
-Trees and rocks in the way are marked for deconstruction, and your finished items collect in a
-passive provider chest at the end of the loop.
+Trees and rocks in the way are marked for deconstruction. Finished items collect in a passive provider chest at the end.
 
 ## Works with your mods
 
 This was the main motivation for creating this mod.
 
-Modded machines, recyclers, modules, belts, inserters, chests, poles and pipes can be selected.
+Modded machines, recyclers, modules, poles... can be selected.
 Only researched options are offered, and the planner's settings can show everything instead.
 
 ![Planning a loop with modded machines and recyclers](https://files.catbox.moe/ulihf9.gif)
 
 ## Good to know
 
-- Recipes needing two different fluids, or returning a fluid next to the item (like the quantum processor), are not yet supported.
-- Items that recycle into themselves, like steel are not supported.
+- Recipes with two fluids or that return a fluid (like the quantum processor) are not supported yet.
+- Items that recycle into themselves (like steel) are not supported.
 
 ## Requirements
 
-Factorio with **Space Age**, which is where quality and recyclers come from.
+Factorio with **Space Age**. 
 
-The main development branch is Factorio 2.1. A Factorio 2.0 port is maintained alongside it, and the same test suite passes on both.
+Even if supports both Factorio 2.1 and 2.0, the main development branch is Factorio 2.1.
 
 ## Credits
 

@@ -280,4 +280,4 @@ Match `CLAUDE.md` → Code style: write it the way a Factorio modder would. Comm
 place by explaining *why* or flagging a gotcha; 2-space indent and `snake_case` like vanilla;
 prefer the plain solution over configuration nothing asked for. Player-facing strings never go in
 Lua — they go in `locale/*.cfg` and the code references the key, which is also what makes
-translation possible.
+translation possible. Keep them short and plain — see repo `CLAUDE.md` → *Player-facing text*.

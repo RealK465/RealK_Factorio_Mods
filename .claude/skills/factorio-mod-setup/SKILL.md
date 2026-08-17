@@ -132,6 +132,8 @@ heat-exchanger-tower=Heat exchanger tower
 
 A missing key renders in-game as `Unknown key: "…"` rather than failing — grep `factorio-current.log` after adding prototypes.
 
+Locale values are read by players mid-game — keep them short and plain. See repo `CLAUDE.md` → *Player-facing text*.
+
 ## Mod settings
 
 `settings.lua` uses `data:extend` like any other prototype stage. Types: `bool-setting`, `int-setting`, `double-setting`, `string-setting`, `color-setting`.
