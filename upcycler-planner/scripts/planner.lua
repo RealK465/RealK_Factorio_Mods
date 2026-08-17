@@ -119,15 +119,15 @@ local function single_item_product(recipe)
 end
 
 function planner.item_ingredients(recipe)
-  local items, has_fluid = {}, false
+  local items, fluids = {}, {}
   for _, ingredient in pairs(recipe.ingredients) do
     if ingredient.type == "fluid" then
-      has_fluid = true
+      fluids[#fluids + 1] = ingredient
     else
       items[#items + 1] = ingredient
     end
   end
-  return items, has_fluid
+  return items, fluids
 end
 
 function planner.recycling_recipe(product_name)
@@ -185,8 +185,10 @@ function planner.is_upcyclable(recipe)
   local product = single_item_product(recipe)
   if not product then return false end
 
-  local _, has_fluid = planner.item_ingredients(recipe)
-  if has_fluid then return false end
+  -- One fluid is a pipe header the layout knows how to build; two would need two separate
+  -- networks for one vanilla recipe whose product another recipe already covers.
+  local _, fluids = planner.item_ingredients(recipe)
+  if #fluids > 1 then return false end
 
   -- The recyclers carry quality modules too, so the RECYCLING recipe has to allow the effect
   -- for the same reason the crafting one does. Generated recipes inherit it, so this only ever
@@ -311,6 +313,21 @@ local function pole_candidates()
   return candidates("poles", function(entity) return entity.type == "electric-pole" end)
 end
 
+local function pipe_candidates()
+  return candidates("pipes", function(entity) return entity.type == "pipe" end)
+end
+
+-- The crossing pair dives under the top ring belt: entry and exit centres sit two tiles
+-- apart, so anything reaching that far serves. Vanilla's pipe-to-ground reaches 10.
+local MIN_UNDERGROUND_SPAN = 2
+
+local function pipe_to_ground_candidates()
+  return candidates("pipes-to-ground", function(entity)
+    return entity.type == "pipe-to-ground"
+      and (entity.max_underground_distance or 0) >= MIN_UNDERGROUND_SPAN
+  end)
+end
+
 -- The layout stands every inserter between two adjacent rows, so its hands must reach exactly
 -- one tile straight ahead. Without this gate the long-handed inserter -- reach 2, electric,
 -- unlocked by the very first technology, and faster-rotating than the plain inserter -- wins
@@ -380,6 +397,14 @@ function planner.buildable_poles(force)
   return out
 end
 
+function planner.buildable_pipes(force)
+  local out = {}
+  for name, entity in pairs(pipe_candidates()) do
+    if entity_is_buildable(force, entity) then out[#out + 1] = name end
+  end
+  return out
+end
+
 -- Membership tests for state.prune, exported so what prune keeps cannot drift from what
 -- plan() accepts: is_belt is chosen_belt's own test, is_quality is membership in the chain
 -- tiers_up_to walks.
@@ -389,6 +414,10 @@ end
 
 function planner.is_pole(name)
   return pole_candidates()[name] ~= nil
+end
+
+function planner.is_pipe(name)
+  return pipe_candidates()[name] ~= nil
 end
 
 function planner.is_quality(name)
@@ -534,6 +563,47 @@ function planner.recycler_orientation(entity)
   return nil
 end
 
+-- How a machine must be rotated so its fluid input meets the pipe run on the utility column
+-- to its west. Same shape as recycler_orientation: per-prototype, computed, nil when nothing
+-- works. The rule is pure direction arithmetic, measured on 2.1.14 (api.md §14): a connection
+-- authored pointing `dir` points `(dir + rotation) % 16` once the entity is rotated, and the
+-- engine merges every input box a recipe needs into one live box exposing ALL their
+-- connection points, any one of which feeds the machine -- so one west-pointing input
+-- connection is enough. North is tried first, so a machine that already has one (the
+-- electromagnetic plant, inputs on opposite flanks) is not rotated needlessly. The vertical
+-- run spans the machine's full height, which is why no row test is needed here.
+function planner.machine_fluid_orientation(entity)
+  local input_directions = {}
+  for _, box in pairs(entity.fluidbox_prototypes or {}) do
+    if box.production_type == "input" or box.production_type == "input-output" then
+      for _, connection in pairs(box.pipe_connections) do
+        if connection.connection_type == "normal" then
+          input_directions[#input_directions + 1] = connection.direction
+        end
+      end
+    end
+  end
+  if #input_directions == 0 then return nil end
+
+  for _, rotation in pairs({
+    defines.direction.north, defines.direction.east,
+    defines.direction.south, defines.direction.west,
+  }) do
+    local width, height = entity.tile_width, entity.tile_height
+    if rotation == defines.direction.east or rotation == defines.direction.west then
+      width, height = height, width
+    end
+    if width >= layout.MIN_MACHINE_WIDTH then
+      for _, direction in pairs(input_directions) do
+        if (direction + rotation) % 16 == defines.direction.west then
+          return { direction = rotation, width = width, height = height }
+        end
+      end
+    end
+  end
+  return nil
+end
+
 -- Narrowest recycler the force can build that has a working rotation: the narrower it is, the
 -- more machines it can pair with, since the layout needs the machine strictly wider than it.
 function planner.best_recycler(force)
@@ -610,6 +680,37 @@ function planner.belt(force)
   return best_by(belt_candidates(), function(_, entity)
     if not entity_is_buildable(force, entity) then return nil end
     return entity.belt_speed
+  end)
+end
+
+-- Every pipe in vanilla carries fluid the same; volume is the one honest number a modded
+-- pipe can be better at, and scoring by it keeps the pick principled rather than iteration
+-- order. 2.0 fork: `volume` is the attribute here -- the quality-parameterised
+-- `get_volume()` that main reads only exists from 2.1.7 (analysis/factorio-2.0.md).
+function planner.pipe(force)
+  return best_by(pipe_candidates(), function(_, entity)
+    if not entity_is_buildable(force, entity) then return nil end
+    local box = entity.fluidbox_prototypes[1]
+    return box and box.volume or 0
+  end)
+end
+
+-- No prototype links a pipe to its underground counterpart. Wube's own pairs follow the
+-- <pipe>-to-ground name convention, so that is tried first -- the plan then stays visually
+-- consistent with the player's pick -- and a miss falls back to the longest-reaching
+-- researched pipe-to-ground of any family; fluid connectivity does not require a matched
+-- pair, only adjacency.
+function planner.pipe_to_ground_for(force, pipe_name)
+  local guess = pipe_name and prototypes.entity[pipe_name .. "-to-ground"]
+  if guess and guess.type == "pipe-to-ground"
+    and (guess.max_underground_distance or 0) >= MIN_UNDERGROUND_SPAN
+    and entity_is_buildable(force, guess)
+  then
+    return guess.name
+  end
+  return best_by(pipe_to_ground_candidates(), function(_, entity)
+    if not entity_is_buildable(force, entity) then return nil end
+    return entity.max_underground_distance
   end)
 end
 
@@ -726,6 +827,13 @@ local function chosen_quality_module(choices)
   return nil
 end
 
+-- The pipe follows the belt's pattern exactly: a picked pipe wins, a stale or wrong-type
+-- name falls back to the researched best rather than erroring.
+local function chosen_pipe(choices)
+  if choices.pipe and planner.is_pipe(choices.pipe) then return choices.pipe end
+  return nil
+end
+
 -- The pole is the one OPTIONAL build material: nil is a real answer ("place none"), not a
 -- stale-name signal. choices.no_poles is what tells "cleared on purpose" apart from "never
 -- touched" -- only the explicit clear suppresses the researched-best default.
@@ -770,9 +878,15 @@ local function resources(force, recipe, machine, choices)
     terminal_module = productivity or quality_module
   end
 
+  -- Gathered even for a fluid-free recipe: the scans are memoised and buildability is cheap,
+  -- and validate only ever CHECKS these two when the recipe actually takes a fluid.
+  local pipe = chosen_pipe(choices) or planner.pipe(force)
+
   return {
     inserter = planner.inserter(force, #planner.item_ingredients(recipe)),
     belt = chosen_belt(choices) or planner.belt(force),
+    pipe = pipe,
+    pipe_to_ground = planner.pipe_to_ground_for(force, pipe),
     container = planner.container(force),
     requester = planner.logistic_container(force, "requester"),
     provider = planner.logistic_container(force, "passive-provider"),
@@ -825,11 +939,24 @@ function planner.plan(force, choices, gathered)
   local recycler = choices.recycler and prototypes.entity[choices.recycler]
   if not (recipe and machine and recycler and choices.quality) then return nil end
 
+  -- One fluid at most: a second one would mean a second, separate pipe network, and the one
+  -- vanilla two-fluid recipe's product is already covered by a one-fluid recipe.
+  local ingredients, fluids = planner.item_ingredients(recipe)
+  if #fluids > 1 then return nil end
+  -- A fluid recipe rotates the machine so an input connection meets the pipe run, and the
+  -- rotated width is what every later width test has to use.
+  local fluid_orientation
+  if #fluids == 1 then
+    fluid_orientation = planner.machine_fluid_orientation(machine)
+    if not fluid_orientation then return nil end
+  end
+  local machine_width = fluid_orientation and fluid_orientation.width or machine.tile_width
+
   -- Any recycler width fits -- the layout widens its columns -- but the throw itself must
   -- land inside the machine, and both stand left-aligned, so the eject column caps out at
   -- the machine's width.
   local orientation = planner.recycler_orientation(recycler)
-  if not orientation or orientation.eject_col >= machine.tile_width then return nil end
+  if not orientation or orientation.eject_col >= machine_width then return nil end
 
   -- The quality the BUILDINGS are placed at, which is nothing to do with choices.quality --
   -- that one is the quality the loop produces.
@@ -842,7 +969,6 @@ function planner.plan(force, choices, gathered)
   local product = single_item_product(recipe)
   if not product then return nil end
 
-  local ingredients = planner.item_ingredients(recipe)
   local requests = {}
   for _, ingredient in pairs(ingredients) do
     requests[ingredient.name] = planner.request_count(ingredient, recipe)
@@ -852,6 +978,7 @@ function planner.plan(force, choices, gathered)
   if not (r.inserter and r.belt and r.container and r.requester and r.provider and r.quality_module) then
     return nil
   end
+  if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
 
   -- Qualities above the target: a moduled machine or recycler can roll past the target tier,
   -- and product at those qualities has no consumer anywhere in the loop -- it would circulate
@@ -865,11 +992,31 @@ function planner.plan(force, choices, gathered)
     above_target[#above_target + 1] = chain[i]
   end
 
+  -- The machine's footprint is rotated when a fluid input has to face the pipe run --
+  -- vanilla crafters are square, so this only moves a modded rectangle -- and its direction
+  -- rides into the layout beside it.
+  local machine_footprint = footprint_of(machine, machine_quality)
+  if fluid_orientation then
+    machine_footprint.width = fluid_orientation.width
+    machine_footprint.height = fluid_orientation.height
+    machine_footprint.direction = fluid_orientation.direction
+  end
+
+  -- The utility column before each tier column is sized to what lives in it: the pole's own
+  -- width, plus one for the pipe run when the recipe takes a fluid. Both cleared away means
+  -- no column at all, which keeps a pipeless, poleless plan byte-identical to the original
+  -- layout. Resolved before the build because the columns are geometry, not garnish.
+  local pole_name, pole_quality = chosen_pole(force, choices)
+  local pole = pole_name and prototypes.entity[pole_name]
+  local column_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
+
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
     above_target = above_target,
-    machine = footprint_of(machine, machine_quality),
+    machine = machine_footprint,
+    column_gap = column_gap,
+    fluid = #fluids == 1 and { pipe = r.pipe, pipe_to_ground = r.pipe_to_ground } or nil,
     -- The recycler's footprint is the ROTATED one: the planner picks the rotation that makes
     -- its eject land in the machine above, and width and height swap with it.
     recycler = {
@@ -896,14 +1043,11 @@ function planner.plan(force, choices, gathered)
   }
   local plan = layout.build(layout_params)
 
-  -- The pole pass runs over the finished geometry: free tiles first, a widened re-run only
-  -- when they cannot reach full coverage, best effort with a count when even that falls
-  -- short. The pass needs the raw params too, so its growth retry rebuilds the layout
-  -- rather than patching coordinates the gap columns would have shifted.
-  local pole_name, pole_quality = chosen_pole(force, choices)
-  if pole_name then
-    local pole = prototypes.entity[pole_name]
-    local result = poles.plan(layout_params, plan, {
+  -- The pole pass runs over the finished geometry: the utility columns first -- the layout
+  -- sized them to this pole, so the tidy line is the common case -- and any free tile as the
+  -- honest fallback, best effort with a count when even that falls short.
+  if pole then
+    local result = poles.plan(plan, {
       name = pole_name, quality = pole_quality,
       width = pole.tile_width, height = pole.tile_height,
       -- Quality genuinely grows a pole's reach (+level to the supply radius, +2*level to
@@ -911,7 +1055,6 @@ function planner.plan(force, choices, gathered)
       supply_distance = pole.get_supply_area_distance(pole_quality),
       wire_distance = pole.get_max_wire_distance(pole_quality),
     }, electric_consumers(plan.entities))
-    if result.layout then plan = result.layout end
     for _, entity in pairs(result.entities) do
       plan.entities[#plan.entities + 1] = entity
     end
@@ -944,8 +1087,8 @@ function planner.validate(force, choices)
     return false, { "upl-message.no-recycling-path", recipe.localised_name }
   end
 
-  local ingredients, has_fluid = planner.item_ingredients(recipe)
-  if has_fluid then return false, { "upl-message.fluid-not-supported" } end
+  local ingredients, fluids = planner.item_ingredients(recipe)
+  if #fluids > 1 then return false, { "upl-message.too-many-fluids" } end
 
   if not planner.recycling_recipe(product.name) then
     return false, { "upl-message.no-recycling-path", product.localised_name }
@@ -967,6 +1110,19 @@ function planner.validate(force, choices)
   -- update that changed the prototype under it, and set_recipe on such a ghost hard-errors.
   if not is_upcycling_machine(machine) or not can_craft(machine, recipe) then
     return false, { "upl-message.no-machine-available" }
+  end
+
+  -- A fluid recipe adds one machine requirement of its own: some rotation must land a fluid
+  -- input connection against the pipe run. Computed per prototype like the recycler's eject,
+  -- and refused by name when nothing works -- piping a machine wrong is the reference
+  -- blueprints' own defect, and the one thing this feature must never reproduce.
+  local machine_width = machine.tile_width
+  if #fluids == 1 then
+    local fluid_orientation = planner.machine_fluid_orientation(machine)
+    if not fluid_orientation then
+      return false, { "upl-message.machine-no-fluid-face", machine.localised_name }
+    end
+    machine_width = fluid_orientation.width
   end
 
   local recycler = choices.recycler and prototypes.entity[choices.recycler]
@@ -992,8 +1148,9 @@ function planner.validate(force, choices)
     return false, { "upl-message.recycler-no-eject", recycler.localised_name }
   end
   -- The layout widens its columns to any recycler, but the throw must land inside the
-  -- machine; both stand left-aligned, so that is a minimum machine width.
-  if orientation.eject_col >= machine.tile_width then
+  -- machine; both stand left-aligned, so that is a minimum machine width -- the ROTATED
+  -- width when a fluid recipe stood the machine sideways.
+  if orientation.eject_col >= machine_width then
     return false, {
       "upl-message.recycler-needs-wider-machine",
       recycler.localised_name, orientation.eject_col + 1,
@@ -1021,6 +1178,10 @@ function planner.validate(force, choices)
   if not r.container then return false, { "upl-message.no-chest" } end
   if not (r.requester and r.provider) then return false, { "upl-message.no-logistic-chest" } end
   if not r.quality_module then return false, { "upl-message.no-quality-module" } end
+  if #fluids == 1 then
+    if not r.pipe then return false, { "upl-message.no-pipe" } end
+    if not r.pipe_to_ground then return false, { "upl-message.no-pipe-to-ground" } end
+  end
 
   -- The module is the player's pick now, so one that some building or the recipe refuses is
   -- reachable in a modded game -- and an insert plan for a refused module never gets filled.

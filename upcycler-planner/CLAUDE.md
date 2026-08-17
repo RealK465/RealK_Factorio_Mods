@@ -12,16 +12,16 @@ target quality, and the mod designs a complete upcycling loop and drops it as gh
 hands over a placement tool whose click drops the whole loop as ghosts. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF (belt, quality module and its quality, electric pole and its quality, and the
-trash-unrequested checkbox).
+is built OUT OF (belt, quality module and its quality, electric pole and its quality, pipe,
+and the trash-unrequested checkbox).
 What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-73-test suite under `tests/` — planner, layout, poles, builder, state, the eject loop and the
-GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure host-Lua and
-static tiers). The old standing question is answered by measurement: a rolled-up ingredient
+suite under `tests/` (90 tests as of 2026-08-17) — planner, layout, poles, builder, state,
+the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
+skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
 long played session, where rolls arrive by probability rather than scripted seeding.
@@ -32,7 +32,7 @@ open?" check rather than trusting a number written here: `git tag -l 'upcycler-p
 what has shipped, and a changelog section still stamped `Date: ????` is what has not. Both
 tracks draw from one shared version sequence — `factorio-multiversion` → Version numbering.
 
-## The four technical facts worth not re-deriving
+## The five technical facts worth not re-deriving
 
 **1. Place ghosts, never a blueprint string.**
 `LuaSurface.create_entities_from_blueprint_string` is documented *"only works when used in
@@ -73,6 +73,15 @@ tier-2 modules, and cheat items with no real recipe (Editor Extensions) self-rec
 The producer map in `planner.lua` excludes the recycling category and Factoriopedia-hidden
 recipes, and the chest picker takes only real `logistic-container`s. Story and evidence:
 `.ai-support/journal.md` (2026-08-15, research gating) and `analysis/api.md` §8.
+
+**5. Fluid geometry is direction arithmetic on measured facts.** A pipe connection authored
+pointing `dir` points `(dir + rotation) % 16` once the entity rotates, `positions[]` is the
+[N,E,S,W] rotation orbit, and the engine merges every input box a recipe needs into ONE live
+box that ANY touching pipe feeds — so `planner.machine_fluid_orientation()` only has to land
+one input connection facing west, onto the utility column's pipe run. Foundry and cryo plant
+author inputs on their SOUTH face (they stand facing east); the EM plant needs no rotation at
+all. All measured, all guarded by `tests/fluid_spec.lua`; evidence in
+`.ai-support/analysis/api.md` §14.
 
 **`.ai-support/` is this mod's local context — start at its `index.md`.** `decisions.md` holds
 what is settled and why, `deferred.md` the parked work, `journal.md` what happened, and
@@ -125,12 +134,12 @@ prototypes/planner/                 shortcut, selection tool, and the icon layer
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        builder.lua   ghosts on the ground
-  poles.lua    pole coverage, connectivity and growth -- pure like layout.lua
+  poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
-  *_spec.lua                        in-game specs: planner, plan, builder, state, loop, gui
+  *_spec.lua                        in-game specs: planner, plan, builder, state, loop, fluid, gui
   pure/                             layout + poles geometry, runs on host Lua too
   support/research.lua              the five research states as helpers
 locale/en/upcycler-planner.cfg    every player-visible string
@@ -220,8 +229,8 @@ re-opening any of these, and don't restate a reason here.
   player selects nothing in the world but ground.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
   then a **Build options** block for what it is built **out of** (belt, quality module, pole,
-  trash-unrequested checkbox). Machine, recycler, module and pole each carry their own quality;
-  the belt does not.
+  pipe, trash-unrequested checkbox). Machine, recycler, module and pole each carry their own
+  quality; the belt and the pipe do not.
 - Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
 - Shortcut button style `green`. Icon layer `scale`/`shift` are written in item space and
   rescaled per prototype — they scale against the prototype's expected icon size, not the
@@ -233,10 +242,15 @@ re-opening any of these, and don't restate a reason here.
   recipe or the machine refuses productivity.
 - Modded recyclers work by rotation, not convention — see fact 3.
 - Chests are 1x1. Inserters reach one tile, are never fuelled and never belt-stacking. Poles
-  default to the best researched 1x1 and are clearable to none (`analysis/poles.md`,
-  `analysis/api.md` §10).
-- Refused, each with a message: fluid recipes, self-recycling items, and recipes that refuse
-  quality modules.
+  default to the best researched 1x1, stand in a dedicated utility column before each machine
+  (shared with the pipe run on fluid recipes, sized to both) and are clearable to none
+  (`analysis/poles.md`, `analysis/api.md` §10).
+- Fluid recipes are planned as per-column pipe runs ending in underground stubs beneath the
+  ring belts; machines rotate per prototype to meet the run (fact 5 above). **Nothing is ever
+  built outside the ring** — the player taps the stubs from outside and wires the columns as
+  they like.
+- Refused, each with a message: recipes with two or more fluids, machines no rotation can
+  pipe, self-recycling items, and recipes that refuse quality modules.
 
 ## Open questions
 

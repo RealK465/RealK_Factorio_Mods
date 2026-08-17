@@ -3,20 +3,24 @@
 -- every client. That is what makes it desync-safe without any ceremony, and it means the
 -- geometry can be reasoned about without a running game.
 --
--- The layout is one rectangular belt ring with a column of machinery per quality tier:
+-- The layout is one rectangular belt ring with a column of machinery per quality tier, and a
+-- utility column before each of them sized to what lives in it -- poles, and the pipe run when
+-- the recipe takes a fluid. NOTHING is ever placed outside the ring: the ring rectangle IS the
+-- plan's footprint, and the fluid network reaches the outside world only as underground stubs
+-- beneath the ring belts.
 --
 --     row 0             top ring, flows west
---         1             harvest inserters   | product belt rising to the ring
+--         1             harvest inserters   | product belt | north pipe stub (fluid plans)
 --         2             feed chests         | product belt / output chest on the last tier
 --         3             feed inserters      | out inserters
 --         4 .. 3+Hm     the crafting machine, pinned to this tier's quality
 --     4+Hm .. 3+Hm+Hr   the recycler, tangent under the machine
 --       4+Hm+Hr         extract inserter    | recycler-feed inserter
 --       5+Hm+Hr         extract chest       | product buffer chest
---       6+Hm+Hr         unload inserter     | product-fill inserter
+--       6+Hm+Hr         unload inserter     | product-fill inserter | south pipe stub
 --       7+Hm+Hr         bottom ring, flows east
 --
--- Two things here are load-bearing and easy to break by tidying:
+-- Three things here are load-bearing and easy to break by tidying:
 --
 -- The recycler MUST stay tangent under its machine. It throws its output out of one face
 -- (vector_to_place_result), which is what delivers recycled ingredients into the crafter with
@@ -29,6 +33,15 @@
 -- BLACKLIST of this tier's ingredients for that reason: it drains everything the eject cannot
 -- deliver, and nothing else. A whitelist there would race the eject for the items it is
 -- supposed to be passing through.
+--
+-- The pipe run must stay on the utility column's EAST edge, touching the machine's west face.
+-- The planner rotates each machine so a fluid input connection points west (measured rule,
+-- analysis/api.md §14), and the run spans the full interior height so the connection lands on
+-- it whatever row the prototype puts it at. Its two ends are pipe-to-ground stubs whose
+-- surface openings face INTO the run and whose undergrounds reach out beneath the ring belts:
+-- the player supplies fluid by standing a matching underground pipe outside, north or south,
+-- and wires the columns together however their base likes. No interior row can carry a
+-- horizontal header instead -- every row between the rings is part of an inserter reach-chain.
 --
 -- The ring is a plain rectangle rather than the underground-threaded loop the shared
 -- blueprints use. A dedicated return column costs one tile of width and buys us no underground
@@ -87,12 +100,15 @@ function layout.build(params)
   -- of Production's 4-wide salvager under a 3-wide assembler) just gets dead columns beside
   -- the machine. The last column carries no recycler, so it only needs the machine.
   local pitch = math.max(machine.width, recycler.width)
-  -- An optional run of empty columns between adjacent tier columns, blind to what goes in
-  -- them. poles.lua's growth pass is the one caller that sets it, when the free tiles inside
-  -- the ring cannot fit enough poles. Zero by default, leaving every plan byte-identical.
+  -- The utility column: a run of `gap` empty columns before EVERY tier column, sized by the
+  -- planner to what lives in it -- the pole's width, plus one for the pipe run when the
+  -- recipe takes a fluid. Zero collapses the columns entirely and leaves every plan
+  -- byte-identical to the pre-utility-column layout.
   local gap = params.column_gap or 0
-  local step = pitch + gap
-  local width = 2 + (#tiers - 1) * step + machine.width
+  -- A fluid plan cannot run at gap zero: the pipe run needs its column, or the pipes would
+  -- land on the left ring belt.
+  if params.fluid and gap < 1 then gap = 1 end
+  local width = 2 + #tiers * gap + (#tiers - 1) * pitch + machine.width
   local height = r.height
 
   local entities = {}
@@ -115,6 +131,17 @@ function layout.build(params)
     add({ name = name, dx = dx, dy = dy, w = 1, h = 1, requests = requests })
   end
 
+  local function pipe(dx, dy)
+    add({ name = params.fluid.pipe, dx = dx, dy = dy, w = 1, h = 1 })
+  end
+
+  local function pipe_to_ground(dx, dy, direction)
+    add({
+      name = params.fluid.pipe_to_ground, dx = dx, dy = dy, w = 1, h = 1,
+      direction = direction,
+    })
+  end
+
   -- The ring. Corners carry the turn: the belt at a corner faces where the items go next.
   belt(0, ROW_TOP_RING, SOUTH)
   belt(width - 1, ROW_TOP_RING, WEST)
@@ -124,7 +151,7 @@ function layout.build(params)
     belt(x, ROW_TOP_RING, WEST)
     belt(x, r.bottom_ring, EAST)
   end
-  for y = 1, r.bottom_ring - 1 do
+  for y = ROW_TOP_RING + 1, r.bottom_ring - 1 do
     belt(0, y, SOUTH)
     belt(width - 1, y, NORTH)
   end
@@ -134,14 +161,36 @@ function layout.build(params)
     ingredient_names[#ingredient_names + 1] = ingredient.name
   end
 
+  -- The utility columns, one before each tier column, reported so the pole pass can prefer
+  -- them without re-deriving the column arithmetic.
+  local utility_columns = {}
+
   for index, quality in pairs(tiers) do
     local is_terminal = index == #tiers
-    local col = 1 + (index - 1) * step
+    local col = 1 + index * gap + (index - 1) * pitch
     local col_feed = col
     local col_buffer = col + 1
     local col_product = col + machine.width - 1
     -- Shared by the harvest inserter (whitelist) and the extract inserter (blacklist).
     local ingredient_filters = quality_filters(ingredient_names, quality)
+
+    if gap > 0 then
+      utility_columns[#utility_columns + 1] = { x = col - gap, width = gap }
+    end
+
+    -- The pipe run: full interior height on the utility column's east edge, an underground
+    -- stub at each end. The stubs' surface openings face INTO the run (south at the top,
+    -- north at the bottom), so their undergrounds extend OUTWARD beneath the ring belts --
+    -- the player's own matching pipe-to-ground, stood outside within reach, is the tap.
+    -- Nothing of the plan crosses the ring.
+    if params.fluid then
+      local col_pipe = col - 1
+      pipe_to_ground(col_pipe, ROW_HARVEST, SOUTH)
+      for y = ROW_FEED_CHEST, r.unload_inserter - 1 do
+        pipe(col_pipe, y)
+      end
+      pipe_to_ground(col_pipe, r.unload_inserter, NORTH)
+    end
 
     -- Quality modules have nothing left to roll into once the ingredients already are the
     -- target quality, so the last machine crafts for yield instead -- and gets nothing at all
@@ -153,7 +202,9 @@ function layout.build(params)
 
     add({
       name = machine.name, dx = col, dy = ROW_MACHINE,
-      w = machine.width, h = machine.height, direction = NORTH,
+      w = machine.width, h = machine.height,
+      -- North unless the planner rotated the machine so its fluid input faces the pipe run.
+      direction = machine.direction or NORTH,
       -- Two unrelated qualities on one entity: `quality` is the machine's own, the thing the
       -- player picked; `recipe_quality` is the tier this column is pinned to craft at.
       quality = machine.quality,
@@ -247,6 +298,7 @@ function layout.build(params)
     height = height,
     machines = #tiers,
     recyclers = #tiers - 1,
+    utility_columns = #utility_columns > 0 and utility_columns or nil,
   }
 end
 

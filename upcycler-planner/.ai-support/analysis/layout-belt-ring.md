@@ -1,11 +1,11 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-16
+verified: 2026-08-17
 ---
 # The belt-ring layout, generalised
 
 **This is the chosen family, and this file describes what the mod actually builds** — updated
-2026-08-15 after implementation. The reference design (`blueprints.md` §4) is specific to a 3x3
+2026-08-17 for the utility columns and fluid support. The reference design (`blueprints.md` §4) is specific to a 3x3
 assembling machine and leans on circuit control; this is the same idea written as a formula
 over any machine footprint, with three deliberate departures recorded in §"Departures" below.
 
@@ -42,6 +42,10 @@ from** (`blueprints.md` §2).
 
 ## Row and column plan
 
+**The ring rectangle is the plan's entire footprint** — nothing is ever placed outside it, and
+a fluid plan adds no rows: the fluid network reaches the outside world only as underground
+stubs beneath the ring belts (§Fluid recipes below).
+
 | Row | Contents |
 |---|---|
 | `0` | top ring belt (flows W) |
@@ -55,17 +59,21 @@ from** (`blueprints.md` §2).
 | `6+Hm+Hr` | unload inserter (left) / product-fill inserter (middle) |
 | `7+Hm+Hr` | bottom ring belt (flows E) |
 
-**`H = 8 + Hm + Hr`**  (AM3: 15)
-**`W = 2 + t*P + Wm`** with pitch `P = max(Wm, Wr)` — for `Wr <= Wm` this is the original
-`2 + (t+1)*Wm` (AM3 + vanilla recycler, uncommon: 8; rare: 11; legendary: 17); the 4-wide
-salvager under AM3 gives `P = 4` (rare: 13).
+**`H = 8 + Hm + Hr`**  (AM3: 15, fluid or not)
+**`W = 2 + (t+1)*G + t*P + Wm`** with pitch `P = max(Wm, Wr)` and utility-column width
+`G = pole width + (1 if the recipe takes a fluid)` — `G = 0` (poles cleared, no fluid)
+collapses to the original `2 + t*P + Wm` (AM3 + vanilla recycler, rare: 11; the 4-wide
+salvager under AM3: 13). With the default medium pole: rare 14, legendary 22; battery in a
+chemical plant at rare (G = 2): 17.
 
 Two rows more than the reference, because a buffer chest between the ring and the recycler
 needs an inserter on each side of it, and one column more, for the return run.
 
-Column `x = 0` is the left ring (flows S), `x = W-1` the right ring (flows N). Tier column `k`
-starts at `x0 = k*P + 1`; the machine occupies its first `Wm` columns and the recycler its
-first `Wr`, both left-aligned. Three sub-columns matter:
+Column `x = 0` is the left ring (flows S), `x = W-1` the right ring (flows N). A **utility
+column** of width `G` sits before EVERY tier column — the first included, because machines
+take their fluid on the west side — so tier column `k` starts at `x0 = 1 + (k+1)*G + k*P`;
+the machine occupies its first `Wm` columns and the recycler its first `Wr`, both
+left-aligned. Three sub-columns matter:
 
 - **feed sub-column** at `xf = x0` (leftmost tile) — also the extract stack below
 - **buffer sub-column** at `x0 + 1` — the product stack below the recycler
@@ -159,15 +167,53 @@ Columns `k = 0 .. t-1` are identical up to the quality names and the x-offset `k
 terminal column differs.** So the emitter is one loop plus one special case, and adding a target
 tier adds exactly one column.
 
-## Pole columns
+## Utility columns — poles and pipes share them
 
-`layout.build` takes an optional `column_gap`: a run of `G` empty columns between adjacent tier
-columns, blind to what goes in them, making the effective pitch `P + G` and
-`W = 2 + t*(P + G) + Wm`. Zero by default, leaving every plan byte-identical. The one caller
-that sets it is the pole pass (`poles.md`), whose growth retry opens a pole-wide gap when the
-free tiles inside the ring cannot fit enough poles. The gaps change no row and sit outside
-every tier column, so the recycler stays tangent under its machine and the eject reasoning
-above is untouched.
+`layout.build` takes `column_gap`: a run of `G` empty columns before EVERY tier column, blind
+to what goes in them. The planner is the policy owner and sizes it to what will live there —
+the chosen pole's width, plus one for the pipe run when the recipe takes a fluid — so `G = 0`
+(poles cleared, no fluid) keeps the plan byte-identical to the pre-column layout, and a fluid
+plan clamps to at least 1 so the run never lands on the left ring. The built plan reports the
+columns (`utility_columns`), and the pole pass places into them first (`poles.md`). The
+columns change no row and sit outside every tier column, so the recycler stays tangent under
+its machine and the eject reasoning above is untouched.
+
+## Fluid recipes — per-column runs, tapped from outside
+
+Fluids carry no quality and are never returned by recycling, so every planned pipe carries
+the same normal-quality fluid and the fluid is a flat per-cycle cost. **Nothing is built
+outside the ring** — the repo owner's call, 2026-08-17: the footprint the player reserves is
+exactly the ring rectangle, and the wiring topology outside it is theirs. The geometry,
+forced by two facts — every interior row is part of an inserter reach-chain, and a 1-wide
+column cannot carry a horizontal trunk plus a T-junction on one tile — is:
+
+- **Run**: plain pipe down the utility column's EAST edge — always adjacent to the machine's
+  west face, because machines are left-aligned in their columns — spanning the full interior
+  height (harvest row to unload row). Covering the machine's whole height is what makes the
+  connection row irrelevant.
+- **Stubs**: the run's two end tiles are pipe-to-ground, surface openings facing INTO the run
+  (south at the harvest row, north at the unload row), so their undergrounds reach OUTWARD
+  beneath the top and bottom ring belts. The player taps any column from either side by
+  standing a matching underground pipe of their own outside — the closest tap is one tile
+  past the ring, centres 2 apart, and vanilla reach is 10 — and interconnects the columns
+  however their base likes; nothing requests fluid by bots.
+- **Each column is its own network until the player joins them** — one tap per column, from
+  north or south, is the contract. There is no planned header: a horizontal run cannot live
+  inside the ring (the two facts above), and outside the ring is the player's ground.
+- **Rotation**: `planner.machine_fluid_orientation()` stands each machine so a fluid input
+  connection points west, by the measured direction arithmetic in `api.md` §14 (AM2/3, the
+  chemical plant and the biochamber face west; the foundry and cryogenic plant face east —
+  their inputs are authored on the south face; the EM plant stays north). A machine with no
+  working rotation is refused by name (`machine-no-fluid-face`) — piping a machine wrong is
+  the reference blueprints' own defect (`blueprints.md` §6), and the thing this feature
+  exists to beat.
+- **Refused**: recipes with two or more distinct fluid ingredients (`too-many-fluids`). Only
+  `ammonia-rocket-fuel` in vanilla, and plain `rocket-fuel` covers the same item. Fluid
+  PRODUCTS are already excluded by the single-item-product gate — the quantum processor stays
+  out until a drain network is worth designing.
+- The **pipe is the fourth Build options picker** (no quality — nothing about a pipe scales
+  with it); the pipe-to-ground is derived, `<pipe>-to-ground` by Wube's own name convention
+  with a longest-reach fallback, since no prototype links the pair.
 
 ## Request counts
 

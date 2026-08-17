@@ -12,24 +12,28 @@ local function force()
 end
 
 describe("upcyclability -- prototype-level, research-free", function()
-  test("iron gear wheel loops; steel plate and fluids and recycling recipes do not", function()
+  test("iron gear wheel and battery loop; steel plate, two-fluid and recycling recipes do not", function()
     assert(planner.is_upcyclable(prototypes.recipe["iron-gear-wheel"]), "gears must loop")
+    -- One fluid ingredient rides the pipe header since 0.2.0.
+    assert(planner.is_upcyclable(prototypes.recipe["battery"]), "battery must loop now")
     -- Steel's recycling is the lossy self-recycling fallback, not a reversal.
     assert(not planner.is_upcyclable(prototypes.recipe["steel-plate"]), "steel must not loop")
-    -- Sulfur takes fluids; there is nothing to put on the ring.
-    assert(not planner.is_upcyclable(prototypes.recipe["sulfur"]), "fluid recipe must not loop")
+    -- Sulfur takes TWO fluids (water + petroleum gas) and has no item ingredients at all --
+    -- refused twice over, and the multi-fluid gate answers first.
+    assert(not planner.is_upcyclable(prototypes.recipe["sulfur"]), "two-fluid recipe must not loop")
     -- A recycling recipe trivially "closes the loop" while producing nothing (fact 4).
     assert(not planner.is_upcyclable(prototypes.recipe["iron-gear-wheel-recycling"]),
       "recycling recipes must never count as upcyclable")
   end)
 
-  test("the offered item list holds exactly the known 187", function()
+  test("the offered item list holds exactly the known 212", function()
     -- FORKED on legacy/2.0, declared in the repo CLAUDE.md divergent-files list: the 2.0
-    -- track offers 187 upcyclable items where 2.1 offers 185 (measured 2026-08-16, not
-    -- itemised). A drift in either direction still means an eligibility rule changed by
-    -- accident -- on this branch, against this number.
+    -- track's base list was 187 where 2.1's was 185 (measured 2026-08-16), and the 0.2.0
+    -- fluid support admits 25 single-fluid items on top -- 212, measured on this branch
+    -- (2026-08-17), never derived from the 2.1 number. A drift in either direction still
+    -- means an eligibility rule changed by accident.
     local count = #planner.upcyclable_items()
-    assert(count == 187, "upcyclable item count " .. count .. ", expected 187 on the 2.0 track")
+    assert(count == 212, "upcyclable item count " .. count .. ", expected 212 on the 2.0 track")
   end)
 
   test("recipe_for_item derives the canonical recipe", function()
@@ -78,6 +82,27 @@ describe("upcyclability -- prototype-level, research-free", function()
     assert(o.direction == defines.direction.north, "direction " .. tostring(o.direction))
     assert(o.width == 2 and o.height == 4, "footprint " .. o.width .. "x" .. o.height)
     assert(o.eject_col == 0, "eject column " .. o.eject_col)
+  end)
+
+  test("machine fluid orientations: the measured rotation per vanilla prototype", function()
+    -- The measured rule (api.md §14): a connection authored pointing `dir` points
+    -- `(dir + rotation) % 16` once rotated, and one west-pointing input is enough because
+    -- the engine merges every input box the recipe needs and any connection feeds it.
+    local function facing(name)
+      local o = planner.machine_fluid_orientation(prototypes.entity[name])
+      return o and o.direction
+    end
+    assert(facing("assembling-machine-3") == defines.direction.west, "AM3 must face west")
+    assert(facing("chemical-plant") == defines.direction.west, "chemical plant must face west")
+    assert(facing("biochamber") == defines.direction.west, "biochamber must face west")
+    -- Foundry and cryo plant author their inputs on the SOUTH face; east swings them west.
+    assert(facing("foundry") == defines.direction.east, "foundry must face east")
+    assert(facing("cryogenic-plant") == defines.direction.east, "cryo plant must face east")
+    -- The EM plant already has a west input; north-first means it is never rotated.
+    assert(facing("electromagnetic-plant") == defines.direction.north, "EM plant must stay north")
+    -- No fluid boxes at all: nothing to orient.
+    assert(planner.machine_fluid_orientation(prototypes.entity["assembling-machine-1"]) == nil,
+      "a machine without fluid boxes cannot orient")
   end)
 end)
 
@@ -184,6 +209,12 @@ describe("the building-material picks at full research", function()
     assert(planner.logistic_container(f, "passive-provider") == "passive-provider-chest",
       "provider pick")
     assert(planner.quality_module(f) == "quality-module-3", "strongest quality module")
+    assert(planner.pipe(f) == "pipe", "pipe pick")
+    -- Wube's own pair follows the <pipe>-to-ground convention, so the guess lands first.
+    assert(planner.pipe_to_ground_for(f, "pipe") == "pipe-to-ground", "underground pipe pick")
+    assert(planner.pipe_to_ground_for(f, nil) == "pipe-to-ground",
+      "the fallback search must still find vanilla's underground pipe")
+    assert(planner.is_pipe("pipe") and not planner.is_pipe("transport-belt"), "is_pipe membership")
   end)
 
   test("unlocked targets are the four above normal", function()
@@ -226,7 +257,7 @@ describe("validate", function()
 
   test("each refusal names its reason", function()
     assert(refusal({ recipe = NONE }) == "upl-gui.pick-a-recipe", "missing recipe")
-    assert(refusal({ recipe = "sulfur" }) == "upl-message.fluid-not-supported", "fluid recipe")
+    assert(refusal({ recipe = "sulfur" }) == "upl-message.too-many-fluids", "two-fluid recipe")
     assert(refusal({ recipe = "steel-plate" }) == "upl-message.recycling-mismatch",
       "self-recycling item")
     assert(refusal({ machine = NONE }) == "upl-message.no-machine-available", "missing machine")

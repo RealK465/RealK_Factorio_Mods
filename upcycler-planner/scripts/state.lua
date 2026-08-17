@@ -54,6 +54,7 @@ function state.prune()
     if c.machine and not machines[c.machine] then c.machine = nil end
     if c.recycler and not recyclers[c.recycler] then c.recycler = nil end
     if c.belt and not planner.is_belt(c.belt) then c.belt = nil end
+    if c.pipe and not planner.is_pipe(c.pipe) then c.pipe = nil end
     if c.quality and not planner.is_quality(c.quality) then c.quality = nil end
     if c.quality_module and not planner.is_quality_module(c.quality_module) then
       c.quality_module = nil

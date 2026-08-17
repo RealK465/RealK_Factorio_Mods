@@ -300,8 +300,10 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    that list shrink and grow correctly across research states.
 3. `SelectionModeData mode = {"nothing"}` — whether `on_player_selected_area` still fires. The
    design uses `{"any-tile"}` to avoid needing the answer.
-4. `PipeConnectionDefinition.positions` index-to-direction mapping (N/E/S/W order is a reading,
-   not a documented guarantee). Only matters when fluids land.
+4. ~~`PipeConnectionDefinition.positions` index-to-direction mapping.~~ **Resolved 2026-08-17,
+   measured: `positions` IS the [N, E, S, W] rotation orbit** — AM2's input reads back
+   `{0,-1} {1,0} {0,1} {-1,0}`, the clockwise `(x,y) → (-y,x)` sequence. Full fluid-box
+   findings in §14; a loud premise assert in `tests/fluid_spec.lua` guards it.
 5. ~~Filter slots per inserter prototype.~~ **Resolved 2026-08-15: it is a planner
    validation.** The runtime attribute is `LuaEntityPrototype.filter_count` (nil on
    non-filtering kinds); `planner.inserter(force, filters_needed)` requires it, and validate
@@ -450,3 +452,43 @@ Two consequences worth not re-deriving:
   unlocks planet and space-platform prototypes this mod never touches. Note the tag is visible
   only on the **HTML page**: no endpoint of the JSON API exposes a feature-flag or tag field,
   which is why this could not be checked before the upload.
+
+## 14. Fluid boxes, pipe connections and the rotation rule — measured 2026-08-17
+
+Everything the fluid feature stands on, measured with an in-game probe spec (headless suite,
+full research, real entities and ticks) plus the installed `prototype-api.json` /
+`runtime-api.json` and `data/*.lua`. The functional halves are guarded permanently by
+`tests/fluid_spec.lua`.
+
+1. **`LuaFluidBoxPrototype.pipe_connections[].positions` is the [N, E, S, W] rotation orbit**
+   (§9.4 resolved). Each runtime connection also carries `direction` — the authored compass
+   point, equal in meaning to `positions[1]` — and `connection_type` / `max_underground_distance`.
+2. **A connection authored pointing `dir` points `(dir + entity_direction) % 16` once the
+   entity is rotated.** That makes the machine-orientation question pure direction arithmetic:
+   a rotation serves the pipe run iff some input connection satisfies
+   `(dir + rotation) % 16 == defines.direction.west`. `planner.machine_fluid_orientation()`
+   implements exactly this, trying north first.
+3. **The engine merges the input boxes a recipe needs into ONE live fluid box exposing ALL
+   their connection points, and feeding ANY of them feeds the machine.** Measured twice: a
+   west-facing chemical plant with `battery` set shows `fluids_count == 1` with both west-face
+   corner connections on the one box; an UNROTATED electromagnetic plant (inputs authored on
+   OPPOSITE flanks, west dir=12 and east dir=4) crafted supercapacitors from a west-side pipe
+   run alone. Output boxes did not materialise at all for a fluid-input-only recipe — even on
+   the chemical plant, the one vanilla machine without `fluid_boxes_off_when_no_fluid_recipe`.
+4. **Vanilla input authoring, and the rotation each machine gets**: AM2/AM3 north-centre → face
+   west; chemical plant and biochamber north corners → west; foundry and cryogenic plant
+   author their inputs on the SOUTH face → face EAST; the EM plant already has a west input →
+   stays north. `IngredientPrototype.fluidbox_index` exists in the schema but is nil on every
+   vanilla fluid recipe checked — the merge rule above is what carries the day instead.
+5. **Pipe-to-ground**: 1x1; the surface opening faces the entity's `direction` and the
+   underground run extends the opposite way (`pipe_connections`: normal north + underground
+   south, `max_underground_distance = 10`, readable at runtime as
+   `LuaEntityPrototype.max_underground_distance`). A pair with openings facing AWAY from each
+   other joins underground, and a lone stub is simply an offered connection until a partner
+   appears — the layout's outward stubs beneath the ring belts lean on exactly that, proven
+   live: a player-side underground pipe one tile outside the ring fed a rotated chemical
+   plant through the plan's stub and it crafted.
+6. **A script ghost keeps its `direction` alongside a fluid recipe** — `create_entity` with
+   `direction = west` plus `set_recipe("battery")` reads back facing west — and a placed
+   battery plan revived whole crafts from an outside tap on one stub, which pins the
+   planner→layout→builder chain end to end.

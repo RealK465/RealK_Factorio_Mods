@@ -1,6 +1,6 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the quality module,
--- and whether the chests trash their surplus.
+-- the electric pole, the pipe, and whether the chests trash their surplus.
 --
 -- Built from scratch every time it opens and destroyed when it closes. At a couple dozen
 -- elements that is simpler than repainting a persistent frame, and it makes stale state
@@ -118,6 +118,11 @@ local function pole_filters(player)
     { { filter = "type", type = "electric-pole" } })
 end
 
+local function pipe_filters(player)
+  return narrowed(player, planner.buildable_pipes,
+    { { filter = "type", type = "pipe" } })
+end
+
 -- The list the dropdown was BUILT from rides in its tags: research can finish while the
 -- modal is open, and an index into a re-derived list would then name the wrong quality.
 local function quality_options(player)
@@ -204,6 +209,11 @@ function gui.open(player)
   end
   if not choices.quality_module then
     choices.quality_module = planner.quality_module(player.force)
+  end
+  -- Only used when the recipe takes a fluid, but always defaulted so the strip never shows
+  -- an empty button for a material that has a researched answer.
+  if not choices.pipe then
+    choices.pipe = planner.pipe(player.force)
   end
   -- The pole differs from the pair above: clearing it is a real choice ("no poles"),
   -- recorded in no_poles, so only a never-touched picker gets the default.
@@ -354,6 +364,15 @@ function gui.open(player)
   })
   pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
 
+  -- No quality on the pipe for the belt's reason: nothing about a pipe scales with quality.
+  local pipe_button = strip.add({
+    type = "choose-elem-button", name = "upl-pipe", elem_type = "entity",
+    elem_filters = pipe_filters(player),
+    tooltip = strip_tooltip("pipe"),
+    tags = dispatch.tags("pipe"),
+  })
+  pipe_button.elem_value = choices.pipe
+
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
     caption = { "upl-gui.trash-unrequested" },
@@ -480,6 +499,18 @@ dispatch.register("quality-module", function(event)
     choices.quality_module = planner.quality_module(player.force)
     event.element.elem_value =
       with_quality(choices.quality_module, choices.quality_module_quality)
+  end
+  gui.refresh(player)
+end)
+
+dispatch.register("pipe", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  choices.pipe = event.element.elem_value
+  -- The belt's rule: emptied means "back to the best I have researched", and shown.
+  if not choices.pipe then
+    choices.pipe = planner.pipe(player.force)
+    event.element.elem_value = choices.pipe
   end
   gui.refresh(player)
 end)

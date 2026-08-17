@@ -12,10 +12,12 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. You can change things like: the machine, recycler, belt, module or pole if you want. It tries to default to the best item researched, and can be built at a quality of your choice.
+3. You can change things like: the machine, recycler, belt, module, pole or pipe if you want. It tries to default to the best item researched, and can be built at a quality of your choice.
 4. Press **Place**, then click the ground.
 
 ## What it builds
+
+It builds a blueprint with Upcycler Belt Loop containing:
 
 - A column for each quality with a crafting machine and recycler with requester chests.
 - Quality modules below the target, productivity modules in the top machine.
@@ -28,16 +30,15 @@ passive provider chest at the end of the loop.
 
 This was the main motivation for creating this mod.
 
-Modded machines, recyclers, modules, belts, poles and chests can be selected.
+Modded machines, recyclers, modules, belts, poles, pipes and chests can be selected.
 Only researched options are offered, and a setting can show everything instead.
 
 ![Planning a loop with modded machines and recyclers](https://files.catbox.moe/ulihf9.gif)
 
 ## Good to know
 
-- Build it inside a logistic network. The loop uses requester and provider chests.
-- Recipes using fluids are not supported yet, but it's a priority for a future update.
-- Items that recycle into themselves, like steel, cannot be looped.
+- Recipes needing two different fluids, or returning a fluid next to the item (like the quantum processor), are not yet supported.
+- Items that recycle into themselves, like steel are not supported.
 
 ## Requirements
 
