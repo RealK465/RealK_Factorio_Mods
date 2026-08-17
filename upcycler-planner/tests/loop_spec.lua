@@ -8,6 +8,7 @@
 -- stuck item -- are LOGGED (grep factorio-current.log for UPL-LOOP-FINDING), because whichever
 -- way they land is a finding for .ai-support, not a pass/fail.
 
+local planner = require("scripts.planner")
 local research = require("tests.support.research")
 
 local UNCOMMON_PLATE = { name = "iron-plate", quality = "uncommon" }
@@ -48,8 +49,12 @@ local function build_rig(opts)
 
   local rig = { machine = machine, recycler = recycler }
   if opts.relief then
+    -- The planner's own pick for the position, not a hand-chosen inserter: the wedge-relief
+    -- measurement must cover what layout.lua will actually stand there.
+    local relief_name = planner.inserter(f, 1)
+    assert(relief_name, "planner offered no relief inserter at full research")
     local inserter = s.create_entity({
-      name = "fast-inserter", position = { 0.5, 7.5 },
+      name = relief_name, position = { 0.5, 7.5 },
       direction = defines.direction.north, force = f,
     })
     inserter.use_filters = true

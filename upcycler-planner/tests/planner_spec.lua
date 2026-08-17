@@ -150,6 +150,21 @@ describe("the inserter rules", function()
     assert(planner.inserter(force(), 99) == nil, "no inserter can filter 99 ingredients")
     assert(planner.any_inserter(force(), 99) == nil, "any_inserter ignored the filter demand")
   end)
+
+  test("belt-stacking inserters are never candidates", function()
+    research.full(force())
+    -- Guard the premise loudly: the stack inserter is bulk and electric, so the belt-stack
+    -- rule is the only thing keeping it out of the pick. If its shape ever changes, revisit
+    -- the exclusion instead of letting this spec pass hollow.
+    local stack = prototypes.entity["stack-inserter"]
+    assert(stack and stack.bulk, "SA modset should carry the bulk stack-inserter")
+    assert((stack.inserter_max_belt_stack_size or 1) > 1,
+      "stack-inserter stopped belt-stacking -- revisit the exclusion and this spec")
+    local best = planner.inserter(force(), 1)
+    assert(best, "no inserter at full research")
+    assert((prototypes.entity[best].inserter_max_belt_stack_size or 1) <= 1,
+      best .. " builds belt stacks and must never be planned")
+  end)
 end)
 
 describe("the building-material picks at full research", function()
