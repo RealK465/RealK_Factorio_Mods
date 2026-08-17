@@ -9,6 +9,20 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — the gallery refreshes for 0.2.0
+
+The owner supplied two new gallery shots and retired one: the epic-substations image left,
+replaced at slot 03 by the big mining drill's molten-iron loop to legendary in foundries on
+Vulcanus — the 0.2.0 fluid feature photographed, pole columns and the under-ring pipe taps
+in frame — and a fifth shot arrived, a modded loop climbing through mod-added quality tiers.
+Renamed on arrival per the standing practice: only a "legandary" → "legendary" typo fix,
+free because the portal never shows gallery filenames. The register carries the new list;
+the portal gallery itself still shows the old set until a release syncs it with the owner's
+approval, and the menu shot (01) predates the pipe picker — flagged in the register as worth
+re-shooting before that sync.
+
+---
+
 ## 2026-08-17 — the fluid feature ports to 2.0, one seam wide
 
 The 0.2.0 feature commit cherry-picked onto `legacy/2.0` with exactly one conflict — the

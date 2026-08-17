@@ -83,13 +83,21 @@ still needs the repo owner's per-release approval.
   help. One entry so far (added 2026-08-16, the owner's pick): the pickers are research-gated,
   and the *Show unresearched options* per-player setting lifts the gate.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
-  window first, then the vanilla loops, then the modded one. The gallery has no order but upload
+  window first, then the vanilla loops, then the modded ones. The gallery has no order but upload
   order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
-  place that intent survives until the release that uses it.
-  - `01-planner-menu.jpg` — the modal, legendary target, 5 machines and 4 recyclers.
+  place that intent survives until the release that uses it. Refreshed by the owner on
+  2026-08-17 for the 0.2.0 feature set: the epic-substations shot left, the fluid and
+  extra-quality shots arrived.
+  - `01-planner-menu.jpg` — the modal, legendary target, 5 machines and 4 recyclers. Predates
+    the pipe picker; worth re-shooting before the 0.2.0 gallery sync if the strip should show
+    all four buttons.
   - `02-legendary-upcycling-assemblers.jpg` — the vanilla loop that menu plans.
-  - `03-epic-upcycling-substations.jpg` — a vanilla epic loop, substations as the pole.
+  - `03-legendary-upcycling-big-miners.jpg` — the 0.2.0 headline: the big mining drill's
+    molten-iron loop to legendary in foundries on Vulcanus — pole columns, per-column pipe
+    runs, and the player's underground taps visible beneath the bottom ring.
   - `04-modded-upcycling.jpg` — the same planner against modded machines and belts.
+  - `05-modded-upcycling-extra-quality.jpg` — a modded loop climbing through mod-added
+    quality tiers, seven machine columns wide.
 - **Numbering the files costs nothing, because the portal does not show gallery filenames.**
   `GET /api/mods/<name>/full` returns `assets-mod.factorio.com/assets/<sha1>.png` and no name at
   all — checked against `pure-modules-realk` on 2026-08-16. The repo `CLAUDE.md` says the portal
