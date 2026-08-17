@@ -72,8 +72,9 @@ ships (leading dot).
 
 Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-16 — license
 `default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
-description, the four gallery shots below in filename order. Every later upload or portal edit
-still needs the repo owner's per-release approval.
+description, the five gallery shots below in filename order (synced with the 0.2.0 / 0.2.1
+pair on 2026-08-17). Every later upload or portal edit still needs the repo owner's
+per-release approval.
 
 - **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, so it
   is written for a player skimming the page rather than for a contributor. The portal takes

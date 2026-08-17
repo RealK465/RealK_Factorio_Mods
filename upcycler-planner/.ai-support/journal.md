@@ -9,6 +9,31 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-17 — released: 0.2.0 (Factorio 2.0) and 0.2.1 (Factorio 2.1)
+
+Published at the repo owner's request ("you can release 0.2, update also description and faq
+and gallery"), shipped 2.0-first on the lower number per the pair convention. The release
+gate ran in full: the graphics tier drove the whole suite through BOTH real clients (90/90 on
+2.1.14 and on 2.0.77) on top of the headless/pure/static greens, and both zips were verified
+by listing before upload — `data-final-fixes.lua` in 0.2.0 alone, no tests or images or
+CLAUDE files, `info.json` description byte-equal to the locale string inside each zip, one
+identical changelog in both.
+
+The owner rewrote the 0.2.0 section's entries in their own shorter words before the release;
+kept verbatim except a parser-breaking trailing space and two grammar slips ("a fluids
+ingredients", "Meanwhile only items"), fixed the way the 0.1.0 README slips were. The 0.2.1
+section is the pointer per the pair shape.
+
+The portal page moved in the same session: README and FAQ synced via `fmtk details`, and the
+gallery went from four shots to five through the images API — the retired epic-substations
+image identified among the portal's ids by hash (the image id IS the file's SHA-1; three of
+four matched local files exactly, elimination gave the fourth), then the ordered edit list
+placed 01, 02, the new fluid big-miners shot, 04, and the new extra-quality shot.
+`{"success":true}` on every write. The 01 menu shot still predates the pipe picker — the
+register's re-shoot flag stands for a future release.
+
+---
+
 ## 2026-08-17 — the gallery refreshes for 0.2.0
 
 The owner supplied two new gallery shots and retired one: the epic-substations image left,

@@ -1,14 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.1
+Date: 2026-08-17
+  Changes:
+    - Version 0.2.0, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
-Date: ????
+Date: 2026-08-17
   Major Features:
-    - Recipes with a fluids ingredients are now supported. 
-      Meanwhile only items with a single fluid ingredient are supported (which is like more than 95% of vanilla recipes).
+    - Recipes with fluid ingredients are now supported.
+      For now only recipes with a single fluid ingredient can be looped (more than 95% of vanilla recipes).
   Features:
     - A pipe picker in the Build options strip chooses what fluid plumbing is built from.
   Changes:
     - Electric poles now stand in a dedicated column before each machine.
     - Belt-stacking inserters, such as the stack inserter, are never planned into the loop.
+    - Releasing for Factorio 2.0. Version 0.2.1 is the Factorio 2.1 build of the same change.
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2026-08-16
