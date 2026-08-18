@@ -137,6 +137,25 @@ per-release approval.
   placing a blueprint" rather than being chosen separately, and it is the right answer anyway —
   a second column of the same loop is a thing players want, and refusing it would mean
   reimplementing consumption the engine does not do.
+- **The game's "Confirm window" key confirms the modal**, so the planner behaves like every
+  vanilla dialog: E places, Esc cancels. Chosen 2026-08-18 at the repo owner's request, after the
+  key merely closed the modal and threw the design away.
+  Nothing in the engine gives a mod GUI this for free — `on_gui_closed` carries no key, so the
+  close handler cannot tell E from Esc, and `on_gui_confirmed` fires only for Enter in a
+  textfield, which this modal has none of. The mechanism is a `custom-input` **linked** to the
+  `confirm-gui` game control (`prototypes/planner/input.lua`), which rides whatever the player
+  has bound, stays out of the controls GUI and so needs no locale key. Space Exploration ships
+  the same pattern for its pin dialog.
+  **`consuming` stays `"none"`, and that is forced rather than preferred**: `"game-only"` blocks
+  the linked control everywhere, so E would stop opening the inventory. The engine's own close
+  therefore always runs after the handler, and the repo owner's call was to accept what that
+  costs — a refused hand-over (full hands) closes the modal on the key where the button leaves it
+  open. The message still prints and the shortcut reopens with every choice remembered; the
+  alternative was re-taking `player.opened` inside `on_gui_closed`, the exact hazard
+  `gui.close_settings` already documents. Evidence: `analysis/api.md` §22.
+  `gui.confirm(player)` is public and **guards its own preconditions** — a modal must be open and
+  no settings window may be in front of it — because the key can arrive with neither, where the
+  button never can.
 - **Gated on the `recycling` technology** (plus `unavailable_until_unlocked = true`), not on
   quality. The loop is unbuildable without a recycler, so gating on quality alone would offer a
   button that cannot yet produce anything.

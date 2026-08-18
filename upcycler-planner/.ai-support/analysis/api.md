@@ -816,3 +816,54 @@ obstructing nature entities will be deconstructed. If `superforced`, all obstruc
 deconstructed and the blueprint will be built."* Confirmed live: a normal stamp over a single
 steel chest builds **zero** ghosts, and a forced stamp builds and marks a tree in the footprint.
 That is the whole of this mod's obstacle handling now.
+
+## 22. Making a key confirm a mod's dialog — checked 2026-08-18
+
+The evidence behind the Confirm-key bullet in `../decisions.md` -> Interaction. Read out of
+`doc-html/` and the game's own data; the one part that only a human can check is named as such.
+
+**The engine gives a mod GUI nothing here.** `on_gui_closed` carries twelve fields — `element`,
+`entity`, `equipment`, `gui_type`, `inventory`, `item`, `other_player`, `player_index`,
+`surface_index`, `tile_position`, `name`, `tick` — and **not one of them names a key or a
+modifier**. So a close handler cannot tell E from Esc, which is why the first version's handler
+treated both as cancel. `on_gui_confirmed` is not the answer either: *"Called when a
+`LuaGuiElement` is confirmed, for example by pressing Enter in a textfield"*, and this modal has
+no textfield. The only confirm-related member on `LuaGuiElement` is `lose_focus_on_confirm`,
+which is about textfields too. Vanilla's "E confirms a dialog" is engine-side and not inherited.
+
+**A linked `custom-input` is the mechanism.** `confirm-gui` is a real `LinkedGameControl` — one
+of ~200 in the union, and the game names it *Confirm window* (`data/core/locale/en/core.cfg:1176`).
+`CustomInputPrototype::linked_game_control`: *"When a custom-input is linked to a game control it
+won't show up in the control-settings GUI and will fire when the linked control is pressed."*
+Two things follow, both of them why this beats binding a key of the mod's own: it rides whatever
+the player has bound the vanilla control to, and having nothing to label it needs no
+`controls.*` locale key — confirmed by both reference mods, neither of which gives its linked
+inputs one (Space Exploration `prototypes/phase-1/input.lua:220`, Krastorio 2
+`prototypes/custom-inputs.lua:11`).
+
+**`consuming` must stay `"none"`, and the ordering is documented.**
+`CustomInputPrototype::consuming`: *"Sets whether internal game events associated with the same
+key sequence should be fired or blocked. If they are fired ("none"), then the custom input event
+will happen **before** the internal game event."* So the handler runs first and the engine's own
+close follows it. `"game-only"` would suppress that close — but it blocks the linked control
+*everywhere*, so E would stop opening the inventory in ordinary play. Not a trade worth making
+for one edge case, which is what fixes the modal's behaviour on a refused hand-over.
+
+**The prototype was accepted, not silently ignored.** A misspelled prototype property is dropped
+without a word, so `--dump-data --check-unused-prototype-data` was run over the mod: *"Finished
+checking unused prototype data... Number of properties that were used: 702436"* with no
+unused-property line for `upl-confirm`. `linked_game_control = "confirm-gui"` is therefore a
+field the engine read.
+
+**Prior art, same shape.** Space Exploration 0.7.60 handles its linked confirm at
+`scripts/pin.lua:737` — look the frame up, `return` if it is absent, otherwise do the work and
+close. `gui.confirm` guards the same way and adds one more test, the settings window, because
+this mod has a second frame that can own `player.opened`.
+
+**Unverified: whether the control is bound to E on any given machine, and whether it fires while
+a MOD frame owns `player.opened`.** Default bindings are engine-side — they are in no data file —
+and no test tier can fake a keypress (`../../tests/gui_spec.lua` says the same about clicks), so
+this is a human check in a live game. The specs cover everything downstream of the event
+firing. If the control turns out not to carry E, the fallback is `toggle-menu` instead of
+`confirm-gui`, which is a one-word change but a worse one: it fires on every menu toggle rather
+than on a confirm.
