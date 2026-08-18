@@ -9,6 +9,38 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-18 — released: 0.4.0 (Factorio 2.0) and 0.4.1 (Factorio 2.1)
+
+Published at the repo owner's request, shipped 2.0-first on the lower number per the pair
+convention. The release these two carry is the blueprint hand-over — Confirm now fills the
+cursor with an ordinary blueprint instead of a one-shot selection tool — plus the hidden chest
+pickers, the Confirm key, and the stay-in-hand stack.
+
+**`main` had to be re-graded to make the pair work.** The blueprint work had been committed
+with `info.json` already bumped to 0.4.0 on `main`, which would have shipped 2.1 first and put
+the 2.0 build on the higher number — backwards from all three prior pairs. Presented as a choice
+rather than corrected silently, since version numbers are the owner's call; they took the
+conventional shape, so `main` moved 0.4.0 → 0.4.1 and the legacy worktree 0.3.0 → 0.4.0. The
+lesson for next time is that bumping `info.json` inside a feature commit pre-commits the pair
+ordering before anyone has decided it.
+
+The release gate ran in full on both tracks before either upload: data stage clean on 2.1.14 and
+2.0.77, the suite green through headless **and** a real client on each (123/123 four times over),
+static tier clean (luacheck 0/0 across 25 files, emmylua_check 0 errors). Both zips verified by
+listing rather than by reading `package.ignore` — `data-final-fixes.lua` in 0.4.0 alone, `LICENSE`
+in both, no tests, images, `.ai-support` or CLAUDE files in either.
+
+One save-safety question was worth settling before grading the bump: the delta removes the
+`upl-planner` selection-tool prototype, which is normally major-bump territory. It was `hidden`
+and `only-in-cursor`, so it can never have been in an inventory, and `state.prune` already clears
+the `entry.pending` snapshot 0.3.1 and earlier left behind. Minor bump, no migration.
+
+Both sections carry `Date: 2026-08-18`, and the 0.4.0 zip ships with the 0.4.1 section already
+on top of its changelog — the same shape the 0.3.0 zip had, and what the one-shared-file rule
+forces.
+
+---
+
 ## 2026-08-18 — the chest pickers leave the strip
 
 The repo owner, on the modal: *"the upcycler planner modal menu shows by default the chest

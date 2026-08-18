@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: 2026-08-18
+  Changes:
+    - Version 0.4.0, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
-Date: ????
+Date: 2026-08-18
   Major Features:
     - The planner now gives you a blueprint instead of a placement tool. You can see the whole
       loop before you place it, move it around, and rotate or flip it.
@@ -12,6 +17,7 @@ Date: ????
     - The blueprint stays in your hand after placing, so you can stamp the same loop again.
     - The blueprint disappears when you clear the cursor.
       Drag it into your inventory instead if you want to keep the design.
+    - Releasing for Factorio 2.0. Version 0.4.1 is the Factorio 2.1 build of the same change.
 ---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 2026-08-17
