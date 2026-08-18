@@ -1,4 +1,4 @@
--- state.lua: the storage shape, Confirm's snapshot, and prune-by-membership.
+-- state.lua: the storage shape and prune-by-membership.
 -- All of this is player-free by design -- storage.players is a plain table keyed by index, so
 -- the specs seed it directly. Prune tests membership in the planner's candidate lists, which
 -- are prototype-level and force-independent (the memoised half of the H5 split), so no
@@ -27,36 +27,12 @@ describe("state.of and forget", function()
   end)
 end)
 
-describe("state.arm -- the Confirm snapshot", function()
-  after_each(function() state.forget(IDX) end)
-
-  test("pending is a copy: later edits to choices do not reach it", function()
-    local entry = state.of(IDX)
-    entry.choices.recipe = "iron-gear-wheel"
-    entry.choices.quality = "rare"
-    state.arm(IDX)
-    entry.choices.recipe = "iron-stick"
-    assert(entry.pending.recipe == "iron-gear-wheel", "snapshot followed the live choices")
-    assert(entry.pending.quality == "rare", "snapshot lost a field")
-  end)
-
-  test("the copy is a whole-table loop: a novel key is not left behind", function()
-    -- The H5 regression: arm() used to copy a named field list, so a newly added choice
-    -- could be silently missing from the snapshot. The loop shape is the fix.
-    local entry = state.of(IDX)
-    entry.choices.some_future_choice = "value"
-    state.arm(IDX)
-    assert(entry.pending.some_future_choice == "value", "novel key missing from snapshot")
-  end)
-end)
-
 describe("state.prune -- drop what no longer qualifies", function()
   after_each(function() state.forget(IDX) end)
 
   local function seeded(choices)
     local entry = state.of(IDX)
     entry.choices = choices
-    entry.pending = { recipe = "iron-gear-wheel" }
     return entry
   end
 
@@ -95,6 +71,15 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.provider == "passive-provider-chest", "provider pruned wrongly")
     assert(c.inserter_quality == "rare", "inserter_quality pruned wrongly")
     assert(c.trash_unrequested == false, "boolean choice touched by prune")
+  end)
+
+  test("the snapshot 0.3.1 left behind is cleared", function()
+    -- Not a field this version writes: prune is where a save made before the blueprint flow
+    -- loses it, so the "choices and nothing else" promise holds for an upgraded save.
+    local entry = seeded({ recipe = "iron-gear-wheel" })
+    entry.pending = { recipe = "iron-gear-wheel" }
+    state.prune()
+    assert(entry.pending == nil, "the legacy snapshot survived a configuration change")
   end)
 
   test("names that exist but do not qualify are dropped", function()
@@ -136,11 +121,5 @@ describe("state.prune -- drop what no longer qualifies", function()
     -- added after prune was written.
     assert(c.inserter_quality == nil, "bogus inserter quality survived")
     assert(c.container_quality == nil, "bogus chest quality survived")
-  end)
-
-  test("prune always clears pending", function()
-    local entry = seeded({ recipe = "iron-gear-wheel" })
-    state.prune()
-    assert(entry.pending == nil, "pending survived a configuration change")
   end)
 end)

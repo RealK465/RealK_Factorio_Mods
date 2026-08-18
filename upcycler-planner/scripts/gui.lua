@@ -30,16 +30,15 @@ local gui = {}
 local util = require("util")
 local dispatch = require("scripts.dispatch")
 local planner = require("scripts.planner")
+local blueprint = require("scripts.blueprint")
 local state = require("scripts.state")
 
 local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
-local TOOL = "upl-planner"
 
 -- Shared with control.lua, so the event wiring and the GUI cannot drift on a rename.
 gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
-gui.TOOL = TOOL
 
 local function frame_of(player)
   local frame = player.gui.screen[FRAME]
@@ -123,10 +122,9 @@ local function place_beside_modal(player, window)
 end
 
 -- The -with-quality pickers hand back a {name, quality} table and take one, but storage keeps
--- the two halves as separate plain strings. Two reasons, and both fail silently: control.lua's
--- contract is that storage holds nothing but strings, and state.arm's snapshot is a SHALLOW
--- copy -- a nested table would stay shared with the live choices instead of frozen at Confirm.
--- The pair itself is planner's, so the modal and the plan cannot disagree about its shape.
+-- the two halves as separate plain strings -- control.lua's contract is that storage holds
+-- nothing but strings, and a nested table there fails silently rather than loudly. The pair
+-- itself is planner's, so the modal and the plan cannot disagree about its shape.
 local with_quality = planner.with_quality
 
 -- The chosen recipe as a prototype, or nil before an item is picked. The planner's questions
@@ -985,32 +983,36 @@ dispatch.register("trash", function(event)
   state.of(event.player_index).choices.trash_unrequested = event.element.state
 end)
 
--- Confirm does not build anything. It snapshots the choices and hands the player a tool, so
--- the ghosts land where they click and nowhere else.
+-- Confirm does not build anything. It designs the loop and hands the player the blueprint, and
+-- from there the engine owns everything: preview, rotation, flipping, snapping, undo, and the
+-- build. There is no snapshot to keep, because the blueprint IS the frozen plan -- reopening
+-- the modal cannot change what is already in the player's hand.
 dispatch.register("confirm", function(event)
   local player = game.get_player(event.player_index)
-  local entry = state.of(event.player_index)
+  local choices = state.of(event.player_index).choices
 
-  local ok = planner.validate(player.force, entry.choices)
+  -- The gathered resources ride along, exactly as the status line's own call does: the plan
+  -- the player was shown and the plan they are handed then come off one derivation rather than
+  -- two that could drift.
+  local ok, _, gathered = planner.validate(player.force, choices)
   if not ok then return end
 
-  -- A spectator has no cursor_stack at all, so there is nowhere to put the tool.
-  if not player.cursor_stack then
-    player.print({ "upl-message.no-cursor" })
+  -- validate covers everything plan() needs, so this is the belt to its braces rather than a
+  -- reachable branch -- but a tool that silently did nothing was the worst failure the old
+  -- flow could have, and a cursor that silently stays empty is its successor.
+  local plan = planner.plan(player.force, choices, gathered)
+  if not plan then
+    player.print({ "upl-message.plan-failed" })
     return
   end
 
-  -- clear_cursor can FAIL -- full cursor, full inventory -- and set_stack on top of that
-  -- failure would overwrite, and so destroy, whatever the player is holding. The modal stays
-  -- open, so freeing a hand and pressing Place again is the whole recovery.
-  if not (player.clear_cursor() and player.cursor_stack.set_stack({ name = TOOL, count = 1 })) then
-    player.print({ "upl-message.cursor-full" })
+  -- The modal stays open on a refusal, so freeing a hand and pressing Place again is the
+  -- whole recovery.
+  local given, reason = blueprint.give(player, plan)
+  if not given then
+    player.print(reason)
     return
   end
-
-  -- Armed only after the tool is actually in the cursor, so a failed confirm leaves no
-  -- snapshot behind for a stale tool to act on.
-  state.arm(event.player_index)
 
   gui.close(player)
 end)

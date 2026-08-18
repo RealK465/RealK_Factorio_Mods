@@ -1,5 +1,5 @@
--- Placeholder art, shared by the shortcut and the tool so the two cannot drift apart while it
--- is being tuned: the recycler's own icon and a legendary quality pip side by side. Two symbols
+-- Placeholder art for the shortcut, in both the sizes it wants: the recycler's own icon and a
+-- legendary quality pip side by side. Two symbols
 -- rather than one -- the mod turns recycling INTO quality, and a small pip in the corner reads
 -- as "a legendary recycler" instead. Layered from vanilla icons so no drawing gates the mod
 -- working, and nothing of Wube's is copied into the shipped zip. Real art replaces this later.
@@ -49,7 +49,6 @@ local function layers(expected)
 end
 
 return {
-  item = layers(64),
   shortcut = layers(32),
   shortcut_small = layers(24),
 }

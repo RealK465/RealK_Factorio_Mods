@@ -30,7 +30,7 @@ The old caution — the recycler-eject stall — is **resolved, by measurement**
 `analysis/api.md` §9.6): a rolled-up ingredient wedges the recycler outright, and the
 blacklist relief inserter is what keeps the loop alive; a permanent test now guards it. The
 mod carries a permanent suite (`tests/`, run via the repo's `factorio-testing` skill) covering
-planner, layout, poles, builder, state, the live eject and fluid mechanisms
+planner, layout, poles, blueprint, state, the live eject and fluid mechanisms
 (`loop_spec` / `fluid_spec`) and — since the connected-player discovery of §12 —
 `gui.lua` in both headless and real-client runs. **The count lives in the mod's `CLAUDE.md`
 and nowhere else** — it was stated in both and drifted, which is the whole argument for one

@@ -29,8 +29,9 @@ storage, no game state, same inputs same output on every client.
   (`{x, width}` each) — is the one piece of layout knowledge the pass accepts. Everything
   else stays discovered: occupancy is read off the entity list itself, so pipes in a fluid
   plan's columns exclude their own tiles without this module knowing pipes exist.
-- Returns `{entities, unpowered}`: pole entity dicts tagged `pole = true`, each with
-  `wire_to` (the index, in their own order, of the pole it wires back to), and how many
+- Returns `{entities, unpowered}`: pole entity dicts each with `wire_to` (the index, in their
+  own order, of the pole it wires back to -- `planner.plan` rebases those onto plan indices as
+  it appends them, so nothing downstream has to count poles), and how many
   consumers no pole of the main network reaches.
 
 ## The pass, in order
@@ -59,9 +60,9 @@ storage, no game state, same inputs same output on every client.
    consumer covered only by an unwired island would read as powered by geometry and sit dark
    in game.
 8. **Spanning wires** — one copper wire per pole, to its nearest already-wired neighbour
-   (Prim, per component). The builder executes the list on the ghosts (`pole_copper`
-   connectors, `connect_to`, reach_check on — and note `connect_to` returns false for ghost
-   wires while creating them, `api.md` §10.4).
+   (Prim, per component). `blueprint.lua` writes the list as blueprint `wires`, reciprocally on
+   both ends the way `create_blueprint` does (`api.md` §21), and the engine makes the
+   connections when the loop is stamped.
 
 **The growth retry is gone**, deliberately: it existed to widen a layout whose free tiles
 could not fit enough poles, and the utility columns are sized to the pole before the layout

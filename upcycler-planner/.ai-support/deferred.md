@@ -26,6 +26,12 @@ to miss because they are only visible via the JSON's `parent` key; wires go thro
 ghost-to-ghost wiring is first-class. **Use the default `wire_origin.player`** — `script`-origin
 wires are invisible to players.
 
+**The plan is already shaped for it.** Since 2026-08-18 an entity's `wire_to` is a plan index
+rather than a position among the poles, so a wire can name any entity — which is what a green
+wire between a belt and an inserter needs, and what a per-type ordinal could never express. The
+serialiser writes `wires` from that field without knowing what kind of entity either end is; a
+second wire kind needs a connector id beside the index, not a new mechanism.
+
 Add when: the plain loop is proven and someone wants throughput or a tidier ring.
 
 ### A second fluid network (two-fluid recipes), and fluid products
@@ -101,10 +107,6 @@ Compute the taper from `LuaQualityPrototype.get_roll_chances()` rather than copy
 table, and read recycle times from the generated recipes — the formula moved again in 2.1.13
 (`analysis/api.md` §8).
 
-### Layout rotation
-Mining Patch Planner's `coord_convert` / `coord_revert` (`mpp_util.lua:22-47`) is the pattern:
-write the layout once, rotate on output.
-
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short
@@ -144,18 +146,6 @@ economics (`analysis/quality-math.md` §3). Revisit only if the niche turns out 
 ### Modded quality tiers
 The quality chain is walked via `prototypes.quality["normal"].next` rather than hard-coded, so it
 should work — but it is untested against a mod that adds tiers.
-
-## Placement and UX
-
-### Cursor-blueprint placement
-Handing the player a script-filled blueprint would give preview, rotation, snapping and undo for
-free. The blocker is unverified engine fidelity: whether a runtime-written blueprint faithfully
-carries insert plans and logistic sections. Worth a time-boxed spike — it would replace only the
-placement step, not the layout engine.
-
-### Undo
-`create_entity` takes `player` and `undo_index`; whether a multi-entity placement collapses into
-one undo step is unchecked.
 
 ## Housekeeping
 

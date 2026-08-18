@@ -1,7 +1,7 @@
 -- Everything this mod persists, which is deliberately almost nothing: the player's last GUI
--- choices, and a snapshot of them taken when Confirm is pressed and the tool goes into the
--- cursor. Plans are never stored -- they are rebuilt from the snapshot at click time, which is
--- cheap and means no half-finished plan can straddle a save.
+-- choices, and nothing else. Plans are never stored -- Confirm designs one, bakes it into the
+-- blueprint it hands over, and forgets it, so no half-finished plan can straddle a save and
+-- reopening the modal cannot change what is already in the player's hand.
 --
 -- Keyed per player from the start. Sharing one table between players is the mistake that only
 -- shows up when someone opens a multiplayer game.
@@ -26,16 +26,6 @@ end
 
 function state.forget(player_index)
   storage.players[player_index] = nil
-end
-
--- Confirm's snapshot: a plain copy of the live choices, so reopening the modal while the tool
--- is in hand cannot change what is about to be placed. A copy loop rather than a named field
--- list, so a newly added choice cannot be silently left out of the snapshot.
-function state.arm(player_index)
-  local entry = state.of(player_index)
-  local snapshot = {}
-  for key, value in pairs(entry.choices) do snapshot[key] = value end
-  entry.pending = snapshot
 end
 
 -- Drop any choice that no longer QUALIFIES, not merely one that no longer exists: a mod update
@@ -73,12 +63,16 @@ function state.prune()
     end
     -- The qualities the buildings and modules are placed AT are choices in their own right,
     -- separate from the target above, and a mod can take a tier out from under any of them.
-    -- Matched by key rather than listed by name, for state.arm's reason: a picker added later
-    -- must not be able to keep a tier that no longer exists just because nobody remembered to
-    -- add its key here. The target `quality` has no underscore, so it keeps its own test above.
+    -- Matched by key rather than listed by name: a picker added later must not be able to keep
+    -- a tier that no longer exists just because nobody remembered to add its key here. The
+    -- target `quality` has no underscore, so it keeps its own test above.
     for key, quality in pairs(c) do
       if key:match("_quality$") and not planner.is_quality(quality) then c[key] = nil end
     end
+    -- Left by 0.3.1 and earlier, which snapshotted the choices when the placement tool went
+    -- into the cursor. Nothing reads it now, and the first configuration change after the
+    -- upgrade clears it -- after which this line is dead and can go at the next major bump.
+    -- It earns its keep only so the promise at the top of this file is true of old saves too.
     entry.pending = nil
   end
 end

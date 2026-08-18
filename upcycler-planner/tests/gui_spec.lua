@@ -566,16 +566,22 @@ describe("the modal", function()
     assert(choices().trash_unrequested == false, "the double-fire changed the answer")
   end)
 
-  test("Confirm snapshots the choices, hands over the tool, and closes", function()
+  test("Confirm hands over a filled blueprint and closes", function()
     open_with_gears()
     fire(widget({ "upl-buttons", "upl-confirm" }))
 
     local stack = player().cursor_stack
-    assert(stack and stack.valid_for_read and stack.name == gui.TOOL,
-      "the placement tool is not in the cursor")
-    local entry = state.of(player().index)
-    assert(entry.pending and entry.pending.recipe == "iron-gear-wheel",
-      "Confirm did not arm the snapshot")
+    assert(stack and stack.valid_for_read and stack.is_blueprint,
+      "the cursor does not hold a blueprint")
+    assert(stack.is_blueprint_setup(), "the blueprint in the cursor is empty")
+    assert(stack.get_blueprint_entity_count() > 0, "the blueprint carries no entities")
+    -- Temporary, so Q throws it away exactly as the old placement tool did and nothing lands
+    -- in the player's inventory unless they deliberately drag it there.
+    assert(player().cursor_stack_temporary, "the blueprint would survive a cleared cursor")
+    -- The icon says what the loop is for; the engine's own default would be the belt.
+    local icons = stack.preview_icons
+    assert(icons and icons[1] and icons[1].signal.name == "iron-gear-wheel",
+      "the blueprint does not wear its product as an icon")
     assert(frame() == nil, "the modal stayed open after Confirm")
   end)
 end)

@@ -116,9 +116,27 @@ per-release approval.
 
 ## Interaction
 
-- **Shortcut → modal → Confirm → one-shot selection tool → click.** The player selects nothing
-  in the world but ground; the GUI's choices define the footprint and the tool answers only
-  *where*. The tool item carries `only-in-cursor`, so Q discards it.
+- **Shortcut → modal → Confirm → a blueprint in the cursor.** Confirm designs the loop and puts
+  it in the player's hand as an ordinary blueprint; from there the engine owns everything —
+  preview, rotation, flipping, snapping, undo and the build. The mod handles no placement event
+  at all, which is the point rather than an omission: obstacle handling, tree clearing and
+  force-building are behaviours every player already knows, and reimplementing them could only
+  differ from what they expect.
+  Chosen 2026-08-18, replacing the one-shot selection tool the first version shipped. A
+  selection tool can report an area but cannot show anything, and there is **no API for the
+  cursor's world position** (`LuaControl.render_position` is the player, and
+  `CustomInputEvent.cursor_position` only fires on a keypress) — so a cursor-following preview
+  is not merely nicer as a blueprint, it is impossible any other way.
+  The stack is a plain vanilla `blueprint`, not a prototype of this mod's own: it costs no name
+  in a flat global namespace, and a custom one would buy only an icon, which `preview_icons`
+  gives anyway. `player.cursor_stack_temporary = true` makes it behave like the tool it
+  replaced — Q throws it away, nothing lands in the inventory — while leaving the player the
+  option of dragging it into a slot to keep the design.
+  **It is deliberately not one-shot.** The tool cleared itself from the cursor after a successful
+  placement; a blueprint stays in hand and can be stamped again. That falls out of "identical to
+  placing a blueprint" rather than being chosen separately, and it is the right answer anyway —
+  a second column of the same loop is a thing players want, and refusing it would mean
+  reimplementing consumption the engine does not do.
 - **Gated on the `recycling` technology** (plus `unavailable_until_unlocked = true`), not on
   quality. The loop is unbuildable without a recycler, so gating on quality alone would offer a
   button that cannot yet produce anything.
@@ -252,18 +270,32 @@ per-release approval.
   real client: an invisible child takes **no cell**, so the vanilla six pack into one clean row and
   all nine wrap 6 + 3 with no holes (`analysis/api.md` §19).
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
-  `{name, quality}` tables the `-with-quality` widgets speak. Two silent failures ride on this:
-  `control.lua`'s stated contract is that storage holds nothing but strings, and `state.arm`'s
-  snapshot is a **shallow** copy — a nested table would stay shared with the live choices rather
-  than frozen at Confirm, so reopening the modal with a tool in hand would change what was about
-  to be placed.
+  `{name, quality}` tables the `-with-quality` widgets speak. `control.lua`'s stated contract is
+  that storage holds nothing but strings, and a nested table there fails silently rather than
+  loudly. The second reason this used to carry — that Confirm's snapshot was a shallow copy, so
+  a nested table would not have frozen — went with the snapshot on 2026-08-18: the blueprint
+  handed over *is* the frozen plan.
 
 ## What gets planned
 
-- **Ghosts, one entity at a time — never a blueprint string.**
-  `LuaSurface.create_entities_from_blueprint_string` is documented *"only works when used in
-  simulations"*. Both reference planner mods emit ghosts the same way. Computing ghosts also
-  means the layout can answer the player's choices instead of being a stored string.
+- **The plan is computed, then serialised into a blueprint the engine builds.**
+  `scripts/blueprint.lua` turns the plan into an array of `BlueprintEntity`; the engine makes
+  the ghosts when the player stamps it. Computing the layout rather than storing a string is
+  what lets it answer the player's choices — that half never changed.
+  The **simulation-only restriction applies to `LuaSurface.create_entities_from_blueprint_string`
+  and to nothing else**: `set_blueprint_entities`, `import_stack`, `build_blueprint` and
+  `create_blueprint` carry no such note (checked across every string in `runtime-api.json`,
+  2026-08-18). The first version generalised that one restriction into "never a blueprint", which
+  was wider than its evidence.
+  The thirteen fields a plan needs were read out of the engine rather than the docs: a plan was
+  placed as ghosts, captured with `create_blueprint`, and `get_blueprint_entities()` named them.
+  Evidence in `analysis/api.md` §21.
+  **A wire names a plan index, never a position among one kind of entity.** `poles.plan` numbers
+  within its own result, because that is the only ordering it can know; `planner.plan` rebases
+  onto plan indices as it appends, so the serialiser wires by index and knows nothing about
+  poles. The alternative — counting a `pole` flag downstream — made three modules depend on an
+  invariant none of them owned, and it cannot express a wire between two unlike entities at all,
+  which is exactly what the deferred circuit garnish needs.
 - **Belt ring first**, specified in `analysis/layout-belt-ring.md`. Chosen over the smaller bot
   loop because product circulation stays on its own belts, so it behaves identically in an
   isolated pocket and in a base-wide logistic network — the right default for a mod strangers
