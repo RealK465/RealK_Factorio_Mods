@@ -9,6 +9,34 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-18 — the chest pickers leave the strip
+
+The repo owner, on the modal: *"the upcycler planner modal menu shows by default the chest
+selector (to choose between wood / iron / steel chest), can that menu be hidden by default and
+only shown when show all build options is true?"*
+
+Yes, and it cost one line: the loop that builds the three chest buttons set
+`visible = worth_showing(player, chest_names)` and now sets `visible = show_all_options(player)`.
+The count rule was already there, and the buffer was the only chest passing it in a vanilla game
+— wooden, iron and steel against one requester and one passive provider.
+
+**Applied to all three roles, not just the buffer.** The three are built from
+`planner.CHEST_ROLES` in one loop precisely so they cannot drift apart, and a per-role exception
+would have been the first drift. In vanilla nothing changes for the other two — they were already
+hidden on the count — so the difference is only visible in a modset that adds a second requester
+or passive provider, where the new rule keeps them out as well. That is the consistent reading of
+what the owner asked for: the chests are not a decision the planner puts in front of the player.
+
+Nothing else moved. A hidden picker is still built, still handles its events and still holds the
+default the plan uses, which is what let the spec that drives the shared chest handler through
+`upl-container` keep working untouched. `gui.open` is the only place visibility is computed and a
+setting flip reopens the modal, so there was no second path to fix.
+
+Vanilla now shows five of the nine build options: belt, inserter, quality module, top machine
+module, pole.
+
+---
+
 ## 2026-08-18 — the Confirm key reaches Place
 
 The repo owner, on the modal shipped hours earlier: *"in Factorio there is a default behaviour

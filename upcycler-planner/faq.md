@@ -6,7 +6,7 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 
 ## Why are some build options missing?
 
-Build options pickers with only one option are hidden. In vanilla, the recycler, two chests and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option.
+Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The three chest pickers are always hidden: the planner uses the biggest chest you have researched.
 
 To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
 

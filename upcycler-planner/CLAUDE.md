@@ -17,7 +17,8 @@ recycler, the last two with a quality of their own) above a **Build options** bl
 is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, quality module,
 top machine module, electric pole, pipe, and the trash-unrequested checkbox. Everything in that
 strip but the belt and the pipe carries a quality of its own — and a picker with only one option
-is hidden, so a vanilla game sees six of the nine — laid out as a **six-column grid**, since a
+is hidden, as are the three chests whatever their count, so a vanilla game sees five of the nine
+— laid out as a **six-column grid**, since a
 hidden picker takes no cell. A **settings window** opens beside the modal, top edges level, from a
 captioned **Settings** button in its titlebar, holding the two per-player settings: show
 unresearched items, and show every picker whatever the count.
@@ -264,12 +265,13 @@ re-opening any of these, and don't restate a reason here.
   `control.lua` honours a close on the modal only when no settings window exists, and
   `gui.close_settings` hands the focus back only when nothing else has taken it. Reasons:
   `decisions.md`; measurements: `analysis/api.md` §17.
-- **A picker with fewer than two options is hidden** — the recycler, the requester chest, the
-  output chest and the pipe in a vanilla game — and the pipe is also hidden until the recipe takes
-  a fluid. Exempt: item, target, machine, belt, quality module, and the two whose *clear* is the
-  second option (pole, top machine module). A hidden picker still holds its default, and hides its
-  row label with it. What that costs — a hidden picker takes its quality box with it — is what
-  *Show all build options* exists to undo, the pipe's fluid condition included.
+- **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
+  game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
+  machine, belt, quality module, and the two whose *clear* is the second option (pole, top machine
+  module). **The three chests go the other way and are hidden whatever their count.** A hidden
+  picker still holds its default, and hides its row label with it. What that costs — a hidden
+  picker takes its quality box with it — is what *Show all build options* exists to undo, the
+  chests and the pipe's fluid condition included.
 - Shortcut button style `green`. Icon layer `scale`/`shift` are written in item space and
   rescaled per prototype — they scale against the prototype's expected icon size, not the
   file's (`analysis/api.md` §11).

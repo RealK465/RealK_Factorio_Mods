@@ -4,12 +4,13 @@
 -- and whether the chests trash their surplus.
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
--- choice, so in a vanilla game the recycler, the requester chest, the output chest and the pipe
--- are hidden, and a modset that adds an alternative brings each of them back. Five pickers are
--- exempt because they are the choice whatever the count -- item, target quality, machine, belt,
--- quality module -- and two more because clearing them IS the second option: the pole ("no
--- poles") and the top machine's module ("leave it empty"). The pipe has one more condition of its
--- own: it is out of the strip entirely until the recipe takes a fluid.
+-- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an
+-- alternative brings each of them back. Five pickers are exempt because they are the choice
+-- whatever the count -- item, target quality, machine, belt, quality module -- and two more
+-- because clearing them IS the second option: the pole ("no poles") and the top machine's module
+-- ("leave it empty"). The pipe has one more condition of its own: it is out of the strip entirely
+-- until the recipe takes a fluid. The three chests go the other way and are hidden whatever the
+-- count -- see the loop that builds them.
 --
 -- A second, smaller frame opens BESIDE the modal -- to its right, top edges level -- when the
 -- titlebar's settings button is pressed. It holds the two per-player settings the pickers read:
@@ -628,9 +629,11 @@ function gui.open(player)
       tags = dispatch.tags("chest", { role = role }),
     })
     chest_button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
-    -- Vanilla has one requester chest and one passive provider, so those two are normally absent;
-    -- the plain buffer has wooden, iron and steel to choose between and stays.
-    chest_button.visible = worth_showing(player, chest_names)
+    -- The one set of pickers hidden whatever the count (owner's call, 2026-08-18). The buffer has
+    -- wooden, iron and steel to choose between, but the default -- the largest inventory the force
+    -- has researched -- is the answer nearly every time, and three chest buttons in the strip read
+    -- as three decisions the player has to make. Show-all brings all three back, quality included.
+    chest_button.visible = show_all_options(player)
   end
 
   local module_button = strip.add({
