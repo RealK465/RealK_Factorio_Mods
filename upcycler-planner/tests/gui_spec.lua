@@ -112,32 +112,33 @@ describe("the modal", function()
     assert(widget({ "upl-options", "upl-strip" }).column_count == 6,
       "the build options grid must stay six wide")
 
-    -- One option is not a choice. In the SA modset that hides four pickers: one recycler, one
-    -- requester chest, one passive provider and one pipe. Every one of them is still BUILT, and
-    -- still holds the default the plan uses -- only the widget is gone. The counts are asserted
-    -- through the planner so a modset that adds an alternative fails here loudly rather than
-    -- quietly showing a picker this spec claims is hidden.
+    -- One option is not a choice. In the SA modset that hides two pickers: one recycler and one
+    -- pipe. Both are still BUILT, and still hold the default the plan uses -- only the widget is
+    -- gone. The counts are asserted through the planner so a modset that adds an alternative
+    -- fails here loudly rather than quietly showing a picker this spec claims is hidden.
     assert(#planner.recyclers() == 1, "test premise: SA ships exactly one recycler")
-    assert(#planner.chests("requester") == 1, "test premise: one requester chest")
-    assert(#planner.chests("provider") == 1, "test premise: one passive provider")
     assert(#planner.pipes() == 1, "test premise: one pipe")
     assert(widget({ "upl-content", "upl-table", "upl-recycler" }).visible == false,
       "the recycler picker is the only recycler there is -- it must be hidden")
     -- The row's LABEL has to go with it; an orphaned label is the obvious way to get this wrong.
     assert(widget({ "upl-content", "upl-table", "upl-recycler-label" }).visible == false,
       "the recycler label outlived its row")
-    assert(widget({ "upl-options", "upl-strip", "upl-requester" }).visible == false,
-      "one requester chest is not a choice")
-    assert(widget({ "upl-options", "upl-strip", "upl-provider" }).visible == false,
-      "one passive provider is not a choice")
     assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == false,
       "no recipe and one pipe: the pipe picker must be hidden twice over")
 
-    -- And what stays: three plain chests, three usable inserters, four belts, and the two whose
-    -- clear is itself the second option.
-    assert(#planner.chests("container") > 1 and #planner.inserters() > 1,
-      "test premise: buffer chests and inserters have real alternatives")
-    for _, name in pairs({ "upl-belt", "upl-inserter", "upl-container", "upl-quality-module",
+    -- The three chests are the exception the other way: hidden whatever the count, so the buffer
+    -- goes even though wooden, iron and steel are a real choice. The count is asserted so this
+    -- keeps testing the rule rather than accidentally agreeing with the count rule.
+    assert(#planner.chests("container") > 1, "test premise: the buffer has real alternatives")
+    for _, name in pairs({ "upl-requester", "upl-container", "upl-provider" }) do
+      assert(widget({ "upl-options", "upl-strip", name }).visible == false,
+        name .. " must be hidden until show all build options is on")
+    end
+
+    -- And what stays: three usable inserters, four belts, and the two whose clear is itself the
+    -- second option.
+    assert(#planner.inserters() > 1, "test premise: inserters have real alternatives")
+    for _, name in pairs({ "upl-belt", "upl-inserter", "upl-quality-module",
                            "upl-terminal-module", "upl-pole" }) do
       assert(widget({ "upl-options", "upl-strip", name }).visible == true,
         name .. " must stay visible")
@@ -271,7 +272,8 @@ describe("the modal", function()
 
   test("a chest picker writes its own role, and clearing snaps that role back", function()
     -- The buffer role is the one with a real choice in vanilla (wooden, iron, steel), which is
-    -- what makes it the honest one to drive through the shared handler.
+    -- what makes it the honest one to drive through the shared handler. It is hidden by default
+    -- now, but a hidden picker is still built and still handles its events, which is the point.
     open_with_gears()
     local button = widget({ "upl-options", "upl-strip", "upl-container" })
     button.elem_value = { name = "iron-chest", quality = "uncommon" }
@@ -536,6 +538,7 @@ describe("the modal", function()
       for _, path in pairs({ { "upl-content", "upl-table", "upl-recycler" },
                              { "upl-content", "upl-table", "upl-recycler-label" },
                              { "upl-options", "upl-strip", "upl-requester" },
+                             { "upl-options", "upl-strip", "upl-container" },
                              { "upl-options", "upl-strip", "upl-provider" } }) do
         assert(widget(path).visible == true, path[#path] .. " stayed hidden")
       end
@@ -548,6 +551,8 @@ describe("the modal", function()
       after_ticks(2, function()
         assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == false,
           "unticking the setting must hide the pipe again")
+        assert(widget({ "upl-options", "upl-strip", "upl-container" }).visible == false,
+          "unticking the setting must hide the buffer chest again")
         assert(settings_widget(ALL_OPTIONS_BOX).state == false,
           "a change from outside the window left its tick stale")
       end)

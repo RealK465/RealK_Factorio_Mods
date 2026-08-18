@@ -218,7 +218,7 @@ per-release approval.
   settings window below as well as in the game's settings menu.
 - **A picker is only shown when it has something to choose between** (repo owner's call,
   2026-08-17). One option is not a choice, so a picker offering exactly one thing is hidden —
-  which in a vanilla game is the recycler, the requester chest, the output chest and the pipe, and
+  which in a vanilla game is the recycler and the pipe, and
   a modset that adds an alternative brings each of them back. The count is taken on the list the
   picker would really offer, so the setting above moves it too. Seven pickers are exempt: the
   item, the target quality, the machine, the belt and the quality module are the choice whatever
@@ -226,6 +226,11 @@ per-release approval.
   option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
   of the request. The pipe carries one extra condition of its own: it stays out of the strip until
   the chosen recipe takes a fluid, since it plumbs nothing otherwise.
+  **The three chests are the exception the other way** (owner's call, 2026-08-18): all three are
+  hidden whatever the count, so the buffer goes even though wooden, iron and steel are a real
+  choice. The default — the largest inventory the force has researched — is the right answer
+  nearly every time, and three chest buttons in a nine-button strip read as three decisions the
+  player has to make before pressing Place. Show-all brings all three back, quality included.
   A hidden picker is still built, still holds the default the plan uses, and hides its row label
   with it; only the widget is gone. `visible` is documented as *"taking no space in the layout"*,
   which is what lets a hidden row reflow instead of leaving a hole.

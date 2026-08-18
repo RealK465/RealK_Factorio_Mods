@@ -5,6 +5,8 @@ Date: ????
     - The planner now gives you a blueprint instead of a placement tool. You can see the whole
       loop before you place it, move it around, and rotate or flip it.
   Changes:
+    - The three chest pickers are now hidden. The planner uses the biggest chest you have
+      researched. Tick Show all build options in Settings to choose them, or to set their quality.
     - Pressing E in the planner window now does the same as clicking Place.
     - Undo takes the whole loop back in one step.
     - The blueprint stays in your hand after placing, so you can stamp the same loop again.
