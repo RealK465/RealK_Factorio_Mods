@@ -28,8 +28,8 @@ local function overlap(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1)
   return ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1
 end
 
--- Centres follow builder.position_of's rule -- half a footprint in -- so odd sizes sit
--- mid-tile and even ones on a tile boundary, and the supply square shifts with them.
+-- Centres follow the plan's own rule -- half a footprint in -- so odd sizes sit mid-tile and
+-- even ones on a tile boundary, and the supply square shifts with them.
 local function centre_of(p, pole)
   return p.dx + pole.width / 2, p.dy + pole.height / 2
 end
@@ -52,7 +52,7 @@ local function distance_sq(pole, a, b)
 end
 
 -- An approximation of wherever the engine anchors its wire ends, but only the planning
--- estimate leans on it -- the builder's connect_to keeps reach_check on, so the engine has
+-- estimate leans on it -- the blueprint's wires are still subject to the engine's own reach,
 -- the final word on every wire.
 local function within_wire_reach(pole, a, b)
   return distance_sq(pole, a, b) <= pole.wire_distance ^ 2
@@ -259,7 +259,7 @@ end
 -- component rather than a mesh, so the built network reads as a line, not a cobweb. Every
 -- chosen edge is within reach: a connected component always has SOME in-reach edge across
 -- any cut, and the minimum-distance pair can only be shorter. Computed here rather than in
--- the builder because which pole can reach which is this module's geometry; the builder just
+-- the serialiser because which pole can reach which is this module's geometry; blueprint.lua just
 -- executes the list.
 local function spanning_wires(placed, pole)
   local wires = {}
@@ -291,8 +291,9 @@ end
 -- entity names to the collision-box margin their stand-in is shrunk by, false for entities
 -- that draw no power.
 --
--- Returns { entities, unpowered }: pole entity dicts tagged pole = true, each carrying
--- wire_to -- the index, in their own order, of the pole it wires back to -- and how many
+-- Returns { entities, unpowered }: pole entity dicts each carrying wire_to -- the index, in
+-- their own order, of the pole it wires back to, which planner.plan rebases onto plan indices
+-- when it appends them -- and how many
 -- consumers no pole of the main network reaches.
 function poles.plan(built, pole, consumer_margins)
   local consumers = consumers_of(built.entities, consumer_margins)
@@ -322,7 +323,7 @@ function poles.plan(built, pole, consumer_margins)
     entities[i] = {
       name = pole.name, quality = pole.quality,
       dx = p.dx, dy = p.dy, w = pole.width, h = pole.height,
-      pole = true, wire_to = wires[i],
+      wire_to = wires[i],
     }
   end
 

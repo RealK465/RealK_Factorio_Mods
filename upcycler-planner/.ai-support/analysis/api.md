@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-17
+verified: 2026-08-18
 ---
 # Verified API reference
 
@@ -345,13 +345,14 @@ elsewhere stay stable; §9 remains the running unverified list.
    `get_crafting_speed`. A legendary medium pole covers 17x17: one powers the whole rare
    belt ring where normal quality needs five.
 3. **Revived pole ghosts auto-connect to poles within wire reach.** Two bare ghosts with no
-   ghost wire, revived, came back wired. The explicit ghost wires the builder draws are for
-   the preview and for pinning the intended spanning tree, not load-bearing against vanilla.
+   ghost wire, revived, came back wired. The explicit wires the plan carries are for the
+   preview and for pinning the intended spanning tree, not load-bearing against vanilla.
 4. **Ghost-to-ghost copper wiring works, but `connect_to` RETURNS FALSE while creating the
    wire.** `get_wire_connector(defines.wire_connector_id.pole_copper, true).connect_to(other)`
    between two pole ghosts: return value false, yet the connector's `connections` gains the
    ghost wire and it turns into a `real_connections` entry once both revive. Do not branch on
-   the return value for ghost wires; `builder.lua` ignores it on purpose.
+   the return value for ghost wires. Moot for this mod since 2026-08-18 — the plan's poles
+   carry their copper as blueprint `wires` (§21) and the engine makes the connections.
 
 ## 11. Icon layers scale against the PROTOTYPE, not the file — verified 2026-08-16
 
@@ -364,7 +365,7 @@ for technologies, `128` for achievements and item groups, `64` for everything el
 So an explicit `scale` or `shift` means **different things on different prototypes**, and one
 layer table cannot be shared between an item and a shortcut. This mod shared one from its first prototypes:
 `scale = 0.28`, `shift = {8, 8}` on the quality pip read as 56% of the icon at the corner on the
-selection tool (expected 64) and as **wider than the entire button, shifted half an icon out of
+then-existing selection tool (expected 64) and as **wider than the entire button, shifted half an icon out of
 frame**, on the shortcut (expected 32). Confirmed by dumping both:
 
 ```
@@ -372,7 +373,7 @@ factorio.exe --config <scratch>\config.ini --dump-icon-sprites --mod-directory <
 ```
 
 which writes the **engine's own composition** to `script-output/<prototype-type>/<name>.png` —
-`shortcut/upl-open.png` and `item/upl-planner.png` here. It needs a graphical run (not
+`shortcut/upl-open.png` here, and `item/upl-planner.png` while the selection tool existed. It needs a graphical run (not
 `--dump-data`), takes about 50 s, and is the only way to see a layered icon without opening the
 game. Vanilla shortcuts dump at 24x24; a broken one dumps far larger, so the file size alone is
 a smell.
@@ -491,7 +492,7 @@ full research, real entities and ticks) plus the installed `prototype-api.json` 
 6. **A script ghost keeps its `direction` alongside a fluid recipe** — `create_entity` with
    `direction = west` plus `set_recipe("battery")` reads back facing west — and a placed
    battery plan revived whole crafts from an outside tap on one stub, which pins the
-   planner→layout→builder chain end to end.
+   planner→layout→blueprint chain end to end.
 
 ## 15. Quality on inserters and chests, and what a picker may offer — measured 2026-08-17
 
@@ -691,3 +692,127 @@ arrives *while the engine is opening the element's own chooser window*.
 moved one: dragged left it overshoots, dragged right it goes negative. Neither is detectable
 directly, but both leave the range a real frame can occupy — so the mod keeps the last
 *plausible* measurement per player and reuses it, rather than trusting each reading.
+
+## 21. Blueprints written by a mod — measured 2026-08-18
+
+The evidence behind the cursor-blueprint placement route (`../decisions.md` -> Interaction). All
+of it was read out of the running game rather than reasoned from the docs, because the docs are
+incomplete on exactly the point that mattered.
+
+**The simulation-only restriction is on ONE member.** Every string in `runtime-api.json` was
+searched for a simulation note; the only blueprint member carrying one is
+`LuaSurface.create_entities_from_blueprint_string` (*"This method only works when used in
+simulations"*). `set_blueprint_entities`, `get_blueprint_entities`, `import_stack`,
+`build_blueprint` and `create_blueprint` carry none. The first version's rule — "never a
+blueprint" — generalised that single restriction too far.
+
+**The blueprint API lives on `LuaItemCommon`, not `LuaItemStack`.** `LuaItemStack` inherits it;
+each member is gated by `subclasses: ["BlueprintItem"]`, so the stack must actually hold a
+blueprint-type item.
+
+**`BlueprintEntity`'s documented field list is only the COMMON fields** — `entity_number`,
+`name`, `position`, `direction`, `quality`, `mirror`, `items`, `tags`, `wires`,
+`burner_fuel_inventory`. Everything else lives in `variant_parameter_groups`, 62 of them keyed
+by entity prototype type. The ones this mod needs:
+
+| group | fields |
+|---|---|
+| `assembling-machine` | `recipe`, `recipe_quality`, `control_behavior` |
+| `furnace` | `control_behavior` — **and nothing else**, so a recycler cannot carry a recipe |
+| `inserter` | `filters`, `use_filters`, `filter_mode`, `override_stack_size`, hand positions |
+| `logistic-container` | `request_filters`, `bar`, `filters`, `control_behavior` |
+| `container` | `bar`, `filters`, `control_behavior` |
+
+**What a placed plan actually serialises to.** A gear loop and a fluid loop were put on the
+ground with the then-current ghost builder, captured with `create_blueprint{include_modules =
+true}`, and dumped. Round-trip was exact both times — 92 planned entities -> 92 ghosts -> 92
+blueprint entities, and 138 for the fluid plan. Across both, the complete set of top-level
+fields the engine emitted is **thirteen**:
+
+`direction, entity_number, filter_mode, filters, items, name, position, quality, recipe,
+recipe_quality, request_filters, use_filters, wires`
+
+Shapes, verbatim from the capture:
+
+```lua
+-- machine: two unrelated qualities, and the module plan
+{ name = "assembling-machine-3", position = {x = 3.5, y = 5.5}, quality = "uncommon",
+  recipe = "iron-gear-wheel", recipe_quality = "normal",
+  items = { { id = { name = "quality-module-3" },
+              items = { in_inventory = { { inventory = 4, stack = 0 } } } } } }
+
+-- requester chest: the count sits on the filter, both flags on the wrapper
+{ name = "requester-chest", position = {x = 2.5, y = 2.5},
+  request_filters = { sections = { { index = 1, filters = {
+      { index = 1, name = "iron-plate", quality = "normal", comparator = "=", count = 100 } } } },
+    request_from_buffers = true, trash_not_requested = true } }
+
+-- inserter
+{ filters = { { index = 1, name = "iron-plate", quality = "normal", comparator = "=" } },
+  use_filters = true, filter_mode = "blacklist" }
+
+-- pole: copper written on BOTH ends, connector id 5 = pole_copper. The numbers are
+-- entity_number values, which is why the plan carries wire_to as a plan index rather than as
+-- a position among the poles -- a wire between two unlike entities could not be addressed any
+-- other way, and the deferred circuit garnish needs exactly that.
+{ name = "medium-electric-pole", wires = { {39, 5, 40, 5}, {39, 5, 63, 5} } }
+```
+
+Three omissions worth knowing, all of them the engine's own normalisation: `direction` is absent
+when the entity faces north; `id.quality` is absent when the module is normal; and a chest with
+no requests carries **no `request_filters` key at all** — so the concept's "not optional" is
+about reading a chest that has them, not about writing one that does not.
+
+**The blueprint logistic filter is a FLATTER table than the runtime one.**
+`BlueprintLogisticFilter` is `{index, name, quality, comparator, count}`, where
+`LuaLogisticSection.set_slot` takes `{value = {name, quality, comparator}, min = count}`. Same
+request, different shape, and translating it wrongly yields a chest with an empty section rather
+than an error.
+
+**`set_blueprint_entities` clears the snap grid**, so `blueprint_snap_to_grid` has to be written
+after it, never before (found in Space Exploration's `blueprint-converter.lua`, which saves and
+restores all three snap properties around the call). This mod sets no snap grid, so it only
+matters if one is ever wanted.
+
+**`blueprint_icons` does not exist in 2.1** — renamed to `preview_icons` in 2.0.7 (read/write;
+`default_icons` is the read-only engine pick). `is_blueprint_setup` is a **method**, not an
+attribute.
+
+**`LuaPlayer.cursor_stack_temporary` is read AND write**, and `blueprint` is one of the four
+supported stack types. Documented as *"Returns true if the current item stack in cursor will be
+destroyed after clearing the cursor. Manually putting it into inventory still preserves the
+item."* — so it reproduces the old tool's `only-in-cursor` behaviour while still letting a player
+keep the design deliberately. **A write on an unsupported stack type is silently ignored**, so
+read it back rather than assuming.
+
+**There is no continuous read of the cursor's world position.** `LuaControl.render_position` is
+the player's own; `CustomInputEvent` carries `cursor_position` and `cursor_direction` but only at
+the instant a key fires. A `rendering`-drawn footprint that follows the cursor therefore cannot
+be built — which is why a blueprint is not merely the nicer route to a preview but the only one.
+
+**Rotation and flipping do not break the eject** — measured, and it was not obvious. The
+recycler's `vector_to_place_result = {-0.35, -2.3}` has a non-zero x offset, so a mirror that
+failed to mirror the throw would land it two thirds of a tile out. Stamped through
+`build_from_cursor` unflipped, flipped horizontally, flipped vertically and rotated a quarter
+turn, then revived: every recycler's `drop_position` still falls inside its own machine's
+footprint in all four. Guarded permanently by `tests/blueprint_spec.lua`.
+
+Two traps met while writing that test: a furnace-type recycler reports **`drop_target` as nil**
+(it comes back nil even for the plain unrotated loop `loop_spec` proves works), so `drop_position`
+is the attribute to read; and `find_entities_filtered{position = ...}` matches an entity whose own
+centre is that point, **not** one covering it — a degenerate `area` is the containment query.
+
+**A stamped blueprint is ONE undo item.** Measured: `undo_redo_stack.get_undo_item_count()` rises
+by exactly one, and that item carries 94 actions for a 92-entity loop, the extras being the poles'
+copper. This closes the old open question about whether many `create_entity` calls collapse into a
+single undo step — the question no longer arises, because the mod no longer makes the calls.
+
+**`build_blueprint` takes no flip arguments**; only `LuaPlayer.build_from_cursor` does
+(`flip_horizontal`, `flip_vertical`, `mirror`, `direction`, `build_mode`). Both work headless.
+
+**`build_mode` semantics, quoted from `build_blueprint`:** *"If `normal`, blueprint will not be
+built if any one thing can't be built. If `forced`, anything that can be built is built and
+obstructing nature entities will be deconstructed. If `superforced`, all obstructions will be
+deconstructed and the blueprint will be built."* Confirmed live: a normal stamp over a single
+steel chest builds **zero** ghosts, and a forced stamp builds and marks a tree in the footprint.
+That is the whole of this mod's obstacle handling now.

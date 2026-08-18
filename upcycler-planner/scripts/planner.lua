@@ -582,7 +582,7 @@ local function is_upcycling_machine(entity)
 end
 
 -- Whether this machine's crafting categories include one of the recipe's. The GUI keeps the
--- pair consistent, but a snapshot or a remembered choice can outlive a mod update that changes
+-- pair consistent, but a remembered choice can outlive a mod update that changes
 -- either side, and set_recipe on a ghost of a machine that cannot craft it is a hard error.
 local function can_craft(entity, recipe)
   if not entity.crafting_categories then return false end
@@ -1263,16 +1263,29 @@ function planner.plan(force, choices, gathered)
       supply_distance = pole.get_supply_area_distance(pole_quality),
       wire_distance = pole.get_max_wire_distance(pole_quality),
     }, electric_consumers(plan.entities))
-    for _, entity in pairs(result.entities) do
+    -- poles.plan numbers wire_to within its OWN result, the only ordering it can know. Rebasing
+    -- those onto plan indices here -- the one place that sees both numberings -- is what lets
+    -- the serialiser wire an entity by index without knowing what a pole is, and it is what a
+    -- wire between two unlike entities would need anyway.
+    local base = #plan.entities
+    for _, entity in ipairs(result.entities) do
+      if entity.wire_to then entity.wire_to = base + entity.wire_to end
       plan.entities[#plan.entities + 1] = entity
     end
     if result.unpowered > 0 then plan.unpowered = result.unpowered end
   end
 
   -- Carried on the plan rather than through the layout: which chests exist is geometry, whether
-  -- their surplus is trashed is the player's call at Confirm. `~= false` keeps a snapshot from
-  -- before the checkbox existed behaving as checked.
+  -- their surplus is trashed is the player's call at Confirm. `~= false` keeps a stored choices
+  -- table from before the checkbox existed reading as checked.
   plan.trash_unrequested = choices.trash_unrequested ~= false
+
+  -- What the loop MAKES, alongside the counts and the shortfall the plan already carries. A
+  -- bare `quality` would be ambiguous here -- the plan holds a machine quality, a recycler
+  -- quality, a module quality and a pinned quality per tier -- so this one says which it is.
+  plan.product = product.name
+  plan.target_quality = choices.quality
+
   return plan
 end
 
@@ -1281,9 +1294,9 @@ end
 -- Returns ok, message. `ok` false disables Place; a message alongside ok true is a warning the
 -- player can legitimately build through.
 --
--- Every reason `planner.plan` can return nil must appear here too. A Place button that arms a
--- tool which then does nothing is the worst failure this GUI can have, because nothing tells
--- the player why.
+-- Every reason `planner.plan` can return nil must appear here too. A Place button that leaves
+-- the cursor empty is the worst failure this GUI can have, because nothing tells the player
+-- why.
 function planner.validate(force, choices)
   if not choices.recipe then return false, { "upl-gui.pick-a-recipe" } end
 

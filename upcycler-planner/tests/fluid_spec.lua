@@ -5,11 +5,11 @@
 -- Three layers: the prototype premises (the positions orbit and connection directions the
 -- orientation arithmetic reads), the stub mechanism live (a player's underground pipe outside
 -- the ring tapping the run through the belt), and the whole pipeline -- planner, layout,
--- builder -- revived into real entities that must actually craft.
+-- blueprint -- revived into real entities that must actually craft.
 
 local planner = require("scripts.planner")
-local builder = require("scripts.builder")
 local research = require("tests.support.research")
+local stamping = require("tests.support.stamp")
 
 local function force()
   return game.forces.player
@@ -127,8 +127,8 @@ describe("the fluid mechanisms live", function()
   end)
 
   test("a placed battery plan, revived whole, crafts from an outside tap", function()
-    -- The chain that matters: planner computes the rotation, layout places the pipes,
-    -- builder ghosts them, and the revived result must actually deliver fluid. A hand rig
+    -- The chain that matters: planner computes the rotation, layout places the pipes, the
+    -- blueprint carries them, and the revived result must actually deliver fluid. A hand rig
     -- can only assume the computed geometry is right; this one fails if any link drifts.
     local s, f = nauvis(), force()
     local plan = planner.plan(f, {
@@ -137,13 +137,12 @@ describe("the fluid mechanisms live", function()
       pole = "medium-electric-pole",
     })
     assert(plan, "battery plan failed in test setup")
-    local placed = builder.place(plan, { x = 0, y = 0 }, { surface = s, force = f })
-    assert(placed == #plan.entities, "test setup: placement incomplete")
+    -- The engine centres a stamped blueprint on the position it is given, so plan coordinates
+    -- reach the world through the offset the stamp reports -- never assumed to be zero.
+    local ghosts, ox, oy = stamping.place(plan, s, f)
+    assert(#ghosts == #plan.entities, "test setup: placement incomplete")
 
-    for _, ghost in pairs(s.find_entities_filtered({ name = "entity-ghost" })) do
-      local _, revived = ghost.revive()
-      assert(revived, "a ghost refused to revive on clear ground")
-    end
+    stamping.revive_all(s)
 
     -- Tap tier 0's SOUTH stub from outside, the way a player would: their own underground
     -- pipe one tile beyond the bottom ring, fed by an infinity pipe. Each column is an
@@ -157,13 +156,14 @@ describe("the fluid mechanisms live", function()
       end
     end
     assert(stub_x, "no south stub found in the plan")
-    s.create_entity({ name = "pipe-to-ground", position = { stub_x + 0.5, plan.height + 0.5 },
+    s.create_entity({ name = "pipe-to-ground",
+      position = { stub_x + 0.5 + ox, plan.height + 0.5 + oy },
       direction = defines.direction.south, force = f })
     local infinity = s.create_entity({
-      name = "infinity-pipe", position = { stub_x + 0.5, plan.height + 1.5 }, force = f,
+      name = "infinity-pipe", position = { stub_x + 0.5 + ox, plan.height + 1.5 + oy }, force = f,
     })
     infinity.set_infinity_pipe_filter({ name = "sulfuric-acid", percentage = 100 })
-    powered(s, f, plan.width + 2.5, 4.5)
+    powered(s, f, plan.width + 2.5 + ox, 4.5 + oy)
 
     local tier_zero
     for _, plant in pairs(s.find_entities_filtered({ name = "chemical-plant" })) do

@@ -133,7 +133,7 @@ function layout.build(params)
 
   -- A module arrives as a { name, quality } pair too, or nil for "leave this machine empty" --
   -- which the terminal machine gets whenever nothing useful can go in it. The entity keeps the
-  -- flat shape the builder reads, so a nil pair becomes a nil name rather than a missing table.
+  -- flat shape the serialiser reads, so a nil pair becomes a nil name rather than a missing table.
   local function module_slot(spec, count)
     return { name = spec and spec.name, quality = spec and spec.quality, count = count }
   end

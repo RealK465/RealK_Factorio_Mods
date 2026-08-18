@@ -6,10 +6,12 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 ## What the mod is
 
 A planner in the tradition of Mining Patch Planner and P.U.M.P.: the player picks an item and a
-target quality, and the mod designs a complete upcycling loop and drops it as ghosts.
+target quality, and the mod designs a complete upcycling loop and hands it over as a blueprint.
 
-**The first version works end to end**, as of 2026-08-15: a shortcut opens a modal and Confirm
-hands over a placement tool whose click drops the whole loop as ghosts. The modal is in two
+**It has worked end to end since 2026-08-15**, when a shortcut opened a modal whose Confirm
+handed over a one-shot selection tool and the mod placed the ghosts itself. **Since 2026-08-18
+Confirm hands over an ordinary blueprint instead**, so preview, rotation, flipping, snapping,
+undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
 is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, quality module,
@@ -24,7 +26,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (116 tests as of 2026-08-17) — planner, layout, poles, builder, state,
+suite under `tests/` (120 tests as of 2026-08-18) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -39,24 +41,25 @@ tracks draw from one shared version sequence — `factorio-multiversion` → Ver
 
 ## The five technical facts worth not re-deriving
 
-**1. Place ghosts, never a blueprint string.**
-`LuaSurface.create_entities_from_blueprint_string` is documented *"only works when used in
-simulations"* — it is for menu backgrounds and will not work here. Both reference mods emit
-`surface.create_entity{name = "entity-ghost", inner_name = ...}` per entity, and so should
-this one.
+**1. The plan is serialised into a blueprint; the engine builds it.** `scripts/blueprint.lua`
+turns the plan into an array of `BlueprintEntity` and Confirm puts it in the player's cursor.
+The mod handles **no placement event at all** — obstacles, tree clearing and force-building are
+the engine's, reached by the ordinary click / shift-click / ctrl-shift-click every player already
+knows.
+The simulation-only restriction applies to `LuaSurface.create_entities_from_blueprint_string`
+**and to nothing else** — `set_blueprint_entities`, `import_stack`, `build_blueprint` and
+`create_blueprint` carry no such note. This fact used to read "never a blueprint string", which
+generalised one restriction past its evidence. The thirteen fields a plan needs were read out of
+the engine, not the docs: `analysis/api.md` §21.
 
-**2. Two things about ghosts that the obvious API does not do.** `create_entity` **cannot** set
-a ghost's recipe — its variant groups are keyed by `name`, so with `name = "entity-ghost"` only
-`inner_name` and `tags` apply. Create the ghost, then `set_recipe(recipe, quality)`. Modules go
-through `ghost.insert_plan` (read/write, `EntityGhost` in its subclasses), **not** an
-`item-request-proxy` — `item_requests` is read-only in 2.1. Both of these were written down
-wrongly the first time; the corrected detail is in `.ai-support/analysis/api.md` §3.
-
-The variant-group trap cuts only one way, which is easy to over-learn: `quality` is a **common**
-`create_entity` parameter rather than a member of another group, so
-`create_entity{name = "entity-ghost", inner_name = ..., quality = "legendary"}` does produce a
-legendary ghost. Verified live on 2026-08-16. What the group keying excludes is parameters
-belonging to a *different* group, `recipe` among them — not everything outside `entity-ghost`.
+**2. A blueprint entity's per-prototype fields are NOT in the documented concept.**
+`BlueprintEntity` lists ten common fields; `recipe`, `recipe_quality`, `filters`, `use_filters`,
+`filter_mode` and `request_filters` live in its 62 `variant_parameter_groups`, keyed by entity
+type. Two consequences bite. The recycler is a **`furnace`**, whose group carries
+`control_behavior` and nothing else — a recycler can never be given a recipe. And a blueprint's
+logistic filter is a **flatter table** than the runtime one: `{index, name, quality, comparator,
+count}`, where `LuaLogisticSection.set_slot` takes `{value = {...}, min = count}`. Translating
+that wrongly yields an empty section rather than an error. Both in `analysis/api.md` §21.
 
 **3. The recycler ejects like a mining drill.** `vector_to_place_result = {-0.35, -2.3}`
 (`data/recycler/data.lua:109`) on a 2x4 furnace: it throws output out of its north face. Stand
@@ -135,18 +138,19 @@ data.lua                            entry point; requires the prototype files
 data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_quality into mod-data
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        the two per-player settings the modal's window edits
-prototypes/planner/                 shortcut, selection tool, and the icon layers they share
+prototypes/planner/                 the shortcut and the icon layers it is built from
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
-  layout.lua   pure geometry        builder.lua   ghosts on the ground
+  layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
   poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
-  *_spec.lua                        in-game specs: planner, plan, builder, state, loop, fluid, gui
+  *_spec.lua                        in-game specs: planner, plan, blueprint, state, loop, fluid, gui
   pure/                             layout + poles geometry, runs on host Lua too
   support/research.lua              the five research states as helpers
+  support/stamp.lua                 stamps a plan and reports the plan-to-world offset
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
@@ -159,7 +163,7 @@ images/                             portal page material, never shipped: gallery
 .ai-support/analysis/               the evidence: decoded blueprints, verified API, layout specs
 ```
 
-No `graphics/` yet — the shortcut and tool share layered vanilla icons until real art lands
+No `graphics/` yet — the shortcut uses layered vanilla icons until real art lands
 (`.ai-support/deferred.md`).
 
 **`require` paths use dots, mod-wide** — a readability convention, not a correctness one.
@@ -168,8 +172,9 @@ spelling just makes a shared module grep-able.
 
 ## Naming
 
-**Every prototype this mod defines is prefixed `upl-`.** Shortcut `upl-open`, selection tool
-`upl-planner`, and so on. Prototype names are one flat global namespace shared with every other
+**Every prototype this mod defines is prefixed `upl-`.** The shortcut `upl-open` is the only one
+left since the selection tool went; anything new follows it. Prototype names are one flat global
+namespace shared with every other
 mod, so the prefix is what stops a collision — and a collision here is silent, which is the
 whole reason for the rule.
 
@@ -229,9 +234,15 @@ re-opening any of these, and don't restate a reason here.
   starts at `0.1.0`.
 - Hard `quality >= 2.1.0` dependency. Space Age flags declared, forking by version:
   `quality_required` both tracks, `expansion_required` on `main` only. No flib dependency.
-- **Ghosts, one at a time — never a blueprint string.** The API forces this; see fact 1 above.
-- Shortcut → modal → Confirm → selection tool → click, gated on the `recycling` technology. The
-  player selects nothing in the world but ground.
+- **The plan becomes a blueprint; the engine builds it.** See fact 1 above.
+- Shortcut → modal → Confirm → a blueprint in the cursor, gated on the `recycling` technology.
+  The mod handles no placement event: a normal click refuses over obstacles, shift-click builds
+  through them and clears trees, ctrl-shift-click clears buildings. Rotation, flipping, snapping
+  and undo come with the blueprint, and flipping is measured safe for the recycler eject.
+- The stack is a plain vanilla `blueprint` with `cursor_stack_temporary` set, wearing the product
+  at the target quality as its `preview_icons` — so Q discards it like the old tool, and dragging
+  it into the inventory keeps the design. It is **not** one-shot the way the tool was: it stays in
+  hand, so the same loop can be stamped repeatedly.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
   then a **Build options** block for what it is built **out of** (belt, inserter, the three
   chests, quality module, top machine module, pole, pipe, trash-unrequested checkbox). Every
@@ -287,6 +298,7 @@ re-opening any of these, and don't restate a reason here.
 ## Open questions
 
 **`.ai-support/deferred.md` is the single owner** of parked and open work, so the two lists
-cannot drift apart. The question that used to gate everything — *what does the player actually
-select* — is answered above. What is left is mostly scope: modded quality tiers, whether the GUI
-should show expected output, `thumbnail.png`, and a possible cursor-blueprint placement route.
+cannot drift apart. The two questions that used to gate everything are both answered above —
+*what does the player actually select* (nothing: they hold a blueprint) and *can a runtime-written
+blueprint carry the loop faithfully* (yes, measured). What is left is mostly scope: modded quality
+tiers, whether the GUI should show expected output, and `thumbnail.png`.

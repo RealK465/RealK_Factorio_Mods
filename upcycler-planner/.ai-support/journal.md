@@ -9,6 +9,111 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-18 — the placement step becomes a blueprint in the cursor
+
+The repo owner's ask: *"the player needs to select an area so the upcycler planner can design and
+place the upcycler... the idea is to have a blueprint in the player hand so the player can preview
+what he will be placing."* This was already parked in `deferred.md` as *Cursor-blueprint
+placement*, blocked on "unverified engine fidelity". It shipped as 0.4.0.
+
+**The blocker turned out to be narrower than it read, and mostly already answered in this
+folder.** `analysis/blueprints.md` §7 has kept the decoded JSON of real 2.x upcycler blueprints
+since day one, and it carries `recipe`, `recipe_quality`, `request_filters`, `filters`,
+`use_filters`, `filter_mode` on exactly the entity types this mod places. So the question was
+never "can a blueprint hold this" but "does `set_blueprint_entities` round-trip it when a script
+writes it". Rather than answer that from the docs, the engine was asked: a plan was placed with
+the then-current ghost builder, `create_blueprint` captured it, and `get_blueprint_entities()`
+was dumped. Round-trip exact, 92 -> 92 -> 92, and the complete field set came back as thirteen.
+That dump was the specification the serialiser was written against. Everything measured is in
+`analysis/api.md` §21.
+
+**One decision made itself.** There is no continuous read of the cursor's world position —
+`render_position` is the player, `CustomInputEvent.cursor_position` only fires on a keypress — so
+a `rendering`-drawn preview that follows the cursor cannot be built at all. A blueprint is not the
+nicer route to a preview; it is the only one.
+
+**The owner's call on behaviour removed more code than it added:** *"it should be identical as
+placing blueprint... if it tries to place with a normal click and there is obstacles it should be
+refused by game engine, but player can use SHIFT + CLICK or CTRL + SHIFT + CLICK."* The engine
+already implements precisely that, so the mod handles no placement event whatever. Out went
+`builder.lua` entire — the all-or-nothing pre-check, the tree marking and its rollback, the
+blocked-placement message — plus `control.lua`'s two `on_player_selected_area` registrations, the
+`upl-planner` selection tool prototype, and `state.arm`/`entry.pending`, which existed only so
+reopening the modal could not change what was about to be placed and is now structural: the
+blueprint *is* the frozen plan. Three locale strings went with them.
+
+**The one risk worth the paranoia was flipping, and it came out clean.** The recycler throws on
+`vector_to_place_result = {-0.35, -2.3}` — a non-zero x offset, so a mirror that failed to mirror
+the throw would land it two thirds of a tile out and no craft would ever start, silently. Measured
+through `build_from_cursor` in all four orientations, revived: every recycler's `drop_position`
+still lands inside its own machine. Two false starts getting there, both worth the entry —
+`drop_target` is **nil** on a furnace-type recycler (the unflipped control failed first, which is
+what said the test was wrong rather than the layout), and `find_entities_filtered{position = ...}`
+matches an entity centred on the point rather than one covering it, so containment needs a
+degenerate `area`.
+
+**Undo answered itself.** The parked question was whether ~90 `create_entity` calls collapse into
+one undo step. They do not have to: a stamped blueprint files exactly one undo item, carrying 94
+actions for a 92-entity loop. The entry left `deferred.md` along with the placement one.
+
+**Removing the `upl-planner` prototype cost no migration**, for the same reason the `ua-` -> `upl-`
+rename did not: the item was `only-in-cursor`, `not-stackable` and `hidden`, so it could never be
+in an inventory, a chest or a blueprint, and nothing in `storage` named it. Factorio drops an
+unknown *item* on load without a word — unlike an entity, which is what makes prototype removal
+expensive. `entry.pending` went the same way and is the one loose end: a save made under 0.3.1
+keeps its table of strings, so `state.prune` clears it on the configuration change that arrives
+with this version, and then that line can go.
+
+**A standing rule was too wide and is now corrected.** `CLAUDE.md`'s fact 1 read "place ghosts,
+never a blueprint string". Searching every string in `runtime-api.json` for a simulation
+restriction returns exactly one member — `create_entities_from_blueprint_string`. The rule was
+true of that call and generalised past its evidence for four months.
+
+**flib was checked and is not the answer**, which was worth confirming rather than assuming: it
+has no blueprint helpers, no cursor helpers and no `LuaItemStack` code at all, and the one
+function that would have mattered, `position.rotate`, does not exist. It is moot regardless — the
+engine rotates the blueprint, so no rotator is written. The parked *Layout rotation* entry left
+`deferred.md` for the same reason: it shipped for free.
+
+No prior art for any of this exists in `exemples/` — nothing there puts a script-generated
+blueprint in a cursor, and `on_pre_build` and `cursor_stack_temporary` have zero hits across the
+whole tree. The two things worth taking from Space Exploration were `migrate.lua:1600` (a
+blueprint authored purely from a Lua table, proving the shape works outside simulations) and
+`blueprint-converter.lua:363`, which saves and restores the snap properties because
+`set_blueprint_entities` clears them — not needed here, since this mod sets no snap grid, but the
+kind of thing that would have cost an afternoon.
+
+Suite: green, and meaningfully wider. `builder_spec` became `blueprint_spec` with the same
+assertions against the same ghosts read back the same way — only the placement call changed —
+plus the serialiser's own shape tests, the orientation tests, the undo test, and premise tests
+pinning the build modes the mod now delegates to. `tests/support/stamp.lua` is new and exists for
+one reason: the engine centres a stamped blueprint on the position it is given, so `fluid_spec`'s
+absolute tap coordinates now go through a measured plan-to-world offset rather than assuming zero.
+
+**A review pass then found the design flaw the rewrite had walked past.** `wire_to` was a *pole
+ordinal* — a numbering private to `poles.plan` that `blueprint.lua` rebuilt downstream by walking
+the whole plan and counting `pole = true`. Three modules agreeing on an invariant held by a
+comment, and it fails silently in the worst way: a second pole pass, or a substation emitted from
+`layout.lua`, shifts every ordinal by a constant and the copper lands on the wrong pairs —
+geometry that still stamps, still previews, and still looks like a network. The fix belongs in
+`planner.lua`, the one module that sees both numberings, which now rebases `wire_to` onto plan
+indices as it appends. That deleted `pole_indices`, `pole_count`, the first-pass side effect, the
+`pole = true` flag itself (the serialiser was its only reader) and the load-bearing-order comment,
+and it left `blueprint.lua` knowing nothing about what a pole is. It is also a prerequisite for
+the deferred circuit garnish rather than tidiness: a green wire between a belt and an inserter has
+no per-type ordinal that could address either end.
+
+Smaller things the same pass corrected: a `filter_mode` guard defending a shape `layout.lua`
+cannot emit; `blueprint.give` returning a bare locale key where `planner.validate`'s house
+convention is a ready-made message; `plan.quality`, ambiguous on a plan that holds a machine
+quality, a recycler quality, a module quality and a pinned quality per tier, renamed
+`target_quality`; and three comments in `planner.lua` still describing the snapshot and the tool.
+Left alone deliberately: sharing the half-a-footprint centre rule between `blueprint.lua` and
+`poles.lua`, because `poles.lua` requires nothing at all and that is what the pure host-Lua tier
+rests on.
+
+---
+
 ## 2026-08-17 — two regressions from the cleanup, reported from the game
 
 The owner opened the mod and found the item and machine pickers dead: *"when i click on 'Item to
