@@ -1,4 +1,5 @@
 {
+  "outputStyle": "Concise",
   "permissions": {
     "deny": [
       "Edit(mod-list.json)",
