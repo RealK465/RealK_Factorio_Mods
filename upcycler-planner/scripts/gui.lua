@@ -987,9 +987,15 @@ end)
 -- from there the engine owns everything: preview, rotation, flipping, snapping, undo, and the
 -- build. There is no snapshot to keep, because the blueprint IS the frozen plan -- reopening
 -- the modal cannot change what is already in the player's hand.
-dispatch.register("confirm", function(event)
-  local player = game.get_player(event.player_index)
-  local choices = state.of(event.player_index).choices
+--
+-- Public and guarded rather than left inside the button's handler, because the "Confirm window"
+-- key reaches it too and arrives from anywhere: with no modal up, or with the settings window
+-- standing in front of one. That window owns player.opened while it is open, so the key belongs
+-- to it for the same reason control.lua refuses a close on the modal behind it.
+function gui.confirm(player)
+  if not frame_of(player) or settings_frame_of(player) then return end
+
+  local choices = state.of(player.index).choices
 
   -- The gathered resources ride along, exactly as the status line's own call does: the plan
   -- the player was shown and the plan they are handed then come off one derivation rather than
@@ -1006,8 +1012,10 @@ dispatch.register("confirm", function(event)
     return
   end
 
-  -- The modal stays open on a refusal, so freeing a hand and pressing Place again is the
-  -- whole recovery.
+  -- Left open on a refusal, so freeing a hand and pressing Place again is the whole recovery.
+  -- That holds for the button; the KEY closes it anyway, because the engine's own close runs
+  -- after this handler and cannot be blocked without breaking the control everywhere. The
+  -- message still lands either way, and the shortcut reopens with every choice remembered.
   local given, reason = blueprint.give(player, plan)
   if not given then
     player.print(reason)
@@ -1015,6 +1023,10 @@ dispatch.register("confirm", function(event)
   end
 
   gui.close(player)
+end
+
+dispatch.register("confirm", function(event)
+  gui.confirm(game.get_player(event.player_index))
 end)
 
 return gui

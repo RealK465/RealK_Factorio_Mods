@@ -584,4 +584,41 @@ describe("the modal", function()
       "the blueprint does not wear its product as an icon")
     assert(frame() == nil, "the modal stayed open after Confirm")
   end)
+
+  -- The Confirm KEY, which control.lua points at the same gui.confirm the button reaches. What
+  -- these cannot cover is the keypress itself: the engine offers no input faking, so whether the
+  -- linked custom-input really fires on E is a human check in a live game. What they do cover is
+  -- everything that happens once it fires -- including the two ways it can arrive with nothing to
+  -- confirm, which the button never can.
+  test("the Confirm key hands over the blueprint, exactly as the button does", function()
+    open_with_gears()
+    gui.confirm(player())
+
+    local stack = player().cursor_stack
+    assert(stack and stack.valid_for_read and stack.is_blueprint,
+      "the key did not put a blueprint in the cursor")
+    assert(stack.is_blueprint_setup(), "the key handed over an empty blueprint")
+    assert(frame() == nil, "the modal stayed open after the Confirm key")
+  end)
+
+  test("the Confirm key does nothing with no modal open", function()
+    -- E is pressed constantly in an ordinary game, so this is the common case rather than an
+    -- edge one: the handler runs on every press and must be inert unless the planner is up.
+    assert(frame() == nil, "the modal was already open, so this proves nothing")
+    gui.confirm(player())
+    local stack = player().cursor_stack
+    assert(not (stack and stack.valid_for_read),
+      "the key put something in the cursor with no modal open")
+  end)
+
+  test("the Confirm key is refused while the settings window has the focus", function()
+    open_with_gears()
+    gui.open_settings(player())
+    gui.confirm(player())
+
+    local stack = player().cursor_stack
+    assert(not (stack and stack.valid_for_read),
+      "the key placed a blueprint while the settings window owned the focus")
+    assert(frame() and frame().valid, "the key closed the modal from behind the window")
+  end)
 end)

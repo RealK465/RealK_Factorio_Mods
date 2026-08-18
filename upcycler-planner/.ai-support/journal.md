@@ -9,6 +9,52 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-18 — the Confirm key reaches Place
+
+The repo owner, on the modal shipped hours earlier: *"in Factorio there is a default behaviour
+that when we press E it takes the same action than the confirm button, but in this mod is not
+working, when clicking on E it closes the modal without giving the blueprint."* Correct on both
+counts, and the second half is the interesting one — E and Esc arrive at the mod as the *same*
+event.
+
+**There is no key information in `on_gui_closed`.** Twelve fields, none of them a key or a
+modifier, so the close handler had no way to tell a confirm from a cancel and treated both as
+cancel. `on_gui_confirmed` is not a way round it either: it fires for Enter in a textfield, and
+this modal has none. Vanilla's E-confirms-a-dialog is engine-side and mod frames do not inherit
+it. All of that is in `analysis/api.md` §22.
+
+**The mechanism is a `custom-input` linked to the `confirm-gui` game control**, which the game
+calls *Confirm window*. Linked rather than bound to a key of the mod's own, which is what makes
+it follow a player's rebinding and lets it skip a locale key entirely. Space Exploration ships
+the same pattern for its pin dialog (`scripts/pin.lua:737`) and Krastorio 2 for its search
+focus, so this was a matter of finding the established shape rather than inventing one — the
+repo rule about checking `exemples/` first paid for itself.
+
+**One constraint decided the only real design question.** `consuming` has to stay `"none"`,
+because `"game-only"` blocks the linked control *everywhere* — E would stop opening the
+inventory in ordinary play. The engine's own close therefore always runs after our handler, and
+that splits behaviour on exactly one path: when the hand-over is refused for full hands, the
+button leaves the modal open to retry and the key does not. The repo owner chose to accept it
+over the alternative, which was re-taking `player.opened` from inside `on_gui_closed` — the same
+hazard `gui.close_settings` already carries a comment about. The message prints either way and
+the shortcut reopens with every choice remembered.
+
+**What changed in the code is small and mostly a move.** The confirm body came out of the
+dispatcher registration into a public `gui.confirm(player)` that both callers use, and it now
+guards its own preconditions: a modal must be open, and no settings window may be in front of
+it. The button could never arrive without those; the key can, and does — it fires on every press
+of E anywhere in the game, so the early-out is two table lookups and stays that way.
+
+**Verification stops one step short, deliberately.** No tier can fake a keypress, so whether the
+control is bound to E on a given machine, and whether it fires while a *mod* frame owns
+`player.opened`, is a human check in a live game — the repo owner will take it in their own
+session. Everything downstream of the event is covered: three new specs drive `gui.confirm` with
+the modal open, with nothing open, and with the settings window in front, taking the suite from
+120 to 123. Data stage clean, and `--check-unused-prototype-data` confirms the engine actually
+read `linked_game_control` rather than dropping it as a typo.
+
+---
+
 ## 2026-08-18 — the placement step becomes a blueprint in the cursor
 
 The repo owner's ask: *"the player needs to select an area so the upcycler planner can design and

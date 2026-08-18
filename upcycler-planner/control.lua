@@ -16,6 +16,7 @@ local dispatch = require("scripts.dispatch")
 local gui = require("scripts.gui")
 
 local SHORTCUT = "upl-open"
+local CONFIRM_INPUT = "upl-confirm"
 
 script.on_init(state.init)
 
@@ -31,6 +32,20 @@ end)
 script.on_event(defines.events.on_lua_shortcut, function(event)
   if event.prototype_name ~= SHORTCUT then return end
   gui.toggle(game.get_player(event.player_index))
+end)
+
+-- The game's "Confirm window" key -- E by default -- reaching the modal's Place button, so the
+-- planner confirms like any vanilla dialog. Registered by prototype name, the way custom-inputs
+-- are; gui.confirm does the deciding, because it is the one that knows whether there is a modal
+-- to confirm. The key fires wherever the player is, so this handler is on every press of E in
+-- the game and its first act must stay a pair of cheap lookups.
+--
+-- The engine's own close still runs straight after this, since the input is linked with
+-- consuming "none" and prototypes/planner/input.lua says why that cannot change. It costs
+-- nothing on the paths that matter: a confirm closes the modal itself, and a press with nothing
+-- to confirm should close it anyway.
+script.on_event(CONFIRM_INPUT, function(event)
+  gui.confirm(game.get_player(event.player_index))
 end)
 
 -- All four GUI events go through the one dispatcher, which reads the handler name off the
