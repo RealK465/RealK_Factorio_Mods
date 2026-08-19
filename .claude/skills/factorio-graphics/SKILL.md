@@ -1,6 +1,6 @@
 ---
 name: factorio-graphics
-description: Use when designing, creating, rendering, or exporting any Factorio art — entity sprites, animations, shadows, item and technology icons, thumbnail.png — when setting up, driving or debugging Blender for Factorio work, or when a sprite or render looks too simple, flat, clean, toy-like or otherwise unlike vanilla. Covers the vanilla design language and render conventions needed to make art indistinguishable from vanilla Factorio 2.1, plus the known failure modes of this specific Blender + MCP rig. Read it before opening Blender or authoring a sprite — the design work happens before modelling, and a wrong camera, scale or colour setting is invisible until the sprite is in game.
+description: Use when creating, rendering, or exporting any Factorio art — entity sprites, animations, shadows, item and technology icons, thumbnail.png — when setting up, driving or debugging Blender for Factorio work, or when a sprite or render looks too simple, flat, clean, toy-like or otherwise unlike vanilla. Covers the vanilla design language and render conventions needed to make art indistinguishable from vanilla Factorio 2.1, plus the known failure modes of this specific Blender + MCP rig. Read it before opening Blender or authoring a sprite — a wrong camera, scale or colour setting is invisible until the sprite is in game. Conceiving a new entity from scratch is factorio-entity-design's job; this skill builds from the document it produces.
 ---
 
 # Factorio graphics — vanilla-matching conventions
@@ -45,6 +45,8 @@ Two cautions learned the hard way:
 ## Design before Blender
 
 The sprites that came out "simple and unnatural" were designed *inside* Blender — primitives arranged until they looked plausible, then lit. Vanilla art is designed on paper first and modelled second; Wube goes line art → concept (inactive and active states) → 3D → paint-over.
+
+**If the entity has no design document yet, stop and run `factorio-entity-design`.** That skill runs the conception session with the user — mod context, vanilla and real-equipment references, the eight stages in order — and writes `<mod>/.ai-support/<subject>-design.md`. This skill builds from that document. Modelling from an improvised brief instead is precisely how the simple-and-unnatural sprites happened.
 
 **Before any geometry, write the design plan defined in `references/design-language.md`** — hero working part, family resemblance to a vanilla entity, silhouette, a component list with a stated purpose per part (power in / material through / heat out / human service), 4–6 material zones, a wear map, a busy/calm map, and the working state. That file is the anatomy of a vanilla entity — greeble vocabulary, colour discipline, the tells that make sprites read amateur — measured off the shipped sprites and Wube's own FFF posts. A design that skips it cannot be rescued by camera, lighting or materials downstream.
 

@@ -142,7 +142,7 @@ never be edited, so a file that is both can satisfy neither.
 | Genre | File | Lifecycle |
 |---|---|---|
 | **Index** | `index.md` — **required whenever the folder exists** | edited; one line per file, what is in it *and when to read it* |
-| **Register** — what is true now | `decisions.md`, `deferred.md` | **edited in place**; a superseded entry is rewritten or deleted, never annotated |
+| **Register** — what is true now | `decisions.md`, `deferred.md`, or one file **per concept** on a large mod — `balance.md`, `art-direction.md`, `identity.md` | **edited in place**; a superseded entry is rewritten or deleted, never annotated |
 | **Journal** — what happened | `journal.md` | **append-only, newest first**; entries may go stale, they are history — only a moved file path is ever repaired in place |
 | **Evidence** — verified facts | `analysis/*.md`, with its own `index.md` | edited on re-verification; carries `verified_against` front matter, and every claim a confidence marker |
 | **Subject design** | `<subject>-design.md` | edited; covers one thing — an entity, a feature |
@@ -155,6 +155,10 @@ never be edited, so a file that is both can satisfy neither.
   leave two live answers to one question.
 - **Adding a file without indexing it is an incomplete change.** A stale `index.md` is worse
   than none.
+- **Name a register for its concept, not its lifecycle, once a mod is large.** Genre decides how
+  a file is maintained; concept decides which file a fact goes in. An overhaul outgrows a single
+  `decisions.md`, and a catch-all is where facts go to be lost — `.claude/references/ai-support.md`
+  has the split rules and the two exceptions that keep generic names.
 - **Mark what is not verified.** Anything not confirmed against the installed `doc-html/` or
   `data/` says so in those words, and names the version it was checked at.
 
@@ -344,12 +348,13 @@ Reference detail lives in `.claude/skills/`, tracked in this repo. **Invoke the 
 | `factorio-release` | Any version bump, `fmtk` command, packaging, or mod-portal question |
 | `factorio-validate` | After editing prototypes and before packaging — proves the data stage loads |
 | `factorio-testing` | Running or writing automated tests for a mod — the in-game factorio-test suite (headless or graphics), the pure host-Lua tier, or the static checkers |
-| `factorio-graphics` | Any sprite, icon, `thumbnail.png` or Blender work — including *designing* an entity's look, which happens before any Blender step |
+| `factorio-entity-design` | Conceiving a new entity — machine, miner, beacon, turret — before any art or prototype exists |
+| `factorio-graphics` | Any sprite, icon, `thumbnail.png` or Blender work |
 | `factorio-multiversion` | Anything touching a second game version — backporting to 2.0, the `legacy/2.0` branch, whether a change is safe there, or what 2.1 broke |
 
 Roughly: `factorio-mod-development` is the code, `factorio-mod-setup` is the wrapper around it, the rest are the steps on either side.
 
-Several tasks span two: a release is `factorio-release` **and** `factorio-changelog`; renaming a prototype is `factorio-mod-development` (the code), `factorio-mod-setup` (the migration) **and** `factorio-release` (the major bump); a backport release is `factorio-multiversion`, `factorio-validate` (against a 2.0 install) **and** both of the release pair. Invoke all of them.
+Several tasks span two: a release is `factorio-release` **and** `factorio-changelog`; renaming a prototype is `factorio-mod-development` (the code), `factorio-mod-setup` (the migration) **and** `factorio-release` (the major bump); a backport release is `factorio-multiversion`, `factorio-validate` (against a 2.0 install) **and** both of the release pair; a new entity is `factorio-entity-design` (what it is and looks like), then `factorio-graphics` (the sprites), then `factorio-mod-development` (the prototype), in that order. Invoke all of them.
 
 **`.claude/references/` is the other half.** A skill covers Factorio knowledge and is invoked by
 its description; a reference file is a *repo procedure* needed at one identifiable moment, linked
