@@ -17,6 +17,10 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 Delete the rows this mod does not have; add the ones it does. Every file in the folder gets a
 row — an unindexed file is an incomplete change.
 
+A large mod (an overhaul) names registers for their CONCEPT instead - identity.md,
+art-direction.md, balance.md - and has no decisions.md at all. Genre still sets the
+lifecycle either way. See .claude/references/ai-support.md before splitting.
+
 Genres, and the lifecycle each one carries:
   register  edited in place; supersede by rewriting, never by annotating
   journal   append-only, newest first; never edit an old entry

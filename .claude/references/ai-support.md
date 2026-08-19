@@ -20,8 +20,43 @@ Write a forbidden name as prose, not as a path.)
 ## Size, and when to split
 
 Size is not the axis to split on. A 600-line file costs roughly 1% of the context window to
-read; splitting by *genre* is what makes it navigable, because a register has to be edited in
-place and a journal must never be edited. A file that is both can satisfy neither.
+read, so splitting to make files shorter buys nothing.
+
+There are **two** axes, and they answer different questions:
+
+- **Genre decides how a file is maintained.** A register is edited in place, a journal is never
+  edited, evidence carries the version it was checked at. A file that is two genres can satisfy
+  neither, which is the original reason for splitting at all.
+- **Concept decides which file a fact goes in.** Registers are named for the subject they own —
+  balance, art direction, identity — not for their lifecycle.
+
+A small mod needs one register and can name it `decisions.md` without harm; the template does
+exactly that. **A large mod must not.** An overhaul accumulates more decisions than one file can
+hold, and a catch-all named after its lifecycle rather than its subject is where facts go to be
+lost — by the time it is obviously too big, nobody knows which half to move. `pure-modules-realk`
+has had `balance.md` from the start and never needed a decisions file; an overhaul in this repo
+splits into identity and art-direction registers and states the rule in its own index.
+
+(Register names are written here as prose rather than as paths on purpose: this file is kept
+identical on `main` and `legacy/2.0`, and a mod that exists on only one branch would make a
+backticked filename dangle on the other.)
+
+Three habits that keep a concept split honest:
+
+- **A concept file owns its subject completely** — decided, required-but-not-done, open and
+  rejected together. They are the same conversation at different stages, and separating them by
+  stage recreates the catch-all one level down.
+- **Do not stub.** A concept file with nothing decided in it reads as though the question was
+  considered. Add it when it has content.
+- **Park orphan questions with a forwarding address.** A question whose concept has no file yet
+  goes in the open list of the register nearest to it, naming the file its answer will become.
+  That list is the mod's concept map, and it is what stops an answer landing back in a bucket.
+
+**`journal.md` and `analysis/` keep their generic names.** For those two the lifecycle *is* the
+subject — one is "what happened", the other "what was measured" — and `analysis/` is load-bearing
+besides: `check-ai-docs.py` keys the `verified_against` freshness check on that literal path, so
+renaming it silently switches the check off. Divide inside `analysis/` instead, one file per
+topic.
 
 When `journal.md` passes ~800 lines, move everything older than the last release into
 `journal-archive/<year>.md` and leave a pointer in the index. That is the only size rule.
@@ -66,14 +101,17 @@ What they **cannot** check is whether a row is still *true*. Nothing can — whi
 same-session rule in `CLAUDE.md` carries the weight the automation can't, and why a claim that
 was never verified has to say so in those words rather than being left to look verified.
 
-Baseline on 2026-08-16, at 2.1.14: 26 API citations, 9 game-data citations, 7 evidence files and
-171 paths, all clean. The checks were proved against a planted negative control — seven
+Baseline on 2026-08-19, at 2.1.14: 38 API citations, 14 game-data citations, 9 evidence files
+and 155 paths, all clean. The checks were proved against a planted negative control — seven
 deliberate defects, one of each kind, all caught.
 
 ## Which file does a thing go in?
 
-- Changes **what a mod does or is** → rewrite the bullet in `decisions.md`, then append the
-  session to `journal.md`. Both, not either.
+- Changes **what a mod does or is** → rewrite the bullet in the register that owns that concept
+  (`decisions.md` on a small mod; the named concept file on a large one), then append the session
+  to `journal.md`. Both, not either.
+- Belongs to **a concept that has no register yet** on a large mod → create it, named for the
+  concept, and move the question out of whichever open list was parking it.
 - **Cut for scope** → `deferred.md`, with enough context to pick up cold.
 - A **fact about the engine**, verified or not → `analysis/`, with its confidence marker and the
   version it was checked at.
