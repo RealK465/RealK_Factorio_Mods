@@ -67,6 +67,13 @@ renders land in. That is structural, not a `package.ignore` rule — a root fold
 - **Never commit, push or publish unprompted** — approval is per request, per release.
 - Invoke the `factorio-graphics` skill before any sprite, icon, thumbnail or Blender work,
   including the *design* step, which happens before modelling.
+- **Then read `../space-forge/.ai-support/art-direction.md`.** The skill is vanilla's design
+  language; that file is *this mod's* — the crude/industrial/exotic visual gradient, its measured
+  paint and glow targets, the violet rule, and the environment-keyed wear map. A sprite that
+  satisfies the skill and ignores the art direction is still wrong.
+  `../space-forge/CLAUDE.md` → *Art — the rules* is the short form.
+- **A new entity is designed before it is modelled.** Run the `factorio-entity-design` skill; it
+  writes `../space-forge/.ai-support/<subject>-design.md`, and this mod's art is built from that.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim.
 - **There is nothing here to validate, and headless validation would not catch it anyway.** A
   run with both mods staged (2026-08-08, exit 0) reports `Checksum of space-forge-graphics: 0`

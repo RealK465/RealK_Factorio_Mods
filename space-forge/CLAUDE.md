@@ -5,9 +5,17 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 ## What the mod is
 
-A large overhaul, expected to take months. **Nothing is implemented yet** — this folder is
-scaffolding: `info.json`, locale, changelog, licence and an empty `data.lua`. It loads and
-does nothing.
+**An overhaul of Space Age**, expected to take months — what Krastorio 2 is to base Factorio,
+Space Forge is to Space Age. The game opens below vanilla's tier with steam-era machines and
+ends well above it. `.ai-support/identity.md` is the register; the summary here owns none of it.
+
+**How many tiers there are and what unlocks them is not decided.** `art-direction.md` treats the
+opening-to-endgame span purely as a *visual* gradient and commits to no progression.
+
+**Nothing is implemented yet** — this folder is scaffolding: `info.json`, locale, changelog,
+licence and an empty `data.lua`. It loads and does nothing. **The design is ahead of the code
+on the art side and behind it on the mechanics side**: the art direction is settled and buildable
+today, while the tiers, the chains and the science are all still open.
 
 **Unpublished.** No `space-forge_*` git tag exists, so version `0.1.0` is the open section in
 `changelog.txt` (`Date: ????`) and stays open until the first authorised release. New work
@@ -64,8 +72,9 @@ prototypes/
 scripts/                     one file per runtime feature, required by control.lua
 migrations/                  added the first time a prototype is renamed
 locale/en/space-forge.cfg    every player-visible string
-.ai-support/index.md         the map — read it first
-.ai-support/decisions.md     what is settled, and why
+.ai-support/index.md         the map, and the one-file-per-concept rule — read it first
+.ai-support/identity.md      what the mod is
+.ai-support/art-direction.md how it looks
 ```
 
 **`require` paths use dots, mod-wide** — a readability convention, not a correctness one.
@@ -82,11 +91,11 @@ spelling just makes a shared module grep-able.
   on purpose; rewrite them before the first release rather than after.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
   sync if the root copy is ever refreshed.
-- **`.ai-support/` is this mod's local context — start at its `index.md`.** Design decisions go
-  in `.ai-support/decisions.md` as they are made, with the reason; it covers the graphics mod
-  too, which carries no `.ai-support/` of its own. The repo `CLAUDE.md` → *AI support folders*
-  has the rules, including which further files to add and when. Anything that generalises beyond
-  this mod belongs in a skill under `.claude/` instead.
+- **`.ai-support/` is this mod's local context — start at its `index.md`.** Registers here are
+  named for the **concept** they own: `identity.md` for what the mod is, `art-direction.md` for
+  how it looks, and a new file per concept rather than a catch-all. `index.md` has the map of
+  concepts not yet opened; `.claude/references/ai-support.md` has the naming rule and why. The
+  folder covers the graphics mod too, which carries no `.ai-support/` of its own.
 - **Validating needs both mods staged.** `validate.ps1` takes one `-ModPath`, so a run against
   `space-forge` alone dies on the unresolved `space-forge-graphics` dependency. Stage both into
   a scratch `mods/` with a BOM-free `mod-list.json` naming all three (`base` included), then run
@@ -106,29 +115,46 @@ spelling just makes a shared module grep-able.
 - **Portal names are free.** Both were checked against the read-only portal API on 2026-08-08
   and returned `Mod not found`. Worth having done: `pure-modules` was lost to a squat by a
   deleted account, and portal names stay taken even after the account goes.
-- **Factorio 2.1 only, for now.** `factorio_version` is `"2.1"` and there is no `legacy/2.0`
-  build. An overhaul is a large thing to keep on two tracks and there is nothing shipped to
-  keep compatible yet; revisit only if the mod reaches a release worth backporting.
-- **No Space Age `*_required` flag, and none by default.** Declaring one makes the expansion
-  mandatory. Read `feature_flags[...]` to light up expansion-only behaviour instead — unless
-  the overhaul is eventually designed *around* Space Age, which is an open question below.
+- **Factorio 2.1 only.** `factorio_version` is `"2.1"` and there is no `legacy/2.0` build.
+  Space Age is required regardless, and an overhaul is a large thing to keep on two tracks with
+  nothing shipped to stay compatible with.
+- **Space Age is required, not optional.** It is the substrate the mod overhauls, so
+  `feature_flags[...]` probing is *not* the technique here — this mod does not work without it.
+  This reverses the 2026-08-08 position; `.ai-support/identity.md` carries the reversal.
+  **`info.json` has not been updated yet** and still declares only `base` and
+  `space-forge-graphics`. Fix it through the `factorio-mod-setup` skill, not from memory.
 - **Version starts at `0.1.0`** on both mods, and the two sequences run independently.
+
+## Art — the rules
+
+Every rule below has its reason, its measured numbers and its worked-out form in
+**`.ai-support/art-direction.md`**. Read that before any sprite, icon, palette or Blender
+decision, including the design step — these one-liners exist so nothing is missed, not so the
+register can be skipped. All of them fail quietly rather than loudly.
+
+- **Place the entity on the crude/industrial/exotic gradient first.** It decides paint, glow and
+  silhouette. Anchors on a continuum, not a tier list.
+- **Paint goes down and glow goes up along it**, against targets the register states and
+  `.claude/skills/factorio-entity-design/scripts/counterpart.py` measures.
+- **Violet is the mod's own colour and is saved for the top.** Cyan and magenta are vanilla's —
+  the register names which entity owns each.
+- **Nothing rusts in vacuum, and nothing is clean either.** Wear is keyed to environment.
+- **Custom art only for a new tier or family, never a re-skin**, and a machine that gets it gets
+  the whole set — base, shadow, animation, status light, icon, remnants.
+- **Build art in the order the player meets it**, starting with the miner line at the crude end.
+- **Design each entity through `factorio-entity-design` before modelling.**
 
 ## Open questions
 
-The design is deliberately undecided. **`.ai-support/decisions.md` is the single owner** of the
-open list and the reasons behind it — record answers there as they are made, rather than letting
-them exist only in the code, and keep the summaries below to one line each.
+**`.ai-support/identity.md` → *Open* is the single owner** of the open list, and its table names
+the concept file each answer will become — **progression.md**, **chains.md**, **science.md** and the
+rest. Record answers in the file for that concept rather than letting them exist only in the
+code, and keep any summary here to one line.
 
-- **What does the overhaul actually change?** Scope is undefined: production chains,
-  progression, planets, combat — none of it is chosen.
-- **Base game, Space Age, or built on Space Age?** This decides `dependencies`, whether any
-  feature flag is declared, and how large the art bill is. It is the first question worth
-  answering — most other decisions hang off it.
-- **Compatibility stance.** Overhauls usually carry a long `!` incompatibility list (Space
-  Exploration's is worth reading). Nothing is declared yet.
-- **Art direction.** Undecided — read the `factorio-graphics` skill before the first sprite;
-  the design work happens before any Blender step.
+Everything mechanical is still open: the tiers and what unlocks them, the production chains, the
+science, the compatibility list, and which part ships first as something playable. Two items that
+are not design questions and are easy to lose:
+
 - **`thumbnail.png` does not exist** on either mod. 144x144, at each mod's own root, and both
   need one before release. Deliberately not stubbed: a placeholder is the kind of thing that
   ships by accident.
