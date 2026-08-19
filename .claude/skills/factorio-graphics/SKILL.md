@@ -159,6 +159,45 @@ sprite's pixels; side-wall detail never appeared at all.
 - Decide this by rendering, never by reasoning about the 3D scene. Two parts
   0.3 tiles apart in depth can sit exactly on top of each other on screen.
 
+**A disc on a transverse (X) axis is EXACTLY edge-on and renders as a line.**
+The camera looks along `(0, cos 45, −sin 45)`, which lies entirely in the Y-Z
+plane — so a wheel, gear, pulley or fan whose axis is world X has the view
+direction *inside its own plane* and projects to a stripe as wide as the part
+is thick, whatever its diameter. Found the hard way on a mining drill's
+flywheel: a 0.9-tile wheel rendered as a 5 px sliver, and an occlusion audit
+came back clean because nothing was covering it. Rotating machinery has to
+turn about **Y** (front-to-back, like vanilla's steam engine crank) or **Z**
+(the assembler's horizontal gear deck). Both present a face; X never does.
+
+**`pipe_covers` only works if the connection is on the machine's PERIMETER.**
+The engine draws the cover in the tile *outside* the connection, so a machine
+whose connections sit mid-flank — anything forced inboard by a small footprint
+— gets a flat grey slab floating in open ground beside it, once per connection.
+Measured in game on a 2x3 drill whose condensate ports had to go in the middle
+row: two slabs, in all four rotations. The chemical plant is fine because its
+ports are on its edges. If the ports cannot move, declare neither `pipe_covers`
+nor `pipe_picture` and draw the stub in the sprite; the machine then looks the
+same connected or not, which is a smaller price than floating art.
+
+**Photograph every ROTATION, not just north.** A rotation-specific defect is
+invisible to a one-rotation check, and every offline metric in one drill's
+render pipeline passed while all four rotations carried the same visible fault.
+Place four entities, one per direction, unconnected, and shoot them in one run
+— it costs one `--benchmark-graphics` pass.
+
+**A pipe joint cannot be judged offline — photograph it.** Two separate
+offline composites of one mining drill reported every fluid connection
+closed while the game showed daylight between the machine's flange and the
+pipe's. Two reasons, both worth knowing: a pipe that TERMINATES against a
+machine draws `pipe-ending-up/down/left/right`, **not** the straight sprite
+(measured 2.1.14: `pipe-straight-vertical` is opaque y 12..95 on its 128 px
+canvas, `pipe-ending-up` y 12..100), so a check built on the straight sprite
+compares against art the game never draws there; and a scan *along* the pipe
+axis cannot see a notch *beside* it, which is where the daylight actually was.
+Build the joint in the engine with `--benchmark-graphics` and a probe mod that
+places pipes on every connection and screenshots at zoom 6. It costs about a
+minute and it is the only thing that has ever been right about this.
+
 ## Clearance between parts
 
 Props that share volume fuse into one blob at sprite scale. Audit it

@@ -1,5 +1,0 @@
--- Entry point for the data stage. One require per content group, in dependency
--- order; each file under prototypes/ calls data:extend itself. Paths use dots.
---
--- Every graphic this mod names lives in the companion mod:
---   "__space-forge-graphics__/graphics/..."   never "__space-forge__/..."

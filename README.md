@@ -11,8 +11,6 @@ game's own settings) is git-ignored.
 | Mod | Status | Description |
 |---|---|---|
 | [`pure-modules-realk`](pure-modules-realk/) | [published](https://mods.factorio.com/mod/pure-modules-realk) | A clean top tier of modules above tier 3 — stronger, with no speed or quality penalty — plus a wide-area beacon built for the tier. |
-| [`space-forge`](space-forge/) | in development | A large overhaul. Early scaffolding — not playable yet. |
-| [`space-forge-graphics`](space-forge-graphics/) | in development | The art for Space Forge, split out so a balance patch stays small. Contains no code. |
 | [`upcycler-planner`](upcycler-planner/) | [published](https://mods.factorio.com/mod/upcycler-planner) | A layout planner for quality upcycling loops — pick an item and a target quality, and it designs the loop and drops it as ghosts. |
 
 Each mod folder is self-contained and carries its own `README.md`, `LICENSE` and

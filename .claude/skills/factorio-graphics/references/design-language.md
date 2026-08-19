@@ -141,6 +141,38 @@ Rules of use:
   power attach, output); large hulls stay geometrically calm and carry
   interest through texture — seams, paint wear, grime gradients.
 
+### Fluid connection stubs — measured off base 2.1.14
+
+A machine with fluid boxes draws its own pipe stubs in the body sprite; the
+engine adds nothing when a pipe connects. Every number below is measured off
+vanilla's own shipped sprites (2026-08-19), because a first attempt that
+styled them small could not visually meet a base pipe:
+
+- **The vanilla pipe barrel is 0.52 tiles of lit metal** (33 src px at
+  64 px/tile), 0.64 with its dark shading; the sprite's opaque box is a full
+  1.00 tile. A physically modelled side barrel of r ≈ 0.19 tiles projects the
+  matching band at the 45° rig (band = 2√2·r).
+- **A machine's drawn stub is 0.64–0.70 tiles wide** (chemical plant south
+  stubs 0.69–0.70, centred within 1 game px of the connection tile's centre
+  line; boiler side stubs ≈ 0.62). Machine stubs are *fatter* than the pipe.
+- **Flanges sit LOW and oversized**: the boiler's side flange nearly touches
+  the ground at the tile edge, spanning most of the hull height, and the pipe
+  run tucks under it. A stub at deck height with a small flange reads
+  disconnected however correct its x/y is.
+- **End every stub in a bolted flange with a dark open bore**, slightly proud
+  of the tile edge (boiler: ~0.08 tiles). The open bore is what makes a
+  connecting pipe read as joined; `pipecoverspictures()` caps it when nothing
+  is connected.
+- **The engine draws pipe covers on a 128 px canvas centred on the OUTSIDE
+  tile**, plate hugging the machine edge: side plates 13×51 px (0.20×0.80
+  tiles) centred 2 px above the tile-centre row, frontal plates 51×44. Declare
+  `pipe_covers = pipecoverspictures()` on every fluid box — chemical plant,
+  boiler, refinery and electric mining drill all do; `pipe_picture` is only
+  for machines whose stubs come and go with the recipe (assembling machines).
+- **Judge the joint by compositing** the uncropped frame with real
+  `pipe-straight-*.png` sprites at their tile positions — the only check that
+  catches a diameter or height mismatch before the game does.
+
 ## Materials & colour — zones, not a colour
 
 Minimum **4 material zones**, typically 5–6 (audited across every vanilla
