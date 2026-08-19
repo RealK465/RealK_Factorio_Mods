@@ -246,6 +246,26 @@ Two things to know before trusting it:
 **Not wired into `validate.ps1`** — pass the flag on a hand-built run for now. Worth turning
 into a switch on the script once a mod is large enough to want it on every validation.
 
+## Stage somewhere SHORT: MAX_PATH silently disables the mod
+
+Windows still caps a path at **260 characters**, and a deep scratch directory
+plus a mod's own `graphics/entity/<thing>/<thing>-N.png` goes over it easily.
+The failure is loud but misleading — measured 2.1.14, 2026-08-19, at a staged
+path of 266 characters:
+
+```
+Error AtlasBuilder.cpp:1378: File __my-graphics__/graphics/entity/thing/thing-E.png not found
+Failed to load mods: ... Mods to be disabled: my-mod
+```
+
+The file is there, valid, and byte-identical to the one that loads fine from a
+shorter path. **It only bites a graphics run**, because `--dump-data` never
+opens a sprite file — so the same staging passes every headless check and then
+disables the mod the moment a renderer starts. Stage to something like
+`C:\sfshot` for any `--benchmark-graphics` work and the problem disappears.
+The repo's own path (163 chars) is nowhere near the limit; it is the scratch
+directory that pushes it over.
+
 ## What this does and does not prove
 
 A clean data stage means the prototypes are structurally valid and every **prototype reference** resolves — a recipe naming an item that doesn't exist fails loudly, with the exact `ROOT.recipe.<name>.ingredients[0].name` path.

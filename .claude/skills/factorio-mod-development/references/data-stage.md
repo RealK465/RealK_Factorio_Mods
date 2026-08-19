@@ -216,6 +216,28 @@ Modifying prototypes in place, in `data-updates` or later:
   `tech_add_prerequisites`, `replace_or_add_ingredient` and `tech_add_ingredients` are worth
   reading before writing your own (`exemples/space-exploration/space-exploration-postprocess/`).
 
+## Fluid boxes: the two rules that decide a machine's whole layout
+
+FFF-420 records the fusion plant's layout being driven by its connection points rather than the
+other way round. Two constraints make that unavoidable, and both are loud rather than silent —
+which is the good case, but only if you meet them before the art is rendered.
+
+- **A `position` is a point INSIDE the collision box, not on the tile edge.** The `direction`
+  is what projects the connection outward. Give an edge coordinate and the load fails naming the
+  exact numbers: *"PipeConnectionDefinition: position must be inside of entity bounding box.
+  position={-0.500, 1.500}, leftTop={-0.898, -1.398}…"*. Vanilla's boiler is the model to copy —
+  collision box `{{-1.29,-0.79},{1.29,0.79}}` with connections at `{-1, 0.5}`, `{1, 0.5}` and
+  `{0, -0.5}`, every one of them inside.
+- **No two connections may share a position**, across *all* of the entity's fluid boxes,
+  including a `FluidEnergySource`'s. That is a hard cap on how many connections a small footprint
+  can carry: a 2-wide entity has exactly **two** tiles in its rear row, so a rear-facing inlet
+  plus two rear-corner outlets does not fit however it is written.
+
+The knock-on: connections that must **chain entity-to-entity along a row have to sit at the same
+offset down the machine**, or drill A's east connection and drill B's west connection never meet.
+Fixing a position clash by moving one of a chaining pair silently breaks the chain — the mod
+loads, the pipes just never join.
+
 ## Things that are true but surprising
 
 - **Extra properties are silently discarded.** The game ignores keys it is not looking for, so a

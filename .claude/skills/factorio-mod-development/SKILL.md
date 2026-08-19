@@ -133,6 +133,16 @@ Three renames from 1.1 account for most stale code and most wrong recollection:
 Anything you find using `global` for mod state, or `game.recipe_prototypes`, is pre-2.0 and needs
 porting, not copying. `on_entity_destroyed` likewise became `on_object_destroyed`.
 
+**And one that is 2.1, not 2.0: `LuaEntity.fluidbox` and the whole `LuaFluidBox` class are
+gone.** Fluid boxes are read and written through methods on the entity itself —
+`fluids_count`, `get_fluid(index)`, `set_fluid(index, fluid)`, `insert_fluid(fluid)`,
+`get_fluid_box_pipe_connections(index)`, `get_fluid_box_neighbours(index)`,
+`get_fluid_box_prototype(index)`, `set_fluid_filter(filter, index)`. Verified against 2.1.14's
+own `runtime-api.json`; `entity.fluidbox[1]` fails at runtime with *"LuaEntity doesn't contain
+key fluidbox"*, which reads like a nil entity and is not. Note the argument order —
+**`set_fluid` takes the index first**, unlike `insert_fluid`, and getting it backwards throws
+*"'index': real number expected got table"*.
+
 ## What silently breaks
 
 These are the ones worth memorising because nothing tells you.
