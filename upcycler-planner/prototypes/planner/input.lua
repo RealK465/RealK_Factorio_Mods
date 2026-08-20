@@ -28,6 +28,6 @@ data:extend({
   {
     type = "custom-input",
     name = "upl-open",
-    key_sequence = "CONTROL + SHIFT + U",
+    key_sequence = "CONTROL + U",
   },
 })

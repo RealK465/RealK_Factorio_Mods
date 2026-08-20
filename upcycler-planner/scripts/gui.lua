@@ -750,8 +750,20 @@ end
 -- prototype) -- without this, the key would open a planner the recycling technology has not
 -- delivered a recycler for yet. is_shortcut_available is the engine's own answer, so a
 -- scenario that grants or revokes the shortcut by script is honoured the same way.
+--
+-- A refused press says why: the button greys out visibly, but a dead key reads as a broken
+-- binding. The message names the gating technology off the shortcut prototype, so the two
+-- cannot drift; a scripted revoke with no gating tech stays silent, since the scenario chose
+-- to hide the planner. The refusal is returned so the spec can pin it -- print itself is
+-- unobservable from a test.
 function gui.toggle_key(player)
-  if not player.is_shortcut_available(SHORTCUT) then return end
+  if not player.is_shortcut_available(SHORTCUT) then
+    local tech = prototypes.shortcut[SHORTCUT].technology_to_unlock
+    if not tech then return end
+    local refusal = { "upl-message.planner-not-researched", tech.localised_name }
+    player.print(refusal)
+    return refusal
+  end
   gui.toggle(player)
 end
 
