@@ -376,17 +376,24 @@ local function is_single_tile(entity)
   return entity.tile_width == 1 and entity.tile_height == 1
 end
 
--- The three chest roles the layout builds with, one predicate each. Keyed rather than written out
--- three times, because everything downstream -- the picker's list, the default pick, prune's
+-- The four chest roles the layout builds with, one predicate each. Keyed rather than written out
+-- four times, because everything downstream -- the picker's list, the default pick, prune's
 -- membership test -- is the same question asked once per role. The order is the one the modal
--- shows them in: what feeds the loop, what relieves it, what it hands back to the base.
+-- shows them in: what feeds the loop, what relieves it, what it hands back to the base, and what
+-- it hands away.
 --
 -- `container` is deliberately a PLAIN chest: the buffers inside the loop must not talk to the
--- player's network, or the loop would compete with the base for its own intermediates. The two
+-- player's network, or the loop would compete with the base for its own intermediates. The three
 -- logistic roles test `type` strictly, because an infinity chest reports a logistic_mode too and
 -- a chest that conjures items out of nothing is never a correct buffer in a loop whose whole job
 -- is to conserve one population of items.
-planner.CHEST_ROLES = { "requester", "container", "provider" }
+--
+-- `overflow` is the one role that has to be an ACTIVE provider rather than the player's pick of
+-- logistic chest. It is the loop's only unbounded sink -- bots take its contents away -- and a
+-- passive provider or a plain chest would merely fill, at which point the ring saturates again a
+-- few hours later. `logistic-system` unlocks it alongside the requester chest, so it costs no
+-- research the mod did not already require.
+planner.CHEST_ROLES = { "requester", "container", "provider", "overflow" }
 
 local CHEST_ACCEPTS = {
   container = function(entity)
@@ -397,6 +404,9 @@ local CHEST_ACCEPTS = {
   end,
   provider = function(entity)
     return entity.type == "logistic-container" and entity.logistic_mode == "passive-provider"
+  end,
+  overflow = function(entity)
+    return entity.type == "logistic-container" and entity.logistic_mode == "active-provider"
   end,
 }
 
@@ -502,6 +512,17 @@ function planner.needs_pipe(recipe)
   if not recipe then return false end
   local _, fluids = planner.item_ingredients(recipe)
   return #fluids == 1
+end
+
+-- Whether a plan for this target needs the overflow tap: true when the quality chain carries a
+-- tier above it. At the top tier nothing can roll past the target, so there is nothing to catch.
+--
+-- Deliberately blind to research. Rolls cannot exceed the qualities a force has unlocked, so a
+-- tap built today may sit idle -- but researching a new tier is precisely what clogs a loop built
+-- before it, and two entities is cheaper than re-stamping every loop in the base afterwards.
+function planner.needs_overflow_tap(target)
+  local tiers = target and planner.tiers_up_to(target)
+  return tiers ~= nil and #planner.quality_chain() > #tiers
 end
 
 -- Filter slots on a chosen inserter, nil when nothing valid is chosen. One slot per ingredient is
@@ -1080,6 +1101,7 @@ local function resources(force, recipe, machine, choices)
     container = chest("container"),
     requester = chest("requester"),
     provider = chest("provider"),
+    overflow = chest("overflow"),
     -- Pairs like every other build material with a quality. The two module pickers own their own
     -- qualities: the top machine's module became a separate choice from the quality modules
     -- below it, so one shared quality would have tied two unrelated decisions together.
@@ -1258,17 +1280,19 @@ function planner.plan(force, choices, gathered)
   end
   if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
 
-  -- Qualities above the target: a moduled machine or recycler can roll past the target tier,
-  -- and product at those qualities has no consumer anywhere in the loop -- it would circulate
-  -- on the ring forever. The terminal catcher takes it into the provider instead. Clamped to
-  -- the filter slots left after the target's own, nearest tiers first (a roll lands one tier
-  -- up ten times more often than two), so a short-slotted inserter degrades instead of failing.
-  local chain = planner.quality_chain()
-  local extra_slots = (prototypes.entity[r.inserter.name].filter_count or 1) - 1
-  local above_target = {}
-  for i = #tiers + 1, math.min(#chain, #tiers + extra_slots) do
-    above_target[#above_target + 1] = chain[i]
-  end
+  -- Everything the loop rolls ABOVE the target leaves through the tap in the terminal column.
+  -- Both halves need it: a moduled machine rolls the PRODUCT past the target, and a moduled
+  -- recycler rolls the INGREDIENTS past it -- and nothing consumes either, because every machine
+  -- is pinned to one tier and quality matching is exact. Without the tap they circulate on the
+  -- ring until it saturates, which is the defect the reference book this layout descends from
+  -- still ships (analysis/blueprints.md).
+  --
+  -- One nameless "> target" filter covers it, whatever the recipe: an inserter filter may name a
+  -- quality and no item at all, measured in analysis/api.md S24. That is why this is a flag here
+  -- rather than the list of tiers it replaced -- that list cost one filter slot per tier and was
+  -- clamped to the inserter's five, so a long modded quality chain silently lost its top tiers.
+  local overflow_tap = planner.needs_overflow_tap(choices.quality)
+  if overflow_tap and not r.overflow then return nil end
 
   -- The machine's footprint is rotated when a fluid input has to face the pipe run --
   -- vanilla crafters are square, so this only moves a modded rectangle -- and its direction
@@ -1291,7 +1315,7 @@ function planner.plan(force, choices, gathered)
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
-    above_target = above_target,
+    overflow_tap = overflow_tap,
     machine = machine_footprint,
     fluid = #fluids == 1 and { pipe = r.pipe, pipe_to_ground = r.pipe_to_ground } or nil,
     -- The recycler's footprint is the ROTATED one: the planner picks the rotation that makes
@@ -1304,11 +1328,12 @@ function planner.plan(force, choices, gathered)
       module_slots = module_slots(recycler, recycler_quality),
       direction = orientation.direction,
     },
-    -- The belt is a bare name; the inserter and the three chests are { name, quality } pairs,
+    -- The belt is a bare name; the inserter and the chests are { name, quality } pairs,
     -- because the player picks a quality for each of them and the belt has none to pick.
     belt = r.belt,
     inserter = r.inserter,
     requester = r.requester, container = r.container, provider = r.provider,
+    overflow = r.overflow,
     -- One pair per module, or nil for "leave that machine empty" -- which only ever happens to
     -- the terminal one.
     modules = {
@@ -1471,6 +1496,12 @@ function planner.validate(force, choices)
   if not r.belt then return false, { "upl-message.no-belt" } end
   if not r.container then return false, { "upl-message.no-chest" } end
   if not (r.requester and r.provider) then return false, { "upl-message.no-logistic-chest" } end
+  -- Only asked for when the target has a tier above it: at the top of the chain nothing can roll
+  -- past, so the tap is not built and its chest is not needed. Unreachable in vanilla, where the
+  -- same technology unlocks the active provider and the requester chest already required above.
+  if planner.needs_overflow_tap(choices.quality) and not r.overflow then
+    return false, { "upl-message.no-active-provider" }
+  end
   if not r.quality_module then return false, { "upl-message.no-quality-module" } end
   if #fluids == 1 then
     if not r.pipe then return false, { "upl-message.no-pipe" } end
@@ -1508,11 +1539,16 @@ function planner.validate(force, choices)
   if r.terminal_module then
     build_qualities[#build_qualities + 1] = r.terminal_module.quality
   end
+  -- Only when it is actually placed, so a legendary plan is not warned about a chest it does
+  -- not build.
+  if r.overflow and planner.needs_overflow_tap(choices.quality) then
+    build_qualities[#build_qualities + 1] = r.overflow.quality
+  end
   -- The pole's build quality matters twice over: it gates who can build the ghosts, and it
   -- sets the reach the whole pole layout is computed at.
   if pole_name then build_qualities[#build_qualities + 1] = pole_quality end
-  -- Nine entries, and in the ordinary game every one of them is "normal" -- so ask the force
-  -- once per distinct tier rather than once per material, on a path every refresh runs.
+  -- Ten entries at most, and in the ordinary game every one of them is "normal" -- so ask the
+  -- force once per distinct tier rather than once per material, on a path every refresh runs.
   local asked = {}
   for _, quality in pairs(build_qualities) do
     if not asked[quality] then

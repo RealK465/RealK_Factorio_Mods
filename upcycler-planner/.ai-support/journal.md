@@ -9,6 +9,51 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — the ring silts up below legendary, and one nameless filter drains it
+
+The owner reported it from a played game: research legendary, build a loop targeting rare or
+epic, and the belt slowly fills with material nothing will ever use. That is `deferred.md`'s
+*Ingredients that roll above the target tier*, which had stood since the layout was written with
+"worth measuring in a real game before choosing" attached to it. This was the measurement.
+
+**The diagnosis was structural, not a bug.** The only route to target-tier ingredients is a
+recycler rolling them up, and a roll jumps one, two or three tiers (90 / 9 / 0.9 %). So the event
+that feeds the terminal machine is the same event that overshoots it — which kills the file's own
+option 2, capping the recyclers' quality modules: remove them and the top machine never runs at
+all. That option is now recorded as a route that does not work, beside the trash-chest one from
+2026-08-15.
+
+**The fix hung entirely on one unmeasured engine fact.** `ItemFilter` documents a `comparator`,
+but a documented field is not evidence an inserter acts on it, and the layout's slot budget turned
+on the answer — per-ingredient filters would have cost `#ingredients` slots per tier above target,
+which is hopeless. Five throwaway probe rounds (`analysis/api.md` §24): the comparator works and is
+exact; `">="` normalises to the glyph on read, and *inside a blueprint on write*, where `">"` is
+stored verbatim; it survives set → build → revive; and — the owner's own suggestion, which turned
+the design from `#ingredients` slots into **one** — a filter may name a **quality and no item at
+all**, which the inserter reads as "anything above this tier".
+
+Three probe rounds proved nothing and are worth not repeating: one belt tile holds four items per
+lane so a bulk seed is silently refused; two `insert_at_back` calls on the same line back to back
+are refused for want of room; and a substation whose supply square misses the tap reads exactly
+like a filter that does not work. The rig that settled it is the mod's own ring in miniature, now
+`loop_spec`'s first test.
+
+**What shipped**: an inserter and an active-provider chest in the two tiles the terminal column
+had spare, whitelisting `{q_t, ">"}` with no item name. Footprint unchanged — it is that column's
+unload inserter reversed. The catcher's per-tier list collapsed to a single `">="`, which also
+retired a silent clamp that lost the top tiers of any quality chain longer than five. Price, and
+the specs caught it rather than a player: **one more electric pole**, because the tap is a
+consumer in a corner that had none and stands on two tiles the pole pass wanted.
+
+**The web survey found the same defect in this layout's own ancestor.** kvdveer's book — the
+reference lineage in `analysis/blueprints.md` — truncates its ladder at the target and filters
+nothing above it, so its Rare stamps have exactly this problem, still, today. It also found that
+**not one of 25 decoded published blueprints uses a quality comparator** (769 quality filters, all
+`"="`), and the community's alternative architecture: never truncate the ladder, build every tier
+and let the target only move the output tap. That one is real and is recorded in `deferred.md`
+rather than adopted — it doubles the build at a rare target and collapses on modded chains that
+add tiers above legendary.
+
 ## 2026-08-20 — the silent hotkey refusal reads as a broken key
 
 The owner reported CTRL+SHIFT+U "not working". Systematic pass found nothing broken: the

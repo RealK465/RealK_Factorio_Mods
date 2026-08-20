@@ -275,7 +275,10 @@ describe("layout.build per-tier wiring", function()
     assert(tiers_seen["normal"] and tiers_seen["uncommon"], "blacklists not one per lower tier")
   end)
 
-  test("the terminal catcher whitelists the product at target quality and every one above", function()
+  test("the terminal catcher takes the product at target quality and above, in one filter", function()
+    -- One comparator, not one filter per tier above the target. The old list was clamped to the
+    -- inserter's five slots, so a modded quality chain quietly lost its top tiers; ">=" cannot
+    -- be outrun by a longer chain.
     local built = layout.build(params_with())
     local catcher
     for _, e in pairs(by_name(built, "fast-inserter")) do
@@ -285,10 +288,44 @@ describe("layout.build per-tier wiring", function()
       end
     end
     assert(catcher, "terminal catcher inserter not found")
-    assert(#catcher.filters == 3, "catcher filter count " .. #catcher.filters)
-    assert(catcher.filters[1].quality == "rare", "first filter is the target")
-    assert(catcher.filters[2].quality == "epic", "then the tier above")
-    assert(catcher.filters[3].quality == "legendary", "then the top")
+    assert(#catcher.filters == 1, "catcher filter count " .. #catcher.filters)
+    assert(catcher.filters[1].quality == "rare", "the filter names the target")
+    assert(catcher.filters[1].comparator == ">=", "the target and every tier above it")
+  end)
+
+  test("the overflow tap drains anything above the target into the active provider", function()
+    -- The terminal column has no recycler, so its extract stack's two tiles are free: the tap
+    -- is the unload inserter reversed, and the chest sits where the extract chest would.
+    local built = layout.build(params_with())
+    local tap
+    for _, e in pairs(by_name(built, "fast-inserter")) do
+      if e.filters and e.filters[1] and not e.filters[1].name then tap = e end
+    end
+    assert(tap, "overflow tap inserter not found")
+    assert(#tap.filters == 1, "tap filter count " .. #tap.filters)
+    assert(tap.filters[1].quality == "rare" and tap.filters[1].comparator == ">",
+      "the tap takes strictly above the target, so the terminal machine keeps its own tier")
+    assert(tap.filter_mode == "whitelist", "tap filter mode " .. tostring(tap.filter_mode))
+    assert(tap.direction == defines.direction.south, "the tap must face the bottom ring")
+
+    local chests = by_name(built, "active-provider-chest")
+    assert(#chests == 1, "active provider count " .. #chests)
+    -- Directly above the tap, and both in the terminal column's feed sub-column.
+    assert(chests[1].dx == tap.dx, "chest and tap are not in the same sub-column")
+    assert(chests[1].dy == tap.dy - 1, "the tap does not drop into the overflow chest")
+  end)
+
+  test("a top-tier target builds no tap at all", function()
+    -- Nothing can roll past the top of the chain, so there is nothing to catch and the two
+    -- entities would be dead weight.
+    local built = layout.build(params_with({
+      tiers = { "normal", "uncommon", "rare", "epic", "legendary" }, overflow_tap = false,
+    }))
+    assert(#by_name(built, "active-provider-chest") == 0, "a legendary plan built an overflow chest")
+    for _, e in pairs(by_name(built, "fast-inserter")) do
+      assert(not (e.filters and e.filters[1] and not e.filters[1].name),
+        "a legendary plan built the overflow tap")
+    end
   end)
 
   test("feed chests request this tier's ingredients, buffers request the product", function()
@@ -415,9 +452,7 @@ describe("layout.build across footprints and recipes", function()
   test("a two-tier plan: one recycler, minimal width", function()
     -- The narrowest plan the planner can ask for (targets skip normal, so two tiers is the
     -- floor): offsets 1, 4; width = 4 + 3 + 1 = 8.
-    local built = layout.build(params_with({
-      tiers = { "normal", "uncommon" }, above_target = { "rare" },
-    }))
+    local built = layout.build(params_with({ tiers = { "normal", "uncommon" } }))
     assert(built.width == 8, "width " .. built.width .. ", expected 8")
     assert(built.machines == 2 and built.recyclers == 1,
       "counts " .. built.machines .. "/" .. built.recyclers .. ", expected 2 machines, 1 recycler")

@@ -63,11 +63,16 @@ describe("planner.plan", function()
 
   describe("the five pole scenarios", function()
     test("medium pole, rare target: the compact plan covers, so no column opens", function()
-      -- The trade the compact-first rule makes: five poles in the ring's dead ground instead
-      -- of three lined up in columns, and three tiles of width back. Narrower wins.
+      -- The trade the compact-first rule makes: poles in the ring's dead ground instead of
+      -- three lined up in columns, and three tiles of width back. Narrower wins.
+      --
+      -- Six since the overflow tap landed. The tap is a consumer in the terminal column's
+      -- bottom corner, which had none before, and it stands on two tiles the pole pass could
+      -- otherwise have used -- so the honest price of draining the ring is one more pole. The
+      -- WIDTH is what the compact-first rule protects, and that is unchanged.
       local plan = planner.plan(force(), choices_with({ pole = "medium-electric-pole" }))
       assert(plan.width == 11, "width " .. plan.width .. ", expected the columns to stay shut")
-      assert(count_by_name(plan, "medium-electric-pole") == 5,
+      assert(count_by_name(plan, "medium-electric-pole") == 6,
         "pole count " .. count_by_name(plan, "medium-electric-pole"))
       assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
     end)

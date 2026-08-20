@@ -213,6 +213,23 @@ Community claims, read from the pages named — not decoded; no strings were re-
   2025-10); missing undergrounds in the legendary EM variant, repaired in a separate repost
   (factorioprints `-OHyv1-dMNiDqGbQmexO`). Every one is a hand-parameterisation slip. The
   author never updated the OP; fixes arrived as forks.
+- **The reference book silts its own belt up below legendary, and this mod inherited it.**
+  Decoded 2026-08-20, entity data not prose: kvdveer's ladder is truncated at the target, its
+  pickup inserters carry one `comparator = "="` filter per tier *up to* the target, and nothing
+  filters above it — while the recyclers still carry quality modules and still roll past. In the
+  Rare build, epic and legendary ingredients have no consumer and lap the ring forever. The
+  overflow tap (`../decisions.md`) is this mod's answer; the reference has none, and the second
+  bug above (the legendary-filtered stamp) is a separate slip in the same builds.
+- **Nobody in the shared corpus uses a quality COMPARATOR.** Across 25 decoded published
+  blueprints, all 769 quality-bearing filters are `comparator = "="`; not one is `">"` or `"≥"`,
+  and every non-`=` comparator found was a circuit *count* condition. The capability is real —
+  posila confirmed `<`/`>` quality conditions on inserters and splitters and fixed their
+  blueprint-preview rendering in 2.0.22 (forum t=121828) — and nothing anywhere claims it is
+  broken, so the likeliest reading is an obscure GUI affordance. The community's equality-only
+  equivalent is the **residual-branch cascade**: split each quality onto its own belt and the
+  unsplit remainder *is* "everything above". That needs a splitter chain, and a splitter carries
+  exactly **one** filter, so it does not generalise to a multi-ingredient recipe — which is why
+  this mod uses the comparator it measured (`api.md` §24) rather than the idiom it found.
 - **The maintained successor is Kane99's expanded book** (factoriobin `whtgdo`, ~2025-11,
   ~1.2k downloads): kvdveer's stamps repaired, plus foundry, EM-plant and multi-machine "bulk"
   assembler variants, fluid variants, and combinator automation — the widest machine coverage

@@ -1,6 +1,6 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
--- three chests, the quality module, the top machine's own module, the electric pole, the pipe,
+-- four chests, the quality module, the top machine's own module, the electric pole, the pipe,
 -- and whether the chests trash their surplus.
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
@@ -9,7 +9,7 @@
 -- whatever the count -- item, target quality, machine, belt, quality module -- and two more
 -- because clearing them IS the second option: the pole ("no poles") and the top machine's module
 -- ("leave it empty"). The pipe has one more condition of its own: it is out of the strip entirely
--- until the recipe takes a fluid. The three chests go the other way and are hidden whatever the
+-- until the recipe takes a fluid. The four chests go the other way and are hidden whatever the
 -- count -- see the loop that builds them.
 --
 -- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
@@ -443,7 +443,7 @@ local function apply_defaults(player, choices)
   if not choices.pipe then
     choices.pipe = planner.pipe(player.force)
   end
-  -- The inserter and the three chests default like the belt, and for the same reason: the strip
+  -- The inserter and the chests default like the belt, and for the same reason: the strip
   -- should show what would actually be placed. Neither can be cleared to nothing -- there is no
   -- loop without them -- so the handlers snap an emptied picker straight back.
   if not choices.inserter then
@@ -625,8 +625,8 @@ function gui.open(player)
   options.style.horizontally_stretchable = true
 
   -- Six per row, wrapping. A table rather than a flow so the row length is a rule instead of an
-  -- accident: nine pickers in one line drag the modal wider than the block above it, and a modset
-  -- adding a tenth would keep dragging. Six is what the vanilla set fills.
+  -- accident: ten pickers in one line drag the modal wider than the block above it, and a modset
+  -- adding an eleventh would keep dragging. Six is what the vanilla set fills.
   local strip = options.add({ type = "table", name = "upl-strip", column_count = 6 })
 
   -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
@@ -649,7 +649,7 @@ function gui.open(player)
   inserter_button.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   inserter_button.visible = worth_showing(player, inserter_names)
 
-  -- One button per chest role, driven by the role list so the three cannot drift apart. The role
+  -- One button per chest role, driven by the role list so they cannot drift apart. The role
   -- rides in the tags, which is what lets them share a single handler.
   for _, role in ipairs(planner.CHEST_ROLES) do
     local chest_names = chest_options(player, role)
@@ -662,8 +662,9 @@ function gui.open(player)
     chest_button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
     -- The one set of pickers hidden whatever the count (owner's call, 2026-08-18). The buffer has
     -- wooden, iron and steel to choose between, but the default -- the largest inventory the force
-    -- has researched -- is the answer nearly every time, and three chest buttons in the strip read
-    -- as three decisions the player has to make. Show-all brings all three back, quality included.
+    -- has researched -- is the answer nearly every time, and a chest button apiece in the strip
+    -- reads as that many decisions the player has to make. Show-all brings them back, quality
+    -- included.
     chest_button.visible = show_all_options(player)
   end
 
@@ -928,7 +929,7 @@ dispatch.register("inserter", function(event)
   gui.refresh(player)
 end)
 
--- All three chests, told apart by the role their button carries.
+-- Every chest, told apart by the role their button carries.
 dispatch.register("chest", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices

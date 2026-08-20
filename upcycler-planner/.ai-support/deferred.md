@@ -61,32 +61,40 @@ and no circuits at all. Two things must be fixed before it ships:
 Higher tiers are safe either way — the engine forces every real logistic request to be
 quality-exact, so nothing above normal can leak or be stolen.
 
-### Ingredients that roll above the target tier
-**Status:** known limitation of the first build, found while writing the layout. **The product
-half was fixed on 2026-08-15**; the ingredient half below still stands.
+### The full-height ladder, as an alternative to the overflow tap
+**Status:** not built, and recorded so it is not rediscovered from scratch. **The problem it
+solves is already solved** — the overflow tap, `decisions.md` — so this is a
+different *architecture* for the same defect, not parked work.
 
-Each recycler carries quality modules, so it can roll an ingredient *above* the tier the loop is
-aiming at. The extract inserter blacklists this tier's ingredients, so anything rolled up goes
-onto the ring for a higher tier to harvest — but when the target is below legendary there is no
-higher tier to harvest it, and those ingredients circulate on the ring forever, slowly taking up
-belt space.
+The community's own answer, decoded from Vulteran's *Quality Casino Cycler* (2026-08-20 survey):
+**never truncate the ladder.** Build a machine for every quality tier whatever the target, and let
+the target decide only which column's output is tapped to the provider. Above-target material is
+then not orphaned at all — it climbs until it reaches the top tier and exits there. It works
+because of two engine facts worth keeping: **quality can never go down** (it needs both
+`EffectReceiver::quality_limits.low < 0` and a `QualityPrototype::previous_probability > 0`, and
+neither exists in base, quality or space-age), and **the recycler destroys 75% of material per
+pass**, so the surplus bleeds away as it climbs.
 
-The same held for the **product** — machines roll above target too, out inserters are
-unfiltered, and the catcher used to take only `P @ q_t` — until the catcher's whitelist was
-extended to every quality at or above the target (nearest first, clamped to the inserter's
-filter slots), so above-target product now lands in the provider with the rest.
+Rejected for this mod on three counts, none of them about correctness:
 
-**Targeting legendary avoids the ingredient case entirely**, because the top tier consumes
-everything.
+- **Cost.** At a rare target it roughly doubles the build — five machines and four recyclers where
+  the tap needs three and two — and the width grows with it. That fights the *one machine per
+  tier, a convenience build not a throughput build* framing in `decisions.md`.
+- **It stops being what the player asked for.** Someone who picks rare would be handed a full
+  legendary loop that happens to tap rare.
+- **It breaks on modded quality chains.** Quality++ adds four tiers *above* legendary, which
+  destroys the absorbing-state property the whole idea rests on, and would have the planner build
+  nine columns. A `"> target"` tap is indifferent to chain length.
 
-Fixes to weigh later: an overflow catcher inserter near the terminal column filtered to
-quality above the target (costs filter slots, of which there are only so many); or capping the
-recyclers' quality modules on the tier just below the target so they cannot overshoot; or simply
-letting the player tap it out deliberately. Worth measuring in a real game before choosing —
-the accumulation may be slow enough not to matter. **One route that does NOT work**, worked out
-during the 2026-08-15 review: routing above-target ingredients into a trash-flagged feed chest —
-the feed inserter is unfiltered, so it would lift them out of the chest and jam against the
-pinned machine before the bots ever saw them.
+Revisit only if the tap turns out to be insufficient in a long played game.
+
+**Two routes that do NOT work**, both worked out rather than guessed. Routing above-target
+ingredients into a trash-flagged feed chest (2026-08-15 review): the feed inserter is unfiltered,
+so it would lift them out of the chest and jam against the pinned machine before the bots ever saw
+them. And capping the recyclers' quality modules so they cannot overshoot (an idea this file
+carried until 2026-08-20): the *only* route to target-tier ingredients is a recycler rolling them
+up, so removing those modules starves the terminal machine outright. The overshoot and the
+mechanism are the same event.
 
 ### Scaling beyond one machine per tier
 **Status:** not planned, but the shape is known — numbers verified against the wiki 2026-08-17.
@@ -174,7 +182,8 @@ should work — but it is untested against a mod that adds tiers.
   **roboport picker** below is the one that pays for it, since a new picker has to be taught two
   resolvers in two files.
 - **`build_qualities` is a hand-list where `state.prune` derives** (found in review, 2026-08-17).
-  `planner.validate` names the seven build materials whose quality it checks; a picker added later
+  `planner.validate` names the eight build materials whose quality it checks (the overflow chest
+  joined them on 2026-08-20, and had to be added by hand exactly as this note predicts); a picker added later
   and forgotten here loses its "quality not researched yet" warning silently — exactly the failure
   `state.prune`'s `_quality$` match refuses to accept. Deriving it means walking the resources
   table for anything carrying a `quality`, which would also start checking materials nobody has

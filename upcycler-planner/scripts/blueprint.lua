@@ -47,13 +47,20 @@ local function items_of(entity)
   } }
 end
 
+-- Every field of a blueprint filter but `index` is optional, and this mod uses all three ways of
+-- leaving one out (analysis/api.md S24): the ordinary filters name an item and a quality and mean
+-- exactly that; the terminal catcher adds ">=" to mean the target and everything above; and the
+-- overflow tap names a QUALITY AND NO ITEM, which the engine reads as "anything at all, above
+-- this tier". The engine normalises ">=" to the single glyph on the way in, so what comes back
+-- out of a blueprint is not the string written here.
 local function filters_of(entity)
   if not entity.filters then return nil end
 
   local filters = {}
   for index, filter in ipairs(entity.filters) do
     filters[index] = {
-      index = index, name = filter.name, quality = filter.quality, comparator = "=",
+      index = index, name = filter.name, quality = filter.quality,
+      comparator = filter.comparator or "=",
     }
   end
   return filters

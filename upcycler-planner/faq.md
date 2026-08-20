@@ -6,9 +6,15 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 
 ## Why are some build options missing?
 
-Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The three chest pickers are always hidden: the planner uses the biggest chest you have researched.
+Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The four chest pickers are always hidden: the planner uses the biggest chest you have researched.
 
 To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
+
+## What is the active provider chest for?
+
+Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.
+
+Loops aiming at the highest quality can't roll past it, so they don't get one.
 
 ## Why is my fluid recipe refused?
 

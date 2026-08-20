@@ -17,8 +17,10 @@
 --         4 .. 3+Hm     the crafting machine, pinned to this tier's quality
 --     4+Hm .. 3+Hm+Hr   the recycler, tangent under the machine
 --       4+Hm+Hr         extract inserter    | recycler-feed inserter
---       5+Hm+Hr         extract chest       | product buffer chest
+--       5+Hm+Hr         extract chest       | product buffer chest / overflow chest, last tier
 --       6+Hm+Hr         unload inserter     | product-fill inserter | south pipe stub
+--                                             overflow tap on the last tier: the unload
+--                                             inserter's tile, facing the belt instead of away
 --       7+Hm+Hr         bottom ring, flows east
 --
 -- Three things here are load-bearing and easy to break by tidying:
@@ -265,14 +267,30 @@ function layout.build(params)
       -- The last tier is the way out. Its machine crafts from ingredients already at the
       -- target quality, so its whole output is target quality; the catcher above collects
       -- product that lower tiers rolled by luck and put on the ring -- at the target quality
-      -- AND above it. Nothing else consumes an above-target roll (every machine is pinned and
-      -- matches exactly), so without those filters it would circulate on the ring forever.
+      -- AND above it, which is the whole of what ">=" says. It used to be one filter per tier
+      -- above the target, clamped to the inserter's five slots, so a long modded quality chain
+      -- silently lost its top tiers; one comparator is exact and cannot be outrun.
       chest(params.provider, col_product, ROW_FEED_CHEST)
-      local catcher_filters = { { name = params.recipe.product, quality = quality } }
-      for _, above in pairs(params.above_target or {}) do
-        catcher_filters[#catcher_filters + 1] = { name = params.recipe.product, quality = above }
+      inserter(col_product, ROW_HARVEST, NORTH,
+        { { name = params.recipe.product, quality = quality, comparator = ">=" } }, "whitelist")
+
+      -- The overflow tap: everything the loop rolled ABOVE the target leaves the ring here.
+      -- Both the machines and the recyclers can overshoot, and nothing consumes an above-target
+      -- roll -- so without this it laps the ring forever and eventually saturates it.
+      --
+      -- ONE filter does it, naming a quality and no item at all, so the cost does not grow with
+      -- the ingredient count and anything unexpected is caught too. The chest is an ACTIVE
+      -- provider on purpose: bots empty it, where a plain chest would fill and put the ring back
+      -- where it started a few hours later.
+      --
+      -- It stands in the two tiles the terminal column has spare -- no recycler here, so no
+      -- extract stack -- and is exactly the unload inserter every other column carries, reversed:
+      -- same tile, facing the belt instead of away from it. So the footprint does not change.
+      if params.overflow_tap then
+        inserter(col_feed, r.unload_inserter, SOUTH,
+          { { quality = quality, comparator = ">" } }, "whitelist")
+        chest(params.overflow, col_feed, r.lower_chest)
       end
-      inserter(col_product, ROW_HARVEST, NORTH, catcher_filters, "whitelist")
     else
       -- Product rides up to the top ring, round, and down to this tier's own recycler.
       belt(col_product, ROW_FEED_CHEST, NORTH)

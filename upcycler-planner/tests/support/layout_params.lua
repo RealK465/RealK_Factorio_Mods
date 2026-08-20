@@ -13,7 +13,8 @@ function layout_params.vanilla(overrides)
       ingredients = { { name = "iron-plate", amount = 2, type = "item" } },
     },
     tiers = { "normal", "uncommon", "rare" },
-    above_target = { "epic", "legendary" },
+    -- Rare in a normal..legendary chain, so the terminal column carries the overflow tap.
+    overflow_tap = true,
     machine = { name = "assembling-machine-2", quality = "normal", width = 3, height = 3, module_slots = 2 },
     recycler = {
       name = "recycler", quality = "normal", width = 2, height = 4, module_slots = 4,
@@ -26,6 +27,7 @@ function layout_params.vanilla(overrides)
     requester = { name = "requester-chest", quality = "normal" },
     container = { name = "iron-chest", quality = "normal" },
     provider = { name = "passive-provider-chest", quality = "normal" },
+    overflow = { name = "active-provider-chest", quality = "normal" },
     modules = {
       quality_module = { name = "quality-module", quality = "normal" },
       terminal_module = { name = "productivity-module", quality = "normal" },

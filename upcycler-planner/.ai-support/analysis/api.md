@@ -928,3 +928,83 @@ engine exposing nothing (`../decisions.md` → the Confirm-window bullet).
 fires the custom input and then confirms the chooser, in that order, on a live client. No
 test tier can open a chooser, because only a real click can — the specs drive everything
 downstream of the events instead.
+
+## 24. An inserter filter honours a quality COMPARATOR — measured 2026-08-20
+
+The question behind the ingredient-overflow problem (`../deferred.md` → *Ingredients that roll
+above the target tier*): can one filter slot mean "this item, at any quality above X"? The
+docs say `ItemFilter` is `{name?, quality?, comparator?}` with `comparator :: ComparatorString`
+— but a documented field is not evidence the inserter acts on it, and the layout's whole slot
+budget turns on the answer. Measured with a throwaway spec: real entities, real power, real
+ticks, mixed-quality plates, full research.
+
+**It works, and it is exact.** A whitelist inserter filtered `{iron-plate, rare, ">"}` between
+two chests moved **epic and legendary only**, leaving normal, uncommon and rare untouched. The
+rest of the family, same rig:
+
+| written | reads back | moved, from a chest holding all five tiers |
+|---|---|---|
+| `{iron-plate, rare, "="}` | `"="` | rare |
+| `{iron-plate, rare, ">"}` | `">"` | epic, legendary |
+| `{iron-plate, rare, ">="}` | **`"≥"`** | rare, epic, legendary |
+| `{iron-plate, rare, "≥"}` | `"≥"` | rare, epic, legendary |
+| `{iron-plate}` — no quality at all | unchanged | **all five tiers** |
+| blacklist `{iron-plate, rare, "<="}` | **`"≤"`** | epic, legendary |
+
+**`">="` and `"<="` are normalised to `"≥"` and `"≤"` on read**, exactly as `ComparatorString`
+documents (`"≠"` likewise). Any code comparing a *read* comparator against the ASCII spelling
+is broken; write either, compare only the canonical form.
+
+**The comparator survives the blueprint path intact**, which is the one that matters here —
+written into `set_blueprint_entities` as `{index, name, quality, comparator}`, built with
+`build_blueprint`, revived, and the built inserter read back `comparator = ">"` on both slots
+with `use_filters = true` and `mode = whitelist`. A hand-built comparator inserter also
+captured back into a blueprint with the comparator preserved. `filter_mode = "whitelist"` is
+**dropped** from the readback — the engine's own normalisation, whitelist being the default,
+the same omission as `direction` when north (§21).
+
+**It drains both belt lanes.** The tap picks off a moving belt, not a chest, so the last open
+question was whether a far lane full of refused items could starve the near one forever. On a
+closed 8x8 ring seeded with iron and copper plates at all five tiers in **both** lanes, one
+inserter with two comparator slots took all four above-rare stacks out of both lanes within
+3600 ticks and left all six at-or-below-rare circulating. Two straight-run rigs before it
+proved nothing and are worth not repeating: a single belt tile holds four items per lane, so a
+bulk `insert_at_back` seed is silently refused, and two `insert_at_back` calls on the same line
+back to back are refused for want of room — check the return value. A substation's supply
+square must also cover the tap itself, or the inserter simply never swings and the result reads
+as a filter failure.
+
+**A filter may name a quality and NO ITEM, and the inserter honours it.** Every field of
+`ItemFilter` is optional, and a decoded community blueprint uses a nameless quality filter on a
+*splitter* — but nothing documents an inserter doing it. Measured, same rig, a chest holding
+iron plates, copper plates and gears at all five tiers:
+
+| filter | mode | moved |
+|---|---|---|
+| `{quality = "rare", comparator = ">"}` | whitelist | **epic and legendary of all three items** |
+| `{quality = "rare", comparator = "="}` | whitelist | rare of all three items |
+| `{quality = "rare", comparator = "<="}` + `{name = "iron-gear-wheel"}` | blacklist | epic and legendary of the two plates, **no gears** |
+
+So one slot expresses "anything above this tier, whatever it is", and the blacklist pair
+expresses "anything above this tier except the product" — the shape that would spare above-target
+product for the terminal catcher, if that is ever wanted. A nameless filter survives the blueprint
+path unchanged, verified the same way as the named ones.
+
+**Consequence for the layout, and what shipped.** "Every quality at or above the target" is **one**
+filter slot (`">="`), not one per tier — so the terminal catcher's nearest-first clamp
+(`planner.lua`, the old `above_target` list) is gone, and with it the silent loss of the top tiers
+on a modded chain longer than five. The overflow tap is **one nameless `">"` slot** whatever the
+recipe, so the filter budget does not rise with the ingredient count and
+`planner.filters_needed` is untouched.
+
+**One rig failure worth not repeating twice.** Writing `">="` into `set_blueprint_entities` comes
+back out of `get_blueprint_entities` as `"≥"` — the blueprint normalises on the way *in*, where a
+plain `">"` is stored verbatim. So a spec that reads a blueprint's own filters must compare
+against the glyph, not against what the mod wrote. `tests/blueprint_spec.lua` spells it
+`"\226\137\165"` rather than embedding the character.
+
+**2.0.77 carries the identical API surface**, checked against that install's own
+`runtime-api.json`: `ItemFilter`, `BlueprintItemFilter` and `ComparatorString` are
+field-for-field the same, nine accepted spellings and five canonical. **The behaviour was not
+re-measured on 2.0** — do that from the legacy worktree before relying on it there
+(`factorio-2.0.md`).
