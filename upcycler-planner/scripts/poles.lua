@@ -218,11 +218,16 @@ local function greedy_cover(candidates, consumers, pole, cover_of)
     local best, best_count = nil, 0
     for ci = 1, #candidates do
       local list = coverage(cover_of, pole, candidates[ci], consumers)
-      local count = 0
-      for li = 1, #list do
-        if uncovered[list[li]] then count = count + 1 end
+      -- A candidate's score can never exceed the number of consumers it covers at all, so one
+      -- whose whole list is no longer than the incumbent's score cannot beat it -- and the walk
+      -- below is the round's inner loop. Skipping it changes no outcome: `count <= #list` always.
+      if #list > best_count then
+        local count = 0
+        for li = 1, #list do
+          if uncovered[list[li]] then count = count + 1 end
+        end
+        if count > best_count then best, best_count = candidates[ci], count end
       end
-      if count > best_count then best, best_count = candidates[ci], count end
     end
     if not best then break end
     placed[#placed + 1] = best
@@ -268,16 +273,52 @@ end
 -- strictly drops on every accepted pole.
 local function bridge(placed, candidates, pole)
   local components = components_of(placed, pole)
+
+  -- Placed poles filed by the column their centre sits in, so scoring a candidate consults the
+  -- poles near it instead of every pole in every component. Same superset argument as
+  -- coverage's index: a candidate within wire reach of a pole is within wire reach in x alone,
+  -- so the pole's centre column lies inside the queried window.
+  --
+  -- Without this the round costs candidates x placed, and a bridging round, the candidate count
+  -- and the pole count all grow with the quality chain -- cubic, which is what hung the game on
+  -- a 254-tier chain (a 5x5 machine and a medium pole: 82 s for one solve).
+  local pole_columns = {}
+  local function file(i)
+    local x = math.floor(placed[i].dx + pole.width / 2)
+    local bucket = pole_columns[x]
+    if not bucket then
+      bucket = {}
+      pole_columns[x] = bucket
+    end
+    bucket[#bucket + 1] = i
+  end
+  for i = 1, #placed do file(i) end
+
   while #components > 1 do
+    -- Which component each pole is in now. Rebuilt per round because the merge below renumbers
+    -- them, and it is what lets a candidate be scored from a pole rather than from a component.
+    local component_of = {}
+    for ci, component in pairs(components) do
+      for _, i in pairs(component) do component_of[i] = ci end
+    end
+
     local best, best_touch, best_count = nil, nil, 0
     for _, candidate in pairs(candidates) do
       local touched, count = {}, 0
-      for ci, component in pairs(components) do
-        for _, i in pairs(component) do
-          if within_wire_reach(pole, candidate, placed[i]) then
-            touched[ci] = true
-            count = count + 1
-            break
+      local cx = candidate.dx + pole.width / 2
+      local reach = pole.wire_distance
+      for x = math.floor(cx - reach), math.ceil(cx + reach) do
+        local bucket = pole_columns[x]
+        if bucket then
+          for bi = 1, #bucket do
+            local i = bucket[bi]
+            local ci = component_of[i]
+            -- One component counts once however many of its poles are in reach, which is what
+            -- the old per-component `break` did.
+            if not touched[ci] and within_wire_reach(pole, candidate, placed[i]) then
+              touched[ci] = true
+              count = count + 1
+            end
           end
         end
       end
@@ -286,6 +327,7 @@ local function bridge(placed, candidates, pole)
     if best_count < 2 then break end
 
     placed[#placed + 1] = best
+    file(#placed)
     candidates = without_overlapping(candidates, best, pole)
     local merged, kept = { #placed }, {}
     for ci, component in pairs(components) do

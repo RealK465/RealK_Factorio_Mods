@@ -5,9 +5,10 @@ Date: ????
     - Loops that aim below the highest quality now build an overflow chest.
   Optimizations:
     - The planner window responds faster. Changing an option now designs the loop once
-      instead of twice, and with quality mods that add many tiers the longest loops plan
-      about six times quicker.
+      instead of twice.
   Bugfixes:
+    - Fixed the game freezing when you picked a very high quality with a mod that adds many
+      tiers. The longest loops are now around thirty times faster to design.
     - Fixed that the target quality list stopped after 32 tiers, hiding the higher ones
       added by large quality mods.
 ---------------------------------------------------------------------------------------------------
