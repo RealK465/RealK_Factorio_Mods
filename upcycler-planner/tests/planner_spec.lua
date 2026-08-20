@@ -56,6 +56,32 @@ describe("upcyclability -- prototype-level, research-free", function()
       "a stale build quality must read as normal")
   end)
 
+  test("the chain walk has no tier ceiling, and a circular chain terminates", function()
+    -- The walk used to be bounded by a fixed iteration count, which capped the chain at 32 and
+    -- silently dropped every tier a big quality mod adds above it -- infinite-quality-tiers-plus
+    -- stops dead at its 32nd. Stub nodes carry the three fields the walk reads, the way the
+    -- modded recycler below is stubbed rather than fixtured.
+    local nodes = {}
+    for i = 1, 100 do nodes[i] = { name = "q-" .. i, hidden = i % 10 == 0 } end
+    for i = 1, 99 do nodes[i].next = nodes[i + 1] end
+
+    local long = planner.walk_quality_chain(nodes[1])
+    assert(#long == 90, "long chain length " .. #long .. ", expected 90")
+    assert(long[1] == "q-1" and long[90] == "q-99", "long chain ends at " .. tostring(long[90]))
+
+    -- A malformed mod could close the list into a loop; the walk must stop at the first name it
+    -- has already seen rather than hang the game.
+    nodes[100].next = nodes[1]
+    assert(#planner.walk_quality_chain(nodes[1]) == 90, "cycle guard failed")
+
+    -- The case the count bound was really buying: a cycle of entirely HIDDEN tiers grows the
+    -- chain by nothing, so a bound on chain LENGTH would never trip and the walk would spin.
+    local a = { name = "hidden-a", hidden = true }
+    local b = { name = "hidden-b", hidden = true, next = a }
+    a.next = b
+    assert(#planner.walk_quality_chain(a) == 0, "an all-hidden cycle must terminate empty")
+  end)
+
   test("an east-flank thrower is stood facing west, any width fits", function()
     -- Age of Production's salvager, as a stub -- recycler_orientation reads only these three
     -- fields, so the historic modded-recycler scenario needs no fixture mod. Authored throwing

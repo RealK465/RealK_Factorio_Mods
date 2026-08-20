@@ -139,21 +139,69 @@ local function without_overlapping(candidates, taken, pole)
   return kept
 end
 
--- Which consumers a candidate covers, as an array of consumer indices, memoised in `cache`
--- on first use. The geometry never changes while poles are placed -- only membership in
--- `uncovered` does -- so the greedy pass, the free-tile retry and the final honesty tally all
--- share one answer per candidate instead of re-running the overlap arithmetic per round.
--- Lazy rather than precomputed for the whole plan: a solve whose utility columns already
--- cover never asks about the free tiles at all. Keyed by the candidate table itself, which
--- within_columns and without_overlapping both preserve.
-local function coverage(cache, pole, candidate, consumers)
-  local list = cache[candidate]
+-- Consumer indices filed by tile column, so a candidate only asks about the consumers its
+-- supply square could possibly reach. A consumer is filed under every column its tile rect
+-- spans; a candidate queries the columns its supply square spans. That is always a superset
+-- of the true answer -- a pole that covers a consumer must overlap it in x, and the margin
+-- only ever shrinks the consumer inside the columns it was filed under -- so the list this
+-- produces is exactly the list the plain scan produced.
+--
+-- A plan is one tier column per quality tier, so both the candidates and the consumers grow
+-- with the tier count and the plain scan was their product. That was fine while the chain
+-- was five tiers and unnoticeable at the 32 the planner used to cap it at; a mod that adds
+-- 250 makes it the whole cost of the solve.
+local function index_consumers(consumers)
+  local columns = {}
+  for i = 1, #consumers do
+    local c = consumers[i]
+    for x = math.floor(c.dx), math.ceil(c.dx + c.w) do
+      local bucket = columns[x]
+      if not bucket then
+        bucket = {}
+        columns[x] = bucket
+      end
+      bucket[#bucket + 1] = i
+    end
+  end
+  return columns
+end
+
+-- One solve's derived state: the column index, built once, and the per-candidate coverage
+-- lists, filled lazily.
+local function memo_for(consumers)
+  return { columns = index_consumers(consumers), lists = {} }
+end
+
+-- Which consumers a candidate covers, as an array of consumer indices, memoised in
+-- `memo.lists` on first use. The geometry never changes while poles are placed -- only
+-- membership in `uncovered` does -- so the greedy pass, the free-tile retry and the final
+-- honesty tally all share one answer per candidate instead of re-running the overlap
+-- arithmetic per round. Lazy rather than precomputed for the whole plan: a solve whose
+-- utility columns already cover never asks about the free tiles at all. Keyed by the
+-- candidate table itself, which within_columns and without_overlapping both preserve.
+--
+-- `seen` is not an optimisation. A consumer wider than one tile is filed in several columns,
+-- and counting it twice would inflate the greedy pass's gain and change which pole it picks.
+local function coverage(memo, pole, candidate, consumers)
+  local list = memo.lists[candidate]
   if not list then
     list = {}
-    for i = 1, #consumers do
-      if covers(pole, candidate, consumers[i]) then list[#list + 1] = i end
+    local cx = candidate.dx + pole.width / 2
+    local d = pole.supply_distance
+    local seen = {}
+    for x = math.floor(cx - d), math.ceil(cx + d) do
+      local bucket = memo.columns[x]
+      if bucket then
+        for bi = 1, #bucket do
+          local i = bucket[bi]
+          if not seen[i] then
+            seen[i] = true
+            if covers(pole, candidate, consumers[i]) then list[#list + 1] = i end
+          end
+        end
+      end
     end
-    cache[candidate] = list
+    memo.lists[candidate] = list
   end
   return list
 end
@@ -178,7 +226,7 @@ local function greedy_cover(candidates, consumers, pole, cover_of)
     end
     if not best then break end
     placed[#placed + 1] = best
-    local list = cover_of[best]
+    local list = cover_of.lists[best]
     for li = 1, #list do
       local i = list[li]
       if uncovered[i] then
@@ -289,23 +337,46 @@ end
 local function spanning_wires(placed, pole)
   local wires = {}
   for _, component in pairs(components_of(placed, pole)) do
+    -- Prim's, carrying each outside pole's best edge INTO the tree rather than rescanning the
+    -- whole tree on every edge. Rescanning made this cubic in the pole count, which is one per
+    -- quality tier or so -- invisible at five tiers, most of the solve at two hundred.
+    --
+    -- The tie-breaks are the old scan's and are reproduced exactly: among equal distances the
+    -- earliest component position wins, at BOTH ends of the edge. That second half is the one
+    -- worth stating, because a ring plan is full of equal distances and nothing in the suite
+    -- pins a wire_to value -- a rewired plan would still be connected, and still pass.
+    local order = {}
+    for position, i in pairs(component) do order[i] = position end
+
+    local best_dist, best_to = {}, {}
     local in_tree = { [component[1]] = true }
-    for _ = 2, #component do
-      local best_from, best_to, best_dist
+
+    -- Every pole still outside the tree reconsiders its edge against the one just added.
+    local function offer(j)
       for _, i in pairs(component) do
         if not in_tree[i] then
-          for _, j in pairs(component) do
-            if in_tree[j] then
-              local dist = distance_sq(pole, placed[i], placed[j])
-              if not best_dist or dist < best_dist then
-                best_from, best_to, best_dist = i, j, dist
-              end
-            end
+          local dist = distance_sq(pole, placed[i], placed[j])
+          local current = best_dist[i]
+          if not current or dist < current
+            or (dist == current and order[j] < order[best_to[i]])
+          then
+            best_dist[i], best_to[i] = dist, j
           end
         end
       end
+    end
+    offer(component[1])
+
+    for _ = 2, #component do
+      local best_from
+      for _, i in pairs(component) do
+        if not in_tree[i] and (not best_from or best_dist[i] < best_dist[best_from]) then
+          best_from = i
+        end
+      end
       in_tree[best_from] = true
-      wires[best_from] = best_to
+      wires[best_from] = best_to[best_from]
+      offer(best_from)
     end
   end
   return wires
@@ -323,8 +394,8 @@ end
 function poles.plan(built, pole, consumer_margins)
   local consumers = consumers_of(built.entities, consumer_margins)
   local candidates = candidate_positions(occupied(built.entities), built.width, built.height, pole)
-  -- One coverage cache for the whole solve; `coverage` fills it lazily.
-  local cover_of = {}
+  -- One memo for the whole solve: the column index up front, the coverage lists lazily.
+  local cover_of = memo_for(consumers)
 
   -- Columns first, free tiles as the honest fallback: the layout already sized the utility
   -- columns to this pole, so the tidy vertical line is the common case -- but a pole whose

@@ -64,7 +64,8 @@ storage, no game state, same inputs same output on every client.
    consumer covered only by an unwired island would read as powered by geometry and sit dark
    in game.
 8. **Spanning wires** — one copper wire per pole, to its nearest already-wired neighbour
-   (Prim, per component). `blueprint.lua` writes the list as blueprint `wires`, reciprocally on
+   (Prim, per component, each outside pole carrying its best edge rather than the tree being
+   rescanned per edge — see §Performance). `blueprint.lua` writes the list as blueprint `wires`, reciprocally on
    both ends the way `create_blueprint` does (`api.md` §21), and the engine makes the
    connections when the loop is stamped.
 
@@ -136,5 +137,62 @@ the substation column case stayed level at ~1.2 ms. An **eager** precompute over
 candidates was tried first and regressed that substation case ~30% — a column solve that
 covers never consults the free tiles, so materialising their lists is pure waste — which is
 why the lists are lazy. Synchronous inside `gui.refresh` exactly as `layout.build` already
-is, so the worst case is now well under a frame on a picker click. No spatial indexing; at
-this size it would be the MPP-style machinery `reference-mods.md` already argues against.
+is, so the worst case is well under a frame on a picker click at vanilla lengths.
+
+### Long chains — the index and the tree
+
+That paragraph used to close with "no spatial indexing; at this size it would be the MPP-style
+machinery `reference-mods.md` argues against". **The size assumption died with the tier cap,
+later the same day.** `planner.quality_chain()` was bounded at 32 tiers, so no plan could ever
+be longer than 32 columns however many tiers a mod added. Removing that bound (`../journal.md`,
+2026-08-20) let a 254-tier mod ask for a 1018-tile-wide plan, and both of this pass's
+quadratic-or-worse terms became the whole cost of a solve.
+
+- **`coverage` files consumers by tile column** and asks only the columns a candidate's supply
+  square spans. The plain scan was `#candidates x #consumers`, and a tier column adds to both,
+  so it was the tier count squared. Sound because a pole that covers a consumer must overlap it
+  in x, and the margin only ever shrinks the consumer *inside* the columns it was filed under —
+  the bucket query is a superset of the true answer, never a subset. A consumer wider than one
+  tile sits in several buckets, so the walk carries a `seen` set: counting one twice would
+  inflate the greedy pass's gain and change which pole it picks.
+- **`spanning_wires` carries each outside pole's best edge into the tree** rather than
+  rescanning the whole tree per edge, which was cubic in the pole count — and the pole count
+  tracks the tier count. Both tie-breaks are reproduced exactly: among equal distances the
+  earliest component position wins, at *both* ends of the edge.
+
+| tiers | plan width | before | after |
+|---|---|---|---|
+| 32 | 130 | 32 ms | 11 ms |
+| 64 | 258 | 123 ms | 41 ms |
+| 128 | 514 | 544 ms | 117 ms |
+| 254 | 1018 | 2604 ms | 441 ms |
+
+**Proven identical over 5280 configurations** — 11 tier counts x 3 machine footprints x 4 gap
+patterns x fluid on/off x 2 pole footprints, against 10 supply radii, 7 wire reaches and 3
+margins — comparing the live file against the pre-change one recovered from git, every field of
+every pole, `wire_to` included.
+
+**The harness was falsified before it was trusted**, because the false pass recorded earlier in
+`../journal.md` (2026-08-20) is exactly this trap: a comparison harness that cannot fail is
+worse than none, because it is believed. This one was first pointed at two deliberately broken
+copies — swapping the candidate scan order gave 2182 mismatches, and dropping *only* the
+second-end tie-break in the new spanning tree gave 43. The second number is the one that
+mattered: it is the failure mode the suite could not see, since nothing in it pinned a `wire_to`
+value. `tests/pure/poles_spec.lua` now pins the whole eight-tier wire tree as a single line, and
+solves a 64-tier ring, for precisely that reason.
+
+**A pick now costs one plan, not two.** Every figure above is per `planner.plan`, which
+`gui.refresh` calls once — but nine of the eleven picker handlers used to run the whole refresh
+*twice* for one click, because `on_gui_click` and `on_gui_elem_changed` reach the same
+tag-routed handler and the first carries the value the button already held. Guarded the same
+day (`../journal.md`), which halves the whole table again for a player changing a picker, at
+every chain length including vanilla.
+
+**What is still quadratic, and deliberately left alone.** `greedy_cover` rescans every candidate
+each round and `without_overlapping` rebuilds the candidate array alongside it. Fixing those
+means a lazy-greedy heap whose ordering has to be hand-proved against the current "first
+candidate in scan order with a strictly greater gain" — materially riskier than either change
+above, for a case only reachable past ~128 tiers. Separately, `bridge` and `largest_component`
+still lean on `pairs()` walking a dense array in order, where `greedy_cover` was hardened to
+numeric indexing: a latent fragility rather than a bug, and one any future reshaping of those
+candidate arrays has to respect.

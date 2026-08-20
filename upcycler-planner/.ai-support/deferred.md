@@ -152,8 +152,24 @@ they are a different architecture — recycler walls with no crafting stage — 
 economics (`analysis/quality-math.md` §3). Revisit only if the niche turns out to matter.
 
 ### Modded quality tiers
-The quality chain is walked via `prototypes.quality["normal"].next` rather than hard-coded, so it
-should work — but it is untested against a mod that adds tiers.
+The chain is walked via `prototypes.quality["normal"].next` rather than hard-coded, and since
+2026-08-20 the walk carries no tier ceiling: it stops at the first name it has already seen. It
+was `MAX_QUALITY_TIERS = 32` until then, which truncated the chain silently —
+infinite-quality-tiers-plus stopped dead at its 32nd tier (`uncommon-III`), reported from a
+played 2.0 game. `planner.walk_quality_chain(first)` is the walk, taking the head so a synthetic
+chain can exercise it; `planner_spec` feeds it 100 stub nodes and two kinds of cycle.
+
+**The cost half is largely paid.** A column index in `coverage` and an incremental spanning tree
+took 254 tiers from 2604 ms to 441 ms per solve, proven identical over 5280 configurations —
+`analysis/poles.md` → *Long chains* carries the evidence and the soundness argument. Guarding
+the nine picker handlers that only refresh halved the number of solves a pick costs on top of
+that — one click raises two events into a tag-routed dispatcher, so each was planning the loop
+twice. What is left:
+
+- **`greedy_cover` still rescans every candidate per round**, with `without_overlapping`
+  rebuilding the array beside it. A lazy-greedy heap would fix it at the price of hand-proving a
+  tie-break against "first candidate in scan order with a strictly greater gain" — only
+  reachable past ~128 tiers, and the riskiest of the three. Reasons in `analysis/poles.md`.
 
 ## Housekeeping
 

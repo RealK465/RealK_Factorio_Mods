@@ -867,12 +867,36 @@ dispatch.register("recipe", function(event)
   gui.open(player)
 end)
 
+-- One click on a picker raises on_gui_click AND on_gui_elem_changed, and dispatch routes on the
+-- element's tags rather than on the event type -- so every handler below runs twice for one pick,
+-- the first time carrying the value the button already held. The recipe handler above guards that
+-- inline because its second run rebuilt the modal under the open chooser and visibly flashed; the
+-- rest were left unguarded because gui.refresh touches no elements at all and so showed nothing.
+-- What it does do is design the whole loop again, which on a long modded quality chain is the
+-- most expensive thing the mod does.
+--
+-- Snapshot before the handler resolves and compare AFTER, never before: an emptied picker snaps
+-- back to the value it already held, and a guard placed ahead of that would skip the write that
+-- redraws the button.
+local function settled_on(choices, ...)
+  local keys, before = { ... }, {}
+  for _, key in pairs(keys) do before[key] = choices[key] end
+  return function()
+    for _, key in pairs(keys) do
+      if choices[key] ~= before[key] then return false end
+    end
+    return true
+  end
+end
+
 dispatch.register("quality", function(event)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "quality")
   -- Read the list this dropdown was built from, never a re-derived one: research finishing
   -- while the modal is open would shift a re-derived list under the selected index.
   local targets = event.element.tags.targets
   choices.quality = targets[event.element.selected_index]
+  if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)
 
@@ -903,16 +927,19 @@ end)
 
 dispatch.register("recycler", function(event)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "recycler", "recycler_quality")
   local value = event.element.elem_value
   choices.recycler = value and value.name
   -- Kept on clear, same reasoning as the machine above.
   if value then choices.recycler_quality = planner.build_quality(value.quality) end
+  if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)
 
 dispatch.register("belt", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "belt")
   choices.belt = event.element.elem_value
   -- An emptied button falls straight back to the fastest researched belt, and shows it, so the
   -- strip always displays the belt that would actually be placed.
@@ -920,12 +947,14 @@ dispatch.register("belt", function(event)
     choices.belt = planner.belt(player.force)
     event.element.elem_value = choices.belt
   end
+  if settled() then return end
   gui.refresh(player)
 end)
 
 dispatch.register("inserter", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "inserter", "inserter_quality")
   local value = event.element.elem_value
   choices.inserter = value and value.name
   if value then choices.inserter_quality = planner.build_quality(value.quality) end
@@ -934,6 +963,7 @@ dispatch.register("inserter", function(event)
     choices.inserter = planner.inserter(player.force, planner.filters_needed(chosen_recipe(choices)))
     event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   end
+  if settled() then return end
   gui.refresh(player)
 end)
 
@@ -942,6 +972,7 @@ dispatch.register("chest", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
   local role = event.element.tags.role
+  local settled = settled_on(choices, role, role .. "_quality")
   local value = event.element.elem_value
   choices[role] = value and value.name
   if value then
@@ -951,12 +982,14 @@ dispatch.register("chest", function(event)
     choices[role] = planner.chest(player.force, role)
     event.element.elem_value = with_quality(choices[role], choices[role .. "_quality"])
   end
+  if settled() then return end
   gui.refresh(player)
 end)
 
 dispatch.register("quality-module", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "quality_module", "quality_module_quality")
   local value = event.element.elem_value
   choices.quality_module = value and value.name
   if value then choices.quality_module_quality = planner.build_quality(value.quality) end
@@ -966,6 +999,7 @@ dispatch.register("quality-module", function(event)
     event.element.elem_value =
       with_quality(choices.quality_module, choices.quality_module_quality)
   end
+  if settled() then return end
   gui.refresh(player)
 end)
 
@@ -981,34 +1015,41 @@ dispatch.register("terminal-module", function(event)
       with_quality(choices.terminal_module, choices.terminal_module_quality)
     return
   end
+  local settled =
+    settled_on(choices, "terminal_module", "terminal_module_quality", "no_terminal_module")
   choices.terminal_module = value and value.name
   -- The pole's rule, not the belt's: an emptied picker means "leave the top machine empty", which
   -- is a legitimate plan and the honest default whenever productivity is refused.
   choices.no_terminal_module = not value
   if value then choices.terminal_module_quality = planner.build_quality(value.quality) end
+  if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)
 
 dispatch.register("pipe", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "pipe")
   choices.pipe = event.element.elem_value
   -- The belt's rule: emptied means "back to the best I have researched", and shown.
   if not choices.pipe then
     choices.pipe = planner.pipe(player.force)
     event.element.elem_value = choices.pipe
   end
+  if settled() then return end
   gui.refresh(player)
 end)
 
 dispatch.register("pole", function(event)
   local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "pole", "pole_quality", "no_poles")
   local value = event.element.elem_value
   choices.pole = value and value.name
   -- The one picker where an emptied button does NOT snap back: clearing means "place no
   -- poles", and the empty button showing nothing is exactly that state on display.
   choices.no_poles = not value
   if value then choices.pole_quality = planner.build_quality(value.quality) end
+  if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)
 

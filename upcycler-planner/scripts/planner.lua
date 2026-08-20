@@ -32,10 +32,6 @@ local function recipe_can_set_quality(recipe)
   return not (blocked and blocked.get(recipe.name))
 end
 
--- Guard against a quality chain that loops back on itself; prototypes.quality.next is a
--- linked list and a malformed mod could make it circular.
-local MAX_QUALITY_TIERS = 32
-
 -- Picks the highest-scoring entry out of a table and returns its KEY; `score_of(key, value)`
 -- returns nil to reject one. Used for every "best the player has researched" question below,
 -- so the comparison that decides them all lives in exactly one place.
@@ -62,22 +58,33 @@ end
 
 -- Quality tiers
 
--- normal first, then upward, skipping hidden tiers ("quality-unknown" is one of them).
-function planner.quality_chain()
-  if memo.qualities then return memo.qualities end
-
-  -- Bounded by iterations, not by #chain: a malformed cycle of entirely HIDDEN tiers would
-  -- never grow the chain, and a #chain bound would spin forever.
-  local chain = {}
-  local quality = prototypes.quality["normal"]
-  for _ = 1, MAX_QUALITY_TIERS do
-    if not quality then break end
+-- The walk itself, taking the head of the chain so a synthetic one can exercise it: a chain
+-- longer than the installed game has, and a circular one, are both unreachable from a real
+-- prototype table. Stubs need only the three fields read here, the way recycler_orientation is
+-- stubbed with a bare footprint.
+--
+-- Bounded by the names ALREADY SEEN rather than by a tier count. The cycle guard is the same
+-- worry -- prototypes.quality.next is a linked list a malformed mod could close into a loop --
+-- but a count doubles as a ceiling on how many tiers a WELL-formed mod may add, and silently
+-- dropped every tier above it. Marking hidden tiers seen too is what a count was really buying:
+-- a cycle of entirely hidden tiers grows no chain, so a #chain bound would spin forever.
+function planner.walk_quality_chain(first)
+  local chain, seen = {}, {}
+  local quality = first
+  while quality and not seen[quality.name] do
+    seen[quality.name] = true
     if not quality.hidden then chain[#chain + 1] = quality.name end
     quality = quality.next
   end
-
-  memo.qualities = chain
   return chain
+end
+
+-- normal first, then upward, skipping hidden tiers ("quality-unknown" is one of them).
+function planner.quality_chain()
+  if not memo.qualities then
+    memo.qualities = planner.walk_quality_chain(prototypes.quality["normal"])
+  end
+  return memo.qualities
 end
 
 -- What the player may aim for. Upcycling to normal is a contradiction, so the first tier is

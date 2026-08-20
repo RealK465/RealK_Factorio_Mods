@@ -3,6 +3,13 @@ Version: 0.4.4
 Date: ????
   Features:
     - Loops that aim below the highest quality now build an overflow chest.
+  Optimizations:
+    - The planner window responds faster. Changing an option now designs the loop once
+      instead of twice, and with quality mods that add many tiers the longest loops plan
+      about six times quicker.
+  Bugfixes:
+    - Fixed that the target quality list stopped after 32 tiers, hiding the higher ones
+      added by large quality mods.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.3
 Date: 2026-08-20
