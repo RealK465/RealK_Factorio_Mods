@@ -154,7 +154,7 @@ per-release approval.
   alternative was re-taking `player.opened` inside `on_gui_closed`, the exact hazard
   `gui.close_settings` already documents. Evidence: `analysis/api.md` §22.
   `gui.confirm(player)` is public and **guards its own preconditions** — a modal must be open and
-  no settings window may be in front of it — because the key can arrive with neither, where the
+  the settings panel may not be open — because the key can arrive with neither, where the
   button never can.
   **The key swallows one press while an element chooser is presumed open** (2026-08-20, after a
   press of E over the machine picker's floating chooser placed the blueprint and tore the
@@ -236,7 +236,7 @@ per-release approval.
   `upcycler-planner-show-all` setting shows everything instead, standing in for the game's own
   "show all items in selection lists" option, which is not exposed to the runtime API. An empty
   researched subset falls back to the full list so the modal never dead-ends. Ticked in the
-  settings window below as well as in the game's settings menu.
+  settings panel below as well as in the game's settings menu.
 - **A picker is only shown when it has something to choose between** (repo owner's call,
   2026-08-17). One option is not a choice, so a picker offering exactly one thing is hidden —
   which in a vanilla game is the recycler and the pipe, and
@@ -262,10 +262,10 @@ per-release approval.
   for a recipe with no fluid, since a player asking to see everything means everything. So the
   count rule is the default rather than a ceiling: a hidden picker's quality is reached through
   the setting, not through a permanently visible row.
-- **The two settings live in the modal, in a second frame** (owner's call, 2026-08-17,
+- **The two settings live in the modal, in a window-styled panel** (owner's call, 2026-08-17,
   patterned on Factory Planner's Preferences dialog): a **Settings** button in the titlebar opens
-  a small window holding *Show unresearched items* and *Show all build options*. It is called
-  Settings rather than Preferences throughout — window, button and locale — because that is what
+  a small panel holding *Show unresearched items* and *Show all build options*. It is called
+  Settings rather than Preferences throughout — panel, button and locale — because that is what
   the two values are: the mod's own per-player settings, editable from the game's menu as well.
   **The button is captioned rather than drawn** (owner's call, 2026-08-17). The base game ships no
   gear, and its settings-sliders glyph (`preset`, for map-generation presets) reads as a preset
@@ -283,32 +283,43 @@ per-release approval.
   one repaint path serves both surfaces, and a setting follows the player into their next save,
   which a storage-backed one would not. FP's reason for storage does not apply here: it has thirty
   preferences of many widget types and no use for the settings menu.
-  **It opens beside the modal, to its right with the top edges level** (owner's layout,
-  2026-08-17), not centred on top of it. No API reads an element's rendered size, so the modal's
-  own centred `location` is the measurement — auto_center puts a frame at (resolution - width) / 2,
-  so its width is `resolution - 2x`, which stays right in every language where a hardcoded offset
-  would drift. **That inference holds only while the modal is centred, and its titlebar makes it
-  draggable** — dragged right of centre the width comes out negative and the window would land on
-  top of the modal, dragged left it overshoots and the window would land off the screen, both
-  silently — and neither is detectable directly, since nothing reports whether a frame was moved.
-  So the **last plausible measurement is remembered per player** and reused when the current one
-  falls outside the range a real modal can occupy; the x is also clamped to keep the window
-  reachable when the modal sits too far right for anything to fit beside it. `gui_spec` pins the
-  centred, dragged-left and dragged-right cases.
+  **It is a sibling COLUMN inside the planner's own screen element, not a second window**
+  (owner's demand after two failed placements, 2026-08-20: "always side by side no matter
+  what"). The screen element is an **invisible container** — vanilla's `invisible_frame`, no
+  graphics, no padding — holding two window-styled frames: the planner, and the panel while it
+  is open, with a 12px left margin standing in for the gap two windows used to have. So the
+  pair still *looks* like two windows, titlebars level, map visible between them, while
+  "beside" is the engine's layout and there is nothing to place, measure, or follow. Both
+  titlebars drag the container (`drag_target` must name a `gui.screen` element). What killed
+  placement-by-arithmetic, in order: no API reads an element's rendered size, so a second
+  window's x had to come from the modal's auto-centred location (width = resolution − 2x) — an
+  inference any drag silently invalidates, with a moderate drag still *plausible-looking*
+  (owner's screenshots: the window opened across the screen); and the repair, gating
+  measurement on an `on_gui_location_changed` drag flag, died the same day because **2.1.14
+  raises that event for the engine's own auto_center layout too** (`analysis/api.md` §19), so
+  the flag was set before any drag and the width was never learned. A visible container was
+  also tried and rejected — one wide slab with dead background under the short panel (owner's
+  screenshot). Even Distribution lands on the same principle from the other side: its settings
+  panel is *anchored* to the inventory GUI, never positioned by coordinates. Opening the
+  planner also **sweeps a leftover `upl-settings` screen window** a pre-0.4.2 save can carry,
+  as does `gui.close_settings`. `gui_spec` pins the containment, the sweep, and the rebuild
+  keeping an open panel open.
 - **A picker handler does nothing unless its value actually changed.** `on_gui_click` and
   `on_gui_elem_changed` share one dispatcher, so a click reaches the handler carrying the value
   already in the button — and the two handlers that rebuild the modal would otherwise destroy the
-  element while the engine was opening its chooser on it (`analysis/api.md` §20). Two consequences worth keeping: **a rebuild leaves the modal exactly where it was**
-  rather than re-centring, so the top edge the window is levelled against does not move (and the
-  modal no longer jumps out from under the cursor when a setting is flipped), and a modal whose
-  `location` still reads 0,0 — one built this same tick, which no player action reaches — centres
-  the window instead of measuring off a zero. Timings and figures: `analysis/api.md` §19.
-  **The window takes `player.opened`, which asks the modal to close** — one element at a time can
-  own it. So `control.lua` honours a close on the modal only when no settings window exists;
-  the window's existence is the guard, rather than a stored flag as in FP, because it cannot drift
-  from what is on screen. Closing the window destroys it and hands `opened` back, in that order.
-  Closing the modal takes the window with it; a rebuild triggered by flipping a setting does
-  not, which is why `gui.close` and the modal-only teardown are separate functions.
+  element while the engine was opening its chooser on it (`analysis/api.md` §20). One
+  consequence worth keeping: **a rebuild leaves the modal exactly where it was** rather than
+  re-centring, so it does not jump out from under the cursor when a setting is flipped.
+  **The container keeps `player.opened` whether or not the panel is open** — the panel is a
+  child, never a window of its own — and `control.lua` turns a close request on the container
+  into "panel first": with the panel up, Esc, the engine's confirm, or another GUI taking over
+  dismisses just the panel (retaking `opened` only when nothing else claimed it, since opening
+  a GUI during `on_gui_closed` force-closes whichever one the engine was not asked for —
+  measured in `gui_spec`); without it, the close is honoured. The panel's existence is the
+  guard, rather than a stored flag as in FP, because it cannot drift from what is on screen.
+  Closing the modal takes the panel with it for free; a rebuild triggered by flipping a
+  setting re-creates an open panel with fresh ticks, which also retired the repaint-on-change
+  loop.
 - **The build options are a six-column grid** (owner's call, 2026-08-17). A `table`, not a flow,
   so the row length is a rule rather than an accident: nine pickers on one line drag the modal
   wider than the block above it, and a modset adding a tenth would keep dragging. Measured in a

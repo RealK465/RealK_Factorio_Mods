@@ -19,15 +19,16 @@ top machine module, electric pole, pipe, and the trash-unrequested checkbox. Eve
 strip but the belt and the pipe carries a quality of its own — and a picker with only one option
 is hidden, as are the three chests whatever their count, so a vanilla game sees five of the nine
 — laid out as a **six-column grid**, since a
-hidden picker takes no cell. A **settings window** opens beside the modal, top edges level, from a
-captioned **Settings** button in its titlebar, holding the two per-player settings: show
-unresearched items, and show every picker whatever the count.
+hidden picker takes no cell. A **settings panel** opens beside the pickers — a sibling column
+inside the planner's own screen element, styled as a window of its own — from a captioned
+**Settings** button in the titlebar, holding the two per-player settings: show unresearched
+items, and show every picker whatever the count.
 What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (157 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
+suite under `tests/` (158 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -268,12 +269,13 @@ re-opening any of these, and don't restate a reason here.
   all. That is the *plan* pipeline — `storage` still holds the two halves as flat strings, per
   the rule below.
 - Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
-- **The two settings are edited in a second frame beside the modal**, and are mod *settings*
-  rather than a private copy in `storage`; one `on_runtime_mod_setting_changed` handler repaints
-  for the window and the settings menu alike. A nested window owns `player.opened`, so
-  `control.lua` honours a close on the modal only when no settings window exists, and
-  `gui.close_settings` hands the focus back only when nothing else has taken it. Reasons:
-  `decisions.md`; measurements: `analysis/api.md` §17.
+- **The two settings are edited in a panel beside the pickers** — a sibling column inside the
+  planner's own screen element (an invisible container frame), never a second window, so the
+  pair cannot separate however the planner is moved. They are mod *settings* rather than a
+  private copy in `storage`; a change from the panel or the game's settings menu rebuilds the
+  modal, panel included, through one `on_runtime_mod_setting_changed` handler. The container
+  keeps `player.opened` throughout; `control.lua` turns a close request into "panel first".
+  Reasons: `decisions.md`; measurements: `analysis/api.md` §17 and §19.
 - **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
   game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
   machine, belt, quality module, and the two whose *clear* is the second option (pole, top machine
