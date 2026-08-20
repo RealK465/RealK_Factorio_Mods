@@ -9,6 +9,56 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — the suite grows to 148, and the pole solver stops paying per round
+
+The repo owner asked for two things across the whole mod: as many new tests as the suite could
+honestly carry, and a performance pass over the algorithms. Both landed; no behaviour changed,
+and a 512-shape parity sweep is what makes that claim checkable rather than asserted.
+
+**Tests: 125 → 148, all green on every tier.** What the new ones pin, chosen for silent-failure
+risk rather than coverage numbers: the ring's **circulation direction** tile by tile (the old
+closure test counted belts but a wrong-facing belt stalls the loop invisibly); two-ingredient
+filters and requests per tier; the row arithmetic under a 4-tall machine and the pitch under a
+4-wide one; the two-tier minimal plan; module insert-plan counts; **deep-equal determinism** for
+both pure modules (the desync contract, held structurally via a shared
+`tests/support/deep_equal.lua`); the pole **bridge pass** and the **honesty rule** in the pure
+tier — the header's old claim that unpowered > 0 needs a real planner plan was wrong, a
+hand-built wall between two machines reaches it; 2x2 pole footprint handling; machine-candidate
+membership with premise asserts (AM1 has no module slots, the refinery refuses quality);
+`request_count` arithmetic against stub recipes; `with_quality` / `filters_needed` /
+`needs_pipe` edges; the build-quality warning path; and terminal-module prune with the two
+boolean clears. One lesson worth keeping: **`require` inside a test body is a runtime error
+in-game** ("Require can't be used outside of control.lua parsing") while passing on the host
+runner — a split verdict the pure tier cannot catch, so shared helpers are required at spec
+top level.
+
+**The solver: coverage lists, computed lazily once per candidate.** `greedy_cover` used to
+re-run the supply-square overlap against every candidate x every uncovered consumer on every
+round — the round count multiplying the whole geometry. Now `poles.plan` keeps one cache for
+the solve; a candidate's covered-consumer list is computed on first consult and shared by the
+greedy pass, the free-tile retry and the honesty tally, so the geometry is paid once and a
+round is table lookups. Lazy, not precomputed: an eager version was measured first and
+**regressed the substation case ~30%**, because a column solve that covers never consults the
+free tiles at all. Iteration switched from `pairs` to numeric indexing at the same time, making
+the scan-order determinism structural instead of an engine courtesy. `planner.is_quality` also
+went from a chain scan to a memoised set — it runs once per quality-carrying material on every
+refresh.
+
+**Proof, then numbers.** A 512-shape deep-equal sweep (machine 3–6 wide, 2–5 tiers, four pole
+shapes, fluid on and off, gaps 0–3; every shape placed poles, and the harness asserts the two
+modules are distinct tables — the 2026-08-20 false-pass lesson below) came back **zero
+mismatches**, so the rewrite carries no behaviour of its own. The recorded worst case — 6-wide
+machine, five tiers, big electric poles, fluid — went **24.4 ms to 4.3 ms per solve** on the
+host; the vanilla compact medium-pole solve 0.95 → 0.55 ms; the 5-tier big-pole column case
+9.8 → 2.1 ms; the substation case level. `analysis/poles.md` §Performance re-verified with the
+new figures. Changelog: one Optimizations line in the open 0.4.2.
+
+**What this session did not do:** the `legacy/2.0` cherry-pick. `tests/planner_spec.lua` is a
+forked file, so the new specs flow to that branch by hand at the next backport, per the repo
+rules — nothing was touched there.
+
+---
+
 ## 2026-08-20 — the pole columns stop being free, and the planner starts paying for them
 
 The repo owner, with a screenshot of two loops side by side: *"the placement of the poles caused

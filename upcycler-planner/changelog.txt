@@ -1,13 +1,12 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.2
 Date: ????
+  Optimizations:
+    - The planner designs loops faster. Most noticeable in the planner window with many
+      quality tiers or large modded machines.
   Changes:
     - Loops are narrower again. The planner no longer leaves an empty column in front of
-      every machine for the electric poles. It keeps a column only where a pole really
-      needs one, so most loops lose a few tiles of width - a vanilla loop to rare goes
-      from 14 tiles wide to 11.
-    - Poles now go wherever they fit inside the loop, so you usually get a few more of
-      them instead of one neat line. Everything still gets power.
+      every machine for the electric poles. Poles now go wherever they fit inside the loop.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-08-18

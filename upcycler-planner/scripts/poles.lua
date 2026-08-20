@@ -139,27 +139,53 @@ local function without_overlapping(candidates, taken, pole)
   return kept
 end
 
--- `>` and never `>=`: the first candidate to reach the best count keeps it.
-local function greedy_cover(candidates, consumers, pole)
-  local placed = {}
-  local uncovered = {}
-  for i, consumer in pairs(consumers) do uncovered[i] = consumer end
+-- Which consumers a candidate covers, as an array of consumer indices, memoised in `cache`
+-- on first use. The geometry never changes while poles are placed -- only membership in
+-- `uncovered` does -- so the greedy pass, the free-tile retry and the final honesty tally all
+-- share one answer per candidate instead of re-running the overlap arithmetic per round.
+-- Lazy rather than precomputed for the whole plan: a solve whose utility columns already
+-- cover never asks about the free tiles at all. Keyed by the candidate table itself, which
+-- within_columns and without_overlapping both preserve.
+local function coverage(cache, pole, candidate, consumers)
+  local list = cache[candidate]
+  if not list then
+    list = {}
+    for i = 1, #consumers do
+      if covers(pole, candidate, consumers[i]) then list[#list + 1] = i end
+    end
+    cache[candidate] = list
+  end
+  return list
+end
 
-  while next(uncovered) do
-    local best, best_hits, best_count = nil, nil, 0
-    for _, candidate in pairs(candidates) do
-      local hits, count = {}, 0
-      for i, consumer in pairs(uncovered) do
-        if covers(pole, candidate, consumer) then
-          count = count + 1
-          hits[count] = i
-        end
+-- `>` and never `>=`: the first candidate to reach the best count keeps it. Iteration is by
+-- index on purpose -- the scan-order determinism the candidate list promises must not depend
+-- on pairs() happening to walk an array part in order.
+local function greedy_cover(candidates, consumers, pole, cover_of)
+  local placed = {}
+  local uncovered, remaining = {}, #consumers
+  for i = 1, #consumers do uncovered[i] = true end
+
+  while remaining > 0 do
+    local best, best_count = nil, 0
+    for ci = 1, #candidates do
+      local list = coverage(cover_of, pole, candidates[ci], consumers)
+      local count = 0
+      for li = 1, #list do
+        if uncovered[list[li]] then count = count + 1 end
       end
-      if count > best_count then best, best_hits, best_count = candidate, hits, count end
+      if count > best_count then best, best_count = candidates[ci], count end
     end
     if not best then break end
     placed[#placed + 1] = best
-    for _, i in pairs(best_hits) do uncovered[i] = nil end
+    local list = cover_of[best]
+    for li = 1, #list do
+      local i = list[li]
+      if uncovered[i] then
+        uncovered[i] = nil
+        remaining = remaining - 1
+      end
+    end
     candidates = without_overlapping(candidates, best, pole)
   end
 
@@ -234,22 +260,21 @@ local function largest_component(components)
   return best
 end
 
--- One full attempt against one candidate set: cover, bridge, tally.
-local function attempt(candidates, consumers, pole)
-  local placed, remaining = greedy_cover(candidates, consumers, pole)
+-- One full attempt against one candidate set: cover, bridge, tally. Every placed pole is a
+-- candidate reference -- greedy and bridge both pick from the candidate arrays -- so the
+-- coverage lists answer the honesty tally too.
+local function attempt(candidates, consumers, pole, cover_of)
+  local placed, remaining = greedy_cover(candidates, consumers, pole, cover_of)
   bridge(placed, remaining, pole)
 
-  local main = largest_component(components_of(placed, pole))
+  local lit = {}
+  for _, i in pairs(largest_component(components_of(placed, pole))) do
+    local list = coverage(cover_of, pole, placed[i], consumers)
+    for li = 1, #list do lit[list[li]] = true end
+  end
   local unpowered = 0
-  for _, consumer in pairs(consumers) do
-    local hit = false
-    for _, i in pairs(main) do
-      if covers(pole, placed[i], consumer) then
-        hit = true
-        break
-      end
-    end
-    if not hit then unpowered = unpowered + 1 end
+  for i = 1, #consumers do
+    if not lit[i] then unpowered = unpowered + 1 end
   end
 
   return placed, unpowered
@@ -298,6 +323,8 @@ end
 function poles.plan(built, pole, consumer_margins)
   local consumers = consumers_of(built.entities, consumer_margins)
   local candidates = candidate_positions(occupied(built.entities), built.width, built.height, pole)
+  -- One coverage cache for the whole solve; `coverage` fills it lazily.
+  local cover_of = {}
 
   -- Columns first, free tiles as the honest fallback: the layout already sized the utility
   -- columns to this pole, so the tidy vertical line is the common case -- but a pole whose
@@ -308,10 +335,10 @@ function poles.plan(built, pole, consumer_margins)
   local column_candidates = built.utility_columns
     and within_columns(candidates, built.utility_columns, pole) or {}
   if #column_candidates > 0 then
-    placed, unpowered = attempt(column_candidates, consumers, pole)
+    placed, unpowered = attempt(column_candidates, consumers, pole, cover_of)
   end
   if not placed or unpowered > 0 then
-    local free_placed, free_unpowered = attempt(candidates, consumers, pole)
+    local free_placed, free_unpowered = attempt(candidates, consumers, pole, cover_of)
     if not placed or free_unpowered < unpowered then
       placed, unpowered = free_placed, free_unpowered
     end
