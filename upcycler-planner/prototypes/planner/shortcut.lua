@@ -17,6 +17,9 @@ data:extend({
     action = "lua",
     technology_to_unlock = "recycling",
     unavailable_until_unlocked = true,
+    -- Shows the hotkey in the button's tooltip, and nothing else -- the input itself lives in
+    -- input.lua under the same name, and control.lua honours this gate for it.
+    associated_control_input = "upl-open",
     style = "green",
     icons = icons.shortcut,
     small_icons = icons.shortcut_small,

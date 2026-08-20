@@ -9,6 +9,85 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — a keyboard shortcut opens the planner
+
+The repo owner asked for a hotkey to open the planner, CTRL+SHIFT+U by default. Everything
+needed was already local: `CustomInputPrototype.key_sequence`'s exact format is in the
+installed `prototype-api.json` (modifiers `CONTROL`/`SHIFT`/`COMMAND`/`ALT`, `" + "`
+separated), and Krastorio 2 ships the pairing shape to copy — its jackhammer is a shortcut
+and a custom-input under ONE name, with the shortcut's `associated_control_input` pointing at
+the input so the button's tooltip advertises the binding. No web search needed; the request
+to look online was answered by the docs the install ships.
+
+**The one design point was the gate.** A custom input fires whether or not the shortcut is
+unlocked, so a bare handler would open a planner the recycling technology has not delivered a
+recycler for — undercutting the shortcut's own `technology_to_unlock` +
+`unavailable_until_unlocked` gate. `gui.toggle_key` re-checks `player.is_shortcut_available`
+(the engine's own availability, so script-granted or script-revoked shortcuts are honoured
+too) and control.lua points the input at it, mirroring `gui.confirm_key`'s shape. The
+shortcut's name moved into gui.lua as `gui.SHORTCUT`, exported like `gui.FRAME`, since three
+things now share it.
+
+**Three new specs** (suite 154 → 157): the prototype pairing read back at runtime —
+`prototypes.custom_input["upl-open"].key_sequence` comes back exactly `"CONTROL + SHIFT + U"`
+and the shortcut's `associated_control_input` closes the loop — plus toggle-open-toggle-closed
+through `gui.toggle_key`, and the gate driven through `set_shortcut_available(false)` rather
+than research state, so the spec proves OUR gate without depending on how the engine maps
+technologies onto availability (which un-research may or may not latch; unmeasured, and the
+gate is agnostic to it). Data stage validated clean, and `--check-unused-prototype-data` read
+702,440 properties with zero warnings — `associated_control_input` and `key_sequence` were
+both consumed, not silently dropped. The keypress itself stays the usual human check; the
+`[controls]` locale key rendering in the controls menu rides the same live look.
+
+---
+
+## 2026-08-20 — E over a floating chooser placed the blueprint
+
+The repo owner, from play: *"when i am selecting a machine and press e instead selecting the
+machine it confirms the placement of the blueprint."* Exactly right: the `upl-confirm` input
+fires on every press of E, and with the machine picker's chooser floating over the modal,
+`gui.confirm` saw a modal, saw no settings window, and confirmed — trading the player's pick
+for a blueprint and tearing the chooser down with the frame.
+
+**The chooser has no API surface, checked three ways** (now `analysis/api.md` §23): no event
+announces it, no `gui_type` names it, and it never takes `player.opened` — five releases of
+picker clicks not closing the modal prove that last one behaviourally. Space Exploration's pin
+dialog, the §22 prior art, has the same blind spot around its own icon picker. So there was
+nothing to read, only something to infer.
+
+**The fix is a per-player presumption, one press deep.** The click that opens a chooser is
+visible (§20), and every later gui event means it closed — a pick fires `on_gui_elem_changed`,
+clicking anything else dismisses it. `dispatch` gained a single observer slot that sees every
+event before tag routing; `gui.note_gui_event` sets the presumption on a click on one of the
+modal's own pickers (told by the dispatch tag) and clears it on anything else. The new
+`gui.confirm_key` — now the key's entry point in `control.lua` — swallows one press while the
+presumption holds, and §22's documented ordering means the engine's own confirm then lands on
+the chooser. The button keeps `gui.confirm` untouched: reaching it is itself the click that
+clears the presumption.
+
+**The presumption lives in storage, not a module local, for a desync reason:** every client
+sees the same gui events, but a player who joins mid-presumption would rebuild an empty module
+table and take the other branch on the same E. It rides the state entry as
+`chooser_maybe_open`, cleared by `gui.open`, `gui.close` and the swallow itself; `state.peek`
+was added so the observer — which runs for every player's every click — cannot create entries
+for players who never opened the planner.
+
+**The accepted cost, chosen over the alternatives:** a chooser dismissed with Esc, a click on
+nothing, or re-picking the same value leaves no event, so the presumption goes stale and the
+next E closes the modal unconfirmed instead of placing — pre-0.4.0 behaviour, once, with the
+choices kept. The alternatives were worse: `consuming = "game-only"` breaks E everywhere
+(§22), and deferring the confirm by a tick fights the engine's own close. The button never
+degrades.
+
+**Six new specs drive the machinery** (suite 148 → 154): swallow-then-confirm, the pick and
+the unrelated-interaction clears, the button's immunity, a foreign untagged picker, and the
+close-drops-it rule. `fire()` in `gui_spec` now names its event, because the presumption keys
+on click versus elem-changed. What no tier can cover stays a human check, the same one §22
+already carries: a real E over a real chooser on a live client — the repo owner's next
+session settles it.
+
+---
+
 ## 2026-08-20 — the suite grows to 148, and the pole solver stops paying per round
 
 The repo owner asked for two things across the whole mod: as many new tests as the suite could

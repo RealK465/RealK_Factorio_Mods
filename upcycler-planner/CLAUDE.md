@@ -27,7 +27,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (148 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
+suite under `tests/` (157 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -139,8 +139,9 @@ data.lua                            entry point; requires the prototype files
 data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_quality into mod-data
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        the two per-player settings the modal's window edits
-prototypes/planner/                 the shortcut, the icon layers it is built from, and the
-                                    linked custom-input that points the Confirm key at Place
+prototypes/planner/                 the shortcut, the icon layers it is built from, and the two
+                                    custom-inputs: the CTRL+SHIFT+U toggle and the linked one
+                                    that points the Confirm key at Place
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
@@ -153,6 +154,8 @@ tests/                              the permanent suite (factorio-test); registe
   pure/                             layout + poles geometry, runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
+  support/layout_params.lua         the canonical vanilla layout fixture the pure specs share
+  support/deep_equal.lua            structural equality for the determinism specs
 locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
@@ -174,8 +177,10 @@ spelling just makes a shared module grep-able.
 
 ## Naming
 
-**Every prototype this mod defines is prefixed `upl-`.** Two of them: the shortcut `upl-open` and
-the `upl-confirm` custom-input; anything new follows them. Prototype names are one flat global
+**Every prototype this mod defines is prefixed `upl-`.** Three of them: the shortcut `upl-open`,
+the keybound `upl-open` custom-input (deliberately the same name — the Krastorio 2 pairing shape,
+see `decisions.md`) and the `upl-confirm` custom-input; anything new follows them. Prototype
+names are one flat global
 namespace shared with every other
 mod, so the prefix is what stops a collision — and a collision here is silent, which is the
 whole reason for the rule.
@@ -238,13 +243,17 @@ re-opening any of these, and don't restate a reason here.
   `quality_required` both tracks, `expansion_required` on `main` only. No flib dependency.
 - **The plan becomes a blueprint; the engine builds it.** See fact 1 above.
 - Shortcut → modal → Confirm → a blueprint in the cursor, gated on the `recycling` technology.
+  A rebindable hotkey (CTRL+SHIFT+U default) toggles the modal too, honouring the same gate
+  through `is_shortcut_available` — pairing shape and reasons in `decisions.md`.
   The mod handles no placement event: a normal click refuses over obstacles, shift-click builds
   through them and clears trees, ctrl-shift-click clears buildings. Rotation, flipping, snapping
   and undo come with the blueprint, and flipping is measured safe for the recycler eject.
 - **Confirm is reachable by the game's own "Confirm window" key** (E by default) as well as the
   button, through a `custom-input` linked to `confirm-gui`. `consuming` must stay `"none"`, so
   the engine's close runs after the handler — which is why a refused hand-over closes the modal
-  on the key where the button keeps it open.
+  on the key where the button keeps it open. The key swallows one press while an element
+  picker's chooser is presumed open, so E selects in the chooser instead of placing — the
+  presumption, its staleness and the accepted cost are in `decisions.md`.
 - The stack is a plain vanilla `blueprint` with `cursor_stack_temporary` set, wearing the product
   at the target quality as its `preview_icons` — so Q discards it like the old tool, and dragging
   it into the inventory keeps the design. It is **not** one-shot the way the tool was: it stays in

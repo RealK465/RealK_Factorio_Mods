@@ -33,8 +33,14 @@ local function widget(path)
   return element
 end
 
-local function fire(element)
-  dispatch.on_gui_event({ element = element, player_index = player().index })
+-- `name` defaults to on_gui_elem_changed, the event a completed pick raises; pass
+-- on_gui_click when the test means a CLICK, because the chooser presumption in gui.lua keys
+-- on exactly that difference.
+local function fire(element, name)
+  dispatch.on_gui_event({
+    element = element, player_index = player().index,
+    name = name or defines.events.on_gui_elem_changed,
+  })
 end
 
 local function choices()
@@ -464,14 +470,14 @@ describe("the modal", function()
     local modal = frame()
 
     local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
-    fire(recipe_button)
+    fire(recipe_button, defines.events.on_gui_click)
     assert(modal.valid, "clicking the item picker tore the modal down")
     assert(recipe_button.valid, "clicking the item picker destroyed the button under the chooser")
     assert(choices().recipe == "iron-gear-wheel", "the click changed the choice")
 
     local machine_button = widget({ "upl-content", "upl-table", "upl-machine" })
     local machine = choices().machine
-    fire(machine_button)
+    fire(machine_button, defines.events.on_gui_click)
     assert(machine_button.valid, "clicking the machine picker destroyed the button")
     assert(choices().machine == machine, "the click changed the machine")
   end)
@@ -597,7 +603,7 @@ describe("the modal", function()
   -- confirm, which the button never can.
   test("the Confirm key hands over the blueprint, exactly as the button does", function()
     open_with_gears()
-    gui.confirm(player())
+    gui.confirm_key(player())
 
     local stack = player().cursor_stack
     assert(stack and stack.valid_for_read and stack.is_blueprint,
@@ -610,7 +616,7 @@ describe("the modal", function()
     -- E is pressed constantly in an ordinary game, so this is the common case rather than an
     -- edge one: the handler runs on every press and must be inert unless the planner is up.
     assert(frame() == nil, "the modal was already open, so this proves nothing")
-    gui.confirm(player())
+    gui.confirm_key(player())
     local stack = player().cursor_stack
     assert(not (stack and stack.valid_for_read),
       "the key put something in the cursor with no modal open")
@@ -619,11 +625,145 @@ describe("the modal", function()
   test("the Confirm key is refused while the settings window has the focus", function()
     open_with_gears()
     gui.open_settings(player())
-    gui.confirm(player())
+    gui.confirm_key(player())
 
     local stack = player().cursor_stack
     assert(not (stack and stack.valid_for_read),
       "the key placed a blueprint while the settings window owned the focus")
     assert(frame() and frame().valid, "the key closed the modal from behind the window")
+  end)
+end)
+
+tags("gui")
+describe("the confirm key and the element chooser", function()
+  -- The engine's chooser -- the window a picker button opens -- is invisible to mods
+  -- (api.md §23), so gui.lua presumes one open from the click that opens it until the next
+  -- gui event, and the confirm KEY swallows one press while the presumption holds: the
+  -- engine's own confirm, which runs after the handler, is what selects in the chooser.
+  -- These drive that machinery the file's usual way; what no tier can cover is the real E
+  -- over a real chooser, which stays a human check like the keypress itself.
+  before_all(function()
+    assert(#game.connected_players > 0,
+      "gui specs need a connected player -- the run's save has none; use the graphics tier "
+      .. "or a save carrying a player, or blacklist the 'gui' tag")
+    research.full(player().force)
+  end)
+
+  after_each(function()
+    gui.close(player())
+    player().clear_cursor()
+    state.forget(player().index)
+  end)
+
+  local function cursor_holds_blueprint()
+    local stack = player().cursor_stack
+    return (stack and stack.valid_for_read and stack.is_blueprint) or false
+  end
+
+  test("a click on a picker makes the next confirm key the chooser's, not Place", function()
+    open_with_gears()
+    fire(widget({ "upl-content", "upl-table", "upl-machine" }), defines.events.on_gui_click)
+    gui.confirm_key(player())
+    assert(not cursor_holds_blueprint(), "the key placed a blueprint over an open chooser")
+    assert(frame() and frame().valid, "the swallowed key tore the modal down")
+    -- One press deep: the engine's own confirm has handled the chooser by the time a second
+    -- press can arrive, so that one belongs to the modal again.
+    gui.confirm_key(player())
+    assert(cursor_holds_blueprint(), "the second press did not confirm the modal")
+  end)
+
+  test("picking a value hands the key straight back to Place", function()
+    open_with_gears()
+    local machine = widget({ "upl-content", "upl-table", "upl-machine" })
+    fire(machine, defines.events.on_gui_click)
+    machine.elem_value = { name = "assembling-machine-2", quality = "normal" }
+    fire(machine)
+    gui.confirm_key(player())
+    assert(cursor_holds_blueprint(), "a completed pick left the key swallowed")
+  end)
+
+  test("any later interaction hands the key back too", function()
+    -- The trash checkbox does not rebuild the modal, so this proves the observer's clear
+    -- alone -- the pick test above also passes through gui.open's.
+    open_with_gears()
+    fire(widget({ "upl-content", "upl-table", "upl-machine" }), defines.events.on_gui_click)
+    fire(widget({ "upl-options", "upl-trash" }), defines.events.on_gui_click)
+    gui.confirm_key(player())
+    assert(cursor_holds_blueprint(), "an unrelated interaction left the key swallowed")
+  end)
+
+  test("the Confirm button never swallows", function()
+    -- Reaching the button is itself a click, and a click anywhere closes a chooser -- so the
+    -- button's own event clears the presumption before its handler runs.
+    open_with_gears()
+    fire(widget({ "upl-content", "upl-table", "upl-machine" }), defines.events.on_gui_click)
+    fire(widget({ "upl-buttons", "upl-confirm" }), defines.events.on_gui_click)
+    assert(cursor_holds_blueprint(), "the button was swallowed -- only the key may be")
+  end)
+
+  test("another mod's element picker never arms the presumption", function()
+    open_with_gears()
+    -- A bare picker with no upl tag stands in for another mod's: same type, not ours.
+    local foreign = player().gui.screen.add({ type = "choose-elem-button", elem_type = "item" })
+    fire(foreign, defines.events.on_gui_click)
+    gui.confirm_key(player())
+    local held = cursor_holds_blueprint()
+    foreign.destroy()
+    assert(held, "a foreign picker armed the presumption and swallowed our key")
+  end)
+
+  test("closing drops the presumption with the frame", function()
+    open_with_gears()
+    fire(widget({ "upl-content", "upl-table", "upl-machine" }), defines.events.on_gui_click)
+    gui.close(player())
+    gui.open(player())
+    gui.confirm_key(player())
+    assert(cursor_holds_blueprint(), "a dead frame's chooser swallowed the reopened modal's key")
+  end)
+end)
+
+tags("gui")
+describe("the open hotkey", function()
+  -- The custom input that opens the planner from the keyboard. The keypress itself is the
+  -- untestable wiring every key here shares; what these pin is the prototype pairing and
+  -- gui.toggle_key's gate -- driven through set_shortcut_available, the same engine state the
+  -- recycling unlock manages, so the gate is proven without depending on how the engine maps
+  -- technologies onto availability.
+  before_all(function()
+    assert(#game.connected_players > 0,
+      "gui specs need a connected player -- the run's save has none; use the graphics tier "
+      .. "or a save carrying a player, or blacklist the 'gui' tag")
+    research.full(player().force)
+  end)
+
+  after_each(function()
+    gui.close(player())
+    state.forget(player().index)
+    -- Recycling stays researched in this save, so available is the correct standing state.
+    player().set_shortcut_available(gui.SHORTCUT, true)
+  end)
+
+  test("the hotkey shares the shortcut's name, its binding, and the button's tooltip", function()
+    local input = prototypes.custom_input[gui.SHORTCUT]
+    assert(input, "no custom input shares the shortcut's prototype name")
+    assert(input.key_sequence == "CONTROL + SHIFT + U",
+      "default binding is " .. tostring(input.key_sequence))
+    assert(prototypes.shortcut[gui.SHORTCUT].associated_control_input == gui.SHORTCUT,
+      "the shortcut button does not advertise the keybind in its tooltip")
+  end)
+
+  test("the key toggles the planner: open, then closed", function()
+    assert(player().is_shortcut_available(gui.SHORTCUT),
+      "test premise: full research must leave the shortcut available")
+    gui.toggle_key(player())
+    assert(frame() and frame().valid, "the key did not open the planner")
+    gui.toggle_key(player())
+    assert(frame() == nil, "the key did not close the planner again")
+  end)
+
+  test("a locked shortcut keeps the key inert", function()
+    player().set_shortcut_available(gui.SHORTCUT, false)
+    gui.toggle_key(player())
+    assert(frame() == nil, "the key opened the planner while the shortcut was locked")
   end)
 end)
