@@ -120,15 +120,21 @@ are in brackets where they moved.
 
 ## Performance
 
-One solve is bounded by candidates x consumers x rounds — a few hundred candidates, ≤ ~45
-consumers, ≤ ~12 rounds, run at most twice (the fallback). The column ladder runs it **once**
-in the common case (compact covers, and it is the smallest plan of the set), and at most four
-times on a shape that needs growing and shrinking.
+One solve computes each candidate's covered-consumer list **once, lazily on first consult**
+(since 2026-08-20 — before that the greedy pass re-ran the overlap arithmetic against every
+candidate on every round). A round is then table lookups over lists of ≤ ~45 indices, and a
+solve whose utility columns already cover never asks about the free tiles at all. The solve
+still runs at most twice (the free-tile fallback); the column ladder runs it **once** in the
+common case (compact covers, and it is the smallest plan of the set), and at most four times
+on a shape that needs growing and shrinking.
 
-Measured on the host interpreter over the 768-shape sweep: **mean 3.8 ms per plan against 4.2 ms
-for the unconditional-columns code it replaced** — slightly cheaper on average, because the
-plan that usually wins is also the smallest one to solve. The worst case is dearer: 49 ms
-against 35 ms, on a 6-wide machine at five tiers with big electric poles and a fluid recipe.
-Synchronous inside `gui.refresh` exactly as `layout.build` already is, so that worst case is a
-dropped frame on a picker click, not a tick cost. No spatial indexing; at this size it would be
-the MPP-style machinery `reference-mods.md` already argues against.
+Measured on the host interpreter, with placements proven identical by a 512-shape deep-equal
+parity sweep (machine 3–6 wide, 2–5 tiers, four pole shapes, fluid on and off, gaps 0–3):
+the recorded worst case — 6-wide machine, five tiers, big electric poles, fluid — went
+**24.4 ms to 4.3 ms per solve**; the vanilla compact medium-pole solve 0.95 ms to 0.55 ms;
+the substation column case stayed level at ~1.2 ms. An **eager** precompute over all
+candidates was tried first and regressed that substation case ~30% — a column solve that
+covers never consults the free tiles, so materialising their lists is pure waste — which is
+why the lists are lazy. Synchronous inside `gui.refresh` exactly as `layout.build` already
+is, so the worst case is now well under a frame on a picker click. No spatial indexing; at
+this size it would be the MPP-style machinery `reference-mods.md` already argues against.

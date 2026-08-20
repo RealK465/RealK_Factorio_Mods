@@ -531,11 +531,16 @@ function planner.inserter_filter_count(name)
   return prototypes.entity[name].filter_count or 0
 end
 
+-- Membership in the chain as a set: build_quality asks this once per quality-carrying material
+-- on every refresh, and prune once per stored key, so the linear scan is memoised away.
 function planner.is_quality(name)
-  for _, quality in pairs(planner.quality_chain()) do
-    if quality == name then return true end
+  local set = memo.quality_set
+  if not set then
+    set = {}
+    for _, quality in pairs(planner.quality_chain()) do set[quality] = true end
+    memo.quality_set = set
   end
-  return false
+  return set[name] == true
 end
 
 -- The quality a chosen building or module is placed at, as opposed to choices.quality, which is
