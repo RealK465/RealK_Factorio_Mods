@@ -1,11 +1,12 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-17
+verified: 2026-08-20
 ---
 # The belt-ring layout, generalised
 
 **This is the chosen family, and this file describes what the mod actually builds** — updated
-2026-08-17 for the utility columns and fluid support. The reference design (`blueprints.md` §4) is specific to a 3x3
+2026-08-17 for the utility columns and fluid support, and 2026-08-20 when the columns became
+per-tier and something the planner solves for rather than opens by default. The reference design (`blueprints.md` §4) is specific to a 3x3
 assembling machine and leans on circuit control; this is the same idea written as a formula
 over any machine footprint, with three deliberate departures recorded in §"Departures" below.
 
@@ -60,20 +61,35 @@ stubs beneath the ring belts (§Fluid recipes below).
 | `7+Hm+Hr` | bottom ring belt (flows E) |
 
 **`H = 8 + Hm + Hr`**  (AM3: 15, fluid or not)
-**`W = 2 + (t+1)*G + t*P + Wm`** with pitch `P = max(Wm, Wr)` and utility-column width
-`G = pole width + (1 if the recipe takes a fluid)` — `G = 0` (poles cleared, no fluid)
-collapses to the original `2 + t*P + Wm` (AM3 + vanilla recycler, rare: 11; the 4-wide
-salvager under AM3: 13). With the default medium pole: rare 14, legendary 22; battery in a
-chemical plant at rare (G = 2): 17.
+**`W = 2 + sum(G_k) + t*P + Wm`** with pitch `P = max(Wm, Wr)`, summed over `k = 0..t`, where
+`G_k` is the utility column standing before tier column `k`:
+
+- **`0`** unless something stands there — which is the usual case, because the planner opens a
+  pole column only where coverage needs one (`poles.md` §"Choosing the columns").
+- **pole width** where a pole column does open.
+- **at least 1** whenever the recipe takes a fluid, whatever the poles do — clamped inside
+  `layout.build`, since the pipe run has to stand somewhere.
+
+All zero collapses to the original `2 + t*P + Wm` (AM3 + vanilla recycler, rare: 11; the
+4-wide salvager under AM3: 13). Measured on 2.1.14 with the default medium pole: rare **11**
+and legendary **17**, both with no column open at all; battery in a chemical plant at rare
+**14** (the pipe clamp alone); substation to legendary **21**, two of the five columns open;
+big electric pole at rare **17**, all three open.
 
 Two rows more than the reference, because a buffer chest between the ring and the recycler
 needs an inserter on each side of it, and one column more, for the return run.
 
 Column `x = 0` is the left ring (flows S), `x = W-1` the right ring (flows N). A **utility
-column** of width `G` sits before EVERY tier column — the first included, because machines
-take their fluid on the west side — so tier column `k` starts at `x0 = 1 + (k+1)*G + k*P`;
-the machine occupies its first `Wm` columns and the recycler its first `Wr`, both
-left-aligned. Three sub-columns matter:
+column** of width `G_k` may sit before any tier column — the first included, because machines
+take their fluid on the west side — so tier column `k` starts at
+
+```
+x0(k) = 1 + sum(G_j for j = 0..k) + k*P
+```
+
+which is the running prefix `layout.build` computes rather than a closed form, precisely
+because the widths differ per tier. The machine occupies its first `Wm` columns and the
+recycler its first `Wr`, both left-aligned. Three sub-columns matter:
 
 - **feed sub-column** at `xf = x0` (leftmost tile) — also the extract stack below
 - **buffer sub-column** at `x0 + 1` — the product stack below the recycler
@@ -82,7 +98,7 @@ left-aligned. Three sub-columns matter:
 
 ## Per-tier placements
 
-Offsets below are within tier column `k`, which starts at `x0 = k*P + 1`. Every non-machine
+Offsets below are within tier column `k`, which starts at `x0(k)` above. Every non-machine
 entity is 1x1, so its centre is its tile. Sub-columns: feed `xf = x0`, buffer `x0 + 1`,
 product `xp = x0 + Wm - 1`.
 
@@ -169,14 +185,32 @@ tier adds exactly one column.
 
 ## Utility columns — poles and pipes share them
 
-`layout.build` takes `column_gap`: a run of `G` empty columns before EVERY tier column, blind
-to what goes in them. The planner is the policy owner and sizes it to what will live there —
-the chosen pole's width, plus one for the pipe run when the recipe takes a fluid — so `G = 0`
-(poles cleared, no fluid) keeps the plan byte-identical to the pre-column layout, and a fluid
-plan clamps to at least 1 so the run never lands on the left ring. The built plan reports the
-columns (`utility_columns`), and the pole pass places into them first (`poles.md`). The
-columns change no row and sit outside every tier column, so the recycler stays tangent under
-its machine and the eject reasoning above is untouched.
+`layout.build` takes `column_gaps`: a list of `G_i`, the empty columns standing before tier
+column *i*, blind to what goes in them. **Per tier, not one uniform width** — a plan pays only
+where something stands. So the footprint is
+
+```
+W = 2 + sum(G_k) + t*P + Wm        summed over k = 0..t, P = max(machine width, recycler width)
+```
+
+— the same formula as §"Row and column plan" above, and `t` is the target tier INDEX there
+too, so the tier count is `t+1`. It reduces to the old `2 + (t+1)*G + t*P + Wm` when every
+`G_k` is the same, and to the pre-column `2 + t*P + Wm` when they are all zero. Verified
+byte-identical to the uniform `column_gap` it replaced across 144 shapes (2026-08-20).
+
+Two policy owners, and they are different:
+
+- **A fluid plan clamps every `G_i` to at least 1**, inside `layout.build` itself, so no
+  caller can collapse a column the pipe run is standing in.
+- **Which tiers open a pole column is solved, not assumed.** `planner.plan` tries the compact
+  plan first and only keeps a column a pole turned out to need — the ladder is in `poles.md`
+  § "Choosing the columns". That is why a plan can come back with columns before tiers 3 and 4
+  and nothing before 1, 2 and 5.
+
+The built plan reports the columns that actually opened (`utility_columns`, each naming its
+own `tier`), and the pole pass places into them first (`poles.md`). The columns change no row
+and sit outside every tier column, so the recycler stays tangent under its machine and the
+eject reasoning above is untouched.
 
 ## Fluid recipes — per-column runs, tapped from outside
 

@@ -27,7 +27,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (123 tests as of 2026-08-18) — planner, layout, poles, blueprint, state,
+suite under `tests/` (125 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -292,9 +292,12 @@ re-opening any of these, and don't restate a reason here.
   exists** — otherwise the recipe is blamed, which is every vanilla case. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
   scenery chests.
-- Poles default to the best researched 1x1, stand in a dedicated utility column before each
-  machine (shared with the pipe run on fluid recipes, sized to both) and are clearable to none
-  (`analysis/poles.md`, `analysis/api.md` §10).
+- Poles default to the best researched 1x1 and are clearable to none. **A plan is as narrow as
+  full coverage allows**: the planner solves for its utility columns rather than opening one at
+  every machine, keeping only a column a pole turned out to need — so most plans open none and
+  the poles stand in the ring's own free ground. Where a column does open it is sized to the
+  pole and shared with the pipe run; a fluid recipe holds every column at 1 whatever the poles
+  do (`analysis/poles.md` §"Choosing the columns", `analysis/api.md` §10).
 - Fluid recipes are planned as per-column pipe runs ending in underground stubs beneath the
   ring belts; machines rotate per prototype to meet the run (fact 5 above). **Nothing is ever
   built outside the ring** — the player taps the stubs from outside and wires the columns as

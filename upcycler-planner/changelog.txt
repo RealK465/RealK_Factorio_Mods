@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.2
+Date: ????
+  Changes:
+    - Loops are narrower again. The planner no longer leaves an empty column in front of
+      every machine for the electric poles. It keeps a column only where a pole really
+      needs one, so most loops lose a few tiles of width - a vanilla loop to rare goes
+      from 14 tiles wide to 11.
+    - Poles now go wherever they fit inside the loop, so you usually get a few more of
+      them instead of one neat line. Everything still gets power.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-08-18
   Changes:

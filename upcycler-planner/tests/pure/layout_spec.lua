@@ -60,29 +60,45 @@ describe("layout.build dimensions", function()
     assert_no_overlap_and_in_bounds(built)
   end)
 
-  test("column_gap opens a utility column before every tier, and reports them", function()
+  test("a uniform column_gaps opens a utility column before every tier, and reports them", function()
     -- One column per tier, the first included -- machines take their fluid on the west side,
     -- so the leftmost machine needs a column too: 2 + 3*2 + 2*3 + 3.
-    local built = layout.build(params_with({ column_gap = 2 }))
+    local built = layout.build(params_with({ column_gaps = { 2, 2, 2 } }))
     assert(built.width == 17, "width " .. built.width .. ", expected 2 + 3*2 + 2*3 + 3 = 17")
     assert(built.utility_columns and #built.utility_columns == 3,
       "utility columns " .. tostring(built.utility_columns and #built.utility_columns))
-    for _, col in pairs(built.utility_columns) do
+    for index, col in pairs(built.utility_columns) do
       assert(col.width == 2, "utility column width " .. col.width)
+      assert(col.tier == index, "column " .. index .. " reports tier " .. tostring(col.tier))
     end
     assert_no_overlap_and_in_bounds(built)
   end)
 
-  test("no gap means no utility columns and the original width", function()
+  test("gaps are per tier: only the opened ones cost width, and each names its tier", function()
+    -- The whole point of the list: a plan pays for the columns something stands in and no
+    -- others. Tier 2 alone opens a 2-wide column, so 11 + 2 = 13, and the single reported
+    -- column has to name tier 2 or the planner would collapse the wrong one.
+    local built = layout.build(params_with({ column_gaps = { 0, 2, 0 } }))
+    assert(built.width == 13, "width " .. built.width .. ", expected the gapless 11 plus 2")
+    assert(built.utility_columns and #built.utility_columns == 1,
+      "utility columns " .. tostring(built.utility_columns and #built.utility_columns))
+    assert(built.utility_columns[1].tier == 2,
+      "reported tier " .. tostring(built.utility_columns[1].tier))
+    assert(built.utility_columns[1].width == 2, "width " .. built.utility_columns[1].width)
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("no gaps means no utility columns and the original width", function()
     local built = layout.build(params_with())
     assert(built.utility_columns == nil, "utility columns reported for a gapless plan")
+    assert(built.width == 11, "width " .. built.width .. ", expected 11")
   end)
 end)
 
 describe("layout.build fluid plans", function()
   local function fluid_params(overrides)
-    local params = params_with(overrides)
-    params.column_gap = 2
+    local params = params_with()
+    params.column_gaps = { 2, 2, 2 }
     params.fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" }
     -- The planner rotates a fluid machine so an input connection faces the pipe run; the
     -- vanilla assembler comes out facing west.
@@ -90,6 +106,8 @@ describe("layout.build fluid plans", function()
       name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
       module_slots = 2, direction = defines.direction.west,
     }
+    -- Overrides last, or the fluid defaults above would silently win over a caller's own.
+    for key, value in pairs(overrides or {}) do params[key] = value end
     return params
   end
 
@@ -99,6 +117,25 @@ describe("layout.build fluid plans", function()
     assert(built.height == 15, "height " .. built.height .. ", expected the ring's own 15")
     -- The bounds half of the invariant is the "nothing outside the loop" rule: with the box
     -- equal to the ring rectangle, an entity beyond it fails here.
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a fluid plan cannot collapse a column: zero is clamped to one, per tier", function()
+    -- The clamp lives in layout.build so no caller can take away the ground the pipe run
+    -- stands on. The planner asks for zero on every tier a pole did not want, and a fluid
+    -- plan still has to come back with a 1-wide column in front of each machine.
+    local built = layout.build(fluid_params({ column_gaps = { 0, 0, 0 } }))
+    assert(built.width == 14, "width " .. built.width .. ", expected 2 + 3*1 + 2*3 + 3 = 14")
+    assert(built.utility_columns and #built.utility_columns == 3,
+      "utility columns " .. tostring(built.utility_columns and #built.utility_columns))
+    for _, col in pairs(built.utility_columns) do
+      assert(col.width == 1, "clamped column width " .. col.width)
+    end
+    local pipes = 0
+    for _, e in pairs(built.entities) do
+      if e.name == "pipe" or e.name == "pipe-to-ground" then pipes = pipes + 1 end
+    end
+    assert(pipes == 3 * 11 + 6, "pipe count " .. pipes .. " -- the runs must survive the clamp")
     assert_no_overlap_and_in_bounds(built)
   end)
 

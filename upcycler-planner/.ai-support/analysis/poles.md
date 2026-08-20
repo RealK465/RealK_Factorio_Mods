@@ -1,15 +1,18 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-17
+verified: 2026-08-20
 ---
 # Pole placement — the coverage pass
 
 How `scripts/poles.lua` turns a finished belt-ring plan into pole positions. Written
 2026-08-16 when the pass shipped; reworked 2026-08-17 when the dedicated utility columns
-arrived and the growth retry left with them. The engine rules it stands on are measured, not
-assumed — they live in `api.md` §10; the utility columns are described in
-`layout-belt-ring.md` §"Utility columns"; the decisions and their reasons in `../decisions.md`,
-and the sessions that produced them in `../journal.md` (2026-08-16 and -17).
+arrived and the growth retry left with them; reworked again 2026-08-20, when the columns
+stopped being unconditional and became something the planner solves for.
+
+The engine rules it stands on are measured, not assumed — they live in `api.md` §10; the
+utility columns are described in `layout-belt-ring.md` §"Utility columns"; the decisions and
+their reasons in `../decisions.md`, and the sessions that produced them in `../journal.md`
+(2026-08-16, -17 and -20).
 
 ## Contract
 
@@ -26,7 +29,8 @@ storage, no game state, same inputs same output on every client.
   so this module never touches prototypes. Belts, chests and pipes drop out on their own; a
   modded burner machine drops out too, correctly — a pole cannot feed it.
 - `built.utility_columns` — the dedicated columns the layout sized to this pole
-  (`{x, width}` each) — is the one piece of layout knowledge the pass accepts. Everything
+  (`{x, width, tier}` each; only the tiers that opened one appear) — is the one piece of
+  layout knowledge the pass accepts. `tier` is read by the planner, never by this module. Everything
   else stays discovered: occupancy is read off the entity list itself, so pipes in a fluid
   plan's columns exclude their own tiles without this module knowing pipes exist.
 - Returns `{entities, unpowered}`: pole entity dicts each with `wire_to` (the index, in their
@@ -41,12 +45,12 @@ storage, no game state, same inputs same output on every client.
    in row-major order. That order is load-bearing: every later tie-break is "first found
    wins", which makes the pass deterministic with no tie-break tables.
 3. **Column attempt** — cover, bridge and tally (steps 5–7) restricted to candidates lying
-   wholly inside a utility column. The layout sized the columns to the pole, so the tidy
-   vertical line is the common case.
+   wholly inside a utility column. Any column the layout opened was sized to this pole, so
+   where they exist the tidy vertical line is what comes out.
 4. **Free-tile fallback** — if anything stayed unpowered, the same attempt over ALL
-   candidates, kept only when it powers strictly more. A tie stays with the columns; a plan
-   without utility columns (hand-built test tables, `G = 0` plans carrying no poles anyway)
-   goes straight here.
+   candidates, kept only when it powers strictly more. A tie stays with the columns. A plan
+   with no utility columns at all goes straight here, and since 2026-08-20 that is the usual
+   case rather than an edge one — the compact attempt in §"Choosing the columns" opens none.
 5. **Greedy set cover** — repeatedly the candidate whose supply square covers the most
    still-uncovered consumers (strict `>`, so scan order breaks ties). Within ln(n)+1 of the
    NP-hard optimum. The coverage test is the measured engine rule: supply square overlapping
@@ -64,11 +68,33 @@ storage, no game state, same inputs same output on every client.
    both ends the way `create_blueprint` does (`api.md` §21), and the engine makes the
    connections when the loop is stamped.
 
-**The growth retry is gone**, deliberately: it existed to widen a layout whose free tiles
-could not fit enough poles, and the utility columns are sized to the pole before the layout
-is ever built, so "no room" stopped being a failure mode. What remains is "supply too small"
-(the big electric pole), which width never fixed — the free-tile fallback and the honest
-count are the answer to that.
+## Choosing the columns
+
+`poles.plan` solves **one** layout. Which layout it is asked to solve is `planner.plan`'s
+decision, made by `plan_with_poles` (in `planner.lua`) — because where a pole *can* stand is
+part of the geometry, so the two cannot honestly be solved in sequence. Three attempts at most:
+
+1. **Compact** — `column_gaps` all zero, so no tier opens a pole column at all and poles take
+   the ground the ring already leaves free: the dead columns beside a recycler narrower than
+   its machine, and the last tier's empty lower block. On most shapes this covers everything,
+   and it is as small as a plan gets.
+2. **All columns** — one sized column before every tier. This is exactly the plan 0.2.0 through
+   0.4.1 emitted unconditionally.
+3. **Shrink** — collapse every column no pole stood in, solve again, repeat. It only ever
+   collapses, so the open set strictly shrinks and this terminates; a round that powers
+   *less* than the one before is rejected and the wider plan kept.
+
+**Fewest unpowered wins; the narrower plan takes any tie.** Compact is tried first, so it holds
+one. Because attempt 2 is always in the running, the result can never be worse than the
+unconditional-columns plan it replaced — swept over 768 shapes (machine 3–6 wide, 2–5 tiers,
+six pole shapes, fluid on and off): **zero coverage regressions, zero width regressions**.
+
+**The growth retry came back, sized.** 0.2.0 deleted it because the columns were opened
+before the layout was ever built, which made "no room" stop being a failure mode — at the
+price of paying for a column at every tier whether or not anything stood in it. The ladder
+above restores growth without restoring that price: a column now has to earn its width by
+holding a pole. What growth still cannot fix is "supply too small" (the big electric pole),
+which is what the free-tile fallback and the honest count answer.
 
 ## Best effort is a warning, not an error
 
@@ -80,18 +106,29 @@ fine, it just arrives dark.
 
 ## Measured shapes (suite, 2.1.14, full research, iron gear wheel unless said)
 
+Re-measured 2026-08-20, when the columns stopped being unconditional. The 0.2.0-0.4.1 figures
+are in brackets where they moved.
+
 | Choice | Result |
 |---|---|
-| medium pole, rare target | width 14 (1-wide columns), **3 poles** lining them, fully powered |
+| medium pole, rare target | **no column opens**: width 11 [was 14], 5 poles in free ground [was 3 in columns], fully powered |
 | medium pole at legendary quality, rare | **1 pole** — its 17x17 supply covers the whole loop |
-| substation, legendary target | width 27 on its 2-wide columns, 2 substations, fully powered |
-| big electric pole, rare | width 17, best effort: **3 of 25 consumers unpowered**, warned (the old free-tile growth left 7) |
+| substation, legendary target | **two of the five columns open**: width 21 [was 27], 2 substations, fully powered |
+| big electric pole, rare | all three columns open and stay: width 17, best effort, **3 of 25 consumers unpowered**, warned |
 | picker cleared | no poles, no columns (width 11), no warning |
-| battery in a chemical plant, rare (fluid) | G = 2: pipes on the columns' east edge, poles beside them, fully powered |
+| battery in a chemical plant, rare (fluid) | the pipe clamp alone holds the columns at 1: width 14 [was 17], poles in free ground, fully powered |
 
 ## Performance
 
-Bounded by candidates x consumers x rounds — a few hundred candidates, ≤ ~45 consumers,
-≤ ~12 rounds, run at most twice (the fallback) — well under a millisecond, synchronous inside
-`gui.refresh` exactly as `layout.build` already is. No spatial indexing; at this size it
-would be the MPP-style machinery `reference-mods.md` already argues against.
+One solve is bounded by candidates x consumers x rounds — a few hundred candidates, ≤ ~45
+consumers, ≤ ~12 rounds, run at most twice (the fallback). The column ladder runs it **once**
+in the common case (compact covers, and it is the smallest plan of the set), and at most four
+times on a shape that needs growing and shrinking.
+
+Measured on the host interpreter over the 768-shape sweep: **mean 3.8 ms per plan against 4.2 ms
+for the unconditional-columns code it replaced** — slightly cheaper on average, because the
+plan that usually wins is also the smallest one to solve. The worst case is dearer: 49 ms
+against 35 ms, on a 6-wide machine at five tiers with big electric poles and a fluid recipe.
+Synchronous inside `gui.refresh` exactly as `layout.build` already is, so that worst case is a
+dropped frame on a picker click, not a tick cost. No spatial indexing; at this size it would be
+the MPP-style machinery `reference-mods.md` already argues against.

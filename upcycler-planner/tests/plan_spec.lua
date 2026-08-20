@@ -1,9 +1,11 @@
 -- planner.plan() end to end against real prototypes at full research: geometry with real
 -- footprints, the measured pole scenarios (analysis/poles.md), the fluid plans, the trash
--- tri-state, and the terminal-module rules. The widths follow the 0.2.0 utility-column
--- formula -- W = 2 + t*G + (t-1)*P + Wm, G = pole width plus one when the recipe takes a
--- fluid -- and the pole counts are measured on 2.1.14 with the SA modset; a drift means the
--- plan changed shape, which a release should know.
+-- tri-state, and the terminal-module rules. The widths follow the utility-column formula
+-- W = 2 + sum(G_i) + (t-1)*P + Wm, where G_i is the column before tier i -- zero unless a
+-- pole stands there, and at least one whenever the recipe takes a fluid. WHICH tiers open a
+-- column is solved rather than assumed (planner.plan tries the compact plan first and only
+-- keeps a column a pole turned out to need), so these widths and pole counts are measured on
+-- 2.1.14 with the SA modset; a drift means the plan changed shape, which a release should know.
 
 local planner = require("scripts.planner")
 local research = require("tests.support.research")
@@ -48,22 +50,24 @@ describe("planner.plan", function()
     assert(planner.plan(force(), { recipe = "iron-gear-wheel" }) == nil, "missing machine")
   end)
 
-  test("vanilla gears to rare: 14 wide with the pole columns, 3 machines, 2 recyclers", function()
-    -- The default medium pole opens a 1-wide utility column before every tier:
-    -- 2 + 3*1 + 2*3 + 3.
+  test("vanilla gears to rare: 11 wide, 3 machines, 2 recyclers", function()
+    -- The default medium pole covers the loop from the ring's own free ground, so no tier
+    -- opens a column and the plan is the bare 2 + 2*3 + 3.
     local plan = planner.plan(force(), choices_with())
     assert(plan, "plan failed")
-    assert(plan.width == 14, "width " .. plan.width)
+    assert(plan.width == 11, "width " .. plan.width)
     assert(plan.machines == 3 and plan.recyclers == 2, "column counts wrong")
     assert(count_by_name(plan, "assembling-machine-3") == 3, "machine entities")
     assert(count_by_name(plan, "recycler") == 2, "recycler entities")
   end)
 
   describe("the five pole scenarios", function()
-    test("medium pole, rare target: poles line the utility columns, width 14", function()
+    test("medium pole, rare target: the compact plan covers, so no column opens", function()
+      -- The trade the compact-first rule makes: five poles in the ring's dead ground instead
+      -- of three lined up in columns, and three tiles of width back. Narrower wins.
       local plan = planner.plan(force(), choices_with({ pole = "medium-electric-pole" }))
-      assert(plan.width == 14, "width " .. plan.width .. ", expected 2 + 3*1 + 2*3 + 3 = 14")
-      assert(count_by_name(plan, "medium-electric-pole") == 3,
+      assert(plan.width == 11, "width " .. plan.width .. ", expected the columns to stay shut")
+      assert(count_by_name(plan, "medium-electric-pole") == 5,
         "pole count " .. count_by_name(plan, "medium-electric-pole"))
       assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
     end)
@@ -79,13 +83,14 @@ describe("planner.plan", function()
       assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
     end)
 
-    test("substation to legendary: 27 wide on its 2-wide columns, two substations", function()
-      -- The column is sized to the pole from the start -- the old grow-on-shortfall retry is
-      -- gone because its reason is: 2 + 5*2 + 4*3 + 3.
+    test("substation to legendary: two of the five columns open, 21 wide", function()
+      -- The mixed case, and the whole point of solving the columns rather than assuming them:
+      -- free ground alone leaves consumers dark here, but only two tiers turn out to need a
+      -- column. 17 compact + two 2-wide columns = 21, where opening all five cost 27.
       local plan = planner.plan(force(), choices_with({
         quality = "legendary", pole = "substation",
       }))
-      assert(plan.width == 27, "width " .. plan.width .. ", expected 27")
+      assert(plan.width == 21, "width " .. plan.width .. ", expected 17 + two 2-wide columns")
       assert(count_by_name(plan, "substation") == 2,
         "substation count " .. count_by_name(plan, "substation"))
       assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
@@ -95,6 +100,10 @@ describe("planner.plan", function()
       -- The honesty rule end to end: the 2x2 pole's supply is simply too small even from its
       -- own 2-wide columns plus the free-tile fallback, and the shortfall is REPORTED rather
       -- than the covered-but-unwired islands being counted as powered.
+      --
+      -- It is also the case that proves the columns still GROW: every one of the three opens
+      -- and none is collapsed again, because each holds a pole that is doing real work. A
+      -- width of 11 here would mean the compact plan had been kept despite powering less.
       local plan = planner.plan(force(), choices_with({ pole = "big-electric-pole" }))
       assert(plan.width == 17, "width " .. plan.width .. ", expected 2 + 3*2 + 2*3 + 3 = 17")
       -- Measured 2026-08-17: three consumers out of reach -- down from the old free-tile
@@ -120,11 +129,13 @@ describe("planner.plan", function()
     end
 
     test("battery to rare: pipes join the pole columns and nothing leaves the ring", function()
-      -- G = 1 pole + 1 pipe run: width 2 + 3*2 + 2*3 + 3 = 17. The height stays the ring's
-      -- own 15 -- the fluid network reaches outside only as underground stubs.
+      -- The pipe run is what holds these columns open, not the pole: every tier is clamped to
+      -- 1 and none widens to 2, because the compact plan already powers everything.
+      -- 2 + 3*1 + 2*3 + 3 = 14, and the height stays the ring's own 15 -- the fluid network
+      -- reaches outside only as underground stubs.
       local plan = planner.plan(force(), battery_choices())
       assert(plan, "battery plan failed")
-      assert(plan.width == 17, "width " .. plan.width .. ", expected 17")
+      assert(plan.width == 14, "width " .. plan.width .. ", expected 14")
       assert(plan.height == 15, "height " .. plan.height .. ", expected the ring's own 15")
       -- A full-height run of 11 rides beside each of the three machines, stub pair at the ends.
       assert(count_by_name(plan, "pipe") == 3 * 11,

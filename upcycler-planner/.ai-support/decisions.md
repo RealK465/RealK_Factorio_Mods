@@ -397,18 +397,22 @@ per-release approval.
   `inserter_candidates()` excludes anything above one, a spec guards it, and `loop_spec`'s
   relief rig stands the planner's own pick so the wedge-relief measurement covers the inserter
   the layout actually plans.
-- **Electric poles are planned in, standing in a dedicated utility column before every machine
-  column.** The repo owner's call, 2026-08-17, superseding the free-tiles-first placement: a
-  tidy vertical line of poles, in a column sized to the pole the player picked — and shared
-  with the pipe run when the recipe takes a fluid, which is what the column-width rule adapts
-  to (pole width, +1 for pipes; both absent collapses the columns and the old compact width).
-  Researched-best **1x1** pole by default (largest supply area; a substation is never sprung on
-  the player, though every size is pickable), clearable to "no poles"; columns first, any free
-  tile as the fallback; best effort plus an orange count when even that cannot cover; one wired
-  network via ghost copper wires. Algorithm in `analysis/poles.md`, engine facts in
-  `analysis/api.md` §10. **Coverage counts only the largest wired component** — geometric
-  coverage alone would call a consumer powered when its only pole sits on an unwired island, a
-  lie that surfaces in game as a mystery.
+- **Electric poles are planned in, and a plan is as narrow as full coverage allows.** The repo
+  owner's call, 2026-08-20, superseding the 2026-08-17 rule that opened a utility column before
+  every machine column: **the narrower plan wins whenever both power everything.** So the
+  planner solves for the columns instead of assuming them — the compact plan first, then all
+  columns, then collapsing back every column no pole stood in; fewest unpowered wins and width
+  breaks the tie. Where a column does open it is still sized to the pole the player picked and
+  still shared with the pipe run (pole width, +1 for pipes), and a fluid plan can never
+  collapse below 1. What the owner accepted for the width: **more poles**, and they no longer
+  stand in a tidy line — on a vanilla rare loop, five poles in the ring's own free ground
+  rather than three in columns, at 11 wide instead of 14. Researched-best **1x1** pole by
+  default (largest supply area; a substation is never sprung on the player, though every size
+  is pickable), clearable to "no poles"; best effort plus an orange count when nothing covers;
+  one wired network via ghost copper wires. Algorithm and the measured shapes in
+  `analysis/poles.md`, engine facts in `analysis/api.md` §10. **Coverage counts only the
+  largest wired component** — geometric coverage alone would call a consumer powered when its
+  only pole sits on an unwired island, a lie that surfaces in game as a mystery.
 - **Fluid recipes are planned in** (2026-08-17, the promised 0.2.0 feature): a pipe run down
   each utility column's east edge, spanning the full interior height, with every machine
   rotated per prototype so a fluid input connection meets it
