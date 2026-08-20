@@ -1003,8 +1003,9 @@ plain `">"` is stored verbatim. So a spec that reads a blueprint's own filters m
 against the glyph, not against what the mod wrote. `tests/blueprint_spec.lua` spells it
 `"\226\137\165"` rather than embedding the character.
 
-**2.0.77 carries the identical API surface**, checked against that install's own
-`runtime-api.json`: `ItemFilter`, `BlueprintItemFilter` and `ComparatorString` are
-field-for-field the same, nine accepted spellings and five canonical. **The behaviour was not
-re-measured on 2.0** — do that from the legacy worktree before relying on it there
-(`factorio-2.0.md`).
+**2.0.77 behaves identically, measured not assumed.** The API surface matches field-for-field —
+`ItemFilter`, `BlueprintItemFilter` and `ComparatorString`, nine accepted spellings and five
+canonical — and the whole suite was then run from the legacy worktree against that install
+(163/163, 2026-08-20): the live ring drains out of both lanes, and both comparators survive the
+blueprint round trip, `">="`-to-glyph normalisation included. So none of this is forked.
+Detail in `factorio-2.0.md`.

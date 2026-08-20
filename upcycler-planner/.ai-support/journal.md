@@ -54,6 +54,20 @@ and let the target only move the output tap. That one is real and is recorded in
 rather than adopted — it doubles the build at a rare target and collapses on modded chains that
 add tiers above legendary.
 
+**The 2.0 port needed no fork at all.** The cherry-pick conflicted on `info.json` alone; the three
+divergent Lua files auto-merged because none of the tap's code goes near the 2.0 seams
+(`category`/`additional_categories`, the `can_set_quality` mod-data bridge, the local
+`contains_value`). Divergence after the pick is still exactly the six declared files. Then the
+whole suite ran against 2.0.77 — 163/163, the live ring drain and the blueprint comparator
+round-trip included — which is what turns "2.0's docs say the same" into a measured claim
+(`analysis/factorio-2.0.md`). Worth noting the owner's 2.0 install runs **Quality++**, which adds
+tiers *above* legendary: that is precisely the modset where a legendary-target loop still needs
+the tap, and precisely where the full-height-ladder alternative would have failed.
+
+Version numbers were deliberately left alone on the legacy branch — `main` opened `0.4.4` and
+legacy stays at its last released `0.4.2`. A version string is unique per mod across both games,
+so the pairing is a release decision and belongs to the release request, not to a code sync.
+
 ## 2026-08-20 — the silent hotkey refusal reads as a broken key
 
 The owner reported CTRL+SHIFT+U "not working". Systematic pass found nothing broken: the

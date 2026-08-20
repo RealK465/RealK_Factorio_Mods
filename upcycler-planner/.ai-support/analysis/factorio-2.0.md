@@ -122,6 +122,21 @@ crafts. The machine orientation table (AM west, chem/bio west, foundry/cryo east
 reads identically from 2.0's data. **The 2.0 track offers 212 upcyclable items** with fluids
 admitted, against 2.1's 210 — the forked `planner_spec` pin.
 
+## Quality comparators on inserter filters behave identically — measured 2026-08-20
+
+The overflow tap rests entirely on a filter naming a **quality and no item** meaning "anything
+above this tier" (`api.md` §24). 2.0.77's `runtime-api.json` carries `ItemFilter`,
+`BlueprintItemFilter` and `ComparatorString` field-for-field identical to 2.1.14's — same nine
+accepted spellings, same five canonical — but the docs agreeing proves nothing about the engine
+acting on them, which is the class-3 trap this file exists for.
+
+Answered by running the whole suite on this install (163/163, 2026-08-20), not by assuming. The
+live ring test drains every above-target item out of **both** belt lanes here exactly as on 2.1,
+and the blueprint round-trip keeps both the nameless `">"` and the catcher's `">="` through
+build and revive — including 2.0 normalising `">="` to the glyph inside the blueprint the same
+way. **Nothing about the tap is forked**: `layout.lua` and `blueprint.lua` carry it identically
+on both branches, and the divergence stays the six declared files.
+
 ## The 0.3.0 GUI work ports unchanged — verified 2026-08-17
 
 Checked when the settings window, its titlebar button and the six-column grid were built
