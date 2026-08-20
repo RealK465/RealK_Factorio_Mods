@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.3
+Date: 2026-08-20
+  Changes:
+    - Version 0.4.2, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.2
-Date: ????
+Date: 2026-08-20
   Features:
     - A keyboard shortcut opens the planner: Ctrl+U by default.
       Rebind it under Settings > Controls > Mods.
@@ -10,6 +15,7 @@ Date: ????
   Changes:
     - Loops are narrower again. The planner no longer leaves an empty column in front of
       every machine for the electric poles. Poles now go wherever they fit inside the loop.
+    - Releasing for Factorio 2.0. Version 0.4.3 is the Factorio 2.1 build of the same change.
   Bugfixes:
     - Fixed that pressing E while choosing a machine or item placed the blueprint instead
       of confirming your choice.
