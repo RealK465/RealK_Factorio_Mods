@@ -310,7 +310,15 @@ describe("the chest roles", function()
           assert(entity.type == "container" and not entity.logistic_mode,
             name .. " talks to the logistic network and must not be a plain buffer")
         else
-          local mode = role == "requester" and "requester" or "passive-provider"
+          -- One logistic mode per role, named rather than derived: the overflow chest has to be
+          -- an ACTIVE provider, because it is the only sink in the loop that empties itself.
+          local modes = {
+            requester = "requester",
+            provider = "passive-provider",
+            overflow = "active-provider",
+          }
+          local mode = modes[role]
+          assert(mode, "role " .. role .. " has no expected logistic mode")
           assert(entity.type == "logistic-container" and entity.logistic_mode == mode,
             name .. " is not a " .. mode .. " chest")
         end

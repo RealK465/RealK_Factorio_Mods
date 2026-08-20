@@ -1,6 +1,12 @@
+-- The loop's two live mechanisms for material that rolled above the tier it belongs to, both
+-- measured rather than reasoned about: real entities, real power, real ticks.
+--
+-- The overflow tap is what keeps the RING from silting up -- one nameless quality filter
+-- draining everything above the target into an active provider (analysis/api.md S24).
+--
 -- The standing caution, put on trial: what the recycler's eject actually does when the
 -- machine above refuses a rolled-up ingredient (analysis/api.md S9.6 -- assumed from
--- mining-drill behaviour, never proven). Real revived entities, real power, real ticks.
+-- mining-drill behaviour, never proven).
 --
 -- The assertions here are the SAFE invariants: nothing is lost, nothing wrong-quality reaches
 -- the pinned machine, and the relief inserter drains what the eject cannot deliver. The parts
@@ -89,6 +95,92 @@ local function contents_line(entity, inventory)
   end
   return table.concat(parts, ", ")
 end
+
+-- The mod's own ring in miniature: top flows west, left south, bottom east, right north, each
+-- corner facing where the items go next. Small enough to lap in seconds, which is the point --
+-- a straight run cannot tell "the tap missed it" from "it settled past the pickup tile".
+local function build_ring(size)
+  local s, f = nauvis(), force()
+  local belts, last = {}, size - 1
+  local function belt(x, y, dir)
+    belts[#belts + 1] = s.create_entity({
+      name = "transport-belt", position = { x + 0.5, y + 0.5 }, direction = dir, force = f,
+    })
+  end
+  belt(0, 0, defines.direction.south)
+  for x = 1, last do belt(x, 0, defines.direction.west) end
+  for y = 1, last - 1 do belt(0, y, defines.direction.south) end
+  belt(0, last, defines.direction.east)
+  for x = 1, last - 1 do belt(x, last, defines.direction.east) end
+  belt(last, last, defines.direction.north)
+  for y = 1, last - 1 do belt(last, y, defines.direction.north) end
+  return belts
+end
+
+describe("the overflow tap on a circulating ring", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  test("one nameless filter drains everything above the target, out of both lanes", function()
+    -- The layout's whole answer to above-target rolls, live. A single filter naming a quality
+    -- and no item has to clear every ingredient AND the product from a ring that keeps handing
+    -- them back, without ever touching the target tier the terminal machine still needs.
+    --
+    -- Both belt lanes matter: an inserter reaches a belt's far lane first, so a far lane full of
+    -- items the filter refuses could in principle starve the near one forever.
+    local s, f = nauvis(), force()
+    -- The substation has to cover the tap itself, or it never swings and the run reads as a
+    -- filter failure rather than a rig failure.
+    s.create_entity({ name = "substation", position = { 4, 12 }, force = f })
+    s.create_entity({ name = "electric-energy-interface", position = { 8, 12 }, force = f })
+
+    local belts = build_ring(8)
+
+    -- The planner's own pick, not a hand-chosen inserter: the tap must be measured on the thing
+    -- layout.lua will actually stand there.
+    local tap_name = planner.inserter(f, 1)
+    assert(tap_name, "planner offered no inserter at full research")
+    local tap = s.create_entity({
+      name = tap_name, position = { 3.5, 8.5 }, direction = defines.direction.north, force = f,
+    })
+    tap.use_filters = true
+    tap.inserter_filter_mode = "whitelist"
+    -- No item name at all: the engine reads that as "anything, at a quality above this one".
+    tap.set_filter(1, { quality = "rare", comparator = ">" })
+    local chest = s.create_entity({ name = "active-provider-chest", position = { 3.5, 9.5 }, force = f })
+
+    -- One item per lane per tile: two insert_at_back calls on the same line back to back are
+    -- refused for want of room, which silently seeds nothing.
+    local seeded = 0
+    for i, quality in ipairs({ "normal", "uncommon", "rare", "epic", "legendary" }) do
+      for lane = 1, 2 do
+        for offset, name in ipairs({ "iron-plate", "iron-gear-wheel" }) do
+          local line = belts[i * 2 + (offset - 1) * 10].get_transport_line(lane)
+          if line.insert_at_back({ name = name, quality = quality }) then seeded = seeded + 1 end
+        end
+      end
+    end
+    assert(seeded == 20, "test setup: only " .. seeded .. " of 20 items reached the ring")
+
+    after_ticks(3600, function()
+      -- Above the target: gone from the ring, all of it, both items and both lanes.
+      for _, quality in ipairs({ "epic", "legendary" }) do
+        for _, name in ipairs({ "iron-plate", "iron-gear-wheel" }) do
+          local held = chest.get_item_count({ name = name, quality = quality })
+          assert(held == 2, name .. "@" .. quality .. " in the chest: " .. held .. ", wanted 2")
+        end
+      end
+      -- At or below it: untouched. The terminal machine still needs its own tier off this ring,
+      -- so a tap that reached one tier too low would starve the loop it is meant to unclog.
+      for _, quality in ipairs({ "normal", "uncommon", "rare" }) do
+        for _, name in ipairs({ "iron-plate", "iron-gear-wheel" }) do
+          local stolen = chest.get_item_count({ name = name, quality = quality })
+          assert(stolen == 0, "the tap took " .. stolen .. "x " .. name .. "@" .. quality)
+        end
+      end
+    end)
+  end)
+end)
 
 describe("the recycler eject under a rolled-up ingredient", function()
   before_all(function() research.full(force()) end)

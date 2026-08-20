@@ -14,11 +14,11 @@ Confirm hands over an ordinary blueprint instead**, so preview, rotation, flippi
 undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, quality module,
-top machine module, electric pole, pipe, and the trash-unrequested checkbox. Everything in that
-strip but the belt and the pipe carries a quality of its own — and a picker with only one option
-is hidden, as are the three chests whatever their count, so a vanilla game sees five of the nine
-— laid out as a **six-column grid**, since a
+is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, overflow chest,
+quality module, top machine module, electric pole, pipe, and the trash-unrequested checkbox.
+Everything in that strip but the belt and the pipe carries a quality of its own — and a picker
+with only one option is hidden, as are the four chests whatever their count, so a vanilla game
+sees five of the ten — laid out as a **six-column grid**, since a
 hidden picker takes no cell. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
 **Settings** button in the titlebar, holding the two per-player settings: show unresearched
@@ -28,7 +28,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (159 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
+suite under `tests/` (163 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -279,7 +279,7 @@ re-opening any of these, and don't restate a reason here.
 - **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
   game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
   machine, belt, quality module, and the two whose *clear* is the second option (pole, top machine
-  module). **The three chests go the other way and are hidden whatever their count.** A hidden
+  module). **The four chests go the other way and are hidden whatever their count.** A hidden
   picker still holds its default, and hides its row label with it. What that costs — a hidden
   picker takes its quality box with it — is what *Show all build options* exists to undo, the
   chests and the pipe's fluid condition included.
@@ -297,8 +297,14 @@ re-opening any of these, and don't restate a reason here.
   only a module's *positive* effects must be allowed (`analysis/api.md` §16); both are
   re-resolved when either half of the pair changes.
 - Modded recyclers work by rotation, not convention — see fact 3.
-- Chests are 1x1, and each of the three roles offers only its own kind — the role is fixed, the
-  chest is the player's. Inserters reach one tile, are never fuelled and never belt-stacking, and
+- **Everything the loop rolls above the target leaves through one tap** — an inserter and an
+  active-provider chest in the terminal column's two spare tiles, whitelisting `{target, ">"}`
+  with **no item name**, so one slot covers any recipe. Footprint unchanged; it costs one extra
+  pole. The terminal catcher is a single `">="` for the same reason. Why each part is as it is:
+  `decisions.md`; the measurements: `analysis/api.md` §24.
+- Chests are 1x1, and each of the four roles offers only its own kind — the role is fixed, the
+  chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
+  (active provider): it is the loop's one sink that empties itself. Inserters reach one tile, are never fuelled and never belt-stacking, and
   a chosen one that is short of filter slots is named in the refusal **only when a better one
   exists** — otherwise the recipe is blamed, which is every vanilla case. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1

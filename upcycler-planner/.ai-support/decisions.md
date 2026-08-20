@@ -189,10 +189,12 @@ per-release approval.
   returned as a value because `player.print` is unobservable from a spec.
 - **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
   crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
-  belt, inserter, requester chest, buffer chest, output chest, quality module, top machine
-  module, electric pole, pipe, and the trash-unrequested checkbox (checked by default). The
-  inserter, the three chests and the top machine's module joined the strip on 2026-08-17 at the
-  repo owner's request, closing the parked chest picker and the parked productivity-module one;
+  belt, inserter, requester chest, buffer chest, output chest, overflow chest, quality module,
+  top machine module, electric pole, pipe, and the trash-unrequested checkbox (checked by
+  default). The
+  inserter, the first three chests and the top machine's module joined the strip on 2026-08-17 at
+  the repo owner's request, closing the parked chest picker and the parked productivity-module one;
+  the overflow chest joined them on 2026-08-20 with the tap it feeds;
   **nothing the plan places is auto-picked any more** except the underground pipe, which is
   derived from the pipe rather than chosen. The strip is a six-column grid — see its own bullet
   below.
@@ -210,8 +212,8 @@ per-release approval.
   (`quality/locale/en/quality.cfg`, *quality-bonus-exceptions*). So `belt_speed` is a plain
   attribute with no quality variant the way `get_crafting_speed(quality)` has one — a legendary
   belt carries exactly as much as a normal one — while the machine, recycler, module, pole,
-  inserter and all three chests each have a bonus worth choosing. For the two added on
-  2026-08-17 those bonuses are swing speed and inventory size
+  inserter and all four chests each have a bonus worth choosing. For the inserter and the chests
+  those bonuses are swing speed and inventory size
   (`quality_affects_inventory_size` **defaults true** on `ContainerPrototype`, so a chest gets
   it without base opting in; `analysis/api.md` §15).
 - **A build material with a quality travels as a `{ name, quality }` pair**, from `resources()`
@@ -254,11 +256,11 @@ per-release approval.
   option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
   of the request. The pipe carries one extra condition of its own: it stays out of the strip until
   the chosen recipe takes a fluid, since it plumbs nothing otherwise.
-  **The three chests are the exception the other way** (owner's call, 2026-08-18): all three are
+  **The chests are the exception the other way** (owner's call, 2026-08-18): all four are
   hidden whatever the count, so the buffer goes even though wooden, iron and steel are a real
   choice. The default — the largest inventory the force has researched — is the right answer
-  nearly every time, and three chest buttons in a nine-button strip read as three decisions the
-  player has to make before pressing Place. Show-all brings all three back, quality included.
+  nearly every time, and a chest button apiece in a ten-button strip reads as that many decisions
+  the player has to make before pressing Place. Show-all brings them all back, quality included.
   A hidden picker is still built, still holds the default the plan uses, and hides its row label
   with it; only the widget is gone. `visible` is documented as *"taking no space in the layout"*,
   which is what lets a hidden row reflow instead of leaving a hole.
@@ -328,10 +330,10 @@ per-release approval.
   setting re-creates an open panel with fresh ticks, which also retired the repaint-on-change
   loop.
 - **The build options are a six-column grid** (owner's call, 2026-08-17). A `table`, not a flow,
-  so the row length is a rule rather than an accident: nine pickers on one line drag the modal
-  wider than the block above it, and a modset adding a tenth would keep dragging. Measured in a
-  real client: an invisible child takes **no cell**, so the vanilla six pack into one clean row and
-  all nine wrap 6 + 3 with no holes (`analysis/api.md` §19).
+  so the row length is a rule rather than an accident: ten pickers on one line drag the modal
+  wider than the block above it, and a modset adding an eleventh would keep dragging. Measured in
+  a real client at nine pickers: an invisible child takes **no cell**, so the vanilla ones pack
+  into one clean row and the rest wrap with no holes (`analysis/api.md` §19).
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
   `{name, quality}` tables the `-with-quality` widgets speak. `control.lua`'s stated contract is
   that storage holds nothing but strings, and a nested table there fails silently rather than
@@ -399,13 +401,16 @@ per-release approval.
   tile, so footprint is a geometric constraint of the row plan rather than a preference. A
   modded 1x1 chest with more slots still wins legitimately; anything bigger is out regardless of
   research — the picker cannot offer it either.
-- **The three chest roles are fixed; only the chest is the player's.** `requester`, `container`
-  and `provider` are one predicate each, and each picker offers only its own kind: a requester
-  chest cannot be swapped for a buffer chest, nor the plain relief buffer for a logistic one.
+- **The four chest roles are fixed; only the chest is the player's.** `requester`, `container`,
+  `provider` and `overflow` are one predicate each, and each picker offers only its own kind: a
+  requester chest cannot be swapped for a buffer chest, nor the plain relief buffer for a
+  logistic one.
   The reason is the loop's own contract — the buffers inside it must not talk to the player's
   network, or the loop competes with the base for its own intermediates — so the role is
   geometry-and-semantics while the chest is taste. Largest researched inventory remains the
-  default per role.
+  default per role. `overflow` is the one role pinned to a specific logistic mode (active
+  provider) rather than merely to a kind, for the reason in its own bullet above: it is the only
+  sink in the loop that empties itself.
 - **Both new pickers gate on `items_to_place_this`**, the same test the machine list uses. Found
   on 2026-08-17 by reading the data dump rather than by reasoning: base ships 1x1 *containers*
   for the crash site and the tips-and-tricks simulations (`red-chest`, `blue-chest`,
@@ -460,6 +465,38 @@ per-release approval.
   stubs beneath the top and bottom ring belts; the player taps any column from either side
   with an underground pipe of their own and wires the columns together however they like.
   Nothing requests fluid by bots.
+- **Everything the loop rolls above the target leaves through one tap, into an active provider.**
+  The repo owner's call, 2026-08-20, after reporting a rare/epic loop silting its own belt up in
+  a played game. Both halves of the loop overshoot — a moduled machine rolls the PRODUCT past the
+  target, a moduled recycler rolls the INGREDIENTS past it — and nothing consumes either, because
+  every machine is pinned to one tier and quality matching is exact. The tap is an inserter and a
+  chest standing in the two tiles the terminal column has spare (no recycler there, so no extract
+  stack), so **the footprint does not change**; it is that column's unload inserter reversed,
+  facing the bottom ring instead of away from it.
+  **One filter does it, naming a quality and NO item** — `{quality = target, comparator = ">"}`,
+  which the engine reads as "anything at all, above this tier" (measured, `analysis/api.md` §24).
+  So the cost does not grow with the ingredient count, and anything unexpected is caught too. The
+  earlier shape — one filter per ingredient — was rejected for costing `#ingredients` slots to say
+  the same thing.
+  The chest is an **active provider** rather than the player's pick of logistic chest, because it
+  is the loop's only unbounded sink: a passive provider or a plain chest merely fills, and the ring
+  saturates again a few hours later. `logistic-system` unlocks it beside the requester chest the
+  mod already requires, so it costs no research.
+  **Placed whenever the quality chain has a tier above the target, researched or not.** Rolls
+  cannot exceed a force's unlocked qualities, so a tap can sit idle — but researching a new tier is
+  exactly what clogs a loop built before it, and two entities is cheaper than re-stamping every
+  loop in the base. At the top of the chain nothing can overshoot, so no tap is built at all.
+  **What it costs, and the owner accepted it: one more electric pole** on the vanilla rare loop
+  (six, not five). The tap is a consumer in the terminal column's bottom corner, which had none
+  before, and it stands on two tiles the pole pass could otherwise have used. The *width* is
+  unchanged, which is what the compact-first rule protects.
+  Two consequences worth stating, because both look like regressions and are not. Above-target
+  **product** now normally leaves by the tap rather than by the terminal catcher: the tap sits on
+  the bottom ring and the catcher on the top, and product from a lower tier crosses the bottom
+  first. The catcher keeps `">="` as the backstop, so a bot-less base behaves exactly as before.
+  And the catcher's filter list — target quality plus one entry per tier above it, nearest first,
+  **clamped to the inserter's five slots** — collapsed into that single `">="`, which is both
+  exact and immune to a modded quality chain longer than five tiers.
 - **Nothing is ever built outside the ring — poles included.** The repo owner's call,
   2026-08-17, replacing the first-built external pipe header the same day: the ring rectangle
   is the plan's entire footprint, so the ground the player reserves is exactly what they see,

@@ -139,7 +139,7 @@ describe("the modal", function()
     assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == false,
       "no recipe and one pipe: the pipe picker must be hidden twice over")
 
-    -- The three chests are the exception the other way: hidden whatever the count, so the buffer
+    -- The chests are the exception the other way: hidden whatever the count, so the buffer
     -- goes even though wooden, iron and steel are a real choice. The count is asserted so this
     -- keeps testing the rule rather than accidentally agreeing with the count rule.
     assert(#planner.chests("container") > 1, "test premise: the buffer has real alternatives")

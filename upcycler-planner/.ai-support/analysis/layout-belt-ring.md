@@ -56,8 +56,8 @@ stubs beneath the ring belts (§Fluid recipes below).
 | `4 .. 3+Hm` | machines |
 | `4+Hm .. 3+Hm+Hr` | recyclers |
 | `4+Hm+Hr` | extract inserter (left) / recycler-feed inserter (middle) |
-| `5+Hm+Hr` | extract chest (left) / product buffer chest (middle) |
-| `6+Hm+Hr` | unload inserter (left) / product-fill inserter (middle) |
+| `5+Hm+Hr` | extract chest (left) / product buffer chest (middle) — **overflow chest** on the terminal column |
+| `6+Hm+Hr` | unload inserter (left) / product-fill inserter (middle) — **overflow inserter** on the terminal column |
 | `7+Hm+Hr` | bottom ring belt (flows E) |
 
 **`H = 8 + Hm + Hr`**  (AM3: 15, fluid or not)
@@ -130,7 +130,23 @@ Terminal column `t` has no recycler, no product belt and no lower stacks. Instea
 | What | Tile | Config |
 |---|---|---|
 | Output chest (`passive-provider-chest`) | `(xp, 2)` | the product accumulates here; the out inserter above drops straight in |
-| Catcher inserter | `(xp, 1)` dir **N** | top ring -> provider; whitelist `P @ q_t` **and every quality above it** (nearest tiers first, clamped to the inserter's filter slots) — collects product lower tiers rolled by luck. The above-target filters exist because nothing else in the loop consumes an above-target roll: every machine is pinned and matches exactly, so without them that product would circulate on the ring forever |
+| Catcher inserter | `(xp, 1)` dir **N** | top ring -> provider; whitelist **one** filter, `{P, q_t, ">="}` — the target quality and every one above it, collecting product lower tiers rolled by luck. It was a list of one filter per tier above, nearest first and clamped to the inserter's five slots, until the comparator was measured (`api.md` §24); one entry is exact and cannot be outrun by a longer modded chain |
+| **Overflow inserter** | `(xf, 6+Hm+Hr)` dir **S** | bottom ring -> overflow chest; whitelist **one** filter, `{q_t, ">"}` — **naming a quality and no item at all**, so it takes anything above the target whatever the recipe. Only placed when the quality chain has a tier above `q_t` |
+| **Overflow chest** (`active-provider-chest`) | `(xf, 5+Hm+Hr)` | where everything above the target leaves the loop. Active on purpose: bots empty it, where a plain chest would fill and the ring would silt up again a few hours later |
+
+**The overflow tap is the terminal column's answer to overshoot, and it is free in footprint.**
+The terminal column has no recycler, so the extract stack's two tiles stand empty — the tap is
+exactly that column's unload inserter reversed, same tile, facing the belt instead of away from
+it. Both halves of the loop overshoot (a moduled machine rolls the product past `q_t`, a moduled
+recycler rolls the ingredients past it) and nothing consumes either, because every machine is
+pinned and quality matching is exact.
+
+It sits on the **bottom** ring and the catcher on the **top**, and product from a lower tier
+crosses the bottom first — so above-target *product* normally leaves by the tap, with the
+catcher's `">="` standing as the backstop for a base with no bots. The one price is **one more
+electric pole** (six, not five, on the vanilla rare loop): the tap is a consumer in a corner that
+had none, and it occupies two tiles the pole pass could otherwise have stood in. Width is
+unchanged.
 
 ## The eject check — the constraint that must never be broken
 

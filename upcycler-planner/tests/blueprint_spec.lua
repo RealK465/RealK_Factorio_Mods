@@ -199,6 +199,42 @@ describe("stamping the blueprint", function()
     end
   end)
 
+  test("the tap and the catcher keep their quality comparators through the blueprint", function()
+    -- The only two filters in the plan that name a quality RANGE instead of one tier, read back
+    -- off real ghosts rather than trusted from the table. A comparator the engine dropped would
+    -- leave a tap that catches nothing and a catcher that misses every lucky roll, and neither
+    -- failure raises anything -- which is the whole reason this reads the world back.
+    --
+    -- The engine normalises ">=" to its single glyph on the way in (analysis/api.md S24), so the
+    -- catcher is compared against what comes out, not against what blueprint.lua wrote.
+    local GTE = "\226\137\165"
+    stamp(gear_plan())
+
+    local tap, catcher
+    for _, ghost in pairs(ghosts_on(nauvis())) do
+      if ghost.ghost_prototype.type == "inserter" then
+        local filter = ghost.get_filter(1)
+        -- get_filter hands back a bare string when there is nothing but a name to report.
+        if type(filter) == "string" then filter = { name = filter } end
+        if filter and not filter.name then
+          tap = filter
+        elseif filter and filter.comparator == GTE then
+          catcher = filter
+        end
+      end
+    end
+
+    assert(tap, "no nameless filter survived -- the overflow tap catches nothing")
+    assert(tap.quality == "rare" and tap.comparator == ">",
+      "tap filter came back as " .. serpent.line(tap))
+    assert(catcher, "no >= filter survived -- the catcher misses above-target product")
+    assert(catcher.name == "iron-gear-wheel" and catcher.quality == "rare",
+      "catcher filter came back as " .. serpent.line(catcher))
+
+    assert(#ghosts_of(nauvis(), "active-provider-chest") == 1,
+      "the tap has no active provider to drop into")
+  end)
+
   test("pole ghosts come wired into one connected network", function()
     -- The exact edge count is the engine's business, not ours: wires are first-class blueprint
     -- content and ghost poles preview their own auto-connections on top of the spanning tree
@@ -206,9 +242,10 @@ describe("stamping the blueprint", function()
     -- an unwired island is the failure poles.lua's honesty rule exists for.
     stamp(gear_plan())
     local poles = ghosts_of(nauvis(), "medium-electric-pole")
-    -- Five, not the three a per-tier pole column used to line up: the compact plan wins on
-    -- width and the poles spread into the ring's own free ground instead.
-    assert(#poles == 5, "pole ghost count " .. #poles)
+    -- Six, not the three a per-tier pole column used to line up: the compact plan wins on
+    -- width and the poles spread into the ring's own free ground instead. The sixth is the
+    -- overflow tap's -- see plan_spec's medium-pole scenario for why it costs one.
+    assert(#poles == 6, "pole ghost count " .. #poles)
 
     local index_of = {}
     for i, ghost in pairs(poles) do index_of[ghost.unit_number] = i end
