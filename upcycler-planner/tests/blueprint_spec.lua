@@ -206,7 +206,9 @@ describe("stamping the blueprint", function()
     -- an unwired island is the failure poles.lua's honesty rule exists for.
     stamp(gear_plan())
     local poles = ghosts_of(nauvis(), "medium-electric-pole")
-    assert(#poles == 3, "pole ghost count " .. #poles)
+    -- Five, not the three a per-tier pole column used to line up: the compact plan wins on
+    -- width and the poles spread into the ring's own free ground instead.
+    assert(#poles == 5, "pole ghost count " .. #poles)
 
     local index_of = {}
     for i, ghost in pairs(poles) do index_of[ghost.unit_number] = i end

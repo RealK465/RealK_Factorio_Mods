@@ -3,11 +3,12 @@
 -- every client. That is what makes it desync-safe without any ceremony, and it means the
 -- geometry can be reasoned about without a running game.
 --
--- The layout is one rectangular belt ring with a column of machinery per quality tier, and a
--- utility column before each of them sized to what lives in it -- poles, and the pipe run when
--- the recipe takes a fluid. NOTHING is ever placed outside the ring: the ring rectangle IS the
--- plan's footprint, and the fluid network reaches the outside world only as underground stubs
--- beneath the ring belts.
+-- The layout is one rectangular belt ring with a column of machinery per quality tier, and an
+-- optional utility column before each of them sized to what lives in THAT one -- a pole, and
+-- the pipe run when the recipe takes a fluid. The sizes arrive per tier, so a plan pays width
+-- only where something stands. NOTHING is ever placed outside the ring: the ring rectangle IS
+-- the plan's footprint, and the fluid network reaches the outside world only as underground
+-- stubs beneath the ring belts.
 --
 --     row 0             top ring, flows west
 --         1             harvest inserters   | product belt | north pipe stub (fluid plans)
@@ -100,15 +101,26 @@ function layout.build(params)
   -- of Production's 4-wide salvager under a 3-wide assembler) just gets dead columns beside
   -- the machine. The last column carries no recycler, so it only needs the machine.
   local pitch = math.max(machine.width, recycler.width)
-  -- The utility column: a run of `gap` empty columns before EVERY tier column, sized by the
-  -- planner to what lives in it -- the pole's width, plus one for the pipe run when the
-  -- recipe takes a fluid. Zero collapses the columns entirely and leaves every plan
+  -- The utility columns: `column_gaps[i]` empty columns standing before tier column i, sized by
+  -- the planner to what lives in THAT one -- the pole's width where a pole goes, plus one for
+  -- the pipe run when the recipe takes a fluid. Per tier rather than one uniform width, so a
+  -- plan pays only where something stands; all zero collapses them and leaves the plan
   -- byte-identical to the pre-utility-column layout.
-  local gap = params.column_gap or 0
-  -- A fluid plan cannot run at gap zero: the pipe run needs its column, or the pipes would
-  -- land on the left ring belt.
-  if params.fluid and gap < 1 then gap = 1 end
-  local width = 2 + #tiers * gap + (#tiers - 1) * pitch + machine.width
+  local gaps, offsets = {}, {}
+  local next_col = 1
+  for index = 1, #tiers do
+    local gap = params.column_gaps and params.column_gaps[index] or 0
+    -- A fluid plan cannot run at gap zero: the pipe run needs its column, or the pipes would
+    -- land on the left ring belt. Clamped here rather than in the planner so no caller can
+    -- collapse a column the pipes are standing in.
+    if params.fluid and gap < 1 then gap = 1 end
+    gaps[index] = gap
+    offsets[index] = next_col + gap
+    next_col = next_col + gap + pitch
+  end
+  -- The last tier carries no recycler, so the plan ends one machine past its column, plus the
+  -- right ring belt.
+  local width = offsets[#tiers] + machine.width + 1
   local height = r.height
 
   local entities = {}
@@ -175,13 +187,15 @@ function layout.build(params)
     ingredient_names[#ingredient_names + 1] = ingredient.name
   end
 
-  -- The utility columns, one before each tier column, reported so the pole pass can prefer
-  -- them without re-deriving the column arithmetic.
+  -- The utility columns that actually opened, reported so the pole pass can prefer them
+  -- without re-deriving the column arithmetic. A tier whose gap is zero contributes nothing,
+  -- which is why each entry names its own tier.
   local utility_columns = {}
 
   for index, quality in pairs(tiers) do
     local is_terminal = index == #tiers
-    local col = 1 + index * gap + (index - 1) * pitch
+    local col = offsets[index]
+    local gap = gaps[index]
     local col_feed = col
     local col_buffer = col + 1
     local col_product = col + machine.width - 1
@@ -189,7 +203,9 @@ function layout.build(params)
     local ingredient_filters = quality_filters(ingredient_names, quality)
 
     if gap > 0 then
-      utility_columns[#utility_columns + 1] = { x = col - gap, width = gap }
+      -- `tier` is what lets the planner collapse the one column a pole did not stand in
+      -- without counting entries against tiers that opened no column at all.
+      utility_columns[#utility_columns + 1] = { x = col - gap, width = gap, tier = index }
     end
 
     -- The pipe run: full interior height on the utility column's east edge, an underground

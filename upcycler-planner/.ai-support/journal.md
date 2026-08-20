@@ -9,6 +9,76 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — the pole columns stop being free, and the planner starts paying for them
+
+The repo owner, with a screenshot of two loops side by side: *"the placement of the poles caused
+too big empty columns now... at the left is the old algorithm it was compact, but now with new
+algorithm/layout it's larger."* Both builds were four tiers of electromagnetic plants; the right
+one reserved four utility columns and stood a substation in two of them. **26 wide to place two
+poles that a single substation covers from free ground at 18.**
+
+**The cause was one line, and it had been there since 0.2.0.** `column_gap` was
+`(fluid and 1) + pole.tile_width`, applied to every tier unconditionally, so the footprint grew
+by `tiers * G` whether or not anything stood in the columns. The 2026-08-17 entry below records
+that as a deliberate simplification — the growth retry was deleted *because* the columns were
+opened before the layout existed — and it is the trade that came due here.
+
+**Measured before designing anything**, on the host interpreter against the mod's own pure
+modules: four reserved columns and one used on a 4x4 machine with medium poles; three reserved
+and two used on the pinned vanilla default. Worse, on some shapes the free-tile fallback won
+outright, so the width was paid and the tidy line was not even delivered — the screenshot's own
+configuration.
+
+**The owner chose compact-first with sized growth, and "narrower wins" on a tie.** So
+`layout.build` now takes `column_gaps`, a list per tier rather than one scalar, and
+`planner.plan` runs a three-attempt ladder in a new local `plan_with_poles`: the compact plan,
+then all columns, then collapsing back every column no pole stood in. Fewest unpowered wins,
+width breaks the tie, and because the all-columns attempt is always in the running the outcome
+cannot be worse than what shipped. Details in `analysis/poles.md` §"Choosing the columns".
+
+**Two proofs were worth building before the change went in.** A parity harness ran the edited
+`layout.build` against the git copy over 144 shapes with uniform gaps — byte-identical, so the
+scalar-to-list refactor carried no behaviour of its own. Then a 768-shape sweep (machine 3–6
+wide, 2–5 tiers, six pole shapes, fluid on and off) compared the ladder against the shipped
+behaviour: **zero coverage regressions, zero width regressions**, max four solves. Both are
+throwaway scratch scripts, not suite members — what they prove about *this* change is a
+one-time question, and the suite pins the outcomes instead.
+
+**The first parity run was a false pass and is worth recording as such.** The harness took the
+old and new layouts as two arguments and I passed them in the wrong order, so each module was
+called with the *other's* parameter name, both ignored it, and both built at gap zero —
+144/144 identical, proving nothing. The rewrite asserts the two modules are distinct tables and
+ends with a live check that a `{0, 2, 0}` gap really does widen the plan by exactly 2. A
+comparison harness that cannot fail is worse than no harness, because it is believed.
+
+**Cost, honestly.** Mean plan time went *down*, 4.2 ms to 3.8 ms, because the plan that usually
+wins is also the smallest one to solve. The worst case went up, 35 ms to 49 ms, on a 6-wide
+machine at five tiers with big electric poles and a fluid recipe — a dropped frame on a picker
+click, inside `gui.refresh` where `layout.build` already lives.
+
+**What a player gets and gives up.** The vanilla rare loop goes 14 → 11 wide, the screenshot's
+own build 26 → 18, substation-to-legendary 27 → 21, the fluid battery loop 17 → 14. The price is
+more poles (five instead of three on the vanilla loop) and no tidy line — the poles spread into
+the dead ground beside the recyclers, which is exactly the look of the "old algorithm" build the
+owner pointed at. **The big electric pole is unchanged**: all three of its columns open and stay
+open, because there each one holds a pole doing real work. That case is now what proves growth
+still happens, and its spec says so.
+
+Suite 123 → 125 (two new pure layout tests: per-tier gaps, and the fluid clamp surviving a
+collapse request), all green headless, static tier clean, data stage clean. Four pinned widths
+and one pole count moved, every one of them predicted correctly by the host simulation before
+the in-game run.
+
+**One fixture bug found on the way**, in `tests/pure/layout_spec.lua`: `fluid_params` applied
+its overrides *first* and then wrote its own defaults over them, so the new clamp test was
+silently running at the default gap. Overrides now go on last.
+
+**Not ported to `legacy/2.0`.** `scripts/planner.lua` is a declared divergent file, so the 2.0
+build keeps the old behaviour until someone hand-applies this; `scripts/layout.lua` is not
+divergent and cherry-picks cleanly, but the two have to move together.
+
+---
+
 ## 2026-08-18 — released: 0.4.0 (Factorio 2.0) and 0.4.1 (Factorio 2.1)
 
 Published at the repo owner's request, shipped 2.0-first on the lower number per the pair

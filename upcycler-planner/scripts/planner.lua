@@ -1115,6 +1115,93 @@ local function electric_consumers(entities)
   return out
 end
 
+-- Poles stand on a FINISHED layout, but where they CAN stand is part of that layout -- so the
+-- two are solved together rather than in sequence, narrowest first. Three attempts at most:
+--
+--   1. compact -- no pole columns at all, poles in whatever the ring already leaves free
+--      (the dead ground beside a recycler narrower than its machine, and the last tier's
+--      empty lower block). On most shapes this covers, and it is as small as a plan gets.
+--   2. all columns -- one sized column before every tier, the 0.2.0 shape.
+--   3. shrink -- collapse every column no pole stood in, solve again, repeat. It only ever
+--      collapses, so the open set strictly shrinks and this terminates.
+--
+-- Fewest unpowered consumers wins, and the narrower plan takes any tie -- compact is tried
+-- first, so it holds one. Attempt 2 IS the plan the mod used to emit unconditionally, and it
+-- is always in the running, which is what makes the outcome impossible to be worse than it.
+local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
+  local function attempt(gaps)
+    layout_params.column_gaps = gaps
+    local built = layout.build(layout_params)
+    -- Margins are re-derived per attempt rather than carried over: a name missing from the map
+    -- reads as "draws no power" and would quietly claim coverage, which is the one lie the
+    -- pole pass exists to prevent. Ten prototype lookups is the honest price.
+    return {
+      gaps = gaps, plan = built,
+      poles = poles.plan(built, pole, electric_consumers(built.entities)),
+    }
+  end
+
+  local function uniform(gap)
+    local gaps = {}
+    for index = 1, tier_count do gaps[index] = gap end
+    return gaps
+  end
+
+  local function beats(candidate, incumbent)
+    if candidate.poles.unpowered ~= incumbent.poles.unpowered then
+      return candidate.poles.unpowered < incumbent.poles.unpowered
+    end
+    return candidate.plan.width < incumbent.plan.width
+  end
+
+  local best = attempt(uniform(0))
+  if best.poles.unpowered > 0 then
+    local current = attempt(uniform(pole_gap))
+    if beats(current, best) then best = current end
+
+    while true do
+      -- A column earns its width by holding a pole. Anything else is dead ground, including a
+      -- column the free-tile fallback walked away from.
+      local held = {}
+      for _, column in pairs(current.plan.utility_columns or {}) do
+        for _, placed in pairs(current.poles.entities) do
+          if placed.dx >= column.x and placed.dx + pole.width <= column.x + column.width then
+            held[column.tier] = true
+            break
+          end
+        end
+      end
+
+      local gaps, collapsed = {}, false
+      for index = 1, tier_count do
+        gaps[index] = held[index] and pole_gap or 0
+        if gaps[index] ~= current.gaps[index] then collapsed = true end
+      end
+      if not collapsed then break end
+
+      local shrunk = attempt(gaps)
+      -- Coverage is the floor: a narrower plan that leaves one more machine dark is not an
+      -- improvement, and stopping here keeps the wider one that did cover.
+      if shrunk.poles.unpowered > current.poles.unpowered then break end
+      current = shrunk
+      if beats(current, best) then best = current end
+    end
+  end
+
+  local plan = best.plan
+  -- poles.plan numbers wire_to within its OWN result, the only ordering it can know. Rebasing
+  -- those onto plan indices here -- the one place that sees both numberings -- is what lets
+  -- the serialiser wire an entity by index without knowing what a pole is, and it is what a
+  -- wire between two unlike entities would need anyway.
+  local base = #plan.entities
+  for _, entity in ipairs(best.poles.entities) do
+    if entity.wire_to then entity.wire_to = base + entity.wire_to end
+    plan.entities[#plan.entities + 1] = entity
+  end
+  if best.poles.unpowered > 0 then plan.unpowered = best.poles.unpowered end
+  return plan
+end
+
 -- `gathered` is the resources table validate() already collected in the same code path, so
 -- gui.refresh does not pay for the scans twice; omitted, plan gathers its own.
 function planner.plan(force, choices, gathered)
@@ -1188,20 +1275,19 @@ function planner.plan(force, choices, gathered)
     machine_footprint.direction = fluid_orientation.direction
   end
 
-  -- The utility column before each tier column is sized to what lives in it: the pole's own
-  -- width, plus one for the pipe run when the recipe takes a fluid. Both cleared away means
-  -- no column at all, which keeps a pipeless, poleless plan byte-identical to the original
-  -- layout. Resolved before the build because the columns are geometry, not garnish.
+  -- What a utility column costs where one opens: the pole's own width, plus one for the pipe
+  -- run when the recipe takes a fluid. WHICH tiers open one is not decided here --
+  -- plan_with_poles measures that against real coverage -- and a poleless plan opens none at
+  -- all, leaving layout.build's own fluid clamp as the only thing that can widen a column.
   local pole_name, pole_quality = chosen_pole(force, choices)
   local pole = pole_name and prototypes.entity[pole_name]
-  local column_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
+  local pole_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
 
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
     above_target = above_target,
     machine = machine_footprint,
-    column_gap = column_gap,
     fluid = #fluids == 1 and { pipe = r.pipe, pipe_to_ground = r.pipe_to_ground } or nil,
     -- The recycler's footprint is the ROTATED one: the planner picks the rotation that makes
     -- its eject land in the machine above, and width and height swap with it.
@@ -1229,30 +1315,21 @@ function planner.plan(force, choices, gathered)
     -- gap on the belt, and self-limiting rather than hoarding.
     product_buffer = prototypes.item[product.name].stack_size,
   }
-  local plan = layout.build(layout_params)
-
-  -- The pole pass runs over the finished geometry: the utility columns first -- the layout
-  -- sized them to this pole, so the tidy line is the common case -- and any free tile as the
-  -- honest fallback, best effort with a count when even that falls short.
+  -- With poles, the layout and the pole pass are solved together -- the columns a plan opens
+  -- are the ones poles turned out to need. Without them there is nothing to weigh, so the
+  -- geometry is built once.
+  local plan
   if pole then
-    local result = poles.plan(plan, {
+    plan = plan_with_poles(layout_params, #tiers, pole_gap, {
       name = pole_name, quality = pole_quality,
       width = pole.tile_width, height = pole.tile_height,
       -- Quality genuinely grows a pole's reach (+level to the supply radius, +2*level to
       -- the wire reach), so the layout is computed at the quality the poles are placed at.
       supply_distance = pole.get_supply_area_distance(pole_quality),
       wire_distance = pole.get_max_wire_distance(pole_quality),
-    }, electric_consumers(plan.entities))
-    -- poles.plan numbers wire_to within its OWN result, the only ordering it can know. Rebasing
-    -- those onto plan indices here -- the one place that sees both numberings -- is what lets
-    -- the serialiser wire an entity by index without knowing what a pole is, and it is what a
-    -- wire between two unlike entities would need anyway.
-    local base = #plan.entities
-    for _, entity in ipairs(result.entities) do
-      if entity.wire_to then entity.wire_to = base + entity.wire_to end
-      plan.entities[#plan.entities + 1] = entity
-    end
-    if result.unpowered > 0 then plan.unpowered = result.unpowered end
+    })
+  else
+    plan = layout.build(layout_params)
   end
 
   -- Carried on the plan rather than through the layout: which chests exist is geometry, whether
