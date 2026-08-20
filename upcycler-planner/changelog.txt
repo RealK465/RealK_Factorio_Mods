@@ -1,11 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.5
+Date: 2026-08-20
+  Changes:
+    - Version 0.4.4, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.4
-Date: ????
+Date: 2026-08-20
   Features:
     - Loops that aim below the highest quality now build an overflow chest.
   Optimizations:
     - The planner window responds faster. Changing an option now designs the loop once
       instead of twice.
+  Changes:
+    - Releasing for Factorio 2.0. Version 0.4.5 is the Factorio 2.1 build of the same change.
   Bugfixes:
     - Fixed the game freezing when you picked a very high quality with a mod that adds many
       tiers. The longest loops are now around thirty times faster to design.
