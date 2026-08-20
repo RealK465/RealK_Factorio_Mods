@@ -9,6 +9,33 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — the silent hotkey refusal reads as a broken key
+
+The owner reported CTRL+SHIFT+U "not working". Systematic pass found nothing broken: the
+prototype loads (checksum in the morning's log), no vanilla control, no installed mod and no
+`config.ini` rebind touches the combo — the only silent path was `gui.toggle_key`'s own
+recycling gate, refusing by design with zero feedback. The morning's session was a freshly
+assembled Krastorio2 modpack save (K2 keeps `recycling`, re-priced 5000 → 500), so the tech was
+almost certainly unresearched — the gate was doing its job invisibly.
+
+The lesson generalises: **the button greys out, a key just does nothing** — any gate a key
+shares with a button needs its own voice. Fix on the owner's "fix it": the refused press prints
+`upl-message.planner-not-researched`, naming the technology read from the shortcut prototype's
+`technology_to_unlock` at runtime (exposed on `LuaShortcutPrototype`, checked in
+`runtime-api.json` 2.1.14) so gate and message share one source. Refusal returned as a value —
+`player.print` is unobservable from a spec — and pinned in `gui_spec`'s hotkey block, plus a
+no-refusal pin on the unlocked path. Changelog folded into 0.4.2's open hotkey entry, since the
+silent version never shipped.
+
+Same session, the owner re-picked the default: **CTRL+U**, the combo they had already rebound
+to in the dev install's `config.ini`. Scanned before switching: no vanilla control, none of the
+dev install's mod zips, and none of the Steam library's 121 zips (read-only scan, owner's
+explicit ask overriding the standing out-of-scope rule for that one look) binds CONTROL + U.
+The hotkey never shipped, so no migration concern — the 0.4.2 changelog entry just says the
+new combo.
+
+---
+
 ## 2026-08-20 — the settings window becomes a column in an invisible container
 
 The drag-flag fix below survived one in-game test. The owner's screenshots showed the settings

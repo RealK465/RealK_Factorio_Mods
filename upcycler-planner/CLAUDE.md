@@ -28,7 +28,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (158 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
+suite under `tests/` (159 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -141,7 +141,7 @@ data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_qualit
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        the two per-player settings the modal's window edits
 prototypes/planner/                 the shortcut, the icon layers it is built from, and the two
-                                    custom-inputs: the CTRL+SHIFT+U toggle and the linked one
+                                    custom-inputs: the CTRL+U toggle and the linked one
                                     that points the Confirm key at Place
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
@@ -244,7 +244,7 @@ re-opening any of these, and don't restate a reason here.
   `quality_required` both tracks, `expansion_required` on `main` only. No flib dependency.
 - **The plan becomes a blueprint; the engine builds it.** See fact 1 above.
 - Shortcut → modal → Confirm → a blueprint in the cursor, gated on the `recycling` technology.
-  A rebindable hotkey (CTRL+SHIFT+U default) toggles the modal too, honouring the same gate
+  A rebindable hotkey (CTRL+U default) toggles the modal too, honouring the same gate
   through `is_shortcut_available` — pairing shape and reasons in `decisions.md`.
   The mod handles no placement event: a normal click refuses over obstacles, shift-click builds
   through them and clears trees, ctrl-shift-click clears buildings. Rotation, flipping, snapping

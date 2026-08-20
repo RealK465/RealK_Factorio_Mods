@@ -2,7 +2,7 @@
 Version: 0.4.2
 Date: ????
   Features:
-    - A keyboard shortcut opens the planner: Ctrl+Shift+U by default.
+    - A keyboard shortcut opens the planner: Ctrl+U by default.
       Rebind it under Settings > Controls > Mods.
   Optimizations:
     - The planner designs loops faster. Most noticeable in the planner window with many

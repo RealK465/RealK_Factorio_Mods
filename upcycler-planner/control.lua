@@ -35,7 +35,7 @@ script.on_event(defines.events.on_lua_shortcut, function(event)
   gui.toggle(game.get_player(event.player_index))
 end)
 
--- The same toggle from the keyboard -- CTRL+SHIFT+U by default, rebindable in the controls
+-- The same toggle from the keyboard -- CTRL+U by default, rebindable in the controls
 -- menu. The custom input shares the shortcut's prototype name, and gui.toggle_key is what
 -- keeps the key behind the same recycling unlock as the button: a custom input fires whether
 -- or not the shortcut is available.

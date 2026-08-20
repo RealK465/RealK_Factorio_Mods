@@ -764,7 +764,7 @@ describe("the open hotkey", function()
   test("the hotkey shares the shortcut's name, its binding, and the button's tooltip", function()
     local input = prototypes.custom_input[gui.SHORTCUT]
     assert(input, "no custom input shares the shortcut's prototype name")
-    assert(input.key_sequence == "CONTROL + SHIFT + U",
+    assert(input.key_sequence == "CONTROL + U",
       "default binding is " .. tostring(input.key_sequence))
     assert(prototypes.shortcut[gui.SHORTCUT].associated_control_input == gui.SHORTCUT,
       "the shortcut button does not advertise the keybind in its tooltip")
@@ -779,9 +779,19 @@ describe("the open hotkey", function()
     assert(frame() == nil, "the key did not close the planner again")
   end)
 
-  test("a locked shortcut keeps the key inert", function()
+  test("a locked shortcut keeps the key from opening, and the refusal names the tech", function()
     player().set_shortcut_available(gui.SHORTCUT, false)
-    gui.toggle_key(player())
+    -- The print is unobservable from here; the returned refusal is the seam that pins it.
+    local refusal = gui.toggle_key(player())
     assert(frame() == nil, "the key opened the planner while the shortcut was locked")
+    assert(type(refusal) == "table" and refusal[1] == "upl-message.planner-not-researched",
+      "a locked key must say why, got " .. serpent.line(refusal))
+    local tech = prototypes.shortcut[gui.SHORTCUT].technology_to_unlock
+    assert(tech, "test premise: the shortcut prototype declares a gating technology")
+    assert(refusal[2] ~= nil, "the refusal does not name the gating technology")
+  end)
+
+  test("an unlocked key returns no refusal", function()
+    assert(gui.toggle_key(player()) == nil, "an ordinary toggle must not report a refusal")
   end)
 end)
