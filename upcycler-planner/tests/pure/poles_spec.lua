@@ -126,6 +126,47 @@ describe("poles.plan over a real plan", function()
     end
     assert(deep_equal(solve(), solve()), "two identical solves disagreed")
   end)
+
+  local function ring_of(tier_count)
+    local tiers = {}
+    for i = 1, tier_count do tiers[i] = "tier-" .. i end
+    return layout.build(vanilla_params({ tiers = tiers }))
+  end
+
+  local function encode(result)
+    local parts = {}
+    for i, p in ipairs(result.entities) do
+      parts[i] = p.dx .. "," .. p.dy .. ">" .. tostring(p.wire_to)
+    end
+    return table.concat(parts, " ")
+  end
+
+  -- The wire TREE, pinned. Everything else in this file pins wire COUNTS and connectivity,
+  -- which a rewiring that stayed connected satisfies -- so the spanning tree's tie-breaks were
+  -- free to move without a single test going red, and a ring plan is full of the equal
+  -- distances that make them decide something. Eight tiers is the largest fixture whose every
+  -- position and every wire still fits on one readable line. The value was derived from the
+  -- solver as it stood BEFORE the 2026-08-20 rewrite, so it records what the algorithm has
+  -- always produced rather than what the current one happens to.
+  local WIRE_TREE_8 =
+    "3,10>nil 9,10>1 15,10>2 5,1>9 14,1>8 20,1>5 21,10>3 8,1>4 2,1>11 23,1>6 2,2>1"
+
+  test("every pole position and every wire is what it has always been", function()
+    local result = poles.plan(ring_of(8), MEDIUM, PLAN_MARGINS)
+    assert(encode(result) == WIRE_TREE_8, "the pole solve moved:\n  " .. encode(result))
+    assert(result.unpowered == 0, "unpowered " .. result.unpowered)
+  end)
+
+  test("a 64-tier chain still covers, one network, no extra poles", function()
+    -- A modded quality chain is what makes a plan long, and length is the whole reason
+    -- coverage() indexes consumers by column: a bug in that bucketing shows up here as missed
+    -- coverage or as surplus poles, neither of which a five-tier vanilla fixture can reach.
+    local result = poles.plan(ring_of(64), MEDIUM, PLAN_MARGINS)
+    assert(#result.entities == 76, "pole count " .. #result.entities)
+    assert(result.unpowered == 0, "unpowered " .. result.unpowered)
+    assert(wire_count(result) == #result.entities - 1,
+      "wires " .. wire_count(result) .. " for " .. #result.entities .. " poles")
+  end)
 end)
 
 describe("poles.plan connectivity", function()

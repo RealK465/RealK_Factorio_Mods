@@ -492,6 +492,29 @@ describe("the modal", function()
     assert(choices().machine == machine, "the click changed the machine")
   end)
 
+  test("a click that changes nothing does not design the loop again", function()
+    -- The same double event reaches the nine pickers that only REFRESH, where it cost a second
+    -- validate + plan rather than a flash -- invisible, because gui.refresh writes labels instead
+    -- of building anything. That invisibility is also what makes the status caption the
+    -- observable here: refresh always rewrites it, so a sentinel surviving proves the second run
+    -- was skipped. On a long modded quality chain the skipped run is the most expensive thing
+    -- the mod does.
+    open_with_gears()
+    local button = widget({ "upl-options", "upl-strip", "upl-belt" })
+    local status = widget({ "upl-status" })
+
+    status.caption = "sentinel"
+    fire(button, defines.events.on_gui_click)
+    assert(status.caption == "sentinel",
+      "an unchanged click re-planned the loop; caption became " .. tostring(status.caption))
+
+    -- And a genuine pick still repaints, so the guard cannot be swallowing real changes.
+    button.elem_value = "transport-belt"
+    fire(button)
+    assert(choices().belt == "transport-belt", "the pick did not land")
+    assert(status.caption ~= "sentinel", "a genuine pick left the status stale")
+  end)
+
   test("the settings panel can never separate from the planner window", function()
     -- The panel used to be a second gui.screen frame placed beside this one by inferring the
     -- modal's width from its auto-centred position -- wrong after any drag, and 2.1.14 raises

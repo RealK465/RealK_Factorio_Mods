@@ -9,6 +9,114 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — every picker was designing the loop twice
+
+The tail of the pole-solve session below, taken as its own pass on the owner's call so a
+regression in either would be attributable to one of them.
+
+**One click, two events, one handler.** `control.lua` routes `on_gui_click` and
+`on_gui_elem_changed` to the same dispatcher, and `dispatch` routes on the element's tags, not
+on the event type — so a single pick ran every picker handler twice. The first run carries the
+value the button already held, so it settled to no change and then re-ran `validate` + `plan`
+anyway. `recipe` and `machine` were guarded back on 2026-08-17, but only because *their* second
+run rebuilt the modal under the open chooser and flashed; the other nine were left, because
+`gui.refresh` touches no elements and so showed nothing at all. What it did was design the whole
+loop again — the most expensive thing the mod does, and on a 254-tier chain the difference
+between one solve and two.
+
+**The guard has to sit after the snap-back, not before it.** Seven of the nine resolve an
+emptied picker back to a default and write it to the button; `pole` and `terminal-module`
+instead record the clear as an explicit choice. A guard placed ahead of that resolution — the
+obvious spot, and where `recipe` and `machine` put theirs — would skip the write that redraws
+the button, so clearing a picker would stop snapping back visibly. `settled_on` therefore
+snapshots the keys up front and is *called* at the end, after the handler has finished
+resolving.
+
+**Pinned by a test that was proven to fail first.** `gui.refresh` rewrites the status caption
+every time, so a sentinel written into that caption and surviving an unchanged click is exactly
+the observable for "no second plan". The belt guard was removed and the test re-run to confirm
+it goes red (it does, `caption became table`) before being restored — the same discipline the
+pole parity harness needed, for the same reason: a test that cannot fail is worse than none.
+
+167 green on both tracks, static clean. `gui.lua` is a divergent file, so the 2.0 copy was
+re-forked rather than copied — its only difference is the `util.contains_value` shim, and the
+port was checked by diffing the two branches afterwards and confirming the same four hunks.
+
+## 2026-08-20 — the pole solve stops being quadratic in the tier count
+
+Removing the 32-tier cap (entry below) exposed what the cap had been hiding: `poles.plan` runs
+on every picker change, and both of its hot terms grow with the tier count. At the 254 tiers
+infinite-quality-tiers-plus offers on its top setting, one solve took 2.6 seconds.
+
+**Profiled before anything was touched.** A sampling hook over the pure modules on host Lua put
+78% of the solve in `coverage` → `covers`: every candidate tested against every consumer, which
+on a 1018-wide plan means asking whether a pole at x=3 powers a machine at x=900. The second
+term only surfaced once that was fixed — `spanning_wires` rescanning the whole tree per edge,
+cubic in the pole count, which tracks the tier count.
+
+**Two changes, both measured, both proven to move nothing.** A column index in `coverage`, and
+Prim's carrying each outside pole's best edge into the tree. 254 tiers went 2604 ms → 441 ms,
+and 32 tiers — where a modded game realistically sits — 32 ms → 11 ms. The soundness argument
+for the index, the numbers, and what is deliberately still quadratic are in `analysis/poles.md`
+→ *Long chains*.
+
+**The suite could not have caught a rewiring, which is why this needed more than a green run.**
+A code-explorer pass over the specs found that nothing anywhere pins a `wire_to` value: wire
+counts and connectivity, yes, but a spanning tree rebuilt with different tie-breaks is still a
+tree, still connected, still n−1 wires. So the old scan's tie-breaks were reproduced
+deliberately at *both* ends of the edge, and `poles_spec.lua` gained a pin of the whole
+eight-tier wire tree as one line, derived from the pre-change solver rather than the new one.
+
+**The harness was falsified before it was believed** — this morning's false-pass lesson,
+applied the same day it was written. Two deliberately broken copies: scan order swapped gave
+2182 mismatches out of 5280, and dropping *only* the second-end tie-break gave 43. Without that
+second run the zero-mismatch result would have been worth nothing, because 43-in-5280 is exactly
+the rare divergence a thin sweep sails past — the first sweep, at 1512 configurations, caught it
+only 3 times.
+
+**What the profiling turned up on the way, and did not fix:** nine of the eleven picker handlers
+run `validate` + `plan` **twice** per click, because one click raises both `on_gui_click` and
+`on_gui_elem_changed` into a dispatcher that routes on tags and cannot tell the two apart. Only
+`recipe` and `machine` were ever guarded, because they were the only two that visibly flashed.
+That is a doubling at every chain length, vanilla included. It is `deferred.md`'s now, and is
+the next thing to do — the owner's call was to land the pure-geometry work first and take the
+GUI handlers as their own pass, so a regression in either is attributable.
+
+## 2026-08-20 — the quality chain had a ceiling of 32, and no mod could see past it
+
+The owner reported it from a played 2.0 game running infinite-quality-tiers-plus: the target
+dropdown stopped at "Uncommon III" however much was researched. Neither the research gate nor
+the dropdown — `planner.quality_chain()` walked `.next` inside `for _ = 1, MAX_QUALITY_TIERS`
+with the constant at 32, so the chain was cut at its 32nd entry and everything downstream read
+the truncated list: the picker, `tiers_up_to`, `needs_overflow_tap`, `is_quality`.
+
+The arithmetic matched exactly, which is what made the diagnosis certain rather than plausible.
+That mod numbers its tiers `normal`(0) … `supreme`(9), `normal-I`(10) … `supreme-II`(29),
+`normal-III`(30), `uncommon-III`(31), and chain position is level + 1 — so level 31 is position
+32, and `uncommon-III` is the last row in the owner's screenshot. Its own `quality-names.cfg`
+confirmed the display name, which is what ruled out the other reading (that the numerals shift
+by a cycle and the list had stopped at 22 instead).
+
+**The constant was never meant to be a ceiling.** Its comment called it a cycle guard — `.next`
+is a linked list a malformed mod could close into a loop — and 32 was an arbitrary number doing
+a job a seen-set does properly. The walk now stops at the first name it has already seen: that
+catches a real cycle on its first repeat, imposes no ceiling, and still terminates on the
+pathological case the count was really buying, since a cycle of entirely hidden tiers grows the
+chain by nothing and a bound on chain *length* would spin forever.
+
+**The walk became `planner.walk_quality_chain(first)` so it could be tested at all.** A chain
+longer than the installed game ships is unreachable from a real prototype table, so no spec
+could ever have caught this from `prototypes.quality` alone; taking the head lets the suite feed
+it stubs, exactly as the modded recycler is stubbed rather than fixtured. The new spec walks 100
+stub nodes, closes the list into a loop, then walks a two-node all-hidden cycle. 164 green on
+both tracks, static tier clean.
+
+**The cost of removing the cap was measured before removing it**, on host Lua against the pure
+layout and pole modules: the pole solve is roughly quadratic in tiers — 0.03 s per attempt at
+32, 0.13 s at 64, 0.61 s at 128 — and several attempts run per `gui.refresh`. So the cap was
+also, accidentally, the thing bounding a latent performance cliff. That half is now the open
+part of `deferred.md`'s *Modded quality tiers*; correctness is settled, cost is not.
+
 ## 2026-08-20 — the ring silts up below legendary, and one nameless filter drains it
 
 The owner reported it from a played game: research legendary, build a loop targeting rare or
