@@ -9,6 +9,40 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-20 — a played game hung, and the profile I trusted was of the wrong shape
+
+The owner picked a high tier in the 2.0 game and Factorio stopped responding. **No Lua error, no
+crash dump, nothing in `factorio-current.log` past the mod checksums** — which is itself the
+diagnosis: a script error is logged and shown, so silence means nothing faulted. The Windows
+Application log had it: `AppHangB1`, "stopped interacting with Windows and was closed". The game
+was alive and busy, and the user force-closed it.
+
+**Reproduced at 82 seconds.** One `poles.plan` on a 254-tier chain with a 5x5 machine and a
+medium pole. Not the tier cap, not the double-fire — both already fixed — and not
+`greedy_cover`, which the morning's entry had named as the one remaining quadratic term.
+
+**It was `bridge`, and I had dismissed it.** A bridging round scores every candidate against
+every placed pole, and the round count, candidate count and pole count all scale with the chain:
+63 x 3702 x 213 at 128 tiers. Cubic. The reason the earlier pass missed it is worth writing down
+plainly: **I profiled the fixture, not the failure.** The vanilla 3x3 ring puts every pole in one
+component, so `bridge` exits immediately and never appears in the profile at all. The shape that
+was slow was one I had never run.
+
+**Fixed with the same column-index trick and one free bound.** `bridge` now files placed poles by
+centre column and scores a candidate from the poles near it, against a `component_of` map rebuilt
+per round; `greedy_cover` skips any candidate whose whole coverage list is no longer than the
+incumbent's score, which is free because `count <= #list` always holds. 82.02 s → 2.49 s, and the
+substation cases dropped too (4.04 → 0.67).
+
+**7040 configurations, zero mismatches**, after adding a 5x5 machine to the sweep — the shape
+that fragments the wire network, without which the sweep could not have exercised `bridge` at
+all. Falsified as usual: removing the one-component-counts-once guard tripped 2330, weakening the
+greedy bound tripped 4034.
+
+**Not finished, and recorded as such.** 2.75 s is a wait, not a hang, but 254 tiers is the
+ceiling, Windows fires at ~5 s, and Factorio's Lua is slower than the 5.5 host these numbers came
+from. `deferred.md` carries the two remaining exact wins.
+
 ## 2026-08-20 — every picker was designing the loop twice
 
 The tail of the pole-solve session below, taken as its own pass on the owner's call so a

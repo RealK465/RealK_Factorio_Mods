@@ -166,10 +166,13 @@ the nine picker handlers that only refresh halved the number of solves a pick co
 that — one click raises two events into a tag-routed dispatcher, so each was planning the loop
 twice. What is left:
 
-- **`greedy_cover` still rescans every candidate per round**, with `without_overlapping`
-  rebuilding the array beside it. A lazy-greedy heap would fix it at the price of hand-proving a
-  tie-break against "first candidate in scan order with a strictly greater gain" — only
-  reachable past ~128 tiers, and the riskiest of the three. Reasons in `analysis/poles.md`.
+- **The solve is no longer a hang, but the margin is not comfortable.** A high tier in a played
+  2.0 game was killed by Windows as a hung application; the cause was `bridge` scoring every
+  candidate against every pole, cubic in the chain length, and a column index took the worst
+  measured case from 82 s to 2.5 s. The mod's ceiling is 254 tiers and Windows' hang detector
+  fires at about 5 s, so the next exact wins are worth having: mark dead candidates with a flag
+  rather than rebuilding the array each round (~17% of a solve), and cache pole centres (~14%).
+  `analysis/poles.md` → *The hang* has the profile and the falsified sweep.
 
 ## Housekeeping
 

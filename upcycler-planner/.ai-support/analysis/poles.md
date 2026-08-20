@@ -188,11 +188,50 @@ tag-routed handler and the first carries the value the button already held. Guar
 day (`../journal.md`), which halves the whole table again for a player changing a picker, at
 every chain length including vanilla.
 
-**What is still quadratic, and deliberately left alone.** `greedy_cover` rescans every candidate
-each round and `without_overlapping` rebuilds the candidate array alongside it. Fixing those
-means a lazy-greedy heap whose ordering has to be hand-proved against the current "first
-candidate in scan order with a strictly greater gain" — materially riskier than either change
-above, for a case only reachable past ~128 tiers. Separately, `bridge` and `largest_component`
-still lean on `pairs()` walking a dense array in order, where `greedy_cover` was hardened to
-numeric indexing: a latent fragility rather than a bug, and one any future reshaping of those
-candidate arrays has to respect.
+### The hang, and what the first pass missed
+
+The pass above closed by naming `greedy_cover` as the only thing left and calling it reachable
+only past ~128 tiers. **That was wrong, and a played game found it the same day.** The owner
+picked a high tier and Factorio 2.0 was killed by Windows as a hung application — `AppHangB1` in
+the Application event log, no Lua error and no crash dump, because nothing had faulted: the game
+simply stopped pumping messages. Measured afterwards, one solve of a 254-tier chain with a 5x5
+machine and a medium pole took **82 seconds**.
+
+The cost was `bridge`, not `greedy_cover`. Profiling put ~97% of the solve in `bridge` and the
+`within_wire_reach` / `distance_sq` it drives, because a bridging round scores every candidate
+against every placed pole — and the round count, the candidate count and the pole count *all*
+grow with the chain. Measured at 128 tiers: 63 rounds x 3702 candidates x 213 poles. Cubic.
+
+- **`bridge` files placed poles by centre column** and scores a candidate from the poles near it,
+  against a `component_of` map rebuilt per round. Sound by the coverage index's argument: a
+  candidate within wire reach of a pole is within wire reach in x alone. One component still
+  counts once however many of its poles are in reach — what the old per-component `break` did —
+  and dropping that guard is one of the deliberate breaks the sweep was falsified against.
+- **`greedy_cover` skips a candidate whose whole coverage list is no longer than the incumbent's
+  score.** `count <= #list` always, so the skip cannot change an outcome; it removes the round's
+  inner walk for most candidates.
+
+| 254 tiers, pole / machine | before | after |
+|---|---|---|
+| medium, 3x3 | 0.44 s | 0.23 s |
+| substation, 3x3 | 4.04 s | 0.67 s |
+| small, 5x5 | 1.86 s | 1.15 s |
+| **medium, 5x5** | **82.02 s** | **2.49 s** |
+| big electric, 5x5 | 2.95 s | 2.75 s |
+
+Proven identical over **7040 configurations** — the sweep gained a 5x5 machine, which is what
+fragments the wire network into the many components `bridge` then has to join — with two
+deliberate breaks tripping 2330 and 4034 of them.
+
+**What is genuinely left.** `bridge` is still the largest single term (~32% of a 254-tier solve),
+`without_overlapping` rebuilds the candidate array every round (~17%), and `distance_sq`
+recomputes pole centres on every call (~14% in `centre_of`). None of it is a hang — the worst
+measured case is 2.75 s — but 254 tiers is the mod's ceiling, Windows' hang detector fires at
+about 5 s, and Factorio's Lua is slower than the 5.5 host these figures came from, so the margin
+is real rather than comfortable. The next exact wins, largest first: mark dead candidates with a
+flag instead of rebuilding the array, and cache pole centres.
+
+**The lesson worth keeping.** The first pass profiled a *fixture* — a 3x3 machine on the vanilla
+ring — and generalised the answer to shapes it had never run. `bridge` never appeared because
+that fixture's poles all landed in one component, so there was nothing to bridge. Profile the
+shape that is slow, not the shape that is handy.
