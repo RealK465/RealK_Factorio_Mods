@@ -4,12 +4,14 @@
 -- algorithm's own contracts: greedy determinism, the utility-column preference, spanning
 -- wires, collisions.
 --
--- The honesty rule (a covered consumer on an unwired island counts as unpowered) is NOT
--- tested here, on purpose: reaching unpowered > 0 takes a real planner-built plan, so it is
--- pinned by the in-game big-pole scenario instead.
+-- The honesty rule (a covered consumer on an unwired island counts as unpowered) is pinned
+-- twice: here, with a hand-built wall that leaves the bridge pass no candidate, and by the
+-- in-game big-pole scenario where a real planner-built plan reaches the same state.
 
 local layout = require("scripts.layout")
 local poles = require("scripts.poles")
+-- Top level, never inside a test body: in-game, require only works while control.lua parses.
+local deep_equal = require("tests.support.deep_equal")
 
 -- A 1x1 pole shaped like vanilla's small pole.
 local SMALL = { name = "test-pole", quality = "normal", width = 1, height = 1,
@@ -114,5 +116,94 @@ describe("poles.plan over a real plan", function()
     -- Everything wired into one network: a spanning tree over n poles carries n-1 wires.
     assert(wire_count(result) == #result.entities - 1,
       "wires " .. wire_count(result) .. " for " .. #result.entities .. " poles")
+  end)
+
+  test("the same plan grows the same poles, twice", function()
+    -- The purity contract stated at the top of poles.lua, held to structurally: every field of
+    -- every pole, wires included, must come out identical on a second solve of the same plan.
+    local function solve()
+      return poles.plan(layout.build(vanilla_params()), MEDIUM, PLAN_MARGINS)
+    end
+    assert(deep_equal(solve(), solve()), "two identical solves disagreed")
+  end)
+end)
+
+describe("poles.plan connectivity", function()
+  -- Every wire_to edge as an undirected adjacency, walked from the first pole: how many of
+  -- the placed poles one component actually reaches.
+  local function reachable_from_first(result)
+    local adjacent = {}
+    for i, p in pairs(result.entities) do
+      if p.wire_to then
+        adjacent[i] = adjacent[i] or {}
+        adjacent[p.wire_to] = adjacent[p.wire_to] or {}
+        adjacent[i][p.wire_to] = true
+        adjacent[p.wire_to][i] = true
+      end
+    end
+    local visited, stack, count = { [1] = true }, { 1 }, 1
+    while #stack > 0 do
+      local i = stack[#stack]
+      stack[#stack] = nil
+      for j in pairs(adjacent[i] or {}) do
+        if not visited[j] then
+          visited[j] = true
+          count = count + 1
+          stack[#stack + 1] = j
+        end
+      end
+    end
+    return count
+  end
+
+  test("a bridge pole joins two islands the cover pass left apart", function()
+    -- Two machines 14 tiles apart: the cover pass stands a pole at each, out of wire reach of
+    -- one another, and the bridge pass must add a third in the middle rather than leave two
+    -- covered islands. One network, n-1 spanning wires, nothing unpowered.
+    local built = { entities = { machine_at(1, 1), machine_at(15, 1) }, width = 19, height = 5 }
+    local result = poles.plan(built, SMALL, MARGINS)
+    assert(#result.entities == 3, "pole count " .. #result.entities .. ", expected cover pair plus bridge")
+    assert(result.unpowered == 0, "unpowered " .. result.unpowered)
+    assert(wire_count(result) == 2, "spanning wires " .. wire_count(result))
+    assert(reachable_from_first(result) == 3, "the wires do not join all three poles")
+    local bridged = false
+    for _, p in pairs(result.entities) do
+      if p.dx > 3 and p.dx < 13 then bridged = true end
+    end
+    assert(bridged, "no pole stands between the two islands")
+  end)
+
+  test("an island no bridge can reach is reported unpowered, never claimed", function()
+    -- The honesty rule, reached by construction: a full-height wall between the two machines
+    -- leaves the bridge pass no candidate, so the far machine is covered by its own pole yet
+    -- out of the main network -- and must be counted dark rather than credited.
+    local built = {
+      entities = {
+        machine_at(0, 0), machine_at(20, 0),
+        { name = "wall", dx = 3, dy = 0, w = 17, h = 5 },
+      },
+      width = 23, height = 5,
+    }
+    local result = poles.plan(built, SMALL, MARGINS)
+    assert(#result.entities == 2, "pole count " .. #result.entities .. ", expected one per island")
+    assert(result.unpowered == 1,
+      "unpowered " .. result.unpowered .. " -- a covered but unwired island must count as dark")
+    assert(wire_count(result) == 0, "a wire crossed the unbridgeable gap")
+  end)
+
+  test("a 2x2 pole keeps its footprint clear of the plan and the edges", function()
+    -- Everything above runs 1x1 poles; the footprint arithmetic (fits, overlap, bounds) only
+    -- bites at width 2 -- the substation and big-pole shapes the in-game scenarios plan with.
+    local BIG = { name = "big-pole", quality = "normal", width = 2, height = 2,
+      supply_distance = 2, wire_distance = 9 }
+    local built = { entities = { machine_at(2, 2) }, width = 8, height = 8 }
+    local result = poles.plan(built, BIG, MARGINS)
+    assert(#result.entities == 1, "pole count " .. #result.entities)
+    assert(result.unpowered == 0, "unpowered " .. result.unpowered)
+    local p = result.entities[1]
+    assert(p.w == 2 and p.h == 2, "the pole lost its footprint: " .. p.w .. "x" .. p.h)
+    assert(p.dx >= 0 and p.dy >= 0 and p.dx + p.w <= 8 and p.dy + p.h <= 8, "pole out of bounds")
+    assert(p.dx + p.w <= 2 or p.dx >= 5 or p.dy + p.h <= 2 or p.dy >= 5,
+      "the pole overlaps the machine at " .. p.dx .. "," .. p.dy)
   end)
 end)

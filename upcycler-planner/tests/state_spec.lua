@@ -122,4 +122,24 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.inserter_quality == nil, "bogus inserter quality survived")
     assert(c.container_quality == nil, "bogus chest quality survived")
   end)
+
+  test("the terminal module prunes by module membership; the explicit clears survive", function()
+    -- Membership is ALL modules, not the quality role: whether the machine and recipe accept
+    -- the pick is validate's business, so a speed module must survive here. The two booleans
+    -- are plain choices, never prototype references -- prune must not touch them.
+    local entry = seeded({
+      terminal_module = "iron-plate",
+      no_terminal_module = true,
+      no_poles = true,
+    })
+    state.prune()
+    assert(entry.choices.terminal_module == nil, "a plain item survived as the terminal module")
+    assert(entry.choices.no_terminal_module == true, "the explicit module clear was lost")
+    assert(entry.choices.no_poles == true, "the explicit pole clear was lost")
+
+    entry = seeded({ terminal_module = "speed-module" })
+    state.prune()
+    assert(entry.choices.terminal_module == "speed-module",
+      "a real module was pruned -- membership must be all modules, not one role")
+  end)
 end)

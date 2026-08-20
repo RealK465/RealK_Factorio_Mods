@@ -450,4 +450,121 @@ describe("validate", function()
       "expected the quality warning, got " .. tostring(message and message[1]))
     assert(gathered, "warning path must still return gathered resources")
   end)
+
+  test("an unresearched build quality warns but does not refuse", function()
+    -- The other quality warning: the TARGET is researched, but the tier a building is placed
+    -- AT is not. Ghosts of an unresearched tier are legal to place, so this must build through.
+    local f = force()
+    research.full(f)
+    f.technologies["epic-quality"].researched = false
+    f.technologies["legendary-quality"].researched = false
+    local ok, message, gathered = planner.validate(f, choices_with({ machine_quality = "epic" }))
+    research.full(f)
+    assert(ok == true, "an unresearched build quality must not refuse")
+    assert(message and message[1] == "upl-message.build-quality-not-researched",
+      "expected the build-quality warning, got " .. tostring(message and message[1]))
+    assert(gathered, "warning path must still return gathered resources")
+  end)
+end)
+
+describe("recipe-shape helpers", function()
+  test("filters_needed counts item ingredients; 1 stands in before a recipe exists", function()
+    assert(planner.filters_needed(nil) == 1, "nothing picked must still size one slot")
+    assert(planner.filters_needed(prototypes.recipe["iron-gear-wheel"]) == 1, "gears take one slot")
+    -- Sulfur's ingredients are two fluids and no items at all: zero, not `and ... or 1`-coerced.
+    assert(planner.filters_needed(prototypes.recipe["sulfur"]) == 0,
+      "a fluid-only recipe needs no filter slots")
+  end)
+
+  test("needs_pipe is exactly one fluid", function()
+    assert(not planner.needs_pipe(nil), "nothing picked plumbs nothing")
+    assert(not planner.needs_pipe(prototypes.recipe["iron-gear-wheel"]), "gears take no fluid")
+    assert(planner.needs_pipe(prototypes.recipe["battery"]), "battery takes exactly one fluid")
+    -- Two fluids is refused outright, so it must not read as "needs a pipe" either.
+    assert(not planner.needs_pipe(prototypes.recipe["sulfur"]), "two fluids is not one")
+  end)
+
+  test("product_of names the single item product, or nothing", function()
+    assert(planner.product_of(prototypes.recipe["iron-gear-wheel"]) == "iron-gear-wheel")
+    -- All-fluid products: nothing to recycle back, so nothing to name.
+    assert(planner.product_of(prototypes.recipe["advanced-oil-processing"]) == nil,
+      "a fluid-producing recipe has no single item product")
+  end)
+
+  test("recycling_recipe is the name-derived lookup", function()
+    assert(planner.recycling_recipe("iron-gear-wheel"), "gears lost their recycling recipe")
+    assert(planner.recycling_recipe("not-an-item") == nil, "a bogus name found a recipe")
+  end)
+
+  test("request_count is a minute of crafting, capped at a stack", function()
+    -- request_count reads only amount, energy and the item's stack size, so the recipe half
+    -- can be a plain table and the arithmetic is pinned without depending on recipe retunes.
+    assert(prototypes.item["iron-plate"].stack_size == 100, "premise: the plate stack moved")
+    assert(planner.request_count({ name = "iron-plate", amount = 2 }, { energy = 0.5 }) == 100,
+      "240 a minute must cap at the stack of 100")
+    assert(planner.request_count({ name = "iron-plate", amount = 1 }, { energy = 20 }) == 3,
+      "a slow craft requests just what a minute needs")
+    assert(planner.request_count({ name = "iron-plate", amount = 1 }, { energy = 120 }) == 1,
+      "a very slow craft still requests one")
+  end)
+
+  test("with_quality builds the pair and normalises a stale tier", function()
+    assert(planner.with_quality(nil, "rare") == nil, "no name must mean no pair")
+    local pair = planner.with_quality("fast-inserter", "rare")
+    assert(pair.name == "fast-inserter" and pair.quality == "rare", "the pair lost a half")
+    assert(planner.with_quality("fast-inserter", nil).quality == "normal",
+      "an unset quality must read as normal")
+    assert(planner.with_quality("fast-inserter", "not-a-quality").quality == "normal",
+      "a stale tier must fall back to normal rather than reach a ghost")
+  end)
+
+  test("hidden quality tiers stay out of the chain", function()
+    -- The quality mod ships quality-unknown as a hidden tier; the chain must skip it or the
+    -- dropdown would offer a tier no loop can craft at.
+    local unknown = prototypes.quality["quality-unknown"]
+    assert(unknown and unknown.hidden, "premise: quality-unknown moved or unhid -- revisit")
+    assert(not planner.is_quality("quality-unknown"), "a hidden tier leaked into the chain")
+    assert(planner.is_quality("normal") and planner.is_quality("legendary"),
+      "the real tiers must be members")
+    assert(not planner.is_quality("iron-plate"), "an item name is not a quality")
+  end)
+end)
+
+describe("machine candidates", function()
+  test("moduleless, quality-refusing and furnace-type machines are all out", function()
+    local candidates = util.list_to_map(planner.machine_candidates())
+    assert(candidates["assembling-machine-2"] and candidates["assembling-machine-3"],
+      "the ordinary assemblers must be candidates")
+    -- Each exclusion with its premise asserted loudly, the inserter list's pattern: if a
+    -- prototype's shape changes, revisit the rule rather than letting this pass hollow.
+    local am1 = prototypes.entity["assembling-machine-1"]
+    assert((am1.module_inventory_size or 0) == 0, "premise: AM1 grew module slots -- revisit")
+    assert(not candidates["assembling-machine-1"],
+      "a machine without module slots cannot roll quality and must not be offered")
+    assert(not prototypes.entity["oil-refinery"].allowed_effects["quality"],
+      "premise: the refinery accepts quality now -- revisit")
+    assert(not candidates["oil-refinery"], "a machine that refuses quality modules is no use here")
+    assert(not candidates["steel-furnace"], "a furnace picks its own recipe and cannot be pinned")
+    assert(not candidates["recycler"], "the recycler is a furnace type, never the crafting half")
+  end)
+
+  test("pipe_to_ground_for falls back when the name convention misses", function()
+    -- Wube's own pairs follow <pipe>-to-ground; a modded pipe without a matching underground
+    -- must still get the longest-reaching researched one rather than nothing.
+    research.full(force())
+    assert(planner.pipe_to_ground_for(force(), "no-such-pipe") == "pipe-to-ground",
+      "the fallback search must find vanilla's underground pipe for a conventionless name")
+  end)
+
+  test("unlocked targets follow the quality technologies", function()
+    local f = force()
+    research.full(f)
+    f.technologies["epic-quality"].researched = false
+    f.technologies["legendary-quality"].researched = false
+    local targets = planner.unlocked_targets(f)
+    research.full(f)
+    assert(#targets == 2, "targets " .. #targets .. ", expected uncommon and rare alone")
+    assert(targets[1] == "uncommon" and targets[2] == "rare",
+      "the unresearched tiers must drop off the top, in chain order")
+  end)
 end)

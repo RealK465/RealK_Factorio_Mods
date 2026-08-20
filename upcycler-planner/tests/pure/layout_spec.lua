@@ -9,6 +9,7 @@
 local layout = require("scripts.layout")
 
 local params_with = require("tests.support.layout_params").vanilla
+local deep_equal = require("tests.support.deep_equal")
 
 local function by_name(built, name)
   local out = {}
@@ -310,5 +311,135 @@ describe("layout.build per-tier wiring", function()
     assert(ingredient_requests == 3, "feed requests " .. ingredient_requests)
     assert(product_requests == 2, "buffer requests " .. product_requests)
     assert(#by_name(built, "passive-provider-chest") == 1, "exactly one output chest")
+  end)
+end)
+
+describe("layout.build ring circulation", function()
+  -- The presence test above proves the ring is closed; this proves it MOVES. A belt facing
+  -- the wrong way is invisible to every counting assertion and stalls the loop in game, so
+  -- the full circulation -- edges carry, corners turn -- is pinned tile by tile.
+  test("every ring belt carries the flow around: edges carry, corners turn", function()
+    local built = layout.build(params_with())
+    local w, h = built.width, built.height
+    local dir = {}
+    for _, e in pairs(by_name(built, "transport-belt")) do
+      dir[e.dx .. "," .. e.dy] = e.direction
+    end
+    -- Corners face where the items go next.
+    assert(dir["0,0"] == defines.direction.south, "north-west corner must turn south")
+    assert(dir[(w - 1) .. ",0"] == defines.direction.west, "north-east corner must turn west")
+    assert(dir["0," .. (h - 1)] == defines.direction.east, "south-west corner must turn east")
+    assert(dir[(w - 1) .. "," .. (h - 1)] == defines.direction.north,
+      "south-east corner must turn north")
+    for x = 1, w - 2 do
+      assert(dir[x .. ",0"] == defines.direction.west, "top ring at " .. x .. " must flow west")
+      assert(dir[x .. "," .. (h - 1)] == defines.direction.east,
+        "bottom ring at " .. x .. " must flow east")
+    end
+    for y = 1, h - 2 do
+      assert(dir["0," .. y] == defines.direction.south, "left ring at " .. y .. " must flow south")
+      assert(dir[(w - 1) .. "," .. y] == defines.direction.north,
+        "right ring at " .. y .. " must flow north")
+    end
+  end)
+end)
+
+describe("layout.build across footprints and recipes", function()
+  test("a two-ingredient recipe filters and requests both, per tier", function()
+    local built = layout.build(params_with({
+      recipe = {
+        name = "electronic-circuit", product = "electronic-circuit",
+        ingredients = {
+          { name = "iron-plate", amount = 1, type = "item" },
+          { name = "copper-cable", amount = 3, type = "item" },
+        },
+      },
+      requests = { ["iron-plate"] = 100, ["copper-cable"] = 200 },
+    }))
+    -- The harvest (whitelist) and relief (blacklist) inserters carry one slot per ingredient,
+    -- all at their own tier's quality.
+    local harvests, blacklists = 0, 0
+    for _, e in pairs(by_name(built, "fast-inserter")) do
+      if e.filters and e.filters[1] and e.filters[1].name == "iron-plate" then
+        assert(#e.filters == 2, "ingredient filter count " .. #e.filters)
+        assert(e.filters[2].name == "copper-cable", "second ingredient missing from the filters")
+        assert(e.filters[1].quality == e.filters[2].quality,
+          "one inserter carries two different tiers")
+        if e.filter_mode == "blacklist" then
+          blacklists = blacklists + 1
+        else
+          harvests = harvests + 1
+        end
+      end
+    end
+    assert(harvests == 3, "harvest inserters " .. harvests .. ", expected one per tier")
+    assert(blacklists == 2, "relief inserters " .. blacklists .. ", expected one per lower tier")
+
+    local feeds = 0
+    for _, e in pairs(by_name(built, "requester-chest")) do
+      if e.requests and #e.requests == 2 then
+        feeds = feeds + 1
+        local count_of = {}
+        for _, r in pairs(e.requests) do count_of[r.name] = r.count end
+        assert(count_of["iron-plate"] == 100 and count_of["copper-cable"] == 200,
+          "feed chest requests carry the wrong counts")
+      end
+    end
+    assert(feeds == 3, "feed chests requesting both ingredients " .. feeds)
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a taller machine pushes the whole lower block down, tangency intact", function()
+    -- Height rides the row arithmetic: 4 rows above, machine 4, recycler 4, 4 below = 16.
+    local built = layout.build(params_with({
+      machine = { name = "tall-machine", quality = "normal", width = 3, height = 4, module_slots = 2 },
+    }))
+    assert(built.width == 11, "width " .. built.width .. ", expected the vanilla 11")
+    assert(built.height == 16, "height " .. built.height .. ", expected 16")
+    for _, r in pairs(by_name(built, "recycler")) do
+      assert(r.dy == 8, "recycler at row " .. r.dy .. " -- no longer tangent under a 4-tall machine")
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a machine wider than its recycler sets the pitch", function()
+    -- The inverse of the salvager case: pitch follows the wider of the pair, here the machine.
+    -- Offsets 1, 5, 9; width = 9 + 4 + 1 = 14.
+    local built = layout.build(params_with({
+      machine = { name = "wide-machine", quality = "normal", width = 4, height = 3, module_slots = 2 },
+    }))
+    assert(built.width == 14, "width " .. built.width .. ", expected 14")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a two-tier plan: one recycler, minimal width", function()
+    -- The narrowest plan the planner can ask for (targets skip normal, so two tiers is the
+    -- floor): offsets 1, 4; width = 4 + 3 + 1 = 8.
+    local built = layout.build(params_with({
+      tiers = { "normal", "uncommon" }, above_target = { "rare" },
+    }))
+    assert(built.width == 8, "width " .. built.width .. ", expected 8")
+    assert(built.machines == 2 and built.recyclers == 1,
+      "counts " .. built.machines .. "/" .. built.recyclers .. ", expected 2 machines, 1 recycler")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("module insert plans carry each building's own slot count", function()
+    local built = layout.build(params_with())
+    for _, e in pairs(by_name(built, "assembling-machine-2")) do
+      assert(e.modules.count == 2, "machine module count " .. tostring(e.modules.count))
+    end
+    for _, e in pairs(by_name(built, "recycler")) do
+      assert(e.modules.count == 4, "recycler module count " .. tostring(e.modules.count))
+    end
+  end)
+end)
+
+describe("layout.build determinism", function()
+  test("the same params build the same plan, twice", function()
+    -- The desync-safety contract stated at the top of layout.lua, held to structurally: the
+    -- params are rebuilt fresh per call so nothing can alias, and every field must match.
+    assert(deep_equal(layout.build(params_with()), layout.build(params_with())),
+      "two builds from identical params disagreed")
   end)
 end)
