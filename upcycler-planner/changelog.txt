@@ -13,6 +13,8 @@ Date: ????
   Bugfixes:
     - Fixed that pressing E while choosing a machine or item placed the blueprint instead
       of confirming your choice.
+    - Fixed that the settings window could open far away from the planner after the planner
+      window was moved. Settings now sit attached beside the planner and move with it.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-08-18

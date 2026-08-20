@@ -153,7 +153,7 @@ should work — but it is untested against a mod that adds tiers.
 - **`settings.lua` exists since 2026-08-15**, carrying two per-player settings as of
   2026-08-17: `upcycler-planner-show-all` (offer unresearched items — the game's own
   selection-list option is not mod-readable) and `upcycler-planner-show-all-build-options` (show
-  every picker whatever the count). Both are edited from the modal's own settings window as
+  every picker whatever the count). Both are edited from the modal's own settings panel as
   well as from the settings menu, so **a third setting needs no new GUI** — one line in
   `EDITED_SETTINGS` in `gui.lua` and its two locale keys. Remaining candidates, in rough order:
   - **request-from-buffers on the requester chests.** Always on today. Trash-unrequested got

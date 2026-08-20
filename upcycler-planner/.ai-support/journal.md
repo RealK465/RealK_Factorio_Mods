@@ -9,7 +9,57 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
-## 2026-08-20 — a keyboard shortcut opens the planner
+## 2026-08-20 — the settings window becomes a column in an invisible container
+
+The drag-flag fix below survived one in-game test. The owner's screenshots showed the settings
+window centred on top of the modal on FIRST open, and stranded after a move: **2.1.14 raises
+`on_gui_location_changed` for the engine's own auto_center layout**, so the "player moved it"
+flag armed the moment the fresh modal was laid out — before any drag, before any measurement —
+exactly the case the evidence note had hedged as "unverified, tolerates either answer". It did
+not tolerate it. The lesson for next time: a hedge that says "either answer is fine" needs the
+failing answer actually walked through, not asserted.
+
+The owner's demand — "always side by side no matter what, check Even Distribution" — settled
+the design: stop placing a second window and make the panel part of the planner's own screen
+element. ED agrees from the other side (its settings panel is *anchored* to the inventory GUI,
+never coordinate-placed; a mod frame cannot be an anchor, so containment is our equivalent).
+First cut made the outer frame the visible window with two columns inside — the owner rejected
+it on sight as one wide slab with dead background under the short panel. Final shape: the
+screen element is vanilla's `invisible_frame` (no graphics, no padding), holding two
+window-styled frames — planner and panel — 12px apart, titlebars level, map showing between.
+Both titlebars drag the container, since `drag_target` must name a screen element.
+
+What fell out: all placement arithmetic, the location event, and the three storage fields died
+(state.prune clears the strays from dev saves); `player.opened` stays on the container always,
+and control.lua turns a close request into "panel first"; a rebuild re-creates an open panel
+with fresh ticks, retiring the repaint loop; gui.open and gui.close_settings sweep the
+pre-0.4.2 standalone settings window a published save can still carry. Suite reshaped to 158
+(three placement tests replaced by containment, sweep and close-together specs), all green
+headless and in a real client; the owner verified the look in game.
+
+The owner reported, with screenshots: open the planner, open settings (lands beside — right),
+drag the planner left, reopen settings — it opens on the far side of the screen. Root cause was
+in the width inference itself: `resolution - 2x` is exact for a centred modal, and the
+plausibility band (200–1000 logical px) was carrying the whole burden of telling centred from
+dragged. A *moderate* drag left lands the modal where the inference still reads as a plausible
+width — accepted, cached, and the window placed at `x + wrong_width + gap`. The existing spec
+only pinned *hard* drags, which the band does reject; the screenshots' window sat level with the
+modal's top edge, proving it took the beside-branch with a wrong width rather than any fallback.
+
+The real finding: the 2026-08-17 session's "neither is detectable directly, since nothing
+reports whether a frame was moved" was wrong — **`on_gui_location_changed` reports exactly
+that**, and Space Exploration's remote-view snapping is the prior art (it assigns `location`
+inside the handler, so script writes cannot re-raise it). Measuring is now gated on the modal
+not having moved since its last centred build; the flag and the trusted width moved from a
+gui.lua local into the state entry, since they decide a frame's location — game state — and a
+local would desync a rejoined multiplayer client and forget across save/load. Same event, same
+placement call: the window now follows the modal while it is dragged, unless the player parked
+the window somewhere themselves (`settings_moved`, forgiven when the window reopens).
+
+Two new gui_spec tests (the poisoning-zone drag, the follow-and-parked pair) — red first on the
+missing handler, then green; 159 total. Noticed in passing, not chased: `gui_spec`'s "another
+GUI taking focus" test fails when run under a name filter but passes in full-suite order — an
+order dependence that predates this session.
 
 The repo owner asked for a hotkey to open the planner, CTRL+SHIFT+U by default. Everything
 needed was already local: `CustomInputPrototype.key_sequence`'s exact format is in the

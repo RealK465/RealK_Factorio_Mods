@@ -12,11 +12,27 @@
 -- until the recipe takes a fluid. The three chests go the other way and are hidden whatever the
 -- count -- see the loop that builds them.
 --
--- A second, smaller frame opens BESIDE the modal -- to its right, top edges level -- when the
--- titlebar's settings button is pressed. It holds the two per-player settings the pickers read:
--- offer unresearched items, and show every picker whatever the count. The second is the escape
--- hatch for what hiding costs, since a hidden picker takes its QUALITY box with it; ticked, every
--- picker is shown, the pipe included even for a recipe with no fluid.
+-- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
+-- the titlebar's settings button is pressed. It holds the two per-player settings the pickers
+-- read: offer unresearched items, and show every picker whatever the count. The second is the
+-- escape hatch for what hiding costs, since a hidden picker takes its QUALITY box with it;
+-- ticked, every picker is shown, the pipe included even for a recipe with no fluid.
+--
+-- A CHILD, not a second screen frame, and that is the whole design: the API reads no element's
+-- rendered size, so a separate window can only be placed beside this one by inferring the
+-- modal's width from its auto-centred position -- an inference a drag silently invalidates, and
+-- 2.1.14 raises on_gui_location_changed for the engine's own auto_center layout too (measured
+-- in game, 2026-08-20), so "has the player moved it" cannot be answered reliably either. Making
+-- the panel a sibling column hands the whole problem to the engine's layout: side by side by
+-- construction, dragging moves both, and there is nothing to measure. Even Distribution reaches
+-- the same conclusion from the other side -- its settings panel is anchored to the inventory
+-- screen rather than positioned by coordinates.
+--
+-- The screen element itself is an INVISIBLE container (vanilla's invisible_frame: no graphics,
+-- no padding), and each column inside it is a frame styled as a window of its own. So the pair
+-- still LOOKS like the two separate windows it used to be -- titlebars level, map visible
+-- between and around them -- one big grey slab was the first attempt, and it read as exactly
+-- that (owner's screenshot, 2026-08-20).
 --
 -- Built from scratch every time it opens and destroyed when it closes. At a couple dozen
 -- elements that is simpler than repainting a persistent frame, and it makes stale state
@@ -59,15 +75,18 @@ local function frame_of(player)
   return nil
 end
 
+-- The panel lives inside the container, so it is found through it -- and dies with it, which
+-- is most of what used to need code.
 local function settings_frame_of(player)
-  local frame = player.gui.screen[SETTINGS_FRAME]
-  if frame and frame.valid then return frame end
+  local frame = frame_of(player)
+  local panel = frame and frame[SETTINGS_FRAME]
+  if panel and panel.valid then return panel end
   return nil
 end
 
--- control.lua asks this before honouring a close on the modal: the settings window taking
--- player.opened ASKS the modal to close, and only the window's existence tells that apart from a
--- real Esc. See gui.open_settings.
+-- control.lua asks this on a close request for the modal: with the panel up, Esc (or the
+-- engine's confirm, or another window taking over) dismisses the panel first, the way a nested
+-- window would go, and only a second request closes the planner itself.
 function gui.settings_open(player)
   return settings_frame_of(player) ~= nil
 end
@@ -96,68 +115,6 @@ function gui.note_gui_event(event)
   end
 end
 
--- Put the settings window beside the modal, top edges level, rather than centred on top of it.
---
--- Nothing in the API reads an element's rendered size -- `location` and `anchor` are all there is --
--- so the modal's own centred position IS the measurement: auto_center puts a frame at
--- (resolution - width) / 2, which makes its width `resolution - 2x`. That holds in every language,
--- where a hardcoded offset would drift the moment a translation changed a label's width. Locations
--- are physical pixels, so the gap is the only part that needs the display scale.
---
--- Measured 2026-08-17, and it is why this is only ever called for a modal already on screen:
--- `location` reads 0,0 until the frame has been laid out once, which is a tick after it is built.
-local SETTINGS_GAP = 12
--- How much of the window must stay on screen when the modal sits too far right for the whole of
--- it: enough to read and to grab by, since a window placed past the edge reads as a dead button.
-local SETTINGS_MIN_VISIBLE = 240
--- What a modal can plausibly measure, in logical pixels before the display scale. The real one is
--- around 400 wide; this only has to be tight enough to recognise an inference that went wrong.
-local MODAL_WIDTH_MIN, MODAL_WIDTH_MAX = 200, 1000
-
--- The last width that could be trusted, per player. A cache and not state: it is rebuilt from the
--- next centred measurement, and losing it on load costs one centred window.
-local modal_width = {}
-
--- The modal's width, inferred from its own position -- auto_center puts a frame at
--- (resolution - width) / 2, so its width is `resolution - 2x`. That arithmetic holds for a
--- CENTRED modal, and the titlebar makes the modal draggable, so it is only ever an estimate:
--- dragged left it overshoots (the window lands far to the right, which is what this looked like
--- in game), dragged right it goes negative. Neither errors and neither is detectable directly --
--- but both leave the plausible range, so an implausible answer is thrown away and the last good
--- one stands. Nothing is measurable at all until the frame has been laid out, a tick after it is
--- built, when location still reads 0,0.
-local function modal_width_at(player, at)
-  local scale = player.display_scale
-  local width = player.display_resolution.width - 2 * at.x
-  if width >= MODAL_WIDTH_MIN * scale and width <= MODAL_WIDTH_MAX * scale then
-    modal_width[player.index] = width
-  end
-  return modal_width[player.index]
-end
-
-local function place_beside_modal(player, window)
-  local modal = frame_of(player)
-  local at = modal and modal.location
-  -- 0,0 is a modal that has not been laid out yet. Nothing a player does reaches it -- the button
-  -- lives on a modal that is already up -- but centring is the right answer with nothing to read.
-  if not at or (at.x == 0 and at.y == 0) then
-    window.auto_center = true
-    return
-  end
-
-  local width = modal_width_at(player, at)
-  -- No trustworthy measurement yet: the modal was dragged before this window was ever opened.
-  if not width then
-    window.auto_center = true
-    return
-  end
-  local x = at.x + width + math.floor(SETTINGS_GAP * player.display_scale)
-  window.location = {
-    x = math.min(x, player.display_resolution.width - SETTINGS_MIN_VISIBLE),
-    y = at.y,
-  }
-end
-
 -- The -with-quality pickers hand back a {name, quality} table and take one, but storage keeps
 -- the two halves as separate plain strings -- control.lua's contract is that storage holds
 -- nothing but strings, and a nested table there fails silently rather than loudly. The pair
@@ -183,7 +140,7 @@ local SHOW_ALL_OPTIONS_SETTING = "upcycler-planner-show-all-build-options"
 gui.SHOW_ALL_SETTING = SHOW_ALL_SETTING
 gui.SHOW_ALL_OPTIONS_SETTING = SHOW_ALL_OPTIONS_SETTING
 
--- What the settings window edits, in the order it lists them. Element and setting names are
+-- What the settings panel edits, in the order it lists them. Element and setting names are
 -- written out rather than derived from each other because the two follow different conventions:
 -- GUI elements carry the mod's short upl- prefix, settings the full mod name (CLAUDE.md, Naming).
 local EDITED_SETTINGS = {
@@ -349,8 +306,9 @@ function gui.refresh(player)
   if not frame then return end
 
   local choices = state.of(player.index).choices
-  local status = frame["upl-status"]
-  local confirm = frame["upl-buttons"]["upl-confirm"]
+  local main = frame["upl-main"]
+  local status = main["upl-status"]
+  local confirm = main["upl-buttons"]["upl-confirm"]
 
   -- validate hands back the resources it gathered so plan() does not pay for the same
   -- prototype scans twice in one refresh.
@@ -387,19 +345,13 @@ function gui.refresh(player)
   end
 end
 
--- The modal alone. Split out because a rebuild must leave the settings window standing --
--- flipping a setting in it is exactly what triggers one -- while closing the planner must not.
 local function destroy_modal(player)
   local frame = frame_of(player)
   if frame then frame.destroy() end
 end
 
 function gui.close(player)
-  -- The settings window belongs to the modal: closing the modal takes it along, or it is left
-  -- floating with nothing behind it. Destroyed directly rather than through gui.close_settings,
-  -- which would hand focus back to a modal that is about to go.
-  local window = settings_frame_of(player)
-  if window then window.destroy() end
+  -- The settings panel is a child, so it goes with the frame for free.
   destroy_modal(player)
   -- A chooser dies with the picker button it hangs off, so the presumption goes with the frame.
   local entry = state.peek(player.index)
@@ -416,21 +368,58 @@ local function titled_tooltip(key)
   }
 end
 
--- The draggable header both frames wear: title, then a stretchy filler that is itself a drag
--- handle, so the bar can be grabbed anywhere and not only on its label. Buttons stay the
--- caller's, because their order is what keeps the close X last. The filler's height matches
--- frame_action_button's fixed 24x24, or the bar grows around it.
-local function add_titlebar(frame, name, caption)
-  local bar = frame.add({ type = "flow", name = name, direction = "horizontal" })
-  bar.drag_target = frame
+-- The draggable header the modal and the settings panel wear: title, then a stretchy filler
+-- that is itself a drag handle, so the bar can be grabbed anywhere and not only on its label.
+-- Buttons stay the caller's, because their order is what keeps the close X last. The filler's
+-- height matches frame_action_button's fixed 24x24, or the bar grows around it.
+--
+-- drag_target must be an element in gui.screen, so the settings panel -- a child frame --
+-- passes the outer modal: grabbing the panel's header drags the whole window.
+local function add_titlebar(parent, name, caption, drag_target)
+  drag_target = drag_target or parent
+  local bar = parent.add({ type = "flow", name = name, direction = "horizontal" })
+  bar.drag_target = drag_target
   bar.add({
     type = "label", style = "frame_title", caption = caption, ignored_by_interaction = true,
   })
   local filler = bar.add({ type = "empty-widget", style = "draggable_space_header" })
   filler.style.height = 24
   filler.style.horizontally_stretchable = true
-  filler.drag_target = frame
+  filler.drag_target = drag_target
   return bar
+end
+
+-- The settings panel: a second column inside the modal's body, holding the two per-player
+-- settings. It edits the mod's own settings rather than a private copy, so this panel and the
+-- game's settings menu are two faces on one value; settings.lua says why. Rebuilt from scratch
+-- whenever it opens -- gui.open re-creates it after a modal rebuild too -- so a stale tick is
+-- impossible rather than merely unlikely.
+local function build_settings_panel(player, frame)
+  local panel = frame.add({ type = "frame", name = SETTINGS_FRAME, direction = "vertical" })
+  -- The gap that used to separate two windows; the invisible container's own spacing is zero,
+  -- so the map shows through it.
+  panel.style.left_margin = 12
+  local titlebar = add_titlebar(panel, "upl-settings-titlebar", { "upl-gui.settings" }, frame)
+  titlebar.add({
+    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
+    tags = dispatch.tags("settings-close"),
+  })
+
+  local content = panel.add({
+    type = "frame", name = "upl-settings-content", style = "inside_shallow_frame_with_padding",
+    direction = "vertical",
+  })
+  -- Captions come straight from the mod-setting locale categories, so this panel and the game's
+  -- own settings menu cannot word the same setting two different ways.
+  for _, entry in pairs(EDITED_SETTINGS) do
+    content.add({
+      type = "checkbox", name = entry.element,
+      state = player.mod_settings[entry.setting].value,
+      caption = { "mod-setting-name." .. entry.setting },
+      tooltip = { "mod-setting-description." .. entry.setting },
+      tags = dispatch.tags("setting", { setting = entry.setting }),
+    })
+  end
 end
 
 -- Everything decided before a single widget exists: a default for anything never picked, and
@@ -495,13 +484,18 @@ end
 
 function gui.open(player)
   -- A rebuild keeps the modal exactly where it was. Flipping a setting re-enters here, and a
-  -- re-centred frame would jump out from under the cursor -- taking with it the top edge the
-  -- settings window is levelled against, which is also why no re-placement is needed below.
-  -- It has to be read off the OLD frame: a new one reports 0,0 until it has been laid out.
+  -- re-centred frame would jump out from under the cursor. It has to be read off the OLD
+  -- frame: a new one reports 0,0 until it has been laid out. The settings panel is a child,
+  -- so a rebuild takes it down with the frame -- remembered here and re-created at the end.
   local old = frame_of(player)
   local keep = old and old.location
   if keep and keep.x == 0 and keep.y == 0 then keep = nil end
+  local had_settings = settings_frame_of(player) ~= nil
   destroy_modal(player)
+  -- Before 0.4.2 the settings lived in a second gui.screen frame; a save from those builds can
+  -- still carry one, and nothing else would ever remove it.
+  local legacy = player.gui.screen[SETTINGS_FRAME]
+  if legacy and legacy.valid then legacy.destroy() end
 
   local entry = state.of(player.index)
   -- A rebuild destroys every picker button, and a chooser dies with its button -- so no
@@ -510,17 +504,27 @@ function gui.open(player)
   local choices = entry.choices
   local offered_targets = apply_defaults(player, choices)
 
-  local frame = player.gui.screen.add({ type = "frame", name = FRAME, direction = "vertical" })
+  -- The screen element is an invisible container; what the player sees is its children, each a
+  -- window-styled frame of its own -- see the file comment. Everything positional (location,
+  -- auto_center, drag, player.opened) belongs to the container.
+  local frame = player.gui.screen.add({
+    type = "frame", name = FRAME, style = "invisible_frame", direction = "horizontal",
+  })
   if keep then
     frame.location = keep
   else
     frame.auto_center = true
   end
-  -- Makes Esc and E close the modal the way every other window in the game closes -- unless the
-  -- settings window is up, which owns player.opened while it is open. Only one element can.
-  if not settings_frame_of(player) then player.opened = frame end
+  -- Makes Esc and E close the modal the way every other window in the game closes. The
+  -- container owns player.opened whether or not the settings panel is up -- the panel is a
+  -- child, not a window of its own -- and control.lua turns a close request into "panel first".
+  player.opened = frame
 
-  local titlebar = add_titlebar(frame, "upl-titlebar", { "upl-gui.title" })
+  -- The planner window itself: the left column, wearing the frame style the whole modal used
+  -- to be.
+  local main = frame.add({ type = "frame", name = "upl-main", direction = "vertical" })
+
+  local titlebar = add_titlebar(main, "upl-titlebar", { "upl-gui.title" }, frame)
   -- Named rather than drawn. The base game ships no gear, and its settings sliders read as a
   -- preset switcher; a word says what it opens. frame_button is frame_action_button's own parent,
   -- so this carries the same chrome as the close X beside it -- minus the fixed 24x24 square that
@@ -549,7 +553,7 @@ function gui.open(player)
   })
 
   -- What the loop makes.
-  local content = frame.add({
+  local content = main.add({
     type = "frame", name = "upl-content", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
@@ -617,12 +621,12 @@ function gui.open(player)
 
   -- What the loop is built out of. These pickers carry no row label -- they read as a strip of
   -- icons, the way the game's own tool settings do -- so each one leans on titled_tooltip above.
-  local caption = frame.add({
+  local caption = main.add({
     type = "label", style = "caption_label", caption = { "upl-gui.build-options" },
   })
   caption.style.top_margin = 8
 
-  local options = frame.add({
+  local options = main.add({
     type = "frame", name = "upl-options", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
@@ -719,12 +723,12 @@ function gui.open(player)
 
   -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
   -- half, and an unbounded label drags the whole modal out to their width.
-  local status = frame.add({ type = "label", name = "upl-status", caption = "" })
+  local status = main.add({ type = "label", name = "upl-status", caption = "" })
   status.style.top_margin = 8
   status.style.single_line = false
   status.style.maximal_width = 360
 
-  local buttons = frame.add({ type = "flow", name = "upl-buttons", direction = "horizontal" })
+  local buttons = main.add({ type = "flow", name = "upl-buttons", direction = "horizontal" })
   buttons.style.top_padding = 4
   -- Same handler as the titlebar's close button: cancelling IS closing.
   buttons.add({
@@ -737,6 +741,9 @@ function gui.open(player)
     type = "button", name = "upl-confirm", style = "confirm_button",
     caption = { "upl-gui.confirm" }, tags = dispatch.tags("confirm"),
   })
+
+  -- The rebuild took the panel down with the old frame; a player who had it open keeps it.
+  if had_settings then build_settings_panel(player, frame) end
 
   gui.refresh(player)
 end
@@ -756,72 +763,30 @@ function gui.toggle_key(player)
   gui.toggle(player)
 end
 
--- The settings window. It edits the mod's own per-player settings rather than a private copy,
--- so this window and the game's settings menu are two faces on one value; settings.lua says why.
+-- Opens the settings panel in the modal's body. The panel touches player.opened not at all --
+-- the modal keeps it, and control.lua turns the next close request into "panel first".
 function gui.open_settings(player)
   gui.close_settings(player)
-
-  local frame = player.gui.screen.add({ type = "frame", name = SETTINGS_FRAME, direction = "vertical" })
-  -- Deliberately NOT auto_center: it would re-centre itself over the modal on every window
-  -- resize, undoing the placement below. Still draggable by its titlebar.
-  place_beside_modal(player, frame)
-
-  local titlebar = add_titlebar(frame, "upl-settings-titlebar", { "upl-gui.settings" })
-  titlebar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags("settings-close"),
-  })
-
-  local content = frame.add({
-    type = "frame", name = "upl-settings-content", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-  -- Captions come straight from the mod-setting locale categories, so this window and the game's
-  -- own settings menu cannot word the same setting two different ways.
-  for _, entry in pairs(EDITED_SETTINGS) do
-    content.add({
-      type = "checkbox", name = entry.element,
-      state = player.mod_settings[entry.setting].value,
-      caption = { "mod-setting-name." .. entry.setting },
-      tooltip = { "mod-setting-description." .. entry.setting },
-      tags = dispatch.tags("setting", { setting = entry.setting }),
-    })
-  end
-
-  -- Taking player.opened is what makes Esc dismiss this window rather than the modal -- and it
-  -- ASKS the modal to close, which control.lua refuses on gui.settings_open. Measured on 2.1.14:
-  -- without that guard the modal really is destroyed the moment this window opens.
-  player.opened = frame
+  local frame = frame_of(player)
+  if not frame then return end
+  build_settings_panel(player, frame)
 end
 
 function gui.close_settings(player)
-  local frame = settings_frame_of(player)
-  if not frame then return end
-  frame.destroy()
-  -- Destroy FIRST, then hand focus back: the engine nils player.opened when a window closes, so
-  -- the modal has to be given it explicitly or Esc would do nothing at all next time. Reassigning
-  -- while this frame still existed would instead ask IT to close, and come straight back here.
-  --
-  -- Only when nothing else has claimed it. This also runs from on_gui_closed, and opening a GUI
-  -- during that event is documented to make the engine force-close whichever one it was not asked
-  -- for -- so a player who clicks a chest while this window is up would have the planner snatched
-  -- back over it, and then torn down by the close that follows. Measured in gui_spec.
-  if player.opened ~= nil then return end
-  local modal = frame_of(player)
-  if modal then player.opened = modal end
+  -- The pre-0.4.2 layout put the settings in its own gui.screen frame; sweep one a save from
+  -- those builds may still carry, so its close X keeps working across the upgrade.
+  local legacy = player.gui.screen[SETTINGS_FRAME]
+  if legacy and legacy.valid then legacy.destroy() end
+  local panel = settings_frame_of(player)
+  if panel then panel.destroy() end
 end
 
 -- Reopened rather than repainted when a setting flips: open() rereads both settings and
--- rebuilds every filter, the quality list and every picker's visibility from them. Reached from
--- the settings window and from the game's own settings menu by the same event.
+-- rebuilds every filter, the quality list and every picker's visibility from them -- and
+-- re-creates the settings panel with fresh ticks on the way. Reached from the panel and from
+-- the game's own settings menu by the same event.
 function gui.on_setting_changed(player)
   if frame_of(player) then gui.open(player) end
-  -- A change made in the settings menu leaves this window showing a stale tick.
-  local window = settings_frame_of(player)
-  if not window then return end
-  for _, entry in pairs(EDITED_SETTINGS) do
-    window["upl-settings-content"][entry.element].state = player.mod_settings[entry.setting].value
-  end
 end
 
 dispatch.register("close", function(event)
@@ -1046,9 +1011,10 @@ end)
 -- the modal cannot change what is already in the player's hand.
 --
 -- Public and guarded rather than left inside the button's handler, because the "Confirm window"
--- key reaches it too and arrives from anywhere: with no modal up, or with the settings window
--- standing in front of one. That window owns player.opened while it is open, so the key belongs
--- to it for the same reason control.lua refuses a close on the modal behind it.
+-- key reaches it too and arrives from anywhere: with no modal up, or with the settings panel
+-- open beside the pickers. A press of E while the panel is up should dismiss the panel -- the
+-- engine's own close, which always runs after this handler, does exactly that through
+-- control.lua -- never place a blueprint.
 function gui.confirm(player)
   if not frame_of(player) or settings_frame_of(player) then return end
 

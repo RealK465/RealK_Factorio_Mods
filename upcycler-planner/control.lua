@@ -69,15 +69,22 @@ script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
   if not (element and element.valid) then return end
   local player = game.get_player(event.player_index)
-  if element.name == gui.SETTINGS_FRAME then
+  if element.name == gui.FRAME then
+    if gui.settings_open(player) then
+      -- Esc (or the engine's confirm, or another window taking over) with the settings panel
+      -- up dismisses just the panel, the way a nested window would go. The engine has already
+      -- nilled player.opened; retake it only when nothing else claimed it -- opening a GUI
+      -- during this event force-closes whichever one the engine was not asked for (measured
+      -- in gui_spec), so a clicked chest must keep its chest.
+      gui.close_settings(player)
+      if player.opened == nil then player.opened = element end
+    else
+      gui.close(player)
+    end
+  elseif element.name == gui.SETTINGS_FRAME then
+    -- Only a pre-0.4.2 save can raise this: the settings used to be a gui.screen frame that
+    -- owned player.opened. Esc on a leftover one still dismisses it.
     gui.close_settings(player)
-  elseif element.name == gui.FRAME and not gui.settings_open(player) then
-    -- The guard is not defensive: only one element at a time can own player.opened, so the
-    -- settings window taking it ASKS the modal to close and this handler is where that
-    -- arrives (measured 2.1.14 -- without the check the modal is destroyed the instant the
-    -- window opens). A real Esc can only reach here while the modal still owns `opened`,
-    -- which is exactly when no settings window exists.
-    gui.close(player)
   end
 end)
 

@@ -25,7 +25,9 @@ local function frame()
 end
 
 local function widget(path)
-  local element = frame()
+  -- The screen element is an invisible container; the planner window itself is its upl-main
+  -- child, the settings panel's sibling, and every widget lives inside it.
+  local element = frame()["upl-main"]
   for _, name in pairs(path) do
     element = element[name]
     assert(element, "widget path broke at " .. name)
@@ -47,16 +49,21 @@ local function choices()
   return state.of(player().index).choices
 end
 
--- The settings window is a SECOND frame, so it is reached from gui.screen rather than through
--- widget() above. Element names are spelled out here on purpose: they are the contract a rename
--- has to break loudly.
+-- The settings panel is a second COLUMN inside the modal's body, not a second screen frame, so
+-- it is reached through the frame. Element names are spelled out here on purpose: they are the
+-- contract a rename has to break loudly.
 local SHOW_ALL_BOX = "upl-setting-show-all"
 local ALL_OPTIONS_BOX = "upl-setting-show-all-build-options"
 
+local function settings_panel()
+  local f = frame()
+  return f and f[gui.SETTINGS_FRAME]
+end
+
 local function settings_widget(name)
-  local window = player().gui.screen[gui.SETTINGS_FRAME]
-  assert(window and window.valid, "the settings window is not open")
-  return window["upl-settings-content"][name]
+  local panel = settings_panel()
+  assert(panel and panel.valid, "the settings panel is not open")
+  return panel["upl-settings-content"][name]
 end
 
 -- Open the modal and pick gears through the real recipe handler, the way every later test
@@ -393,7 +400,7 @@ describe("the modal", function()
       "with one pipe in the game the picker stays hidden; with more it must appear")
   end)
 
-  test("the settings button opens a window beside the modal, without closing it", function()
+  test("the settings button opens the panel beside the pickers, without closing the modal", function()
     gui.open(player())
     local modal = frame()
     -- A captioned button rather than a glyph, so the titlebar says what it opens. Pinned because
@@ -404,47 +411,49 @@ describe("the modal", function()
       "the settings button lost its caption")
     fire(button)
 
-    local window = player().gui.screen[gui.SETTINGS_FRAME]
-    assert(window and window.valid, "the settings button opened nothing")
+    local panel = settings_panel()
+    assert(panel and panel.valid, "the settings button opened nothing")
+    -- A COLUMN in the modal, not a window of its own: a second screen frame can only be placed
+    -- beside this one by inference, and that is the bug this layout exists to end.
+    assert(player().gui.screen[gui.SETTINGS_FRAME] == nil,
+      "the settings must not be a separate screen window")
     -- Both boxes read the SETTINGS, not a private copy -- that is the whole storage decision.
     assert(settings_widget(SHOW_ALL_BOX).state == false, "the show-all box does not read its setting")
     assert(settings_widget(ALL_OPTIONS_BOX).state == false,
       "the build-options box does not read its setting")
-    assert(player().opened == window,
-      "the window must own player.opened, or Esc would close the modal underneath it")
+    -- The modal keeps the focus: the panel is a child, so Esc still lands on the frame and
+    -- control.lua turns it into "panel first".
+    assert(player().opened == modal, "the modal must keep player.opened under the panel")
 
-    -- The measured trap: only one element at a time owns player.opened, so taking it ASKS the
-    -- modal to close and control.lua's handler is where that arrives. Without its gui.settings_open
-    -- guard the modal is already destroyed by now.
     after_ticks(2, function()
-      assert(modal.valid, "the modal was torn down by the settings window taking focus")
+      assert(modal.valid, "the modal was torn down by the settings panel opening")
       gui.close_settings(player())
-      assert(not window.valid, "close_settings left the window standing")
-      assert(player().opened == modal,
-        "focus was not handed back to the modal, so Esc would do nothing")
+      assert(not panel.valid, "close_settings left the panel standing")
+      assert(player().opened == modal, "closing the panel must not cost the modal the focus")
     end)
   end)
 
-  test("Esc on the settings window hands the focus back to the modal", function()
+  test("Esc with the settings panel open dismisses the panel, not the modal", function()
     gui.open(player())
     gui.open_settings(player())
     -- Writing nil is exactly what Esc does -- the engine asks whatever holds the focus to close --
     -- so this drives the real on_gui_closed path in control.lua rather than the button's handler.
     player().opened = nil
     after_ticks(2, function()
-      assert(not player().gui.screen[gui.SETTINGS_FRAME], "the window survived Esc")
-      assert(frame() and frame().valid, "Esc on the window closed the modal behind it")
+      assert(settings_panel() == nil, "the panel survived Esc")
+      assert(frame() and frame().valid, "Esc with the panel up closed the modal too")
       assert(player().opened == frame(),
         "the modal did not get the focus back, so Esc would do nothing next time")
     end)
   end)
 
-  test("another GUI taking focus does not drag the planner down with the window", function()
+  test("another GUI taking focus does not drag the planner down with the panel", function()
     gui.open(player())
     gui.open_settings(player())
-    -- Clicking a chest while the window is up asks the window to close, which lands in the same
-    -- on_gui_closed handler as Esc. Reclaiming the focus THERE is what the API warns about:
-    -- the engine force-closes whichever GUI it was not asked for, and the modal went with it.
+    -- Clicking a chest while the panel is up asks the MODAL to close -- the panel is a child,
+    -- so the frame is what owns player.opened -- and that lands in the same on_gui_closed
+    -- handler as Esc. Reclaiming the focus THERE is what the API warns about: the engine
+    -- force-closes whichever GUI it was not asked for, and the modal went with it.
     local surface = player().surface
     local at = surface.find_non_colliding_position("iron-chest", { x = 12, y = 12 }, 32, 1)
     local chest = surface.create_entity({
@@ -455,6 +464,7 @@ describe("the modal", function()
     player().opened = chest
     after_ticks(2, function()
       assert(frame() and frame().valid, "opening a chest tore the planner down")
+      assert(settings_panel() == nil, "the close request should have dismissed the panel")
       assert(player().opened == chest, "the planner snatched the focus back from the chest")
       player().opened = nil
       chest.destroy()
@@ -482,48 +492,56 @@ describe("the modal", function()
     assert(choices().machine == machine, "the click changed the machine")
   end)
 
-  test("the settings window follows a dragged modal instead of crossing the screen", function()
-    -- The window's x is derived from the modal's CENTRED position, and the titlebar makes the
-    -- modal draggable, so the derivation is only ever an estimate. Dragged LEFT it overshoots,
-    -- and the window used to land against the right edge -- the wrong side of everything.
-    local resolution = player().display_resolution.width
-    local scale = player().display_scale
-    local width = math.floor(400 * scale)
-
+  test("the settings panel can never separate from the planner window", function()
+    -- The panel used to be a second gui.screen frame placed beside this one by inferring the
+    -- modal's width from its auto-centred position -- wrong after any drag, and 2.1.14 raises
+    -- on_gui_location_changed for its own auto_center layout too, so even "was it moved" had no
+    -- reliable answer. A sibling column inside one screen element has no position of its own to
+    -- get wrong, wherever the window goes.
     gui.open(player())
-    -- Where auto_center would put a modal this wide: the one position the inference is exact at,
-    -- and so the only chance the code gets to learn the width. (Headless never lays a frame out,
-    -- so a real auto_center would read 0,0 -- an explicit location is how this is measurable.)
-    frame().location = { x = math.floor((resolution - width) / 2), y = 60 }
     gui.open_settings(player())
-    local centred_x = player().gui.screen[gui.SETTINGS_FRAME].location.x
-    assert(centred_x > 0 and centred_x < resolution,
-      "beside a centred modal the window belongs on screen, got " .. centred_x)
-    gui.close_settings(player())
+    local panel = settings_panel()
+    assert(panel and panel.valid, "the panel did not open")
+    assert(panel.parent == frame(),
+      "the panel must be a column inside the planner's own screen element")
+    assert(player().gui.screen[gui.SETTINGS_FRAME] == nil,
+      "the settings must not be a separate screen window")
 
-    -- Dragged hard left. The remembered width is what keeps the window beside the modal.
     frame().location = { x = 40, y = 60 }
-    gui.open_settings(player())
-    local dragged_x = player().gui.screen[gui.SETTINGS_FRAME].location.x
-    assert(dragged_x < centred_x,
-      "dragging the modal left must carry the window left too, got " .. dragged_x)
-    assert(dragged_x <= 40 + width + 40,
-      "the window must sit beside the modal, not across the screen: " .. dragged_x)
-    gui.close_settings(player())
+    assert(settings_panel().valid, "moving the window lost the panel")
 
-    -- Dragged hard right, where there is no room beside it at all: the window has to stay
-    -- reachable rather than being placed past the edge.
-    frame().location = { x = resolution - 40, y = 60 }
-    gui.open_settings(player())
-    assert(player().gui.screen[gui.SETTINGS_FRAME].location.x <= resolution - 240,
-      "with no room to the right the window must stay on screen")
+    -- A rebuild (a setting flip does one) keeps an open panel open, and a closed one closed.
+    gui.open(player())
+    assert(settings_panel() ~= nil, "a rebuild dropped the settings panel")
+    gui.close_settings(player())
+    gui.open(player())
+    assert(settings_panel() == nil, "a rebuild resurrected a closed settings panel")
   end)
 
-  test("closing the modal takes the settings window with it", function()
+  test("a leftover settings window from a pre-0.4.2 save is swept", function()
+    -- Those builds kept the settings in its own gui.screen frame; a save can carry one across
+    -- the upgrade, and nothing else would ever remove it.
+    local orphan = player().gui.screen.add({
+      type = "frame", name = gui.SETTINGS_FRAME, direction = "vertical",
+    })
+    assert(orphan.valid, "test setup: no orphan window")
+    gui.open(player())
+    assert(not orphan.valid, "opening the planner must sweep the orphan window")
+
+    local again = player().gui.screen.add({
+      type = "frame", name = gui.SETTINGS_FRAME, direction = "vertical",
+    })
+    gui.close_settings(player())
+    assert(not again.valid, "close_settings must sweep the orphan window too")
+  end)
+
+  test("closing the modal takes the settings panel with it", function()
     gui.open(player())
     gui.open_settings(player())
     gui.close(player())
-    assert(not player().gui.screen[gui.SETTINGS_FRAME], "the window outlived the modal it belongs to")
+    assert(frame() == nil, "the planner survived close")
+    assert(not player().gui.screen[gui.SETTINGS_FRAME],
+      "something named after the settings panel outlived the planner")
   end)
 
   test("show all build options reveals every hidden picker, pipe included", function()
@@ -622,15 +640,15 @@ describe("the modal", function()
       "the key put something in the cursor with no modal open")
   end)
 
-  test("the Confirm key is refused while the settings window has the focus", function()
+  test("the Confirm key is refused while the settings panel is open", function()
     open_with_gears()
     gui.open_settings(player())
     gui.confirm_key(player())
 
     local stack = player().cursor_stack
     assert(not (stack and stack.valid_for_read),
-      "the key placed a blueprint while the settings window owned the focus")
-    assert(frame() and frame().valid, "the key closed the modal from behind the window")
+      "the key placed a blueprint while the settings panel was open")
+    assert(frame() and frame().valid, "the key closed the planner under the panel")
   end)
 end)
 

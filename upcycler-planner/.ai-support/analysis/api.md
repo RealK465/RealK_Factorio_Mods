@@ -581,8 +581,11 @@ Two facts worth having beside it, both from the same dump:
 
 ## 17. Per-player settings a mod may write, and who owns `player.opened` — measured 2026-08-17
 
-Three questions the settings window rests on, each settled by a throwaway spec run against the
+Three questions the settings design rests on, each settled by a throwaway spec run against the
 real engine rather than by reading the docs twice. All three **measured**, headless, 2.1.14.
+(The design was a second `gui.screen` window when these were taken; the first fact carries the
+panel just the same, and the `player.opened` pair now underpins control.lua's close-request
+ordering and the pre-0.4.2 orphan sweep.)
 
 - **A mod can write its own per-player setting at runtime.** `LuaPlayer::mod_settings` is marked
   read-only, and its own description says the exception out loud: *"individual settings can be
@@ -662,6 +665,21 @@ is observable headless: a headless run never lays a frame out.
   would have been two rows and identical. Confirmed by screenshot: one row of six, no gaps, and
   6 + 3 when all nine show. `visible`'s documented *"taking no space in the layout"* extends to a
   table cell, so a grid needs no filtering to stay dense.
+- **`on_gui_location_changed` fires for the engine's own auto_center layout, not only for player
+  drags** — measured in game 2026-08-20, the hard way: a handler that set a "player moved it"
+  flag on the event saw the flag set the moment a freshly auto-centred frame was laid out, before
+  any drag was possible (the settings window then mis-placed on its very first open — owner's
+  screenshots). The event's `player_index` doc line ("the player who did the change",
+  runtime-api.json 2.1.14) reads as player-action-only and is not. A location set **from script**
+  raised nothing in the headless suite, matching Space Exploration 0.7.60, which snaps windows by
+  assigning `element.location` inside this very handler. Net: the event cannot answer "has the
+  player moved this frame", and the mod no longer listens to it at all.
+- **Two "windows" that must stay glued are one screen element**: vanilla ships `invisible_frame`
+  (`graphical_set = {}`, `padding = 0`, core `style.lua`) — an invisible `gui.screen` container
+  whose children are ordinary window-styled frames looks like separate windows with the map
+  showing between them, and the engine's layout keeps them side by side with nothing to measure.
+  `drag_target` must name a `gui.screen` element, so the children's titlebars point at the
+  container and any of them drags the whole.
 - **`game.take_screenshot{show_gui = true}` works in the graphics test tier** and is the only way
   to *see* a GUI, but two overlays sit on top of it: the framework prints every result to the
   console, and `research_all_technologies()` raises a long queue of achievement toasts that draw
@@ -687,11 +705,16 @@ arrives *while the engine is opening the element's own chooser window*.
   quality, and the stored one is nil until the player picks a tier, so a raw comparison reads
   every first click as a change.
 
-**A frame's width can only be inferred while it is centred, and the player can drag it.** §19's
-`size = resolution - 2 * location` is exact for an auto-centred frame and silently wrong for a
-moved one: dragged left it overshoots, dragged right it goes negative. Neither is detectable
-directly, but both leave the range a real frame can occupy — so the mod keeps the last
-*plausible* measurement per player and reuses it, rather than trusting each reading.
+**A frame's width can only be inferred while it is centred, and nothing can prove it still is.**
+§19's `size = resolution - 2 * location` is exact for an auto-centred frame and silently wrong
+for a moved one: dragged left it overshoots, dragged right it goes negative — and a *moderate*
+drag left implies a width still inside the range a real frame can occupy, so plausibility of
+the number cannot stand in for knowing whether the frame moved (it did in game, 2026-08-20:
+the settings window opened across the screen off an accepted-but-wrong width). Gating the
+measurement on `on_gui_location_changed` failed the same day — the event fires for the engine's
+own auto_center layout too (§19), so the "moved" flag armed before the width was ever learned.
+The surviving answer places nothing at all: anything that must sit beside a screen frame goes
+*inside* its screen element (§19, invisible container).
 
 ## 21. Blueprints written by a mod — measured 2026-08-18
 
@@ -857,8 +880,9 @@ field the engine read.
 
 **Prior art, same shape.** Space Exploration 0.7.60 handles its linked confirm at
 `scripts/pin.lua:737` — look the frame up, `return` if it is absent, otherwise do the work and
-close. `gui.confirm` guards the same way and adds one more test, the settings window, because
-this mod has a second frame that can own `player.opened`.
+close. `gui.confirm` guards the same way and adds one more test, the settings panel being open:
+a press of E should dismiss the panel — the engine's own close, which runs after the handler,
+does exactly that through control.lua — never place a blueprint.
 
 **Unverified: whether the control is bound to E on any given machine, and whether it fires while
 a MOD frame owns `player.opened`.** Default bindings are engine-side — they are in no data file —

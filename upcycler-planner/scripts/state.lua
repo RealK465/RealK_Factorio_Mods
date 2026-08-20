@@ -82,6 +82,9 @@ function state.prune()
     -- upgrade clears it -- after which this line is dead and can go at the next major bump.
     -- It earns its keep only so the promise at the top of this file is true of old saves too.
     entry.pending = nil
+    -- Left by a dev build of 0.4.2 that positioned the settings window by inference; never
+    -- shipped, and nothing reads them now.
+    entry.modal_width, entry.modal_moved, entry.settings_moved = nil, nil, nil
   end
 end
 
