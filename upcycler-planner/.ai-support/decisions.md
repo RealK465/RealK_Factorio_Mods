@@ -553,6 +553,16 @@ per-release approval.
   recycler's output wedges the recycler completely; only the relief inserter keeps the loop
   alive. Any future layout change must keep it, and a test now fails if the behaviour
   regresses.
+- **A behaviour-preserving change to `poles.lua` is proven by a falsified parity sweep, not by a
+  green suite.** The suite pins pole counts, plan widths and connectivity; it pins no `wire_to`
+  value, so a spanning tree rebuilt with different tie-breaks stays connected, still carries n-1
+  wires, and passes everything. The discipline, used for all three 2026-08-20 rewrites: run the
+  live file against the pre-change one recovered with `git show`, deep-compare every field of
+  every pole, and **first point the harness at a deliberately broken copy to prove it can fail**
+  — an earlier sweep in this mod produced a false pass by comparing one implementation with
+  itself. The sweep must also carry a 5x5 machine: that is what fragments the wire network into
+  the components `bridge` exists to join, and without it the pass is never exercised at all.
+  Axes and numbers: `analysis/poles.md`.
 - **GUI specs run in both tiers.** Headless works because a save's player stays connected
   under `--benchmark` (`analysis/api.md` §12); the graphics tier remains the real-client
   check, unattended thanks to a current-version save, freeplay's skip-intro remotes, and the

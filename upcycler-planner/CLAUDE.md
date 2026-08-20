@@ -28,7 +28,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (163 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
+suite under `tests/` (167 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -327,5 +327,8 @@ re-opening any of these, and don't restate a reason here.
 **`.ai-support/deferred.md` is the single owner** of parked and open work, so the two lists
 cannot drift apart. The two questions that used to gate everything are both answered above —
 *what does the player actually select* (nothing: they hold a blueprint) and *can a runtime-written
-blueprint carry the loop faithfully* (yes, measured). What is left is mostly scope: modded quality
-tiers, whether the GUI should show expected output, and `thumbnail.png`.
+blueprint carry the loop faithfully* (yes, measured). **Modded quality tiers are no longer one
+of them either** — the chain walk carries no ceiling and the pole solve was rebuilt for long
+chains on 2026-08-20; what is left there is solve *cost* at the extreme, which `deferred.md`
+owns. So the rest is mostly scope: whether the GUI should show expected output, and
+`thumbnail.png`.
