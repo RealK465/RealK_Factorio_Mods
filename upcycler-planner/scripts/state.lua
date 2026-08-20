@@ -1,5 +1,6 @@
 -- Everything this mod persists, which is deliberately almost nothing: the player's last GUI
--- choices, and nothing else. Plans are never stored -- Confirm designs one, bakes it into the
+-- choices, plus one transient flag (`chooser_maybe_open`, owned by gui.lua) that lives and
+-- dies with the open modal. Plans are never stored -- Confirm designs one, bakes it into the
 -- blueprint it hands over, and forgets it, so no half-finished plan can straddle a save and
 -- reopening the modal cannot change what is already in the player's hand.
 --
@@ -22,6 +23,13 @@ function state.of(player_index)
     storage.players[player_index] = entry
   end
   return entry
+end
+
+-- The entry without creating one. The GUI's event observer runs for every player's every
+-- click, ours or not, and a player who never opened the planner must not gain an entry
+-- from walking past someone else's buttons.
+function state.peek(player_index)
+  return storage.players[player_index]
 end
 
 function state.forget(player_index)

@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-18
+verified: 2026-08-20
 ---
 # Verified API reference
 
@@ -867,3 +867,40 @@ this is a human check in a live game. The specs cover everything downstream of t
 firing. If the control turns out not to carry E, the fallback is `toggle-menu` instead of
 `confirm-gui`, which is a one-word change but a worse one: it fires on every menu toggle rather
 than on a confirm.
+
+## 23. The element chooser is invisible to the runtime — checked 2026-08-20
+
+The window a `choose-elem-button` opens when clicked — the game's own "select an item"
+chooser — has no API surface at all, checked against 2.1.14's `runtime-api.json` three ways:
+
+- **No event announces it.** The only event that mentions choose-elem-buttons is
+  `on_gui_elem_changed`, which fires on a completed pick. Opening the chooser, cancelling it
+  with Esc and dismissing it with a click on nothing raise nothing at all.
+- **No `gui_type` names it.** The define enumerates twenty-one values and none is a chooser,
+  so `on_gui_opened` / `on_gui_closed` cannot carry one.
+- **It never takes `player.opened`.** Reassigning `player.opened` fires `on_gui_closed` for
+  the previous owner (§17, measured), and the modal demonstrably survives every picker click —
+  the whole picker flow has shipped since 0.1.0 — so if the chooser entered the opened stack,
+  the modal would have been asked to close on every click, and it is not.
+
+Consequence: a `custom-input` linked to `confirm-gui` (§22) cannot tell a press aimed at the
+chooser from one aimed at the modal behind it. Space Exploration's pin dialog — §22's own
+prior art — carries the same blind spot around its icon picker (`scripts/pin.lua:737` checks
+only that its frame exists). What IS visible is the click that opens a chooser (§20: it
+reaches the mod's handler as the chooser opens) and every LATER gui event for that player, on
+any element of any mod — a pick fires `on_gui_elem_changed`, and clicking anything else
+dismisses the chooser. `gui.note_gui_event` therefore keeps a per-player presumption — set by
+a click on one of the modal's own pickers, cleared by any following gui event — and
+`gui.confirm_key` swallows one press while it holds. §22's documented ordering (the custom
+input fires **before** the internal game event) is what makes the swallow land before the
+engine confirms the chooser.
+
+The presumption can go stale: Esc on the chooser, a click on empty ground, and re-picking the
+SAME value all close it with no event. The next E is then swallowed once and the engine's
+close still runs — the modal closes unconfirmed, choices kept. Accepted as the cost of the
+engine exposing nothing (`../decisions.md` → the Confirm-window bullet).
+
+**Unverified, and only checkable by a human:** that a real press of E over a real chooser
+fires the custom input and then confirms the chooser, in that order, on a live client. No
+test tier can open a chooser, because only a real click can — the specs drive everything
+downstream of the events instead.

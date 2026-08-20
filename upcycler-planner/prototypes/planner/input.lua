@@ -19,4 +19,15 @@ data:extend({
     key_sequence = "",
     linked_game_control = "confirm-gui",
   },
+  -- The keyboard way to the shortcut button: same prototype name as the shortcut, which is the
+  -- Krastorio 2 pairing shape -- the button's `associated_control_input` points here, so its
+  -- tooltip advertises the binding and the two rename together. Unlike upl-confirm this one is
+  -- a real binding of its own, so it appears in the controls menu and needs its [controls]
+  -- locale key. CONTROL is the control key on every platform; a mac's COMMAND is its own
+  -- modifier name, not a translation of this one.
+  {
+    type = "custom-input",
+    name = "upl-open",
+    key_sequence = "CONTROL + SHIFT + U",
+  },
 })

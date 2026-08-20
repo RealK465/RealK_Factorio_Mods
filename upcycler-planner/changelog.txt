@@ -1,12 +1,18 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.2
 Date: ????
+  Features:
+    - A keyboard shortcut opens the planner: Ctrl+Shift+U by default.
+      Rebind it under Settings > Controls > Mods.
   Optimizations:
     - The planner designs loops faster. Most noticeable in the planner window with many
       quality tiers or large modded machines.
   Changes:
     - Loops are narrower again. The planner no longer leaves an empty column in front of
       every machine for the electric poles. Poles now go wherever they fit inside the loop.
+  Bugfixes:
+    - Fixed that pressing E while choosing a machine or item placed the blueprint instead
+      of confirming your choice.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-08-18

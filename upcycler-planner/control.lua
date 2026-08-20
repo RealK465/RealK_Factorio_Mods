@@ -15,7 +15,8 @@ local state = require("scripts.state")
 local dispatch = require("scripts.dispatch")
 local gui = require("scripts.gui")
 
-local SHORTCUT = "upl-open"
+-- The shortcut and its hotkey share gui.SHORTCUT as their prototype name; only the confirm
+-- input's name lives here.
 local CONFIRM_INPUT = "upl-confirm"
 
 script.on_init(state.init)
@@ -30,22 +31,31 @@ script.on_configuration_changed(function()
 end)
 
 script.on_event(defines.events.on_lua_shortcut, function(event)
-  if event.prototype_name ~= SHORTCUT then return end
+  if event.prototype_name ~= gui.SHORTCUT then return end
   gui.toggle(game.get_player(event.player_index))
+end)
+
+-- The same toggle from the keyboard -- CTRL+SHIFT+U by default, rebindable in the controls
+-- menu. The custom input shares the shortcut's prototype name, and gui.toggle_key is what
+-- keeps the key behind the same recycling unlock as the button: a custom input fires whether
+-- or not the shortcut is available.
+script.on_event(gui.SHORTCUT, function(event)
+  gui.toggle_key(game.get_player(event.player_index))
 end)
 
 -- The game's "Confirm window" key -- E by default -- reaching the modal's Place button, so the
 -- planner confirms like any vanilla dialog. Registered by prototype name, the way custom-inputs
--- are; gui.confirm does the deciding, because it is the one that knows whether there is a modal
--- to confirm. The key fires wherever the player is, so this handler is on every press of E in
--- the game and its first act must stay a pair of cheap lookups.
+-- are; gui.confirm_key does the deciding, because it is the one that knows whether there is a
+-- modal to confirm and whether an element chooser is presumed to be floating over it -- a press
+-- aimed at THAT belongs to the chooser, not to Place. The key fires wherever the player is, so
+-- this handler is on every press of E in the game and its first act must stay cheap lookups.
 --
 -- The engine's own close still runs straight after this, since the input is linked with
 -- consuming "none" and prototypes/planner/input.lua says why that cannot change. It costs
 -- nothing on the paths that matter: a confirm closes the modal itself, and a press with nothing
 -- to confirm should close it anyway.
 script.on_event(CONFIRM_INPUT, function(event)
-  gui.confirm(game.get_player(event.player_index))
+  gui.confirm_key(game.get_player(event.player_index))
 end)
 
 -- All four GUI events go through the one dispatcher, which reads the handler name off the

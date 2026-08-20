@@ -36,10 +36,14 @@ local state = require("scripts.state")
 
 local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
+-- The shortcut button AND its hotkey custom-input share this prototype name (the Krastorio 2
+-- pairing shape), so the button, the key and the tooltip's keybind hint all rename together.
+local SHORTCUT = "upl-open"
 
 -- Shared with control.lua, so the event wiring and the GUI cannot drift on a rename.
 gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
+gui.SHORTCUT = SHORTCUT
 
 local function frame_of(player)
   local frame = player.gui.screen[FRAME]
@@ -58,6 +62,30 @@ end
 -- real Esc. See gui.open_settings.
 function gui.settings_open(player)
   return settings_frame_of(player) ~= nil
+end
+
+-- The engine's element chooser -- the window a choose-elem-button opens -- is invisible to
+-- mods: no event announces it, no readable names it, and it never touches player.opened
+-- (api.md §23). What IS visible is the click that opens one, and every LATER gui event means
+-- it closed -- picking fires on_gui_elem_changed, and clicking anything else dismisses it. So
+-- the last event stands in: a click on one of the modal's own pickers presumes a chooser open
+-- until the next gui event for that player. Registered as the dispatcher's observer, so it
+-- sees every event, other mods' elements included -- interacting anywhere closes a chooser.
+--
+-- The presumption lives in storage, never in a module local: every client sees the same
+-- events, but a player who joins mid-presumption would not, and the two sides would then take
+-- different branches on the same press of E -- a desync.
+function gui.note_gui_event(event)
+  local element = event.element
+  if event.name == defines.events.on_gui_click and element and element.valid
+    and element.type == "choose-elem-button" and element.tags[dispatch.TAG] then
+    state.of(event.player_index).chooser_maybe_open = true
+  else
+    -- peek, not of: this runs for every player's every gui event, and a player who never
+    -- opened the planner must not gain a state entry from it.
+    local entry = state.peek(event.player_index)
+    if entry then entry.chooser_maybe_open = nil end
+  end
 end
 
 -- Put the settings window beside the modal, top edges level, rather than centred on top of it.
@@ -365,6 +393,9 @@ function gui.close(player)
   local window = settings_frame_of(player)
   if window then window.destroy() end
   destroy_modal(player)
+  -- A chooser dies with the picker button it hangs off, so the presumption goes with the frame.
+  local entry = state.peek(player.index)
+  if entry then entry.chooser_maybe_open = nil end
 end
 
 -- A tooltip for a control with no visible label: the row label it would have had, promoted to a
@@ -464,7 +495,11 @@ function gui.open(player)
   if keep and keep.x == 0 and keep.y == 0 then keep = nil end
   destroy_modal(player)
 
-  local choices = state.of(player.index).choices
+  local entry = state.of(player.index)
+  -- A rebuild destroys every picker button, and a chooser dies with its button -- so no
+  -- presumption of one survives into the new frame.
+  entry.chooser_maybe_open = nil
+  local choices = entry.choices
   local offered_targets = apply_defaults(player, choices)
 
   local frame = player.gui.screen.add({ type = "frame", name = FRAME, direction = "vertical" })
@@ -700,6 +735,17 @@ end
 
 function gui.toggle(player)
   if frame_of(player) then gui.close(player) else gui.open(player) end
+end
+
+-- What the HOTKEY runs, as opposed to the shortcut button. A custom input fires whether or not
+-- the shortcut is unlocked, so the key re-checks the same per-save availability the button
+-- stands behind (technology_to_unlock plus unavailable_until_unlocked on the shortcut
+-- prototype) -- without this, the key would open a planner the recycling technology has not
+-- delivered a recycler for yet. is_shortcut_available is the engine's own answer, so a
+-- scenario that grants or revokes the shortcut by script is honoured the same way.
+function gui.toggle_key(player)
+  if not player.is_shortcut_available(SHORTCUT) then return end
+  gui.toggle(player)
 end
 
 -- The settings window. It edits the mod's own per-player settings rather than a private copy,
@@ -1031,5 +1077,30 @@ end
 dispatch.register("confirm", function(event)
   gui.confirm(game.get_player(event.player_index))
 end)
+
+-- What the Confirm KEY runs, as opposed to the button. The key fires on every press of E in
+-- the game -- including one aimed at the element chooser floating over the modal, where
+-- confirming would trade the player's pick for a blueprint and tear the chooser down with the
+-- frame. So one press is swallowed while a chooser is presumed open; the engine's own confirm,
+-- which always runs after this handler (api.md §22), then lands on the chooser exactly as it
+-- does in a vanilla dialog.
+--
+-- The presumption can go stale -- a chooser dismissed with Esc or a click on nothing leaves no
+-- event behind -- and that one press then costs a close instead of a confirm: the swallow
+-- returns, the engine's close runs as it always has, and the shortcut reopens with every
+-- choice remembered. The button never swallows, because reaching it is itself the click that
+-- clears the presumption.
+function gui.confirm_key(player)
+  local entry = state.peek(player.index)
+  if entry and entry.chooser_maybe_open then
+    entry.chooser_maybe_open = nil
+    return
+  end
+  gui.confirm(player)
+end
+
+-- The observer that keeps the chooser presumption current -- see gui.note_gui_event. Attached
+-- here, at require time, so it exists again on every load exactly like the handlers above.
+dispatch.observe(gui.note_gui_event)
 
 return gui

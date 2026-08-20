@@ -156,9 +156,30 @@ per-release approval.
   `gui.confirm(player)` is public and **guards its own preconditions** — a modal must be open and
   no settings window may be in front of it — because the key can arrive with neither, where the
   button never can.
+  **The key swallows one press while an element chooser is presumed open** (2026-08-20, after a
+  press of E over the machine picker's floating chooser placed the blueprint and tore the
+  chooser down instead of selecting). The chooser has no API surface at all — no event, no
+  `gui_type`, and it never takes `player.opened` — so the click that opens one stands in as the
+  signal, cleared by any later gui event for that player; the engine's own confirm, which runs
+  after the handler, then lands on the chooser exactly as in a vanilla dialog
+  (`gui.confirm_key`, the key's own entry point — the button keeps `gui.confirm` and never
+  swallows). The presumption goes stale when a chooser closes without an event — Esc, a click
+  on nothing, re-picking the same value — and the next E then closes the modal unconfirmed
+  instead of placing. The owner accepts that cost: choices are kept, the shortcut reopens, and
+  the button always works. Evidence, including why nothing better exists: `analysis/api.md` §23.
 - **Gated on the `recycling` technology** (plus `unavailable_until_unlocked = true`), not on
   quality. The loop is unbuildable without a recycler, so gating on quality alone would offer a
   button that cannot yet produce anything.
+- **A rebindable hotkey toggles the planner** — CTRL+SHIFT+U by default, requested by the repo
+  owner 2026-08-20. A second `custom-input`, this one keybound rather than linked, sharing the
+  shortcut's own `upl-open` prototype name — the Krastorio 2 pairing shape (its jackhammer
+  ships a shortcut and an input under one name), which is what lets the shortcut's
+  `associated_control_input` advertise the binding in the button's tooltip and the three rename
+  together. The key honours the same recycling gate as the button, through
+  `gui.toggle_key` reading `is_shortcut_available` — a custom input fires whether or not the
+  shortcut is unlocked, and without the check the key would open a planner the recycling
+  technology has not delivered a recycler for. `[controls]` locale key `upl-open` names it in
+  the controls menu.
 - **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
   crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
   belt, inserter, requester chest, buffer chest, output chest, quality module, top machine
