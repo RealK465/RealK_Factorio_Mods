@@ -256,13 +256,15 @@ per-release approval.
   option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
   of the request. The pipe carries one extra condition of its own: it stays out of the strip until
   the chosen recipe takes a fluid, since it plumbs nothing otherwise.
-  **The beacon and its module go the chests' way, and further** (owner's call, 2026-08-22,
-  same session the pickers landed): hidden by default whatever the count **and whatever is
+  **The beacon group goes the chests' way, and further** (owner's call, 2026-08-22, same
+  session the pickers landed): hidden by default whatever the count **and whatever is
   researched** — a beacon is an opt-in extra, and a beacon button in the default strip reads
-  as a decision every player has to make before pressing Place. Show-all reveals the pair, and
-  a *chosen* beacon keeps both pickers visible with show-all off again, so the opt-in stays on
+  as a decision every player has to make before pressing Place. Show-all reveals the group,
+  and a *chosen* beacon keeps it visible with show-all off again, so the opt-in stays on
   display and clearable rather than riding the plan as a hidden passenger. One predicate
-  (`beacon_visible`) serves both buttons; clearing the beacon returns the pair to hidden.
+  (`beacon_visible`) serves the whole group — beacon, module and the count drop-down, the
+  count additionally following `worth_showing` inside it, since a max of one is not a choice;
+  clearing the beacon returns the group to hidden.
   **The chests are the exception the other way** (owner's call, 2026-08-18): all four are
   hidden whatever the count, so the buffer goes even though wooden, iron and steel are a real
   choice. The default — the largest inventory the force has researched — is the right answer
@@ -338,16 +340,16 @@ per-release approval.
   loop.
 - **The build options are five captioned concept groups** (owner's call, 2026-08-22,
   superseding the 2026-08-17 six-column grid): Transport (belt, inserter, pipe), Chests (the
-  four roles), Modules (quality, top machine), Beacons (beacon, its module), Power (pole) —
-  each a `semibold_caption_label` over a horizontal flow of icon pickers, the trash checkbox
-  below them all. Twelve icon-only pickers in one flat grid left hovering as the only way to
-  tell them apart; small captions name the concepts while the pickers stay icons — chosen from
-  three offered shapes over per-picker labelled rows and over two side-by-side group columns.
-  No group holds more than four icons, so a plain flow needs no wrap rule the way the old
-  table did (an invisible child takes no space in either — `analysis/api.md` §19). A group
-  whose every picker is hidden — the chests by default, the beacon pair until show-all or a
-  pick — hides caption and row together, the rule owned once by the group rather than by each
-  button.
+  four roles), Modules (quality, top machine), Beacons (beacon, its module, the per-tier
+  count drop-down), Power (pole) — each a `semibold_caption_label` over a horizontal flow of
+  icon pickers, the trash checkbox below them all. Twelve icon-only pickers in one flat grid
+  left hovering as the only way to tell them apart; small captions name the concepts while the
+  pickers stay icons — chosen from three offered shapes over per-picker labelled rows and over
+  two side-by-side group columns. No group holds more than four icons, so a plain flow needs
+  no wrap rule the way the old table did (an invisible child takes no space in either —
+  `analysis/api.md` §19). A group whose every picker is hidden — the chests by default, the
+  beacon group until show-all or a pick — hides caption and row together, the rule owned once
+  by the group rather than by each button.
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
   `{name, quality}` tables the `-with-quality` widgets speak. `control.lua`'s stated contract is
   that storage holds nothing but strings, and a nested table there fails silently rather than
@@ -471,31 +473,45 @@ per-release approval.
   `analysis/poles.md`, engine facts in `analysis/api.md` §10. **Coverage counts only the
   largest wired component** — geometric coverage alone would call a consumer powered when its
   only pole sits on an unwired island, a lie that surfaces in game as a mystery.
-- **Beacons are planned in, opt-in, one per tier in the utility column** (the repo owner's
-  call, 2026-08-22: per-tier column placement, off by default, efficiency-module default).
-  When the player picks a beacon in Build options, every tier's column floors at the beacon's
-  width and stands one beacon centred on that tier's machine+recycler band — the machine alone
-  on the terminal tier — where its supply square spans both (the measured edge rule,
-  `analysis/api.md` §25; geometry in `analysis/layout-belt-ring.md` §Beacons). **Off by
-  default with no clear-flag**: unlike the pole there is no researched-best fallback, so nil
-  already means exactly one thing and `chosen_beacon` needs no `no_beacon` boolean — a beacon
-  costs a column of width per tier and its insertable modules trade against the quality rolls
-  the loop exists for, so it is never sprung on the player. **The module default is the
+- **Beacons are planned in, opt-in, a vertical stack per tier in the utility column** (the
+  repo owner's calls, 2026-08-22: per-tier column placement, off by default, efficiency-module
+  default; same day, the player-chosen count). When the player picks a beacon in Build
+  options, every tier's column floors at the beacon's width and stands a stack of
+  `choices.beacon_count` beacons — default one — centred as one rigid block on that tier's
+  machine+recycler band, the machine alone on the terminal tier, where the supply squares span
+  both (the measured edge rule, `analysis/api.md` §25; geometry in
+  `analysis/layout-belt-ring.md` §Beacons). **Stacking costs rows, never width**: the block
+  clamps into the interior rows as a whole, and the count is capped at
+  `layout.max_beacon_count` = `floor(interior_height / beacon height)` — vanilla shapes take
+  four. The count control is a **dynamic drop-down offering exactly 1..max** (the quality
+  dropdown's shape, values riding in its tags), stored as a plain number, snapping down in
+  `apply_defaults` when a re-pick shrinks the max — which is why the recycler handler now
+  rebuilds via `gui.open` like the machine's: its rotated height is one of the max's inputs.
+  **Off by default with no clear-flag**: unlike the pole there is no researched-best fallback,
+  so nil already means exactly one thing and `chosen_beacon` needs no `no_beacon` boolean — a
+  beacon costs a column of width per tier and its insertable modules trade against the quality
+  rolls the loop exists for, so it is never sprung on the player. **The module default is the
   strongest researched efficiency module, never speed**: what a beacon transmits is gated by
   the receiver's own `allowed_effects`, so a speed module's negative quality component lands on
   every covered machine and recycler (§25) — the opposite of the mod's purpose — and the
   picker's tooltip says so while leaving speed pickable. The module answers to the beacon alone
   (no recipe half; `module_refusal` takes a nil recipe), clears to "place the beacon empty"
-  (`no_beacon_module`, the terminal module's shape), and re-resolves when the beacon changes.
-  **The pole pass carries no beacon-aware code**: a beacon has an electric energy source and a
-  tile footprint, so `electric_consumers` counts it and `occupied` avoids it through the same
-  generic scans as a machine — a pure spec pins the claim, and `poles.lua`'s one change is
-  exporting its overlap primitive for `beacon_reach` to share. `pole_gap` grows to
-  `max(pole width, beacon width)` since the beacon's column is standing room for a pole beside
-  it. **Warn, don't refuse, on short reach** (`beacon-out-of-reach`, unreachable in vanilla):
-  a beacon that cannot span its pair still leaves a working loop, the poles' own best-effort
+  (`no_beacon_module`, the terminal module's shape), fills every beacon in the stack alike,
+  and re-resolves when the beacon changes. **The pole pass carries no beacon-aware code**: a
+  beacon has an electric energy source and a tile footprint, so `electric_consumers` counts it
+  and `occupied` avoids it through the same generic scans as a machine — a pure spec pins the
+  claim, and `poles.lua`'s one change is exporting its overlap primitive for `beacon_reach` to
+  share. `pole_gap` is the **sum** `pole width + beacon width` (plus the pipe's tile), not the
+  max it was at count one: a full-height stack can leave the beacon's column without a single
+  free row, so the pole reserves its own lane west of the stack — and the ladder only ever
+  reads `pole_gap` after the compact attempt left a consumer dark, so every plan that covered
+  before is byte-identical still. **Warn, don't refuse, on short reach**
+  (`beacon-out-of-reach`, unreachable in vanilla): the check is per receiver — some beacon in
+  the stack must reach the machine and some the recycler, not every beacon both — and a stack
+  that cannot span its pair still leaves a working loop, the poles' own best-effort
   philosophy. The one structural refusal is a beacon taller than the interior rows
-  (`beacon-too-tall`), which would poke through the ring belts.
+  (`beacon-too-tall`), which is exactly `max_beacon_count == 0`; an over-asked count clamps,
+  never refuses.
 - **Fluid recipes are planned in** (2026-08-17, the promised 0.2.0 feature): a pipe run down
   each utility column's east edge, spanning the full interior height, with every machine
   rotated per prototype so a fluid input connection meets it

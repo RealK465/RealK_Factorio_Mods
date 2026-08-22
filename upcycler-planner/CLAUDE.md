@@ -15,12 +15,12 @@ undo and every build mode are the engine's own and the mod handles no placement 
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
 is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, overflow chest,
-quality module, top machine module, electric pole, pipe, beacon, beacon module, and the
-trash-unrequested checkbox.
-Everything in that strip but the belt and the pipe carries a quality of its own — and a picker
-with only one option is hidden, as are the four chests and the two beacon pickers whatever
-their count (the beacon pair until show-all or an actual pick), so a vanilla game
-sees five of the twelve — laid out as **five captioned concept groups** (Transport, Chests,
+quality module, top machine module, electric pole, pipe, beacon, beacon module, a beacons-per-tier
+count, and the trash-unrequested checkbox.
+Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
+a picker with only one option is hidden, as is the whole beacon group whatever the count
+(until show-all or an actual pick), and the four chests, so a vanilla game
+sees five of the thirteen — laid out as **five captioned concept groups** (Transport, Chests,
 Modules, Beacons, Power), each a row of icon pickers under a small caption; a fully hidden
 group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
@@ -31,7 +31,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (192 tests as of 2026-08-22) — planner, layout, poles, blueprint, state,
+suite under `tests/` (210 tests as of 2026-08-22) — planner, layout, poles, blueprint, state,
 the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -266,8 +266,8 @@ re-opening any of these, and don't restate a reason here.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
   then a **Build options** block for what it is built **out of**, sorted into five captioned
   concept groups — Transport (belt, inserter, pipe), Chests (the four roles), Modules (quality
-  and top machine), Beacons (beacon and its module), Power (pole) — with the trash-unrequested
-  checkbox below them. A fully hidden group hides its caption with it. Every picker carries its
+  and top machine), Beacons (beacon, its module, the per-tier count), Power (pole) — with the
+  trash-unrequested checkbox below them. A fully hidden group hides its caption with it. Every picker carries its
   own quality except the belt and the pipe, which the engine gives no quality bonus.
 - A build material with a quality travels as a `{ name, quality }` pair from `resources()`
   through the layout params to the ghost; a bare string means it has no quality dimension at
@@ -314,13 +314,16 @@ re-opening any of these, and don't restate a reason here.
   exists** — otherwise the recipe is blamed, which is every vanilla case. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
   scenery chests.
-- **Beacons are opt-in: off by default, one per tier in the utility column when picked**, the
-  machine-only terminal tier included. **Both beacon pickers are hidden by default, researched
-  or not** — *Show all build options* reveals them, and a chosen beacon keeps them visible.
-  The beacon-module picker defaults to the best researched **efficiency** module, never speed
-  (why: `decisions.md`). Its clear means "place the beacon empty" (`no_beacon_module`); the
-  beacon itself needs no clear-flag, since nil already means off. Short reach warns, a beacon
-  taller than the interior refuses. Measured facts: `analysis/api.md` §25; geometry:
+- **Beacons are opt-in: off by default, a vertical stack per tier in the utility column when
+  picked**, the machine-only terminal tier included. The player chooses the count from a
+  drop-down offering exactly 1..`layout.max_beacon_count` (vanilla: 4); stacking costs rows,
+  never width, and an outgrown count clamps, never refuses. **The whole beacon group is hidden
+  by default, researched or not** — *Show all build options* reveals it, and a chosen beacon
+  keeps it visible. The beacon-module picker defaults to the best researched **efficiency**
+  module, never speed (why: `decisions.md`). Its clear means "place the beacon empty"
+  (`no_beacon_module`); the beacon itself needs no clear-flag, since nil already means off.
+  Short reach warns per receiver (some beacon reaches the machine, some the recycler); a
+  beacon taller than the interior refuses. Measured facts: `analysis/api.md` §25; geometry:
   `analysis/layout-belt-ring.md` §Beacons.
 - Poles default to the best researched 1x1 and are clearable to none. **A plan is as narrow as
   full coverage allows**: the planner solves for its utility columns rather than opening one at

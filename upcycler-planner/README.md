@@ -23,7 +23,7 @@ The loop contains:
 
 - A column for each quality with a crafting machine and recycler with requester chests.
 - Belts, filtered inserters, chests, electric poles... already set up and configured by you.
-- Optionally a beacon beside every column: pick one under **Show all build options**. Its modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
+- Optionally beacons beside every column: pick one under **Show all build options**, and choose how many stack per tier — extra beacons add no width. Their modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
 
 Finished items collect in a passive provider chest at the end.
 

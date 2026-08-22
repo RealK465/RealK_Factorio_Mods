@@ -4,8 +4,10 @@ Date: ????
   Features:
     - Upcycler Planner is now able to build beaconed layouts with a configured module.
       (you need to check the "Show all build options" setting to see the beacon module selector)
+    - Beacons can now stack: a selector beside the beacon pickers chooses how many each
+      tier gets, up to what fits inside the loop. Extra beacons add no width.
   Gui:
-    - The build options are now sorted into captioned groups: Transport, Chests, Modules,
+    - The build options are now organized inside groups: Transport, Chests, Modules,
       Beacons and Power.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.5

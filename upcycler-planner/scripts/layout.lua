@@ -94,18 +94,35 @@ function layout.interior_height(machine_height, recycler_height)
   return r.unload_inserter - ROW_HARVEST + 1
 end
 
--- Where a tier's beacon stands, relative to the tier column's start and the machine's top
--- row: flush against the column (west of the pipe run when there is one), centred on the
--- machine+recycler band -- recycler_height is nil on the terminal tier, whose band is the
--- machine alone. Centring is what makes the supply square -- the collision box grown by the
--- supply distance on every side (measured, tests/beacon_spec.lua) -- overlap both footprints.
--- Exported for planner.beacon_reach, interior_height's own reason: the out-of-reach warning
--- must not drift from the built position. The interior-row clamp for an over-band beacon
--- stays in build below, which owns the row plan; reasoning from the unclamped centring is
--- safe, since a beacon tall enough to clamp overlaps strictly more than its centred stand-in.
-function layout.beacon_offset(machine_height, recycler_height, beacon, fluid)
+-- How many beacons of this height a tier's column can stack between the ring belts. Zero is
+-- a real answer -- a lone beacon already overruns the interior -- and is exactly the
+-- beacon-too-tall refusal, so validate reads it from here rather than keeping its own
+-- comparison. Every caller caps the planned count at this, which is what lets build below
+-- clamp the stack as one block without ever having to truncate it.
+function layout.max_beacon_count(machine_height, recycler_height, beacon_height)
+  return math.floor(layout.interior_height(machine_height, recycler_height) / beacon_height)
+end
+
+-- Where a tier's beacons stand, relative to the tier column's start and the machine's top
+-- row: flush against the column (west of the pipe run when there is one), the stack of
+-- `count` centred as one block on the machine+recycler band -- recycler_height is nil on the
+-- terminal tier, whose band is the machine alone. Centring is what makes the supply squares
+-- -- each collision box grown by the supply distance on every side (measured,
+-- tests/beacon_spec.lua) -- overlap both footprints. Exported for planner.beacon_reach,
+-- interior_height's own reason: the out-of-reach warning must not drift from the built
+-- positions. The interior-row clamp for an over-band stack stays in build below, which owns
+-- the row plan; reasoning from the unclamped centring is safe, since a stack tall enough to
+-- clamp overlaps strictly more than its centred stand-in.
+function layout.beacon_offsets(machine_height, recycler_height, beacon, fluid, count)
+  count = count or 1
   local band = machine_height + (recycler_height or 0)
-  return -(fluid and 1 or 0) - beacon.width, math.floor((band - beacon.height) / 2)
+  local dx = -(fluid and 1 or 0) - beacon.width
+  local top = math.floor((band - count * beacon.height) / 2)
+  local offsets = {}
+  for i = 1, count do
+    offsets[i] = { dx = dx, dy = top + (i - 1) * beacon.height }
+  end
+  return offsets
 end
 
 local function quality_filters(names, quality)
@@ -256,23 +273,31 @@ function layout.build(params)
       pipe_to_ground(col_pipe, r.unload_inserter, NORTH)
     end
 
-    -- One beacon per tier, at beacon_offset's shared position, clamped to the interior rows
-    -- so a modded beacon taller than the band cannot poke into the ring belts; one taller
-    -- than the whole interior is refused by validate before this runs.
+    -- The tier's beacon stack, at beacon_offsets' shared positions, clamped to the interior
+    -- rows as one rigid block -- shifting the whole stack keeps it contiguous, where clamping
+    -- each beacon alone would pile them onto one row. A stack taller than the band cannot
+    -- poke into the ring belts; one taller than the whole interior never arrives, because
+    -- every caller caps the count at max_beacon_count and validate refuses the count-of-one
+    -- remainder of that case.
     if params.beacon then
-      local bdx, bdy = layout.beacon_offset(machine.height,
-        not is_terminal and recycler.height or nil, params.beacon, params.fluid ~= nil)
-      local dy = ROW_MACHINE + bdy
-      dy = math.max(ROW_HARVEST, math.min(dy, r.unload_inserter + 1 - params.beacon.height))
-      add({
-        name = params.beacon.name, quality = params.beacon.quality,
-        dx = col + bdx, dy = dy,
-        w = params.beacon.width, h = params.beacon.height,
-        -- Which inventory the module insert plan targets. Resolved by the planner -- this file
-        -- runs on the host interpreter too, where defines.inventory does not exist.
-        module_inventory = params.beacon.module_inventory,
-        modules = beacon_modules,
-      })
+      local count = params.beacon_count or 1
+      local stack = layout.beacon_offsets(machine.height,
+        not is_terminal and recycler.height or nil, params.beacon, params.fluid ~= nil, count)
+      local top = ROW_MACHINE + stack[1].dy
+      local stack_height = count * params.beacon.height
+      local shift = math.max(ROW_HARVEST,
+        math.min(top, r.unload_inserter + 1 - stack_height)) - top
+      for i = 1, count do
+        add({
+          name = params.beacon.name, quality = params.beacon.quality,
+          dx = col + stack[i].dx, dy = ROW_MACHINE + stack[i].dy + shift,
+          w = params.beacon.width, h = params.beacon.height,
+          -- Which inventory the module insert plan targets. Resolved by the planner -- this
+          -- file runs on the host interpreter too, where defines.inventory does not exist.
+          module_inventory = params.beacon.module_inventory,
+          modules = beacon_modules,
+        })
+      end
     end
 
     -- Quality modules have nothing left to roll into once the ingredients already are the

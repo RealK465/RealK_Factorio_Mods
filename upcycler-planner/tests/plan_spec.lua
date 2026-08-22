@@ -124,6 +124,52 @@ describe("planner.plan", function()
     end)
   end)
 
+  describe("beacon-count plans", function()
+    test("a stack of four costs no width and keeps everything powered", function()
+      -- The vanilla max: interior 13 rows over a 3-tall beacon. The stack leaves exactly one
+      -- free row per column, and the default pole still covers from the ring's own ground --
+      -- the compact plan holds, so the pole lane is never paid for.
+      local one = planner.plan(force(), choices_with({ beacon = "beacon" }))
+      local four = planner.plan(force(), choices_with({ beacon = "beacon", beacon_count = 4 }))
+      assert(four.width == one.width,
+        "width " .. four.width .. " vs " .. one.width .. " -- stacking must cost no width")
+      assert(count_by_name(four, "beacon") == 12,
+        "beacon count " .. count_by_name(four, "beacon") .. ", expected four per tier")
+      assert(four.unpowered == nil, "unpowered " .. tostring(four.unpowered))
+    end)
+
+    test("an over-asked count snaps to the geometric max", function()
+      local plan = planner.plan(force(), choices_with({ beacon = "beacon", beacon_count = 99 }))
+      assert(count_by_name(plan, "beacon") == 12,
+        "beacon count " .. count_by_name(plan, "beacon") .. ", expected the max of four per tier")
+    end)
+
+    test("a non-positive count reads as one", function()
+      local one = planner.plan(force(), choices_with({ beacon = "beacon" }))
+      local zero = planner.plan(force(), choices_with({ beacon = "beacon", beacon_count = 0 }))
+      assert(count_by_name(zero, "beacon") == 3,
+        "beacon count " .. count_by_name(zero, "beacon") .. ", expected one per tier")
+      assert(zero.width == one.width, "a floored count changed the width")
+    end)
+
+    test("substation with a full stack: the pole lane opens beside the beacons", function()
+      -- The shape the pole lane exists for: a full stack starves the compact attempt of
+      -- standing room, so the ladder pays for columns -- and pole_gap now sums the pole's
+      -- width onto the beacon's, giving the substation its own lane west of the stack
+      -- instead of a column it cannot stand in. Coverage is the assertion; the width is
+      -- pinned so a lane regression shows as a shape change.
+      local plan = planner.plan(force(), choices_with({
+        quality = "legendary", pole = "substation", beacon = "beacon", beacon_count = 4,
+      }))
+      assert(count_by_name(plan, "beacon") == 20,
+        "beacon count " .. count_by_name(plan, "beacon") .. ", expected four per tier over five")
+      assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
+      -- Measured 2026-08-22: the compact beaconed plan is 32 (2 + 5*3 + 4*3 + 3) and three of
+      -- the five columns keep a 2-wide substation lane beside their stack, +2 each.
+      assert(plan.width == 38, "width " .. plan.width .. ", expected 32 + three 2-wide lanes")
+    end)
+  end)
+
   describe("fluid recipes", function()
     local function battery_choices(overrides)
       local choices = choices_with({

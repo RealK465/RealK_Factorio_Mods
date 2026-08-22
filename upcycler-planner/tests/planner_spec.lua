@@ -379,6 +379,31 @@ describe("the beacon and its module", function()
       { width = 2, height = 20, margin = 0.3 }, false),
       "a 20-tall recycler must put the pair out of a vanilla beacon's reach")
   end)
+
+  test("beacon_reach over a stack: some beacon reaches each end", function()
+    -- The 20-tall recycler that defeats one centred beacon (above) is exactly what a stack
+    -- fixes: the block spreads along the band until its top beacon overlaps the machine and
+    -- its bottom one the recycler -- different beacons satisfying the two halves is the
+    -- point. Counts one and three still centre too far from the machine; four is the first
+    -- stack tall enough. Pure maths, the fixtures above.
+    local machine = { width = 3, height = 3, margin = 0.3 }
+    local tall = { width = 2, height = 20, margin = 0.3 }
+    local beacon = { width = 3, height = 3, margin = 0.3, supply = 3 }
+    assert(not planner.beacon_reach(beacon, machine, tall, false, 1), "one beacon cannot span")
+    assert(not planner.beacon_reach(beacon, machine, tall, false, 3), "three still centre short")
+    assert(planner.beacon_reach(beacon, machine, tall, false, 4),
+      "a four-stack must reach both ends of the tall band")
+  end)
+
+  test("planner.max_beacon_count answers the modal from real prototypes", function()
+    local choices = {
+      recipe = "iron-gear-wheel", machine = "assembling-machine-2", recycler = "recycler",
+    }
+    local max = planner.max_beacon_count(choices, prototypes.entity["beacon"])
+    assert(max == 4, "vanilla max " .. max .. ", expected floor(13 / 3) = 4")
+    assert(planner.max_beacon_count({}, prototypes.entity["beacon"]) == 0,
+      "nothing picked yet must answer zero")
+  end)
 end)
 
 describe("the chest roles", function()
@@ -512,6 +537,18 @@ describe("validate", function()
     local stale_ok, stale_message = planner.validate(force(),
       choices_with({ beacon = "stone-wall" }))
     assert(stale_ok == true and stale_message == nil, "a stale beacon must read as off")
+  end)
+
+  test("a beacon count validates clean at the max, over it, and below one", function()
+    -- The count clamps, never refuses: over-asked snaps to the geometric max, non-positive
+    -- reads as one. All three must pass without so much as a warning.
+    for _, count in pairs({ 4, 99, 0 }) do
+      local ok, message = planner.validate(force(),
+        choices_with({ beacon = "beacon", beacon_count = count }))
+      assert(ok == true, "count " .. count .. " refused")
+      assert(message == nil,
+        "count " .. count .. " warned: " .. tostring(message and message[1]))
+    end
   end)
 
   test("a recipe no inserter can filter blames the recipe, picked or not", function()

@@ -289,4 +289,32 @@ describe("a planned loop with a beacon", function()
         .. " receives no beacon")
     end
   end)
+
+  test("revived at the max count: a full stack, every receiver still reached", function()
+    -- The count feature's own end-to-end: four beacons stack per tier at zero extra width,
+    -- and the engine's receiver query still finds every machine and recycler inside the
+    -- union of the twelve supply squares.
+    local one = planner.plan(force(), gear_choices({ beacon = "beacon" }))
+    local plan = planner.plan(force(), gear_choices({ beacon = "beacon", beacon_count = 4 }))
+    assert(plan.width == one.width, "width " .. plan.width .. " vs the single-beacon "
+      .. one.width .. " -- the stack must cost no width")
+    stamping.place(plan, nauvis(), force())
+    stamping.revive_all(nauvis())
+
+    local reached = {}
+    local beacons = nauvis().find_entities_filtered({ name = "beacon" })
+    assert(#beacons == 12, "revived beacon count " .. #beacons .. ", expected four per tier")
+    for _, beacon in pairs(beacons) do
+      for _, receiver in pairs(beacon.get_beacon_effect_receivers()) do
+        reached[receiver.unit_number] = true
+      end
+    end
+
+    for _, name in pairs({ "assembling-machine-3", "recycler" }) do
+      for _, entity in pairs(nauvis().find_entities_filtered({ name = name })) do
+        assert(reached[entity.unit_number], "a " .. name .. " at "
+          .. serpent.line(entity.position) .. " receives no beacon")
+      end
+    end
+  end)
 end)

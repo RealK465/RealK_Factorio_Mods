@@ -10,7 +10,7 @@ Build options pickers with only one option are hidden. In vanilla, the recycler 
 
 To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
 
-The beacon pickers are hidden too: beacons are optional and the loop plans none unless you pick one. Tick **Show all build options** to pick a beacon; once one is chosen, its pickers stay visible.
+The beacon pickers are hidden too: beacons are optional and the loop plans none unless you pick one. Tick **Show all build options** to pick a beacon; once one is chosen, its pickers stay visible. A small drop-down beside them sets how many beacons stack per tier — extra ones add no width.
 
 ## What is the active provider chest for?
 
