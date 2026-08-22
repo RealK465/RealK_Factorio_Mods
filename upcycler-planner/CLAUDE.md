@@ -20,8 +20,9 @@ trash-unrequested checkbox.
 Everything in that strip but the belt and the pipe carries a quality of its own — and a picker
 with only one option is hidden, as are the four chests and the two beacon pickers whatever
 their count (the beacon pair until show-all or an actual pick), so a vanilla game
-sees five of the twelve — laid out as a **six-column grid**, since a
-hidden picker takes no cell. A **settings panel** opens beside the pickers — a sibling column
+sees five of the twelve — laid out as **five captioned concept groups** (Transport, Chests,
+Modules, Beacons, Power), each a row of icon pickers under a small caption; a fully hidden
+group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
 **Settings** button in the titlebar, holding the two per-player settings: show unresearched
 items, and show every picker whatever the count.
@@ -263,10 +264,11 @@ re-opening any of these, and don't restate a reason here.
   it into the inventory keeps the design. It is **not** one-shot the way the tool was: it stays in
   hand, so the same loop can be stamped repeatedly.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
-  then a **Build options** block for what it is built **out of** (belt, inserter, the three
-  chests, quality module, top machine module, pole, pipe, trash-unrequested checkbox). Every
-  picker carries its own quality except the belt and the pipe, which the engine gives no quality
-  bonus.
+  then a **Build options** block for what it is built **out of**, sorted into five captioned
+  concept groups — Transport (belt, inserter, pipe), Chests (the four roles), Modules (quality
+  and top machine), Beacons (beacon and its module), Power (pole) — with the trash-unrequested
+  checkbox below them. A fully hidden group hides its caption with it. Every picker carries its
+  own quality except the belt and the pipe, which the engine gives no quality bonus.
 - A build material with a quality travels as a `{ name, quality }` pair from `resources()`
   through the layout params to the ghost; a bare string means it has no quality dimension at
   all. That is the *plan* pipeline — `storage` still holds the two halves as flat strings, per
