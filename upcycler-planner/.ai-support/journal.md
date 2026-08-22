@@ -9,6 +9,20 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-22 — 0.5.0 / 0.5.1 released, and a graphics-tier seed flake hardened
+
+The owner authorised the pair: 0.5.0 for Factorio 2.0 from `legacy/2.0`, 0.5.1 as its 2.1
+port from `main`, both uploaded and tagged. One catch on the way out: the owner's changelog
+edit had come from a copy that predated the beacon-count entry, so the stack line had
+silently dropped — restored, keeping their Gui rewording verbatim. The release gate also
+caught the suite's first real flake: the graphics tier creates a fresh freeplay save per
+run, and on one map seed in many the beacon insert-plan measurement's forced stamp returned
+a second, map-dependent ghost beside the beacon, failing a count assertion that was
+incidental to the measurement. Isolated re-runs passed; the spec now finds the beacon ghost
+and asserts on its insert plan instead of pinning the raw count, and registers every
+returned ghost for cleanup. Both tracks shipped fully green: 210 headless plus a graphics
+pass on 2.0.77 and 2.1.14 each.
+
 ## 2026-08-22 — the beacon count: stacks in the column, capped by geometry
 
 The owner came back to the beacon feature asking whether the count could be configurable —
