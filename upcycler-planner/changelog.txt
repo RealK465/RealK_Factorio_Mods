@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-08-22
+  Changes:
+    - Version 0.5.0, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.0
-Date: ????
+Date: 2026-08-22
   Features:
     - Upcycler Planner is now able to build beaconed layouts with a configured module.
       (you need to check the "Show all build options" setting to see the beacon module selector)
@@ -9,6 +14,8 @@ Date: ????
   Gui:
     - The build options are now organized inside groups: Transport, Chests, Modules,
       Beacons and Power.
+  Changes:
+    - Releasing for Factorio 2.0. Version 0.5.1 is the Factorio 2.1 build of the same change.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.5
 Date: 2026-08-20
