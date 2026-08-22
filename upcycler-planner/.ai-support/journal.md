@@ -9,6 +9,30 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-22 — the build options strip grouped by concept
+
+The owner asked for the modal's picker strip to be reorganised: twelve icon-only pickers in
+one flat six-wide grid had grown past what hovering could keep legible. Researched first —
+the full element tree with its hide rules and test pins on one side, vanilla's grouping
+idioms on the other (`subheader_frame`+`subheader_caption_label` panes, captioned
+`bordered_frame` boxes, plain caption-over-content — all verified in 2.1.14's `style.lua`
+and real call sites in base scenarios, K2 and SE). Three shapes were offered with mockups:
+labelled rows in groups (recommended), grouped icon strips, and two side-by-side group
+columns; the owner chose **grouped icon strips** with the **five fine groups** — Transport,
+Chests, Modules, Beacons, Power.
+
+The build: `upl-strip` (a six-column table) became five captioned rows — a
+`semibold_caption_label` over a horizontal flow each, built by one `group()` helper. Pickers
+kept their names and tags, so dispatch, state and every handler were untouched; the pipe
+moved from the strip's tail into Transport beside the belt. The chest and beacon hide rules
+moved **up onto their groups** — caption and row hide together, single owner — replacing the
+four per-button `visible` writes; per-picker rules (inserter count, pipe fluid) stayed on
+the buttons inside an always-visible group. `gui_spec` re-pinned the new paths, traded the
+column-count assertion for group-membership and caption-visibility pins, and gained the
+`upl-overflow` existence check the old tree test had missed. 192/192 headless, static tier
+clean. Locale gained the five `group-*` captions; every picker tooltip still opens with its
+own bold name, unchanged.
+
 ## 2026-08-22 — beacons, measured first and opt-in by design
 
 The owner asked for beacons and beacon modules in the layout. Explored, designed and shipped

@@ -1,7 +1,10 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
 -- four chests, the quality module, the top machine's own module, the electric pole, the pipe,
--- the beacon and its module, and whether the chests trash their surplus.
+-- the beacon and its module, and whether the chests trash their surplus. The build options
+-- are five captioned rows, one per concept -- Transport, Chests, Modules, Beacons, Power --
+-- because one flat grid of a dozen icon-only pickers left hovering as the only way to tell
+-- them apart (owner's ask, 2026-08-22).
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
 -- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an
@@ -10,9 +13,10 @@
 -- because clearing them IS the second option: the pole ("no poles") and the top machine's
 -- module ("leave it empty"). The pipe has one more condition of its own: it is out of the
 -- strip entirely until the recipe takes a fluid. The four chests go the other way and are
--- hidden whatever the count -- see the loop that builds them -- and the beacon and its module
--- go with them: hidden whatever the count and whatever is researched, revealed by show-all,
--- and kept visible once a beacon is actually chosen (beacon_visible below).
+-- hidden whatever the count, and the beacon and its module go with them: hidden whatever the
+-- count and whatever is researched, revealed by show-all, and kept visible once a beacon is
+-- actually chosen (beacon_visible below). Those two rules live on their GROUPS -- caption and
+-- row hide together, the buttons stay built inside.
 --
 -- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
 -- the titlebar's settings button is pressed. It holds the two per-player settings the pickers
@@ -661,8 +665,11 @@ function gui.open(player)
   recycler_label.visible = worth_showing(player, recycler_names)
   recycler_button.visible = recycler_label.visible
 
-  -- What the loop is built out of. These pickers carry no row label -- they read as a strip of
-  -- icons, the way the game's own tool settings do -- so each one leans on titled_tooltip above.
+  -- What the loop is built out of. Still a strip of icons -- each picker leans on
+  -- titled_tooltip above rather than a row label -- but grouped by concept: a small caption
+  -- over each group's own row names what the icons under it are about, which one six-wide
+  -- grid of a dozen unlabelled icons had stopped doing. A group whose every picker is hidden
+  -- takes its caption down with it, so the hide rules cost no empty headers.
   local caption = main.add({
     type = "label", style = "caption_label", caption = { "upl-gui.build-options" },
   })
@@ -674,14 +681,29 @@ function gui.open(player)
   })
   options.style.horizontally_stretchable = true
 
-  -- Six per row, wrapping. A table rather than a flow so the row length is a rule instead of an
-  -- accident: ten pickers in one line drag the modal wider than the block above it, and a modset
-  -- adding an eleventh would keep dragging. Six is what the vanilla set fills.
-  local strip = options.add({ type = "table", name = "upl-strip", column_count = 6 })
+  -- A captioned row of pickers. No group holds more than four icons, so a plain flow needs no
+  -- wrap rule the way the old six-column table did. Caption and row are returned together so a
+  -- group-level hide takes both -- the orphaned-label mistake, one level up.
+  local first_group = true
+  local function group(key)
+    local group_label = options.add({
+      type = "label", name = "upl-" .. key .. "-label", style = "semibold_caption_label",
+      caption = { "upl-gui.group-" .. key },
+    })
+    if not first_group then group_label.style.top_margin = 8 end
+    first_group = false
+    local row = options.add({
+      type = "flow", name = "upl-" .. key .. "-strip", direction = "horizontal",
+    })
+    return row, group_label
+  end
+
+  -- How items and fluids move: belt, inserter, and -- for a fluid recipe -- the pipe.
+  local transport = group("transport")
 
   -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
   -- get_crafting_speed(quality), so a legendary belt would carry exactly as much.
-  local belt_button = strip.add({
+  local belt_button = transport.add({
     type = "choose-elem-button", name = "upl-belt", elem_type = "entity",
     elem_filters = belt_filters(player),
     tooltip = titled_tooltip("belt"),
@@ -690,7 +712,7 @@ function gui.open(player)
   belt_button.elem_value = choices.belt
 
   local inserter_names = inserter_options(player)
-  local inserter_button = strip.add({
+  local inserter_button = transport.add({
     type = "choose-elem-button", name = "upl-inserter", elem_type = "entity-with-quality",
     elem_filters = name_filter(inserter_names),
     tooltip = titled_tooltip("inserter"),
@@ -699,53 +721,9 @@ function gui.open(player)
   inserter_button.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   inserter_button.visible = worth_showing(player, inserter_names)
 
-  -- One button per chest role, driven by the role list so they cannot drift apart. The role
-  -- rides in the tags, which is what lets them share a single handler.
-  for _, role in ipairs(planner.CHEST_ROLES) do
-    local chest_names = chest_options(player, role)
-    local chest_button = strip.add({
-      type = "choose-elem-button", name = "upl-" .. role, elem_type = "entity-with-quality",
-      elem_filters = name_filter(chest_names),
-      tooltip = titled_tooltip(role),
-      tags = dispatch.tags("chest", { role = role }),
-    })
-    chest_button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
-    -- The one set of pickers hidden whatever the count (owner's call, 2026-08-18). The buffer has
-    -- wooden, iron and steel to choose between, but the default -- the largest inventory the force
-    -- has researched -- is the answer nearly every time, and a chest button apiece in the strip
-    -- reads as that many decisions the player has to make. Show-all brings them back, quality
-    -- included.
-    chest_button.visible = show_all_options(player)
-  end
-
-  local module_button = strip.add({
-    type = "choose-elem-button", name = "upl-quality-module", elem_type = "item-with-quality",
-    elem_filters = quality_module_filters(player),
-    tooltip = titled_tooltip("quality-module"),
-    tags = dispatch.tags("quality-module"),
-  })
-  module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
-
-  local terminal_button = strip.add({
-    type = "choose-elem-button", name = "upl-terminal-module", elem_type = "item-with-quality",
-    elem_filters = name_filter(terminal_module_options(player, choices)),
-    tooltip = titled_tooltip("terminal-module"),
-    tags = dispatch.tags("terminal-module"),
-  })
-  terminal_button.elem_value =
-    with_quality(choices.terminal_module, choices.terminal_module_quality)
-
-  local pole_button = strip.add({
-    type = "choose-elem-button", name = "upl-pole", elem_type = "entity-with-quality",
-    elem_filters = pole_filters(player),
-    tooltip = titled_tooltip("pole"),
-    tags = dispatch.tags("pole"),
-  })
-  pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
-
   -- No quality on the pipe for the belt's reason: nothing about a pipe scales with quality.
   local pipe_names = pipe_options(player)
-  local pipe_button = strip.add({
+  local pipe_button = transport.add({
     type = "choose-elem-button", name = "upl-pipe", elem_type = "entity",
     elem_filters = name_filter(pipe_names),
     tooltip = titled_tooltip("pipe"),
@@ -754,18 +732,62 @@ function gui.open(player)
   pipe_button.elem_value = choices.pipe
   pipe_button.visible = pipe_visible(player, choices, pipe_names)
 
-  -- The beacon: one per tier when picked, off until then -- and hidden with its module picker
-  -- until show-all or an actual pick brings the pair out (beacon_visible above).
-  local beacon_button = strip.add({
+  -- The chests keep their rule -- hidden whatever the count (owner's call, 2026-08-18), the
+  -- default being the answer nearly every time, show-all bringing them back quality included --
+  -- but the rule now lives once, on the group, instead of on each of the four buttons.
+  local chests, chests_label = group("chests")
+  chests_label.visible = show_all_options(player)
+  chests.visible = chests_label.visible
+
+  -- One button per chest role, driven by the role list so they cannot drift apart. The role
+  -- rides in the tags, which is what lets them share a single handler.
+  for _, role in ipairs(planner.CHEST_ROLES) do
+    local chest_names = chest_options(player, role)
+    local chest_button = chests.add({
+      type = "choose-elem-button", name = "upl-" .. role, elem_type = "entity-with-quality",
+      elem_filters = name_filter(chest_names),
+      tooltip = titled_tooltip(role),
+      tags = dispatch.tags("chest", { role = role }),
+    })
+    chest_button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
+  end
+
+  -- What goes inside the machines.
+  local modules = group("modules")
+
+  local module_button = modules.add({
+    type = "choose-elem-button", name = "upl-quality-module", elem_type = "item-with-quality",
+    elem_filters = quality_module_filters(player),
+    tooltip = titled_tooltip("quality-module"),
+    tags = dispatch.tags("quality-module"),
+  })
+  module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
+
+  local terminal_button = modules.add({
+    type = "choose-elem-button", name = "upl-terminal-module", elem_type = "item-with-quality",
+    elem_filters = name_filter(terminal_module_options(player, choices)),
+    tooltip = titled_tooltip("terminal-module"),
+    tags = dispatch.tags("terminal-module"),
+  })
+  terminal_button.elem_value =
+    with_quality(choices.terminal_module, choices.terminal_module_quality)
+
+  -- The beacon pair: one per tier when picked, off until then -- hidden until show-all or an
+  -- actual pick brings them out (beacon_visible above), the rule on the group rather than on
+  -- each of the two.
+  local beacons, beacons_label = group("beacons")
+  beacons_label.visible = beacon_visible(player, choices)
+  beacons.visible = beacons_label.visible
+
+  local beacon_button = beacons.add({
     type = "choose-elem-button", name = "upl-beacon", elem_type = "entity-with-quality",
     elem_filters = name_filter(beacon_options(player)),
     tooltip = titled_tooltip("beacon"),
     tags = dispatch.tags("beacon"),
   })
   beacon_button.elem_value = with_quality(choices.beacon, choices.beacon_quality)
-  beacon_button.visible = beacon_visible(player, choices)
 
-  local beacon_module_button = strip.add({
+  local beacon_module_button = beacons.add({
     type = "choose-elem-button", name = "upl-beacon-module", elem_type = "item-with-quality",
     elem_filters = name_filter(beacon_module_options(player, choices)),
     tooltip = titled_tooltip("beacon-module"),
@@ -773,7 +795,16 @@ function gui.open(player)
   })
   beacon_module_button.elem_value =
     with_quality(choices.beacon_module, choices.beacon_module_quality)
-  beacon_module_button.visible = beacon_visible(player, choices)
+
+  local power = group("power")
+
+  local pole_button = power.add({
+    type = "choose-elem-button", name = "upl-pole", elem_type = "entity-with-quality",
+    elem_filters = pole_filters(player),
+    tooltip = titled_tooltip("pole"),
+    tags = dispatch.tags("pole"),
+  })
+  pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
 
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,

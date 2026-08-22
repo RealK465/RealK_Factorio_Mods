@@ -4,6 +4,9 @@ Date: ????
   Features:
     - Upcycler Planner is now able to build beaconed layouts with a configured module.
       (you need to check the "Show all build options" setting to see the beacon module selector)
+  Gui:
+    - The build options are now sorted into captioned groups: Transport, Chests, Modules,
+      Beacons and Power.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.5
 Date: 2026-08-20

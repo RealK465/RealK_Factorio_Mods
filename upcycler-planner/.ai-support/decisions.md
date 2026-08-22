@@ -196,16 +196,16 @@ per-release approval.
   the repo owner's request, closing the parked chest picker and the parked productivity-module one;
   the overflow chest joined them on 2026-08-20 with the tap it feeds;
   **nothing the plan places is auto-picked any more** except the underground pipe, which is
-  derived from the pipe rather than chosen. The strip is a six-column grid — see its own bullet
-  below.
+  derived from the pipe rather than chosen. The strip is five captioned concept groups — see
+  its own bullet below.
   The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
   over an auto-pick) carries no quality — like the belt, nothing about it scales with quality —
   and matters only when the recipe takes a fluid; its underground counterpart is derived, not
   picked, since no prototype links the pair (`<name>-to-ground` convention first, longest
   researched reach as the fallback).
-  The Build options pickers carry no row labels on purpose: the strip reads by
-  icon, the way the game's own tool settings do, so each tooltip opens with its own name in
-  `[font=default-bold]`.
+  The Build options pickers carry no per-picker row labels on purpose: each row reads by icon
+  under its group's caption, the way the game's own tool settings do, so each tooltip opens
+  with its own name in `[font=default-bold]`.
 - **Quality is pickable on every entity picker except the belt and the pipe.** A measured call,
   not a taste one, and the engine states the rule itself: every entity type gets its own quality
   bonus apart from transport belt, pipe and rail
@@ -336,11 +336,18 @@ per-release approval.
   Closing the modal takes the panel with it for free; a rebuild triggered by flipping a
   setting re-creates an open panel with fresh ticks, which also retired the repaint-on-change
   loop.
-- **The build options are a six-column grid** (owner's call, 2026-08-17). A `table`, not a flow,
-  so the row length is a rule rather than an accident: ten pickers on one line drag the modal
-  wider than the block above it, and a modset adding an eleventh would keep dragging. Measured in
-  a real client at nine pickers: an invisible child takes **no cell**, so the vanilla ones pack
-  into one clean row and the rest wrap with no holes (`analysis/api.md` §19).
+- **The build options are five captioned concept groups** (owner's call, 2026-08-22,
+  superseding the 2026-08-17 six-column grid): Transport (belt, inserter, pipe), Chests (the
+  four roles), Modules (quality, top machine), Beacons (beacon, its module), Power (pole) —
+  each a `semibold_caption_label` over a horizontal flow of icon pickers, the trash checkbox
+  below them all. Twelve icon-only pickers in one flat grid left hovering as the only way to
+  tell them apart; small captions name the concepts while the pickers stay icons — chosen from
+  three offered shapes over per-picker labelled rows and over two side-by-side group columns.
+  No group holds more than four icons, so a plain flow needs no wrap rule the way the old
+  table did (an invisible child takes no space in either — `analysis/api.md` §19). A group
+  whose every picker is hidden — the chests by default, the beacon pair until show-all or a
+  pick — hides caption and row together, the rule owned once by the group rather than by each
+  button.
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
   `{name, quality}` tables the `-with-quality` widgets speak. `control.lua`'s stated contract is
   that storage holds nothing but strings, and a nested table there fails silently rather than
@@ -614,9 +621,10 @@ Written down so they are not re-litigated. A rejected idea that is not recorded 
   ring, so the recycler band is empty beside the recycler. The lesson generalises — check a
   constraint against the code, not against the document that described the design before it was
   built.
-- **Labelled rows in the Build options grid.** The repo owner's explicit call for the icon
-  grid. It is also the standing fallback if a chosen prototype's own tooltip turns out to
-  override the custom one — ask before switching.
+- **Labelled rows in the Build options strip.** The repo owner's explicit call for icons,
+  twice: the flat icon grid on 2026-08-17, and captioned concept groups over per-picker
+  labelled rows on 2026-08-22. Still the standing fallback if a chosen prototype's own tooltip
+  turns out to override the custom one — ask before switching.
 - **Degrading rather than excluding quality-refusing recipes.** Leaving the non-terminal
   machines' slots empty and letting the recyclers carry the climb alone would keep those items
   in the picker at roughly half the roll rate. Excluding them is simpler and honest — a loop the

@@ -107,25 +107,25 @@ describe("the modal", function()
     widget({ "upl-content", "upl-table", "upl-quality" })
     widget({ "upl-content", "upl-table", "upl-machine" })
     widget({ "upl-content", "upl-table", "upl-recycler" })
-    widget({ "upl-options", "upl-strip", "upl-belt" })
-    widget({ "upl-options", "upl-strip", "upl-inserter" })
-    widget({ "upl-options", "upl-strip", "upl-requester" })
-    widget({ "upl-options", "upl-strip", "upl-container" })
-    widget({ "upl-options", "upl-strip", "upl-provider" })
-    widget({ "upl-options", "upl-strip", "upl-quality-module" })
-    widget({ "upl-options", "upl-strip", "upl-terminal-module" })
-    widget({ "upl-options", "upl-strip", "upl-pole" })
-    widget({ "upl-options", "upl-strip", "upl-pipe" })
-    widget({ "upl-options", "upl-strip", "upl-beacon" })
-    widget({ "upl-options", "upl-strip", "upl-beacon-module" })
+    widget({ "upl-options", "upl-transport-strip", "upl-belt" })
+    widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
+    widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
+    widget({ "upl-options", "upl-chests-strip", "upl-requester" })
+    widget({ "upl-options", "upl-chests-strip", "upl-container" })
+    widget({ "upl-options", "upl-chests-strip", "upl-provider" })
+    widget({ "upl-options", "upl-chests-strip", "upl-overflow" })
+    widget({ "upl-options", "upl-modules-strip", "upl-quality-module" })
+    widget({ "upl-options", "upl-modules-strip", "upl-terminal-module" })
+    widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
+    widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
+    widget({ "upl-options", "upl-power-strip", "upl-pole" })
     assert(widget({ "upl-options", "upl-trash" }).state == true, "trash defaults checked")
 
-    -- Six per row, and a hidden picker takes no cell with it -- measured in a real client, where
-    -- six of nine visible came out one row and all nine came out two (analysis/api.md S19). Only
-    -- the column count is assertable here; a headless run never lays the frame out, so nothing
-    -- about geometry or screen position can be checked from a spec.
-    assert(widget({ "upl-options", "upl-strip" }).column_count == 6,
-      "the build options grid must stay six wide")
+    -- The paths above pin which picker lives in which concept group; what is left is that each
+    -- group row carries its caption. Their visibility is pinned further down with the hide rules.
+    for _, key in pairs({ "transport", "chests", "modules", "beacons", "power" }) do
+      widget({ "upl-options", "upl-" .. key .. "-label" })
+    end
 
     -- One option is not a choice. In the SA modset that hides two pickers: one recycler and one
     -- pipe. Both are still BUILT, and still hold the default the plan uses -- only the widget is
@@ -138,33 +138,41 @@ describe("the modal", function()
     -- The row's LABEL has to go with it; an orphaned label is the obvious way to get this wrong.
     assert(widget({ "upl-content", "upl-table", "upl-recycler-label" }).visible == false,
       "the recycler label outlived its row")
-    assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == false,
+    assert(widget({ "upl-options", "upl-transport-strip", "upl-pipe" }).visible == false,
       "no recipe and one pipe: the pipe picker must be hidden twice over")
 
     -- The chests are the exception the other way: hidden whatever the count, so the buffer
     -- goes even though wooden, iron and steel are a real choice. The count is asserted so this
-    -- keeps testing the rule rather than accidentally agreeing with the count rule.
+    -- keeps testing the rule rather than accidentally agreeing with the count rule. The rule
+    -- lives on the GROUP -- caption and row hide together, the buttons stay built inside.
     assert(#planner.chests("container") > 1, "test premise: the buffer has real alternatives")
-    for _, name in pairs({ "upl-requester", "upl-container", "upl-provider" }) do
-      assert(widget({ "upl-options", "upl-strip", name }).visible == false,
-        name .. " must be hidden until show all build options is on")
-    end
+    assert(widget({ "upl-options", "upl-chests-strip" }).visible == false,
+      "the chests group must be hidden until show all build options is on")
+    assert(widget({ "upl-options", "upl-chests-label" }).visible == false,
+      "the chests caption outlived its row")
 
     -- And what stays: three usable inserters, four belts, and the two whose clear is itself the
-    -- second option.
+    -- second option -- each in its own group, whose caption stays up with it.
     assert(#planner.inserters() > 1, "test premise: inserters have real alternatives")
-    for _, name in pairs({ "upl-belt", "upl-inserter", "upl-quality-module",
-                           "upl-terminal-module", "upl-pole" }) do
-      assert(widget({ "upl-options", "upl-strip", name }).visible == true,
-        name .. " must stay visible")
+    for _, entry in pairs({ { "upl-transport-strip", "upl-belt" },
+                            { "upl-transport-strip", "upl-inserter" },
+                            { "upl-modules-strip", "upl-quality-module" },
+                            { "upl-modules-strip", "upl-terminal-module" },
+                            { "upl-power-strip", "upl-pole" } }) do
+      assert(widget({ "upl-options", entry[1], entry[2] }).visible == true,
+        entry[2] .. " must stay visible")
+    end
+    for _, key in pairs({ "transport", "modules", "power" }) do
+      assert(widget({ "upl-options", "upl-" .. key .. "-label" }).visible == true,
+        key .. "'s caption must stay visible")
     end
     -- The beacon pair goes the chests' way, and further: hidden by default whatever the count
     -- AND whatever is researched -- this save has full research, which is the premise that
-    -- makes the assertion mean something. Show-all or an actual pick brings them out.
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon" }).visible == false,
-      "the beacon picker must be hidden by default, researched or not")
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon-module" }).visible == false,
-      "the beacon-module picker must be hidden while the beacon is off")
+    -- makes the assertion mean something. Show-all or an actual pick brings the group out.
+    assert(widget({ "upl-options", "upl-beacons-strip" }).visible == false,
+      "the beacons group must be hidden by default, researched or not")
+    assert(widget({ "upl-options", "upl-beacons-label" }).visible == false,
+      "the beacons caption outlived its row")
     for _, name in pairs({ "upl-recipe", "upl-quality", "upl-machine" }) do
       assert(widget({ "upl-content", "upl-table", name }).visible == true,
         name .. " must stay visible whatever the count")
@@ -173,7 +181,7 @@ describe("the modal", function()
     local c = choices()
     -- The one strip picker with no default at all: beacons are off until asked for.
     assert(c.beacon == nil, "a beacon choice appeared from nowhere")
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon" }).elem_value == nil,
+    assert(widget({ "upl-options", "upl-beacons-strip", "upl-beacon" }).elem_value == nil,
       "the beacon picker must open empty")
     assert(c.recycler == "recycler", "recycler default " .. tostring(c.recycler))
     assert(c.quality == "legendary", "target defaults to the highest offered")
@@ -249,7 +257,7 @@ describe("the modal", function()
 
   test("clearing the belt snaps back to the fastest researched, visibly", function()
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-belt" })
+    local button = widget({ "upl-options", "upl-transport-strip", "upl-belt" })
     button.elem_value = nil
     fire(button)
     assert(choices().belt == "turbo-transport-belt", "belt did not snap back")
@@ -258,7 +266,7 @@ describe("the modal", function()
 
   test("clearing the pipe snaps back like the belt -- a fluid plan cannot go without one", function()
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-pipe" })
+    local button = widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
     button.elem_value = nil
     fire(button)
     assert(choices().pipe == "pipe", "pipe did not snap back")
@@ -267,7 +275,7 @@ describe("the modal", function()
 
   test("clearing the pole means no poles -- the one picker that stays empty", function()
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-pole" })
+    local button = widget({ "upl-options", "upl-power-strip", "upl-pole" })
     button.elem_value = nil
     fire(button)
     assert(choices().no_poles == true, "cleared pole picker did not record the choice")
@@ -280,22 +288,25 @@ describe("the modal", function()
 
   test("picking a beacon reveals both beacon pickers, the module defaulted to efficiency", function()
     open_with_gears()
-    -- Hidden by default -- but a hidden picker is still built and still handles its events,
-    -- the chests' own precedent, which is what lets this drive the pick without show-all.
-    local beacon = widget({ "upl-options", "upl-strip", "upl-beacon" })
-    assert(beacon.visible == false, "test premise: the beacon picker starts hidden")
+    -- Hidden by default -- the GROUP is, caption and row together -- but a hidden picker is
+    -- still built and still handles its events, the chests' own precedent, which is what lets
+    -- this drive the pick without show-all.
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
+    assert(widget({ "upl-options", "upl-beacons-strip" }).visible == false,
+      "test premise: the beacons group starts hidden")
     beacon.elem_value = { name = "beacon", quality = "normal" }
     fire(beacon)
-    -- The beacon handler rebuilds the modal -- the module picker's options and visibility
-    -- follow the pick -- so every reference above is stale from here.
+    -- The beacon handler rebuilds the modal -- the module picker's options and the group's
+    -- visibility follow the pick -- so every reference above is stale from here.
     assert(choices().beacon == "beacon", "the beacon pick did not take")
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon" }).visible == true,
-      "a chosen beacon must keep its own picker visible, or it cannot be cleared")
+    assert(widget({ "upl-options", "upl-beacons-strip" }).visible == true,
+      "a chosen beacon must keep its group visible, or it cannot be cleared")
+    assert(widget({ "upl-options", "upl-beacons-label" }).visible == true,
+      "the beacons caption must come out with its row")
     assert(choices().beacon_module == "efficiency-module-3",
       "the module must default to the strongest researched efficiency module, got "
       .. tostring(choices().beacon_module))
-    local module_button = widget({ "upl-options", "upl-strip", "upl-beacon-module" })
-    assert(module_button.visible == true, "the module picker must appear with the beacon")
+    local module_button = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
     local shown = module_button.elem_value
     assert(shown and shown.name == "efficiency-module-3", "the default is not on the strip")
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
@@ -304,24 +315,24 @@ describe("the modal", function()
 
   test("clearing the beacon means none, keeps its quality, and hides the module picker", function()
     open_with_gears()
-    local beacon = widget({ "upl-options", "upl-strip", "upl-beacon" })
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
     beacon.elem_value = { name = "beacon", quality = "rare" }
     fire(beacon)
     assert(choices().beacon_quality == "rare", "the beacon quality did not take")
 
     -- Re-fetched: the beacon handler rebuilds the modal, so the reference above is stale.
-    beacon = widget({ "upl-options", "upl-strip", "upl-beacon" })
+    beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
     beacon.elem_value = nil
     fire(beacon)
     assert(choices().beacon == nil, "the beacon survived the clear")
     -- The machine's rule: the player asked for rare buildings, not a rare beacon specifically.
     assert(choices().beacon_quality == "rare", "quality reset by the clear")
-    -- Clearing takes BOTH pickers back out of the strip: with no beacon chosen and show-all
-    -- off, the pair returns to its hidden-by-default state.
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon" }).visible == false,
-      "the beacon picker outlived the clear")
-    assert(widget({ "upl-options", "upl-strip", "upl-beacon-module" }).visible == false,
-      "the module picker outlived its beacon")
+    -- Clearing takes the whole group back out: with no beacon chosen and show-all off, it
+    -- returns to its hidden-by-default state, caption and row together.
+    assert(widget({ "upl-options", "upl-beacons-strip" }).visible == false,
+      "the beacons group outlived the clear")
+    assert(widget({ "upl-options", "upl-beacons-label" }).visible == false,
+      "the beacons caption outlived the clear")
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
       "Place must stay enabled -- a loop without beacons is the default plan")
   end)
@@ -331,7 +342,7 @@ describe("the modal", function()
     -- empty candidate list leaves the picker unfiltered -- the terminal module's own guard,
     -- driven here by writing past the filter, which the API allows.
     open_with_gears()
-    local beacon = widget({ "upl-options", "upl-strip", "upl-beacon" })
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
     beacon.elem_value = { name = "steel-chest", quality = "normal" }
     assert(beacon.elem_value ~= nil,
       "test premise: the API must accept an off-filter elem_value write")
@@ -342,11 +353,11 @@ describe("the modal", function()
 
   test("clearing the beacon's module plans an empty beacon; a pick survives", function()
     open_with_gears()
-    local beacon = widget({ "upl-options", "upl-strip", "upl-beacon" })
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
     beacon.elem_value = { name = "beacon", quality = "normal" }
     fire(beacon)
 
-    local button = widget({ "upl-options", "upl-strip", "upl-beacon-module" })
+    local button = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
     button.elem_value = nil
     fire(button)
     assert(choices().beacon_module == nil, "clearing did not empty the beacon")
@@ -361,7 +372,7 @@ describe("the modal", function()
 
   test("clearing the inserter snaps back to the best researched, visibly", function()
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-inserter" })
+    local button = widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     button.elem_value = { name = "fast-inserter", quality = "rare" }
     fire(button)
     assert(choices().inserter == "fast-inserter", "inserter pick lost")
@@ -379,10 +390,10 @@ describe("the modal", function()
 
   test("a chest picker writes its own role, and clearing snaps that role back", function()
     -- The buffer role is the one with a real choice in vanilla (wooden, iron, steel), which is
-    -- what makes it the honest one to drive through the shared handler. It is hidden by default
-    -- now, but a hidden picker is still built and still handles its events, which is the point.
+    -- what makes it the honest one to drive through the shared handler. Its group is hidden by
+    -- default, but a hidden picker is still built and still handles its events -- the point.
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-container" })
+    local button = widget({ "upl-options", "upl-chests-strip", "upl-container" })
     button.elem_value = { name = "iron-chest", quality = "uncommon" }
     fire(button)
     assert(choices().container == "iron-chest", "buffer pick lost")
@@ -404,7 +415,7 @@ describe("the modal", function()
     -- vanilla inserter carries five, so the modal must not leave behind a pick that cannot
     -- serve the new recipe.
     open_with_gears()
-    local inserter = widget({ "upl-options", "upl-strip", "upl-inserter" })
+    local inserter = widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     inserter.elem_value = { name = "fast-inserter", quality = "normal" }
     fire(inserter)
     assert(choices().inserter == "fast-inserter", "test setup: the pick did not take")
@@ -427,7 +438,7 @@ describe("the modal", function()
     assert(choices().terminal_module == "productivity-module-3",
       "terminal default " .. tostring(choices().terminal_module))
     local function module_button()
-      return widget({ "upl-options", "upl-strip", "upl-terminal-module" })
+      return widget({ "upl-options", "upl-modules-strip", "upl-terminal-module" })
     end
     local shown = module_button().elem_value
     assert(shown and shown.name == "productivity-module-3", "the default is not on the strip")
@@ -480,7 +491,7 @@ describe("the modal", function()
     -- pins -- that picking a fluid recipe repaints the pipe's visibility at all rather than
     -- leaving it stale -- and it needs a second pipe prototype to be seen going the other way.
     open_with_gears()
-    local pipe = widget({ "upl-options", "upl-strip", "upl-pipe" })
+    local pipe = widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
     assert(pipe.visible == false, "gears take no fluid: the pipe picker must be hidden")
 
     local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
@@ -490,7 +501,7 @@ describe("the modal", function()
     -- The plan still builds pipes -- the picker being hidden never means the default is not used.
     assert(choices().pipe == "pipe", "the pipe default must stand behind the hidden picker")
     -- Re-fetched: the recipe handler rebuilds the modal, so the reference above is stale.
-    assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == (#planner.pipes() > 1),
+    assert(widget({ "upl-options", "upl-transport-strip", "upl-pipe" }).visible == (#planner.pipes() > 1),
       "with one pipe in the game the picker stays hidden; with more it must appear")
   end)
 
@@ -594,7 +605,7 @@ describe("the modal", function()
     -- was skipped. On a long modded quality chain the skipped run is the most expensive thing
     -- the mod does.
     open_with_gears()
-    local button = widget({ "upl-options", "upl-strip", "upl-belt" })
+    local button = widget({ "upl-options", "upl-transport-strip", "upl-belt" })
     local status = widget({ "upl-status" })
 
     status.caption = "sentinel"
@@ -678,27 +689,26 @@ describe("the modal", function()
       assert(frame() and frame().valid, "the modal did not come back after the setting flipped")
       for _, path in pairs({ { "upl-content", "upl-table", "upl-recycler" },
                              { "upl-content", "upl-table", "upl-recycler-label" },
-                             { "upl-options", "upl-strip", "upl-requester" },
-                             { "upl-options", "upl-strip", "upl-container" },
-                             { "upl-options", "upl-strip", "upl-provider" } }) do
+                             { "upl-options", "upl-chests-strip" },
+                             { "upl-options", "upl-chests-label" } }) do
         assert(widget(path).visible == true, path[#path] .. " stayed hidden")
       end
       -- The pipe carries a second condition of its own, and the setting overrides that too: no
       -- recipe is chosen here, so nothing except the setting can be showing it.
-      assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == true,
+      assert(widget({ "upl-options", "upl-transport-strip", "upl-pipe" }).visible == true,
         "the pipe must be shown even for no recipe at all")
-      -- No beacon is picked, so only the setting can be showing the beacon pair.
-      assert(widget({ "upl-options", "upl-strip", "upl-beacon" }).visible == true,
-        "the beacon picker must be shown under show-all")
-      assert(widget({ "upl-options", "upl-strip", "upl-beacon-module" }).visible == true,
-        "the beacon-module picker must be shown even with the beacon off")
+      -- No beacon is picked, so only the setting can be showing the beacons group.
+      assert(widget({ "upl-options", "upl-beacons-strip" }).visible == true,
+        "the beacons group must be shown under show-all")
+      assert(widget({ "upl-options", "upl-beacons-label" }).visible == true,
+        "the beacons caption must be shown with its row")
       -- And it reverses: the same path, from the settings menu's side of the setting.
       player().mod_settings[gui.SHOW_ALL_OPTIONS_SETTING] = { value = false }
       after_ticks(2, function()
-        assert(widget({ "upl-options", "upl-strip", "upl-pipe" }).visible == false,
+        assert(widget({ "upl-options", "upl-transport-strip", "upl-pipe" }).visible == false,
           "unticking the setting must hide the pipe again")
-        assert(widget({ "upl-options", "upl-strip", "upl-container" }).visible == false,
-          "unticking the setting must hide the buffer chest again")
+        assert(widget({ "upl-options", "upl-chests-strip" }).visible == false,
+          "unticking the setting must hide the chests group again")
         assert(settings_widget(ALL_OPTIONS_BOX).state == false,
           "a change from outside the window left its tick stale")
       end)
