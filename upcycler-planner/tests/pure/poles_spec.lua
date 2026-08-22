@@ -87,6 +87,25 @@ describe("poles.plan covering", function()
     end
   end)
 
+  test("a beacon stack that fills its whole column falls back to the free tiles", function()
+    -- The full-stack shape: the declared column holds beacon on every row, so within_columns
+    -- offers no candidate at all and the free-tile fallback must cover -- through the same
+    -- generic mechanisms, with no beacon-aware code anywhere in poles.lua.
+    local built = {
+      entities = {
+        machine_at(4, 1),
+        { name = "beacon", dx = 3, dy = 0, w = 1, h = 5 },
+      },
+      width = 9, height = 5,
+      utility_columns = { { x = 3, width = 1, tier = 1 } },
+    }
+    local result = poles.plan(built, SMALL, { machine = 0.3, beacon = 0.3 })
+    assert(result.unpowered == 0, "unpowered " .. result.unpowered .. " -- fallback not taken")
+    for _, p in pairs(result.entities) do
+      assert(p.dx ~= 3, "a pole stands inside the full column at dy " .. p.dy)
+    end
+  end)
+
   test("two spread consumers: two poles, one spanning wire", function()
     local built = { entities = { machine_at(1, 1), machine_at(9, 1) }, width = 13, height = 5 }
     local result = poles.plan(built, SMALL, MARGINS)

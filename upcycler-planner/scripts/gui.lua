@@ -1,10 +1,10 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
 -- four chests, the quality module, the top machine's own module, the electric pole, the pipe,
--- the beacon and its module, and whether the chests trash their surplus. The build options
--- are five captioned rows, one per concept -- Transport, Chests, Modules, Beacons, Power --
--- because one flat grid of a dozen icon-only pickers left hovering as the only way to tell
--- them apart (owner's ask, 2026-08-22).
+-- the beacon, its module and its per-tier count, and whether the chests trash their surplus.
+-- The build options are five captioned rows, one per concept -- Transport, Chests, Modules,
+-- Beacons, Power -- because one flat grid of a dozen icon-only pickers left hovering as the
+-- only way to tell them apart (owner's ask, 2026-08-22).
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
 -- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an
@@ -13,10 +13,10 @@
 -- because clearing them IS the second option: the pole ("no poles") and the top machine's
 -- module ("leave it empty"). The pipe has one more condition of its own: it is out of the
 -- strip entirely until the recipe takes a fluid. The four chests go the other way and are
--- hidden whatever the count, and the beacon and its module go with them: hidden whatever the
--- count and whatever is researched, revealed by show-all, and kept visible once a beacon is
--- actually chosen (beacon_visible below). Those two rules live on their GROUPS -- caption and
--- row hide together, the buttons stay built inside.
+-- hidden whatever the count, and the beacon, its module and the count drop-down go with
+-- them: hidden whatever the count and whatever is researched, revealed by show-all, and kept
+-- visible once a beacon is actually chosen (beacon_visible below). Those two rules live on
+-- their GROUPS -- caption and row hide together, the buttons stay built inside.
 --
 -- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
 -- the titlebar's settings button is pressed. It holds the two per-player settings the pickers
@@ -324,6 +324,19 @@ local function resolve_beacon_module(player, choices)
   choices.beacon_module = planner.beacon_module(player.force, beacon)
 end
 
+-- The count follows the geometry over it: a remembered stack that no longer fits -- a
+-- shorter machine, a taller beacon -- snaps down to what does, and one is the floor, since a
+-- chosen beacon always stands at least itself. Nothing to resolve until a beacon is picked.
+-- Hands the max back for the dropdown to be built from, offered_targets' own rule: the
+-- resolution walks the recycler and fluid rotations, so the widget must not re-derive it.
+local function resolve_beacon_count(choices)
+  if not (choices.beacon and planner.is_beacon(choices.beacon)) then return nil end
+  local max = planner.max_beacon_count(choices, prototypes.entity[choices.beacon])
+  if max < 1 then return nil end
+  choices.beacon_count = math.min(math.max(choices.beacon_count or 1, 1), max)
+  return max
+end
+
 -- The list the dropdown was BUILT from rides in its tags: research can finish while the
 -- modal is open, and an index into a re-derived list would then name the wrong quality.
 local function quality_options(player)
@@ -517,7 +530,7 @@ local function apply_defaults(player, choices)
   -- And nothing to resolve until a beacon is picked -- choices.beacon itself is deliberately
   -- never defaulted here, which is the whole of "beacons are off by default".
   resolve_beacon_module(player, choices)
-  return offered_targets
+  return offered_targets, resolve_beacon_count(choices)
 end
 
 function gui.open(player)
@@ -540,7 +553,7 @@ function gui.open(player)
   -- presumption of one survives into the new frame.
   entry.chooser_maybe_open = nil
   local choices = entry.choices
-  local offered_targets = apply_defaults(player, choices)
+  local offered_targets, beacon_count_max = apply_defaults(player, choices)
 
   -- The screen element is an invisible container; what the player sees is its children, each a
   -- window-styled frame of its own -- see the file comment. Everything positional (location,
@@ -764,9 +777,9 @@ function gui.open(player)
   terminal_button.elem_value =
     with_quality(choices.terminal_module, choices.terminal_module_quality)
 
-  -- The beacon pair: one per tier when picked, off until then -- hidden until show-all or an
-  -- actual pick brings them out (beacon_visible above), the rule on the group rather than on
-  -- each of the two.
+  -- The beacon group: a stack per tier when picked, off until then -- hidden until show-all
+  -- or an actual pick brings it out (beacon_visible above), the rule on the group rather than
+  -- on each control.
   local beacons, beacons_label = group("beacons")
   beacons_label.visible = beacon_visible(player, choices)
   beacons.visible = beacons_label.visible
@@ -787,6 +800,28 @@ function gui.open(player)
   })
   beacon_module_button.elem_value =
     with_quality(choices.beacon_module, choices.beacon_module_quality)
+
+  -- How many beacons stack in each tier's column. The list is exactly what fits the chosen
+  -- pair -- the max apply_defaults resolved and clamped the stored count to, handed through
+  -- like offered_targets so the rotations behind it are walked once -- and the values ride
+  -- in the tags like the quality dropdown's, never re-derived under a stale index. A max of
+  -- one is not a choice, so the control follows worth_showing inside the group's visibility.
+  local beacon_count_items, beacon_counts = {}, {}
+  for i = 1, beacon_count_max or 1 do
+    beacon_count_items[i] = tostring(i)
+    beacon_counts[i] = i
+  end
+  local beacon_count_dropdown = beacons.add({
+    type = "drop-down", name = "upl-beacon-count",
+    items = beacon_count_items,
+    selected_index = math.min(math.max(choices.beacon_count or 1, 1), #beacon_count_items),
+    tooltip = titled_tooltip("beacon-count"),
+    tags = dispatch.tags("beacon-count", { counts = beacon_counts }),
+  })
+  -- Sized for a numeral, not a name: the default dropdown width would dwarf the icon buttons
+  -- beside it.
+  beacon_count_dropdown.style.width = 60
+  beacon_count_dropdown.visible = worth_showing(player, beacon_count_items)
 
   local power = group("power")
 
@@ -1012,6 +1047,7 @@ dispatch.register("machine", function(event)
 end)
 
 dispatch.register("recycler", function(event)
+  local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "recycler", "recycler_quality")
   local value = event.element.elem_value
@@ -1019,7 +1055,10 @@ dispatch.register("recycler", function(event)
   -- Kept on clear, same reasoning as the machine above.
   if value then choices.recycler_quality = planner.build_quality(value.quality) end
   if settled() then return end
-  gui.refresh(game.get_player(event.player_index))
+  -- A different recycler can rotate to a different height, which the beacon-count dropdown's
+  -- own list is built from -- gui.open re-derives it, the machine handler's reason for a
+  -- full rebuild.
+  gui.open(player)
 end)
 
 dispatch.register("belt", function(event)
@@ -1182,6 +1221,17 @@ dispatch.register("beacon-module", function(event)
   -- The terminal module's rule: an emptied picker means "place the beacon empty".
   choices.no_beacon_module = not value
   if value then choices.beacon_module_quality = planner.build_quality(value.quality) end
+  if settled() then return end
+  gui.refresh(game.get_player(event.player_index))
+end)
+
+dispatch.register("beacon-count", function(event)
+  local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "beacon_count")
+  -- The quality dropdown's rule: read the list this one was built from, never a re-derived
+  -- one -- the geometry the max came from can shift while the modal is open.
+  local counts = event.element.tags.counts
+  choices.beacon_count = counts[event.element.selected_index]
   if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)

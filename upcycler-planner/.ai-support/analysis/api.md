@@ -1025,9 +1025,9 @@ receives with its top-left 3, 4 and 5 tiles over and stops at 6 — the edge rul
 have failed at 5 (1.5 + 3 = 4.5 against 5.3). Same boundary vertically, and **corner overlap
 counts**: a machine at the diagonal (5,5) still receives, (6,6) does not. So coverage is
 collision-box overlap with the expanded square, the pole rule's shape with a different origin.
-`planner.beacon_reach` encodes exactly this; `layout.build` centres each tier's beacon on the
-machine+recycler band because from there the square spans both (the vanilla pair with room to
-spare). One honesty caveat inherited from the pole stand-ins: `consumer_margin` clamps the
+`planner.beacon_reach` encodes exactly this; `layout.build` centres each tier's beacon stack
+on the machine+recycler band because from there the squares span both (the vanilla pair with
+room to spare). One honesty caveat inherited from the pole stand-ins: `consumer_margin` clamps the
 collision inset at 0.45, so for a prototype whose real inset exceeds that the shrunken box is
 NOT a subset of the real one and the reach check can over-promise slightly — the same bound
 the pole pass has always carried, not something the beacon added.

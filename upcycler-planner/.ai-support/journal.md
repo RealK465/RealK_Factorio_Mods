@@ -9,6 +9,41 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-22 — the beacon count: stacks in the column, capped by geometry
+
+The owner came back to the beacon feature asking whether the count could be configurable —
+"the hard part would be to manage the maximum". Explored fresh (the GUI had been regrouped
+since), and the geometry answered the hard part cheaply: the utility column's interior is
+`6 + Hm + Hr` rows and one beacon uses `Hb` of them, so the max is
+`floor(interior_height / Hb)` — four for vanilla shapes, computable from numbers validate
+already holds, with the existing `beacon-too-tall` refusal falling out as its zero case. Two
+findings framed the design discussion: a second *column* of vanilla beacons cannot reach
+(supply 3 falls ~half a tile short), so vertical stacking in the existing column is the only
+direction that pays and it costs no width at all; and with the default efficiency module one
+beacon already saturates the −80% energy floor, so the count is really for speed-module and
+modded builds — said to the owner before building. The owner chose the vertical stack and a
+dynamic drop-down offering exactly 1..max.
+
+Two architecture passes (minimal-diff vs cleanest-structure) agreed on nearly everything and
+split on two points, both resolved for the clean side: the reach check loops the real stack
+positions per receiver (some beacon reaches the machine, some the recycler) rather than a
+top/bottom shortcut that could wrongly warn on exotic shapes; and `pole_gap` became the sum
+`pole + beacon` width instead of their max, because a full-height stack can leave the column
+with no free row — safe, since the ladder only reads `pole_gap` after the compact attempt
+left something dark, so every previously-covering plan is byte-identical. Both passes
+independently found the same latent bug: the recycler handler only refreshed, while its
+rotated height now feeds the drop-down's max — it rebuilds via `gui.open` like the machine's.
+
+The build: `layout.beacon_offset` became `beacon_offsets` (a list, block-centred, clamped as
+one rigid body), `layout.max_beacon_count` sits beside `interior_height`, and the count rides
+`layout_params.beacon_count` — a plain number in `choices.beacon_count`, defaulted and
+snapped down in `apply_defaults`, clamped (never refused) in plan() and validate() through
+one `chosen_beacon_count`. The drop-down is the quality dropdown's shape, values in its tags,
+`worth_showing` inside the group's own visibility. Measured and pinned along the way: the
+substation-with-full-stack plan opens three 2-wide lanes (width 38), and the revived
+12-beacon loop's receiver union still covers every machine and recycler on the engine's own
+answer. Suite 192 → 210, static tier clean.
+
 ## 2026-08-22 — the build options strip grouped by concept
 
 The owner asked for the modal's picker strip to be reorganised: twelve icon-only pickers in

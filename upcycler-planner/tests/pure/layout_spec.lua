@@ -597,6 +597,120 @@ describe("layout.build beacon plans", function()
     assert(deep_equal(layout.build(params_with()), layout.build(params)),
       "a stray beacon module changed the beaconless plan")
   end)
+
+  test("layout.max_beacon_count is the interior rows over the beacon's height", function()
+    -- Vanilla shapes: interior 6+3+4 = 13, so four 3-tall beacons fit; a 13-tall one exactly
+    -- fills it; a 20-tall one is the too-tall refusal's zero.
+    assert(layout.max_beacon_count(3, 4, 3) == 4,
+      "vanilla max " .. layout.max_beacon_count(3, 4, 3))
+    assert(layout.max_beacon_count(3, 4, 13) == 1,
+      "exact-fit max " .. layout.max_beacon_count(3, 4, 13))
+    assert(layout.max_beacon_count(3, 4, 20) == 0,
+      "over-tall max " .. layout.max_beacon_count(3, 4, 20))
+    assert(layout.max_beacon_count(3, 3, 3) == 4,
+      "zero-remainder max " .. layout.max_beacon_count(3, 3, 3))
+  end)
+
+  test("an explicit count of one is byte-identical to the single-beacon plan", function()
+    assert(deep_equal(layout.build(beacon_params()),
+      layout.build(beacon_params({ beacon_count = 1 }))),
+      "beacon_count = 1 changed the plan")
+  end)
+
+  test("two beacons stack vertically at zero width cost", function()
+    local built = layout.build(beacon_params({ beacon_count = 2 }))
+    assert(built.width == 20, "width " .. built.width .. " -- stacking must cost no width")
+    local beacons = by_name(built, "beacon")
+    assert(#beacons == 6, "beacon count " .. #beacons .. ", expected two per tier")
+    local at = {}
+    for _, b in pairs(beacons) do
+      at[b.dx] = at[b.dx] or {}
+      at[b.dx][b.dy] = true
+      assert(b.modules.count == 2, "a stacked beacon lost its module plan")
+    end
+    -- The pair centres as one block: the 7-row band holds a 6-tall stack from dy 4
+    -- (floor((7-6)/2) = 0); the terminal band of 3 centres the same block at dy 2.
+    for _, dx in pairs({ 1, 7 }) do
+      assert(at[dx][4] and at[dx][7], "tier at " .. dx .. " is not stacked at dy 4 and 7")
+    end
+    assert(at[13][2] and at[13][5], "terminal stack not at dy 2 and 5")
+    for _, col in pairs(built.utility_columns) do
+      assert(col.width == 3, "a stacked column widened to " .. col.width)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a full stack exactly fills the interior rows, contiguous, in bounds", function()
+    -- Interior 6+3+3 = 12 with a 3-tall recycler, so four beacons fill it with no remainder --
+    -- the shape where the beacon column offers the pole pass not a single free row, which is
+    -- what the planner's pole lane exists for.
+    local built = layout.build(beacon_params({
+      recycler = { name = "recycler", quality = "normal", width = 2, height = 3,
+        module_slots = 4, direction = defines.direction.north },
+      beacon_count = 4,
+    }))
+    local by_dx = {}
+    for _, b in pairs(by_name(built, "beacon")) do
+      by_dx[b.dx] = by_dx[b.dx] or {}
+      table.insert(by_dx[b.dx], b.dy)
+    end
+    for dx, dys in pairs(by_dx) do
+      table.sort(dys)
+      assert(#dys == 4, "tier at " .. dx .. " stacked " .. #dys .. ", expected 4")
+      assert(dys[1] == 1, "stack at " .. dx .. " starts at dy " .. dys[1] .. ", expected row 1")
+      for i = 2, 4 do
+        assert(dys[i] == dys[i - 1] + 3,
+          "stack at " .. dx .. " tore between " .. dys[i - 1] .. " and " .. dys[i])
+      end
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a stack taller than the band clamps as one block, never torn apart", function()
+    -- Three 4-tall beacons: 12 rows in a 13-row interior, far over the 7-row band. The block
+    -- shifts to fit; clamping each beacon alone would have piled them onto the same rows.
+    local built = layout.build(beacon_params({
+      beacon = { name = "tall-beacon", quality = "normal", width = 3, height = 4,
+        module_slots = 2, module_inventory = 99 },
+      beacon_count = 3,
+    }))
+    local by_dx = {}
+    for _, b in pairs(by_name(built, "tall-beacon")) do
+      by_dx[b.dx] = by_dx[b.dx] or {}
+      table.insert(by_dx[b.dx], b.dy)
+    end
+    for dx, dys in pairs(by_dx) do
+      table.sort(dys)
+      assert(#dys == 3, "tier at " .. dx .. " stacked " .. #dys)
+      for i = 2, 3 do
+        assert(dys[i] == dys[i - 1] + 4, "the clamp tore the stack at " .. dx)
+      end
+      assert(dys[1] >= 1 and dys[3] + 4 <= 14, "stack outside the interior rows at " .. dx)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a fluid plan stacks west of the pipe run at the same dx", function()
+    local params = beacon_params({
+      fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" },
+      machine = {
+        name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
+        module_slots = 2, direction = defines.direction.west,
+      },
+      beacon_count = 2,
+    })
+    local built = layout.build(params)
+    assert(built.width == 23, "width " .. built.width .. " -- stacking must not widen a fluid plan")
+    local beacon_at = {}
+    for _, e in pairs(built.entities) do
+      if e.name == "beacon" then beacon_at[e.dx] = (beacon_at[e.dx] or 0) + 1 end
+    end
+    for _, col in pairs({ 5, 12, 19 }) do
+      assert(beacon_at[col - 4] == 2,
+        "no pair of beacons west of the pipe for the machine at " .. col)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
 end)
 
 describe("layout.build determinism", function()

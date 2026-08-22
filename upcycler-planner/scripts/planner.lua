@@ -758,6 +758,27 @@ function planner.machine_fluid_orientation(entity)
   return nil
 end
 
+-- How many of this beacon a tier's column can stack, asked by the modal so the count
+-- dropdown offers exactly what fits and nothing that could fail. Resolves the same rotated
+-- heights plan() and validate() use -- a fluid recipe stands the machine sideways, the
+-- recycler stands at its eject rotation -- and answers 0 for "nothing to offer yet" when a
+-- piece is missing or unworkable.
+function planner.max_beacon_count(choices, beacon)
+  local recipe = choices.recipe and prototypes.recipe[choices.recipe]
+  local machine = choices.machine and prototypes.entity[choices.machine]
+  local recycler = choices.recycler and prototypes.entity[choices.recycler]
+  if not (recipe and machine and recycler and beacon) then return 0 end
+  local orientation = planner.recycler_orientation(recycler)
+  if not orientation then return 0 end
+  local machine_height = machine.tile_height
+  if planner.needs_pipe(recipe) then
+    local fluid_orientation = planner.machine_fluid_orientation(machine)
+    if not fluid_orientation then return 0 end
+    machine_height = fluid_orientation.height
+  end
+  return layout.max_beacon_count(machine_height, orientation.height, beacon.tile_height)
+end
+
 -- Narrowest recycler the force can build that has a working rotation: the narrower it is, the
 -- more machines it can pair with, since the layout needs the machine strictly wider than it.
 function planner.best_recycler(force)
@@ -1122,6 +1143,13 @@ local function chosen_beacon_module(force, choices, beacon)
   return planner.beacon_module(force, beacon)
 end
 
+-- The count is clamped, never refused: a remembered pick can outlive the geometry that
+-- offered it (a taller machine, a different beacon), and the honest read is "as many as
+-- still fit" -- floored at one, since a chosen beacon always stands at least itself.
+local function chosen_beacon_count(choices, max)
+  return math.max(1, math.min(choices.beacon_count or 1, max))
+end
+
 -- The inserter follows the belt's pattern with one addition: a pick can be individually
 -- inadequate. Filter slots are needed one per ingredient, so a modded recipe can outgrow an
 -- otherwise perfectly good inserter -- and quietly building the loop out of a different one
@@ -1232,31 +1260,43 @@ local function electric_consumers(entities)
   return out
 end
 
--- Whether one beacon, standing where layout.build stands it -- layout.beacon_offset is the
--- one owner of that position, so this cannot drift from the built plan -- reaches both
--- footprints. The measured rule (tests/beacon_spec.lua): the supply area is the beacon's
--- collision box expanded by the supply distance on every side, and a receiver counts on
--- collision-box overlap. Margins shrink both boxes like the pole pass's stand-ins, so the
--- answer can under-promise -- an over-honest warning -- but never claim reach the game would
--- not deliver. Plain values in, so a spec can exercise shapes no installed mod ships; the
+-- Whether the beacon stack, standing where layout.build stands it -- layout.beacon_offsets
+-- is the one owner of those positions, so this cannot drift from the built plan -- reaches
+-- both footprints: SOME beacon reaches the machine and SOME reaches the recycler, not
+-- necessarily the same one, which is the point of a stack whose ends sit nearer one receiver
+-- each. The measured rule (tests/beacon_spec.lua): the supply area is a beacon's collision
+-- box expanded by the supply distance on every side, and a receiver counts on collision-box
+-- overlap. Margins shrink both boxes like the pole pass's stand-ins, so the answer can
+-- under-promise -- an over-honest warning -- but never claim reach the game would not
+-- deliver. Plain values in, so a spec can exercise shapes no installed mod ships; the
 -- recycler is nil on the terminal tier, whose band is the machine alone.
-function planner.beacon_reach(beacon, machine, recycler, fluid)
-  local bx, by = layout.beacon_offset(machine.height, recycler and recycler.height,
-    beacon, fluid)
+function planner.beacon_reach(beacon, machine, recycler, fluid, count)
+  local offsets = layout.beacon_offsets(machine.height, recycler and recycler.height,
+    beacon, fluid, count or 1)
   local m, s = beacon.margin, beacon.supply
-  local x0, y0 = bx + m - s, by + m - s
-  local x1, y1 = bx + beacon.width - m + s, by + beacon.height - m + s
-  -- The pole pass's own overlap rule -- strict inequalities, touching covers nothing -- with
-  -- the beacon's expanded square as the first box.
-  local function reaches(tx0, ty0, tx1, ty1)
-    return poles.overlap(x0, y0, x1, y1, tx0, ty0, tx1, ty1)
-  end
   local mm = machine.margin
-  if not reaches(mm, mm, machine.width - mm, machine.height - mm) then return false end
-  if not recycler then return true end
-  local rm = recycler.margin
-  return reaches(rm, machine.height + rm,
-    recycler.width - rm, machine.height + recycler.height - rm)
+  local machine_ok, recycler_ok = false, recycler == nil
+  for _, o in pairs(offsets) do
+    -- The pole pass's own overlap rule -- strict inequalities, touching covers nothing --
+    -- with this beacon's expanded square as the first box.
+    local x0, y0 = o.dx + m - s, o.dy + m - s
+    local x1, y1 = o.dx + beacon.width - m + s, o.dy + beacon.height - m + s
+    local function reaches(tx0, ty0, tx1, ty1)
+      return poles.overlap(x0, y0, x1, y1, tx0, ty0, tx1, ty1)
+    end
+    if not machine_ok and reaches(mm, mm, machine.width - mm, machine.height - mm) then
+      machine_ok = true
+    end
+    if recycler and not recycler_ok then
+      local rm = recycler.margin
+      if reaches(rm, machine.height + rm,
+        recycler.width - rm, machine.height + recycler.height - rm) then
+        recycler_ok = true
+      end
+    end
+    if machine_ok and recycler_ok then break end
+  end
+  return machine_ok and recycler_ok
 end
 
 -- Poles stand on a FINISHED layout, but where they CAN stand is part of that layout -- so the
@@ -1427,13 +1467,21 @@ function planner.plan(force, choices, gathered)
   -- all, leaving layout.build's own floor clamp as the only thing that can widen a column.
   local pole_name, pole_quality = chosen_pole(force, choices)
   local pole = pole_name and prototypes.entity[pole_name]
-  -- A beacon plan floors every column at the beacon's width already, so a pole column only
-  -- costs more when the pole is the wider of the two -- the beacon's own ground is free
-  -- standing room for a pole that fits beside it.
   local beacon_name, beacon_quality = chosen_beacon(choices)
   local beacon = beacon_name and prototypes.entity[beacon_name]
-  local pole_gap = (#fluids == 1 and 1 or 0)
-    + math.max(pole and pole.tile_width or 0, beacon and beacon.tile_width or 0)
+  -- The player's count, floored at one and capped to what the pair leaves standing room for.
+  -- validate() computes the same clamp from its own locals; plan() re-derives it because it
+  -- is also called directly, without validate() having run first.
+  local beacon_count = beacon and chosen_beacon_count(choices,
+    math.max(layout.max_beacon_count(machine_footprint.height, orientation.height,
+      beacon.tile_height), 1)) or nil
+  -- The pole's lane is added BESIDE the beacon's width rather than sharing it: a full-height
+  -- stack can leave the beacon's column without a single free row, and the sum reserves the
+  -- pole ground the stack cannot take. Only ever paid where it buys coverage --
+  -- plan_with_poles reads this width on no attempt before the compact one has left a
+  -- consumer dark, and every covering plan stays exactly as wide as before.
+  local pole_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
+    + (beacon and beacon.tile_width or 0)
 
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
@@ -1459,9 +1507,11 @@ function planner.plan(force, choices, gathered)
     overflow = r.overflow,
     -- Off unless the player picked one: the beacon has no researched-best default, because it
     -- costs a column of width per tier and its transmittable modules trade against the quality
-    -- rolls the loop exists for. Footprint and slots resolved per prototype like the machine's.
+    -- rolls the loop exists for. Footprint and slots resolved per prototype like the machine's;
+    -- the count stacks that footprint vertically, so it costs rows, never width.
     beacon = beacon
       and footprint_of(beacon, beacon_quality, defines.inventory.beacon_modules) or nil,
+    beacon_count = beacon_count,
     -- One pair per module, or nil for "leave that machine empty" -- which only ever happens to
     -- the terminal one, and for "place the beacon empty".
     modules = {
@@ -1653,14 +1703,18 @@ function planner.validate(force, choices)
   -- The beacon is optional and defaults to off, so everything about it only runs on a pick.
   -- Its module answers to the beacon alone -- no recipe, a beacon crafts nothing -- and a
   -- beacon taller than the interior rows would poke through the ring belts, which layout.build
-  -- clamps against and this refuses honestly instead.
+  -- clamps against and this refuses honestly instead: max_beacon_count of zero is exactly
+  -- that case, and the count the player asked for clamps to the same max plan() uses.
   local beacon_name, beacon_quality = chosen_beacon(choices)
   local beacon = beacon_name and prototypes.entity[beacon_name]
-  local beacon_module
+  local beacon_module, beacon_count
   if beacon then
-    if beacon.tile_height > layout.interior_height(machine_height, orientation.height) then
+    local beacon_max = layout.max_beacon_count(machine_height, orientation.height,
+      beacon.tile_height)
+    if beacon_max == 0 then
       return false, { "upl-message.beacon-too-tall", beacon.localised_name }
     end
+    beacon_count = chosen_beacon_count(choices, beacon_max)
     beacon_module = chosen_beacon_module(force, choices, beacon)
     if beacon_module then
       local beacon_refusal = module_refusal(prototypes.item[beacon_module], { beacon }, nil)
@@ -1727,19 +1781,19 @@ function planner.validate(force, choices)
     return true, { "upl-message.no-pole-researched" }, r
   end
 
-  -- A beacon whose supply cannot span its tier's machine+recycler pair from the column is a
-  -- warning, not a refusal: the loop runs fine, the beacon just reaches less than the player
-  -- expects. Only the pair band needs checking -- the terminal beacon centres on the machine
-  -- alone, a strictly easier reach from the same column. Unreachable in vanilla, whose beacon
-  -- covers the tallest eligible pair with room to spare; a modded short-reach beacon is who
-  -- this is for.
+  -- A stack whose supply cannot span its tier's machine+recycler pair from the column is a
+  -- warning, not a refusal: the loop runs fine, the beacons just reach less than the player
+  -- expects. Some beacon must reach each receiver, not every beacon both. Only the pair band
+  -- needs checking -- the terminal stack centres on the machine alone, a strictly easier
+  -- reach from the same column. Unreachable in vanilla, whose beacon covers the tallest
+  -- eligible pair with room to spare; a modded short-reach beacon is who this is for.
   if beacon and not planner.beacon_reach(
     { width = beacon.tile_width, height = beacon.tile_height,
       margin = consumer_margin(beacon),
       supply = beacon.get_supply_area_distance(beacon_quality) },
     { width = machine_width, height = machine_height, margin = consumer_margin(machine) },
     { width = orientation.width, height = orientation.height, margin = consumer_margin(recycler) },
-    #fluids == 1)
+    #fluids == 1, beacon_count)
   then
     return true, { "upl-message.beacon-out-of-reach", beacon.localised_name }, r
   end

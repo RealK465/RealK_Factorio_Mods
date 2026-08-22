@@ -229,42 +229,54 @@ Three policy owners, and they are different:
   plan first and only keeps a column a pole turned out to need — the ladder is in `poles.md`
   § "Choosing the columns". That is why a plan can come back with columns before tiers 3 and 4
   and nothing before 1, 2 and 5. On a beacon plan `pole_gap` is
-  `fluid_extra + max(pole width, beacon width)`, since the beacon's own ground is standing
-  room for any pole that fits beside it.
+  `fluid_extra + pole width + beacon width` — the pole's own lane beside the stack's ground,
+  not shared with it, because a full-height beacon stack can leave the column without a single
+  free row. The sum is only ever paid where it buys coverage: the ladder reads `pole_gap` on
+  no attempt before the compact one has left a consumer dark.
 
 The built plan reports the columns that actually opened (`utility_columns`, each naming its
 own `tier`), and the pole pass places into them first (`poles.md`). The columns change no row
 and sit outside every tier column, so the recycler stays tangent under its machine and the
 eject reasoning above is untouched.
 
-## Beacons — one per tier, in the column, off by default
+## Beacons — a stack per tier, in the column, off by default
 
-Added 2026-08-22, opt-in from the Build options strip: no beacon is planned unless the player
-picks one. When one is picked, **every tier's utility column floors at the beacon's width and
-stands one beacon**:
+Added 2026-08-22 (one per tier), stacking the same day: opt-in from the Build options strip,
+no beacon planned unless the player picks one. When one is picked, **every tier's utility
+column floors at the beacon's width and stands a vertical stack of `beacon_count` beacons**,
+default one, capped at `layout.max_beacon_count = floor(interior_height / Hb)` — vanilla
+shapes take four:
 
-- **x**: flush against the tier column — `x0(k) - Wb`, or `x0(k) - 1 - Wb` on a fluid plan,
-  since the pipe run keeps the column's east edge and the beacon stands west of it.
-- **y**: centred on the machine+recycler band, `ROW_MACHINE + floor((Hm + Hr - Hb) / 2)`; the
-  terminal tier has no recycler and centres on the machine alone. Clamped to the interior rows
-  (harvest through unload) so a modded-tall beacon cannot poke into the ring belts; one taller
-  than the whole interior is refused (`beacon-too-tall`).
-- **Why beside the band's middle**: the supply area is the beacon's collision box expanded by
-  `supply_area_distance` on every side — measured, `api.md` §25 — so from there the square
-  spans both footprints of the vanilla pair with room to spare. A modded short-reach beacon
-  that cannot span its pair warns (`beacon-out-of-reach`), never refuses: the loop still runs.
-- **Modules**: every slot filled with the picked beacon module, defaulting to the strongest
-  researched efficiency module — speed transmits its negative quality component to everything
-  covered (`api.md` §25), the opposite of this loop's purpose — or planned empty on an explicit
-  clear. The insert plan targets `defines.inventory.beacon_modules`, carried on the entity
-  record as `module_inventory` because this file's Lua also runs on the host interpreter.
+- **x**: every beacon flush against the tier column — `x0(k) - Wb`, or `x0(k) - 1 - Wb` on a
+  fluid plan, since the pipe run keeps the column's east edge and the stack stands west of it.
+  The count never touches x, which is what "stacking costs no width" means structurally.
+- **y**: the stack centres as one rigid block on the machine+recycler band —
+  `layout.beacon_offsets` returns `ROW_MACHINE + floor((Hm + Hr - n*Hb) / 2) + (i-1)*Hb`; the
+  terminal tier has no recycler and centres on the machine alone. The whole block clamps into
+  the interior rows (harvest through unload) with one shift, so it stays contiguous — clamping
+  each beacon alone would pile them onto one row. A beacon taller than the whole interior is
+  refused (`beacon-too-tall`, exactly `max_beacon_count == 0`); an over-asked count clamps to
+  the max, never refuses.
+- **Why the band's middle**: the supply area is a beacon's collision box expanded by
+  `supply_area_distance` on every side — measured, `api.md` §25 — so the centred block's
+  squares span both footprints of the vanilla pair with room to spare. The reach check is per
+  receiver: some beacon must reach the machine and some the recycler, not every beacon both —
+  a stack's ends sit nearer one receiver each. A short-reach stack warns
+  (`beacon-out-of-reach`), never refuses: the loop still runs.
+- **Modules**: every slot of every beacon filled with the picked beacon module, defaulting to
+  the strongest researched efficiency module — speed transmits its negative quality component
+  to everything covered (`api.md` §25), the opposite of this loop's purpose — or planned empty
+  on an explicit clear. The insert plan targets `defines.inventory.beacon_modules`, carried on
+  the entity record as `module_inventory` because this file's Lua also runs on the host
+  interpreter; one shared plan table serves the whole stack.
 - **Power and obstacles come free**: a beacon has an electric energy source, so
   `electric_consumers` counts it and the pole pass covers and avoids it through the same
   generic scans as a machine — `poles.lua` carries no beacon-aware code (its one change
-  exports the shared overlap primitive), and a pure spec pins that.
+  exports the shared overlap primitive), and pure specs pin both the claim and the full-column
+  fallback. The pole's lane beside the stack is `pole_gap`'s business, one section up.
 
-Width cost: `+Wb` per tier — vanilla rare gears go 11 → 20. `W` formula unchanged; the beacon
-is just a floor on `G_k`.
+Width cost: `+Wb` per tier whatever the count — vanilla rare gears go 11 → 20 at any stack
+height. `W` formula unchanged; the beacon is just a floor on `G_k`.
 
 ## Fluid recipes — per-column runs, tapped from outside
 

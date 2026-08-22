@@ -118,6 +118,7 @@ describe("the modal", function()
     widget({ "upl-options", "upl-modules-strip", "upl-terminal-module" })
     widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
     widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
+    widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" })
     widget({ "upl-options", "upl-power-strip", "upl-pole" })
     assert(widget({ "upl-options", "upl-trash" }).state == true, "trash defaults checked")
 
@@ -309,8 +310,57 @@ describe("the modal", function()
     local module_button = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
     local shown = module_button.elem_value
     assert(shown and shown.name == "efficiency-module-3", "the default is not on the strip")
+    -- The count dropdown comes out with the pick too, offering exactly what fits: the vanilla
+    -- pair leaves 13 interior rows, four 3-tall beacons.
+    local dropdown = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" })
+    assert(dropdown.visible == true, "the count dropdown must show once a beacon is chosen")
+    assert(#dropdown.items == 4, "count options " .. #dropdown.items .. ", expected 4")
+    assert(dropdown.selected_index == 1, "the count must default to one")
+    assert(choices().beacon_count == 1, "the default count must be recorded")
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
       "Place disabled by a beacon pick")
+  end)
+
+  test("the beacon count stores a plain number, read from the dropdown's own tags", function()
+    open_with_gears()
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
+    beacon.elem_value = { name = "beacon", quality = "normal" }
+    fire(beacon)
+
+    local dropdown = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" })
+    dropdown.selected_index = 3
+    fire(dropdown, defines.events.on_gui_selection_state_changed)
+    assert(choices().beacon_count == 3, "the count pick did not take")
+    assert(type(choices().beacon_count) == "number", "the count must store as a plain number")
+    -- gui.refresh, not gui.open: a count changes no other picker's options, so the widget
+    -- must survive its own pick -- the quality dropdown's behaviour.
+    assert(dropdown.valid, "a count pick rebuilt the modal")
+  end)
+
+  test("a remembered count that outgrew the geometry snaps down on open", function()
+    open_with_gears()
+    local beacon = widget({ "upl-options", "upl-beacons-strip", "upl-beacon" })
+    beacon.elem_value = { name = "beacon", quality = "normal" }
+    fire(beacon)
+    choices().beacon_count = 99
+    gui.open(player())
+    assert(choices().beacon_count == 4,
+      "count " .. tostring(choices().beacon_count) .. ", expected the snap to the max of 4")
+    assert(widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" }).selected_index == 4,
+      "the dropdown must show the snapped count")
+  end)
+
+  test("a recycler pick rebuilds the modal, so the count list follows its height", function()
+    -- The count dropdown's item list is derived at build time from the recycler's rotated
+    -- height, so the recycler handler must gui.open like the machine's, never just refresh.
+    -- Pinned structurally: any widget from before the pick must die with the rebuild.
+    open_with_gears()
+    local button = widget({ "upl-content", "upl-table", "upl-recycler" })
+    local before = widget({ "upl-options", "upl-power-strip", "upl-pole" })
+    button.elem_value = { name = "recycler", quality = "rare" }
+    fire(button)
+    assert(choices().recycler_quality == "rare", "the recycler quality did not take")
+    assert(not before.valid, "a recycler pick must rebuild the modal")
   end)
 
   test("clearing the beacon means none, keeps its quality, and hides the module picker", function()
@@ -702,6 +752,11 @@ describe("the modal", function()
         "the beacons group must be shown under show-all")
       assert(widget({ "upl-options", "upl-beacons-label" }).visible == true,
         "the beacons caption must be shown with its row")
+      -- With no beacon chosen the count list holds the lone "1"; show-all overrides the
+      -- one-option-is-no-choice rule here as it does everywhere, so it shows anyway.
+      local count = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" })
+      assert(count.visible == true, "show-all must reveal the count dropdown too")
+      assert(#count.items == 1, "with no beacon chosen the count list must hold only the 1")
       -- And it reverses: the same path, from the settings menu's side of the setting.
       player().mod_settings[gui.SHOW_ALL_OPTIONS_SETTING] = { value = false }
       after_ticks(2, function()
