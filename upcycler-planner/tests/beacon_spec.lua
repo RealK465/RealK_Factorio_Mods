@@ -120,10 +120,20 @@ describe("beacon module inventory in blueprints", function()
       position = { x = RIG.x + 10, y = RIG.y + 10 },
       build_mode = defines.build_mode.forced,
     })
-    assert(#ghosts == 1, "stamped " .. #ghosts .. " ghosts, expected the beacon alone")
-    created[#created + 1] = ghosts[1]
+    -- The graphics tier stamps onto a real freeplay map, and a forced build can return
+    -- map-dependent extras beside the beacon (seen once on 2.0.77, one seed in many). The
+    -- measurement is the beacon's insert plan, so find that ghost rather than pin the count.
+    local beacon_ghost
+    for _, g in pairs(ghosts) do
+      if g.type == "entity-ghost" and g.ghost_name == "beacon" then
+        assert(not beacon_ghost, "two beacon ghosts from a one-beacon blueprint")
+        beacon_ghost = g
+      end
+      created[#created + 1] = g
+    end
+    assert(beacon_ghost, "the stamp created no beacon ghost")
 
-    local plan = ghosts[1].insert_plan
+    local plan = beacon_ghost.insert_plan
     assert(#plan == 1, "ghost insert plan entries " .. #plan)
     assert(plan[1].id.name == "speed-module-3", "ghost insert plan carries "
       .. tostring(plan[1].id.name))
