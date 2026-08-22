@@ -320,6 +320,66 @@ describe("modules the machine and recipe accept", function()
   end)
 end)
 
+describe("the beacon and its module", function()
+  before_all(function() research.full(force()) end)
+
+  test("membership and the offered list", function()
+    assert(planner.is_beacon("beacon"), "the vanilla beacon must be a candidate")
+    assert(not planner.is_beacon("medium-electric-pole"), "a pole is not a beacon")
+    assert(util.list_to_map(planner.beacons())["beacon"], "the picker list must offer the beacon")
+  end)
+
+  test("the beacon takes speed and efficiency, refuses quality and productivity", function()
+    -- The S16 rule with the beacon as the holder and a nil recipe -- modules_for and
+    -- module_fits serve the beacon through the same nil-recipe convention module_refusal
+    -- established, so there is no beacon-only copy to drift. The premise is asserted so a
+    -- vanilla retune of allowed_effects fails loudly here.
+    local beacon = prototypes.entity["beacon"]
+    assert(not beacon.allowed_effects["quality"], "test premise: the beacon must refuse quality")
+    local offered = util.list_to_map(planner.modules_for(beacon))
+    assert(offered["speed-module-3"] and offered["efficiency-module-3"],
+      "speed and efficiency must be offered")
+    assert(not offered["quality-module-3"], "a quality module can never enter a vanilla beacon")
+    assert(not offered["productivity-module-3"], "nor can a productivity module")
+    assert(planner.module_fits("speed-module", beacon), "fits must agree with the list")
+    assert(not planner.module_fits("quality-module", beacon), "fits let quality through")
+    assert(not planner.module_fits("iron-plate", beacon), "a plain item is not a module")
+    assert(not planner.module_fits(nil, beacon), "nothing chosen fits nothing")
+  end)
+
+  test("the beacon module default is the strongest researched efficiency module", function()
+    -- Never speed: its negative quality side effect transmits to everything the beacon
+    -- reaches, and this loop exists to roll quality. Scored by effect, not category name.
+    assert(planner.beacon_module(force(), prototypes.entity["beacon"]) == "efficiency-module-3",
+      "the default must be the strongest efficiency module")
+  end)
+
+  test("beacon_reach: the measured edge rule as pure maths", function()
+    -- Vanilla numbers: margins 0.3, the beacon flush against its tier column. The measured
+    -- rule (tests/beacon_spec.lua) is collision box grown by the supply distance, overlap
+    -- counts -- so vanilla's supply of 3 covers the pair easily, and the failure cases need
+    -- either a tiny supply or a modded-tall recycler.
+    local machine = { width = 3, height = 3, margin = 0.3 }
+    local recycler = { width = 2, height = 4, margin = 0.3 }
+    local function beacon(supply)
+      return { width = 3, height = 3, margin = 0.3, supply = supply }
+    end
+    assert(planner.beacon_reach(beacon(3), machine, recycler, false),
+      "vanilla reach must cover the vanilla pair")
+    assert(planner.beacon_reach(beacon(3), machine, recycler, true),
+      "the pipe's one-tile shift must not break vanilla reach")
+    assert(planner.beacon_reach(beacon(3), machine, nil, false),
+      "the terminal band is the easier case and must pass")
+    assert(not planner.beacon_reach(beacon(0.5), machine, recycler, false),
+      "a supply shorter than the gap to the machine cannot reach")
+    -- A modded-tall recycler pushes the band's centre far from both ends: covering the middle
+    -- of the band is not covering the pair, which is why the check tests both boxes.
+    assert(not planner.beacon_reach(beacon(3), machine,
+      { width = 2, height = 20, margin = 0.3 }, false),
+      "a 20-tall recycler must put the pair out of a vanilla beacon's reach")
+  end)
+end)
+
 describe("the chest roles", function()
   before_all(function() research.full(force()) end)
 
@@ -437,6 +497,20 @@ describe("validate", function()
     assert(refusal({ recycler = NONE }) == "upl-message.no-recycler", "missing recycler")
     assert(refusal({ recycler = "assembling-machine-1" }) == "upl-message.no-recycler",
       "non-recycler in the recycler slot")
+  end)
+
+  test("a beacon pick validates clean; a refused module names the beacon; stale reads as off", function()
+    local ok, message = planner.validate(force(), choices_with({ beacon = "beacon" }))
+    assert(ok == true, "a plain beacon pick must validate")
+    assert(message == nil, "unexpected warning: " .. tostring(message and message[1]))
+    -- The module answers to the beacon alone -- and a vanilla beacon refuses quality modules
+    -- outright, so a remembered pick from a departed modded beacon must be named, not planned.
+    assert(refusal({ beacon = "beacon", beacon_module = "quality-module-3" })
+      == "upl-message.module-not-accepted", "the beacon must refuse a quality module by name")
+    -- A stale or wrong-kind beacon name means off, never a substitute or a refusal.
+    local stale_ok, stale_message = planner.validate(force(),
+      choices_with({ beacon = "stone-wall" }))
+    assert(stale_ok == true and stale_message == nil, "a stale beacon must read as off")
   end)
 
   test("a recipe no inserter can filter blames the recipe, picked or not", function()

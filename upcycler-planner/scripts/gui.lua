@@ -1,16 +1,18 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
 -- four chests, the quality module, the top machine's own module, the electric pole, the pipe,
--- and whether the chests trash their surplus.
+-- the beacon and its module, and whether the chests trash their surplus.
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
 -- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an
 -- alternative brings each of them back. Five pickers are exempt because they are the choice
 -- whatever the count -- item, target quality, machine, belt, quality module -- and two more
--- because clearing them IS the second option: the pole ("no poles") and the top machine's module
--- ("leave it empty"). The pipe has one more condition of its own: it is out of the strip entirely
--- until the recipe takes a fluid. The four chests go the other way and are hidden whatever the
--- count -- see the loop that builds them.
+-- because clearing them IS the second option: the pole ("no poles") and the top machine's
+-- module ("leave it empty"). The pipe has one more condition of its own: it is out of the
+-- strip entirely until the recipe takes a fluid. The four chests go the other way and are
+-- hidden whatever the count -- see the loop that builds them -- and the beacon and its module
+-- go with them: hidden whatever the count and whatever is researched, revealed by show-all,
+-- and kept visible once a beacon is actually chosen (beacon_visible below).
 --
 -- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
 -- the titlebar's settings button is pressed. It holds the two per-player settings the pickers
@@ -241,6 +243,12 @@ local function pole_filters(player)
     { { filter = "type", type = "electric-pole" } })
 end
 
+-- A names list rather than a type filter, for the chests' reason: show-all with a bare type
+-- filter would offer slot-less and unplaceable beacons the planner refuses to plan with.
+local function beacon_options(player)
+  return offered(player, planner.beacons(), planner.buildable)
+end
+
 -- The pair the top machine's module has to satisfy. Either half missing means there is nothing to
 -- ask yet -- the modal opens before an item is picked -- so callers fall back rather than guess.
 local function chosen_pair(choices)
@@ -279,6 +287,37 @@ local function resolve_terminal_module(player, choices)
   if not machine then return end
   if planner.module_fits(choices.terminal_module, machine, recipe) then return end
   choices.terminal_module = planner.terminal_module(player.force, machine, recipe)
+end
+
+-- What the beacon's module picker offers: the modules the chosen beacon accepts, every module
+-- before one is chosen -- the terminal module's own fallback shape, minus the recipe half a
+-- beacon does not have.
+local function beacon_module_options(player, choices)
+  local beacon = choices.beacon and prototypes.entity[choices.beacon]
+  local names = beacon and planner.modules_for(beacon) or planner.modules()
+  return offered(player, names, planner.unlocked)
+end
+
+-- BOTH beacon pickers are hidden by default, whatever the count and whatever is researched
+-- (owner's call, 2026-08-22, the chests' direction): a beacon is an opt-in extra, and a
+-- picker apiece in the default strip reads as a decision every player has to make. Show-all
+-- reveals them, and a CHOSEN beacon keeps them visible with show-all off again -- the opt-in
+-- stays on display and clearable, never a hidden passenger in the plan.
+local function beacon_visible(player, choices)
+  if show_all_options(player) then return true end
+  return choices.beacon ~= nil
+end
+
+-- The beacon's module follows the beacon under it, resolve_terminal_module's shape: a pick the
+-- beacon refuses is replaced by the default, an untouched picker follows the beacon, and an
+-- explicit clear survives both. The beacon itself is never defaulted -- off is its resting
+-- state -- so there is nothing to resolve until one is picked.
+local function resolve_beacon_module(player, choices)
+  if choices.no_beacon_module then return end
+  if not (choices.beacon and planner.is_beacon(choices.beacon)) then return end
+  local beacon = prototypes.entity[choices.beacon]
+  if planner.module_fits(choices.beacon_module, beacon) then return end
+  choices.beacon_module = planner.beacon_module(player.force, beacon)
 end
 
 -- The list the dropdown was BUILT from rides in its tags: research can finish while the
@@ -471,6 +510,9 @@ local function apply_defaults(player, choices)
 
   -- Nothing to resolve until an item is picked, so this is safe before the recipe exists.
   resolve_terminal_module(player, choices)
+  -- And nothing to resolve until a beacon is picked -- choices.beacon itself is deliberately
+  -- never defaulted here, which is the whole of "beacons are off by default".
+  resolve_beacon_module(player, choices)
   return offered_targets
 end
 
@@ -703,6 +745,27 @@ function gui.open(player)
   })
   pipe_button.elem_value = choices.pipe
   pipe_button.visible = pipe_visible(player, choices, pipe_names)
+
+  -- The beacon: one per tier when picked, off until then -- and hidden with its module picker
+  -- until show-all or an actual pick brings the pair out (beacon_visible above).
+  local beacon_button = strip.add({
+    type = "choose-elem-button", name = "upl-beacon", elem_type = "entity-with-quality",
+    elem_filters = name_filter(beacon_options(player)),
+    tooltip = titled_tooltip("beacon"),
+    tags = dispatch.tags("beacon"),
+  })
+  beacon_button.elem_value = with_quality(choices.beacon, choices.beacon_quality)
+  beacon_button.visible = beacon_visible(player, choices)
+
+  local beacon_module_button = strip.add({
+    type = "choose-elem-button", name = "upl-beacon-module", elem_type = "item-with-quality",
+    elem_filters = name_filter(beacon_module_options(player, choices)),
+    tooltip = titled_tooltip("beacon-module"),
+    tags = dispatch.tags("beacon-module"),
+  })
+  beacon_module_button.elem_value =
+    with_quality(choices.beacon_module, choices.beacon_module_quality)
+  beacon_module_button.visible = beacon_visible(player, choices)
 
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
@@ -1041,6 +1104,53 @@ dispatch.register("pole", function(event)
   -- poles", and the empty button showing nothing is exactly that state on display.
   choices.no_poles = not value
   if value then choices.pole_quality = planner.build_quality(value.quality) end
+  if settled() then return end
+  gui.refresh(game.get_player(event.player_index))
+end)
+
+dispatch.register("beacon", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  -- The terminal module's guard, same reason: with no real beacon candidate in the modset the
+  -- picker is unfiltered, and a non-beacon pick would sit in the strip while chosen_beacon
+  -- silently read it as off. Reachable only when every beacon is slot-less or unplaceable.
+  if value and not planner.is_beacon(value.name) then
+    event.element.elem_value = with_quality(choices.beacon, choices.beacon_quality)
+    return
+  end
+  local picked = value and value.name
+  -- Clearing keeps the quality, the machine handler's reasoning.
+  local quality = value and planner.build_quality(value.quality)
+    or planner.build_quality(choices.beacon_quality)
+  -- Unchanged means a click rather than a pick, and rebuilding on a click destroys the chooser
+  -- the click just opened -- see the machine handler.
+  if picked == choices.beacon and quality == planner.build_quality(choices.beacon_quality) then
+    return
+  end
+  choices.beacon = picked
+  if value then choices.beacon_quality = quality end
+  -- The beacon-module picker's options and visibility both follow this pick, and gui.open is
+  -- what re-derives them -- the machine handler's reason for a full rebuild.
+  gui.open(player)
+end)
+
+dispatch.register("beacon-module", function(event)
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  -- The terminal module's guard, same reason: an empty option list leaves the picker
+  -- unfiltered, and a non-module pick would ride into an insert plan nothing ever fills.
+  if value and not planner.is_module(value.name) then
+    event.element.elem_value =
+      with_quality(choices.beacon_module, choices.beacon_module_quality)
+    return
+  end
+  local settled =
+    settled_on(choices, "beacon_module", "beacon_module_quality", "no_beacon_module")
+  choices.beacon_module = value and value.name
+  -- The terminal module's rule: an emptied picker means "place the beacon empty".
+  choices.no_beacon_module = not value
+  if value then choices.beacon_module_quality = planner.build_quality(value.quality) end
   if settled() then return end
   gui.refresh(game.get_player(event.player_index))
 end)

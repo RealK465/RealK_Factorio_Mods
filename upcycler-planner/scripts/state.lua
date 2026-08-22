@@ -59,6 +59,10 @@ function state.prune()
     end
     -- c.no_poles is a plain boolean, never a prototype reference -- nothing to prune there.
     if c.pole and not planner.is_pole(c.pole) then c.pole = nil end
+    -- A pruned beacon simply reads as off -- it has no default to fall back to. Its module is
+    -- membership-only like the terminal module's; c.no_beacon_module is a boolean, left alone.
+    if c.beacon and not planner.is_beacon(c.beacon) then c.beacon = nil end
+    if c.beacon_module and not planner.is_module(c.beacon_module) then c.beacon_module = nil end
     if c.inserter and not planner.is_inserter(c.inserter) then c.inserter = nil end
     -- Membership only: whether the MACHINE and RECIPE accept it is validate's business, and a
     -- prune that guessed at it would silently drop a pick the modal is about to explain.

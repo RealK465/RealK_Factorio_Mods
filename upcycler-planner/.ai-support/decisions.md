@@ -256,6 +256,13 @@ per-release approval.
   option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
   of the request. The pipe carries one extra condition of its own: it stays out of the strip until
   the chosen recipe takes a fluid, since it plumbs nothing otherwise.
+  **The beacon and its module go the chests' way, and further** (owner's call, 2026-08-22,
+  same session the pickers landed): hidden by default whatever the count **and whatever is
+  researched** — a beacon is an opt-in extra, and a beacon button in the default strip reads
+  as a decision every player has to make before pressing Place. Show-all reveals the pair, and
+  a *chosen* beacon keeps both pickers visible with show-all off again, so the opt-in stays on
+  display and clearable rather than riding the plan as a hidden passenger. One predicate
+  (`beacon_visible`) serves both buttons; clearing the beacon returns the pair to hidden.
   **The chests are the exception the other way** (owner's call, 2026-08-18): all four are
   hidden whatever the count, so the buffer goes even though wooden, iron and steel are a real
   choice. The default — the largest inventory the force has researched — is the right answer
@@ -457,6 +464,31 @@ per-release approval.
   `analysis/poles.md`, engine facts in `analysis/api.md` §10. **Coverage counts only the
   largest wired component** — geometric coverage alone would call a consumer powered when its
   only pole sits on an unwired island, a lie that surfaces in game as a mystery.
+- **Beacons are planned in, opt-in, one per tier in the utility column** (the repo owner's
+  call, 2026-08-22: per-tier column placement, off by default, efficiency-module default).
+  When the player picks a beacon in Build options, every tier's column floors at the beacon's
+  width and stands one beacon centred on that tier's machine+recycler band — the machine alone
+  on the terminal tier — where its supply square spans both (the measured edge rule,
+  `analysis/api.md` §25; geometry in `analysis/layout-belt-ring.md` §Beacons). **Off by
+  default with no clear-flag**: unlike the pole there is no researched-best fallback, so nil
+  already means exactly one thing and `chosen_beacon` needs no `no_beacon` boolean — a beacon
+  costs a column of width per tier and its insertable modules trade against the quality rolls
+  the loop exists for, so it is never sprung on the player. **The module default is the
+  strongest researched efficiency module, never speed**: what a beacon transmits is gated by
+  the receiver's own `allowed_effects`, so a speed module's negative quality component lands on
+  every covered machine and recycler (§25) — the opposite of the mod's purpose — and the
+  picker's tooltip says so while leaving speed pickable. The module answers to the beacon alone
+  (no recipe half; `module_refusal` takes a nil recipe), clears to "place the beacon empty"
+  (`no_beacon_module`, the terminal module's shape), and re-resolves when the beacon changes.
+  **The pole pass carries no beacon-aware code**: a beacon has an electric energy source and a
+  tile footprint, so `electric_consumers` counts it and `occupied` avoids it through the same
+  generic scans as a machine — a pure spec pins the claim, and `poles.lua`'s one change is
+  exporting its overlap primitive for `beacon_reach` to share. `pole_gap` grows to
+  `max(pole width, beacon width)` since the beacon's column is standing room for a pole beside
+  it. **Warn, don't refuse, on short reach** (`beacon-out-of-reach`, unreachable in vanilla):
+  a beacon that cannot span its pair still leaves a working loop, the poles' own best-effort
+  philosophy. The one structural refusal is a beacon taller than the interior rows
+  (`beacon-too-tall`), which would poke through the ring belts.
 - **Fluid recipes are planned in** (2026-08-17, the promised 0.2.0 feature): a pipe run down
   each utility column's east edge, spanning the full interior height, with every machine
   rotated per prototype so a fluid input connection meets it
@@ -528,6 +560,9 @@ per-release approval.
   all. A recipe passing one while failing the other would carry an insert plan for a module it
   can never accept while the recyclers kept rolling ingredients up: a loop that limps rather
   than stops, which is the harder kind to diagnose.
+- **A beacon taller than the ring's interior rows** (`beacon-too-tall`), which would poke
+  through the ring belts — the beacon bullet under *What gets planned* carries the full
+  reasoning; short reach is a warning there, never a refusal.
 - **Anything whose only "producer" is a recycling or Factoriopedia-hidden recipe.** Researching
   `recycling` unlocks every generated `*-recycling` recipe at once, so a naive "some enabled
   recipe produces it" test reads unresearched modules and cheat-mod infinity chests as unlocked.

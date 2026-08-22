@@ -28,6 +28,18 @@ local function min_corner(list)
   return x, y
 end
 
+-- The dance alone, for callers that bring their own entity list -- the beacon measurement
+-- spec bypasses blueprint.entities on purpose, and must not re-own the stash mechanics.
+function stamp.place_entities(entities, options)
+  local inventory = game.create_inventory(1)
+  inventory.insert({ name = "blueprint", count = 1 })
+  local stack = inventory[1]
+  stack.set_blueprint_entities(entities)
+  local ghosts = stack.build_blueprint(options)
+  inventory.destroy()
+  return ghosts
+end
+
 -- Stamps the plan and returns the created ghosts plus the plan-to-world offset.
 function stamp.place(plan, surface, force, overrides)
   local entities = blueprint.entities(plan)
@@ -40,12 +52,7 @@ function stamp.place(plan, surface, force, overrides)
   }
   for key, value in pairs(overrides or {}) do options[key] = value end
 
-  local inventory = game.create_inventory(1)
-  inventory.insert({ name = "blueprint", count = 1 })
-  local stack = inventory[1]
-  stack.set_blueprint_entities(entities)
-  local ghosts = stack.build_blueprint(options)
-  inventory.destroy()
+  local ghosts = stamp.place_entities(entities, options)
 
   if #ghosts ~= #entities then return ghosts end
 

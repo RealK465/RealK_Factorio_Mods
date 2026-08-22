@@ -126,6 +126,7 @@ if script.active_mods["factorio-test"] then
     "tests.planner_spec",
     "tests.plan_spec",
     "tests.blueprint_spec",
+    "tests.beacon_spec",
     "tests.loop_spec",
     "tests.fluid_spec",
     "tests.gui_spec",

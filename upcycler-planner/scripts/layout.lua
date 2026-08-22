@@ -4,11 +4,11 @@
 -- geometry can be reasoned about without a running game.
 --
 -- The layout is one rectangular belt ring with a column of machinery per quality tier, and an
--- optional utility column before each of them sized to what lives in THAT one -- a pole, and
--- the pipe run when the recipe takes a fluid. The sizes arrive per tier, so a plan pays width
--- only where something stands. NOTHING is ever placed outside the ring: the ring rectangle IS
--- the plan's footprint, and the fluid network reaches the outside world only as underground
--- stubs beneath the ring belts.
+-- optional utility column before each of them sized to what lives in THAT one -- a pole, the
+-- pipe run when the recipe takes a fluid, and the beacon when the player asked for one. The
+-- sizes arrive per tier, so a plan pays width only where something stands. NOTHING is ever
+-- placed outside the ring: the ring rectangle IS the plan's footprint, and the fluid network
+-- reaches the outside world only as underground stubs beneath the ring belts.
 --
 --     row 0             top ring, flows west
 --         1             harvest inserters   | product belt | north pipe stub (fluid plans)
@@ -86,6 +86,28 @@ local function rows(machine_height, recycler_height)
   return r
 end
 
+-- The rows a utility-column occupant may stand in: harvest row through unload row, everything
+-- between the ring belts. Exported so the planner's beacon-height gate cannot drift from the
+-- row arithmetic above.
+function layout.interior_height(machine_height, recycler_height)
+  local r = rows(machine_height, recycler_height)
+  return r.unload_inserter - ROW_HARVEST + 1
+end
+
+-- Where a tier's beacon stands, relative to the tier column's start and the machine's top
+-- row: flush against the column (west of the pipe run when there is one), centred on the
+-- machine+recycler band -- recycler_height is nil on the terminal tier, whose band is the
+-- machine alone. Centring is what makes the supply square -- the collision box grown by the
+-- supply distance on every side (measured, tests/beacon_spec.lua) -- overlap both footprints.
+-- Exported for planner.beacon_reach, interior_height's own reason: the out-of-reach warning
+-- must not drift from the built position. The interior-row clamp for an over-band beacon
+-- stays in build below, which owns the row plan; reasoning from the unclamped centring is
+-- safe, since a beacon tall enough to clamp overlaps strictly more than its centred stand-in.
+function layout.beacon_offset(machine_height, recycler_height, beacon, fluid)
+  local band = machine_height + (recycler_height or 0)
+  return -(fluid and 1 or 0) - beacon.width, math.floor((band - beacon.height) / 2)
+end
+
 local function quality_filters(names, quality)
   local filters = {}
   for _, name in pairs(names) do
@@ -109,13 +131,17 @@ function layout.build(params)
   -- plan pays only where something stands; all zero collapses them and leaves the plan
   -- byte-identical to the pre-utility-column layout.
   local gaps, offsets = {}, {}
+  -- The floor no caller may collapse a column below: the pipe run needs its tile on a fluid
+  -- plan, and a beacon plan stands one beacon in every column, so the column is at least the
+  -- beacon wide -- plus the pipe's tile, since the run keeps the east edge and the beacon
+  -- stands west of it. Clamped here rather than in the planner so no caller can take away the
+  -- ground either is standing on. Zero when neither applies, and the plan stays byte-identical
+  -- to the beaconless one.
+  local gap_floor = (params.fluid and 1 or 0) + (params.beacon and params.beacon.width or 0)
   local next_col = 1
   for index = 1, #tiers do
     local gap = params.column_gaps and params.column_gaps[index] or 0
-    -- A fluid plan cannot run at gap zero: the pipe run needs its column, or the pipes would
-    -- land on the left ring belt. Clamped here rather than in the planner so no caller can
-    -- collapse a column the pipes are standing in.
-    if params.fluid and gap < 1 then gap = 1 end
+    if gap < gap_floor then gap = gap_floor end
     gaps[index] = gap
     offsets[index] = next_col + gap
     next_col = next_col + gap + pitch
@@ -194,6 +220,12 @@ function layout.build(params)
   -- which is why each entry names its own tier.
   local utility_columns = {}
 
+  -- Tier-invariant, hoisted: every tier's beacon carries the same insert plan, and a long
+  -- modded chain would otherwise build this table hundreds of times across the pole ladder's
+  -- attempts. Nothing downstream mutates a modules table, so sharing one is safe.
+  local beacon_modules = params.beacon
+    and module_slot(params.modules.beacon_module, params.beacon.module_slots)
+
   for index, quality in pairs(tiers) do
     local is_terminal = index == #tiers
     local col = offsets[index]
@@ -222,6 +254,25 @@ function layout.build(params)
         pipe(col_pipe, y)
       end
       pipe_to_ground(col_pipe, r.unload_inserter, NORTH)
+    end
+
+    -- One beacon per tier, at beacon_offset's shared position, clamped to the interior rows
+    -- so a modded beacon taller than the band cannot poke into the ring belts; one taller
+    -- than the whole interior is refused by validate before this runs.
+    if params.beacon then
+      local bdx, bdy = layout.beacon_offset(machine.height,
+        not is_terminal and recycler.height or nil, params.beacon, params.fluid ~= nil)
+      local dy = ROW_MACHINE + bdy
+      dy = math.max(ROW_HARVEST, math.min(dy, r.unload_inserter + 1 - params.beacon.height))
+      add({
+        name = params.beacon.name, quality = params.beacon.quality,
+        dx = col + bdx, dy = dy,
+        w = params.beacon.width, h = params.beacon.height,
+        -- Which inventory the module insert plan targets. Resolved by the planner -- this file
+        -- runs on the host interpreter too, where defines.inventory does not exist.
+        module_inventory = params.beacon.module_inventory,
+        modules = beacon_modules,
+      })
     end
 
     -- Quality modules have nothing left to roll into once the ingredients already are the
