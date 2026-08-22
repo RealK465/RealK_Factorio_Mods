@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-20
+verified: 2026-08-22
 ---
 # The belt-ring layout, generalised
 
@@ -69,6 +69,9 @@ stubs beneath the ring belts (§Fluid recipes below).
 - **pole width** where a pole column does open.
 - **at least 1** whenever the recipe takes a fluid, whatever the poles do — clamped inside
   `layout.build`, since the pipe run has to stand somewhere.
+- **at least the beacon's width** (plus the fluid tile) on a beacon plan — the same clamp, one
+  floor: `(fluid and 1 or 0) + beacon width`, every tier, because every tier stands a beacon
+  (§Beacons below).
 
 All zero collapses to the original `2 + t*P + Wm` (AM3 + vanilla recycler, rare: 11; the
 4-wide salvager under AM3: 13). Measured on 2.1.14 with the default medium pole: rare **11**
@@ -214,19 +217,54 @@ too, so the tier count is `t+1`. It reduces to the old `2 + (t+1)*G + t*P + Wm` 
 `G_k` is the same, and to the pre-column `2 + t*P + Wm` when they are all zero. Verified
 byte-identical to the uniform `column_gap` it replaced across 144 shapes (2026-08-20).
 
-Two policy owners, and they are different:
+Three policy owners, and they are different:
 
 - **A fluid plan clamps every `G_i` to at least 1**, inside `layout.build` itself, so no
   caller can collapse a column the pipe run is standing in.
+- **A beacon plan clamps every `G_i` to at least the beacon's width** (plus the fluid tile),
+  the same clamp generalised to one floor — a beacon stands in every tier's column, so no
+  caller can collapse the ground under it either. The ladder's compact attempt therefore never
+  truly reaches zero on a beacon plan, exactly as it never does on a fluid one.
 - **Which tiers open a pole column is solved, not assumed.** `planner.plan` tries the compact
   plan first and only keeps a column a pole turned out to need — the ladder is in `poles.md`
   § "Choosing the columns". That is why a plan can come back with columns before tiers 3 and 4
-  and nothing before 1, 2 and 5.
+  and nothing before 1, 2 and 5. On a beacon plan `pole_gap` is
+  `fluid_extra + max(pole width, beacon width)`, since the beacon's own ground is standing
+  room for any pole that fits beside it.
 
 The built plan reports the columns that actually opened (`utility_columns`, each naming its
 own `tier`), and the pole pass places into them first (`poles.md`). The columns change no row
 and sit outside every tier column, so the recycler stays tangent under its machine and the
 eject reasoning above is untouched.
+
+## Beacons — one per tier, in the column, off by default
+
+Added 2026-08-22, opt-in from the Build options strip: no beacon is planned unless the player
+picks one. When one is picked, **every tier's utility column floors at the beacon's width and
+stands one beacon**:
+
+- **x**: flush against the tier column — `x0(k) - Wb`, or `x0(k) - 1 - Wb` on a fluid plan,
+  since the pipe run keeps the column's east edge and the beacon stands west of it.
+- **y**: centred on the machine+recycler band, `ROW_MACHINE + floor((Hm + Hr - Hb) / 2)`; the
+  terminal tier has no recycler and centres on the machine alone. Clamped to the interior rows
+  (harvest through unload) so a modded-tall beacon cannot poke into the ring belts; one taller
+  than the whole interior is refused (`beacon-too-tall`).
+- **Why beside the band's middle**: the supply area is the beacon's collision box expanded by
+  `supply_area_distance` on every side — measured, `api.md` §25 — so from there the square
+  spans both footprints of the vanilla pair with room to spare. A modded short-reach beacon
+  that cannot span its pair warns (`beacon-out-of-reach`), never refuses: the loop still runs.
+- **Modules**: every slot filled with the picked beacon module, defaulting to the strongest
+  researched efficiency module — speed transmits its negative quality component to everything
+  covered (`api.md` §25), the opposite of this loop's purpose — or planned empty on an explicit
+  clear. The insert plan targets `defines.inventory.beacon_modules`, carried on the entity
+  record as `module_inventory` because this file's Lua also runs on the host interpreter.
+- **Power and obstacles come free**: a beacon has an electric energy source, so
+  `electric_consumers` counts it and the pole pass covers and avoids it through the same
+  generic scans as a machine — `poles.lua` carries no beacon-aware code (its one change
+  exports the shared overlap primitive), and a pure spec pins that.
+
+Width cost: `+Wb` per tier — vanilla rare gears go 11 → 20. `W` formula unchanged; the beacon
+is just a floor on `G_k`.
 
 ## Fluid recipes — per-column runs, tapped from outside
 

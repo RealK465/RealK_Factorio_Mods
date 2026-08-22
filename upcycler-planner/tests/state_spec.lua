@@ -142,4 +142,27 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(entry.choices.terminal_module == "speed-module",
       "a real module was pruned -- membership must be all modules, not one role")
   end)
+
+  test("the beacon prunes by membership; a pruned one reads as off; the clear flag survives", function()
+    local entry = seeded({
+      beacon = "beacon",
+      beacon_module = "speed-module",
+      beacon_quality = "not-a-quality",
+      no_beacon_module = true,
+    })
+    state.prune()
+    local c = entry.choices
+    assert(c.beacon == "beacon", "a real beacon was pruned")
+    -- Module membership is all modules, the terminal module's rule -- whether the beacon
+    -- accepts it is validate's business.
+    assert(c.beacon_module == "speed-module", "a real module was pruned from the beacon")
+    -- The generic _quality$ sweep must cover the new keys without a hand-added line.
+    assert(c.beacon_quality == nil, "a bogus beacon quality survived")
+    assert(c.no_beacon_module == true, "the explicit module clear was lost")
+
+    entry = seeded({ beacon = "stone-wall", beacon_module = "iron-plate" })
+    state.prune()
+    assert(entry.choices.beacon == nil, "a wall survived as the beacon")
+    assert(entry.choices.beacon_module == nil, "a plain item survived as the beacon module")
+  end)
 end)

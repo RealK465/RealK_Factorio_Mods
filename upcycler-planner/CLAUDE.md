@@ -15,10 +15,12 @@ undo and every build mode are the engine's own and the mod handles no placement 
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
 is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, overflow chest,
-quality module, top machine module, electric pole, pipe, and the trash-unrequested checkbox.
+quality module, top machine module, electric pole, pipe, beacon, beacon module, and the
+trash-unrequested checkbox.
 Everything in that strip but the belt and the pipe carries a quality of its own — and a picker
-with only one option is hidden, as are the four chests whatever their count, so a vanilla game
-sees five of the ten — laid out as a **six-column grid**, since a
+with only one option is hidden, as are the four chests and the two beacon pickers whatever
+their count (the beacon pair until show-all or an actual pick), so a vanilla game
+sees five of the twelve — laid out as a **six-column grid**, since a
 hidden picker takes no cell. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
 **Settings** button in the titlebar, holding the two per-player settings: show unresearched
@@ -28,8 +30,8 @@ What it emits is the belt-ring family — see
 what was deliberately left out (circuits and wires, fluid recipes, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (167 tests as of 2026-08-20) — planner, layout, poles, blueprint, state,
-the eject loop, the fluid mechanisms and the GUI — run via the repo's `factorio-testing`
+suite under `tests/` (192 tests as of 2026-08-22) — planner, layout, poles, blueprint, state,
+the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
@@ -151,7 +153,8 @@ scripts/                            one file per runtime concern, required by co
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
-  *_spec.lua                        in-game specs: planner, plan, blueprint, state, loop, fluid, gui
+  *_spec.lua                        in-game specs: planner, plan, blueprint, beacon, state,
+                                    loop, fluid, gui
   pure/                             layout + poles geometry, runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
@@ -309,6 +312,14 @@ re-opening any of these, and don't restate a reason here.
   exists** — otherwise the recipe is blamed, which is every vanilla case. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
   scenery chests.
+- **Beacons are opt-in: off by default, one per tier in the utility column when picked**, the
+  machine-only terminal tier included. **Both beacon pickers are hidden by default, researched
+  or not** — *Show all build options* reveals them, and a chosen beacon keeps them visible.
+  The beacon-module picker defaults to the best researched **efficiency** module, never speed
+  (why: `decisions.md`). Its clear means "place the beacon empty" (`no_beacon_module`); the
+  beacon itself needs no clear-flag, since nil already means off. Short reach warns, a beacon
+  taller than the interior refuses. Measured facts: `analysis/api.md` §25; geometry:
+  `analysis/layout-belt-ring.md` §Beacons.
 - Poles default to the best researched 1x1 and are clearable to none. **A plan is as narrow as
   full coverage allows**: the planner solves for its utility columns rather than opening one at
   every machine, keeping only a column a pole turned out to need — so most plans open none and

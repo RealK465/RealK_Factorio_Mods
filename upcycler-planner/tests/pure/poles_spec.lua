@@ -71,6 +71,22 @@ describe("poles.plan covering", function()
     assert(result.entities[1].dx < 11, "pole stayed in the useless column")
   end)
 
+  test("a beacon is an ordinary obstacle and consumer -- no pole code knows beacons exist", function()
+    -- The architectural claim the beacon feature leans on: an entity in built.entities with a
+    -- margin in the consumer map is covered and avoided through the same generic mechanisms as
+    -- a machine. If poles.lua ever grows a name- or kind-aware branch, this is where it fails.
+    local built = {
+      entities = { { name = "beacon", dx = 2, dy = 1, w = 3, h = 3 } },
+      width = 7, height = 5,
+    }
+    local result = poles.plan(built, SMALL, { beacon = 0.3 })
+    assert(result.unpowered == 0, "the beacon was not covered as a consumer")
+    for _, p in pairs(result.entities) do
+      assert(p.dx < 2 or p.dx > 4 or p.dy < 1 or p.dy > 3,
+        "a pole stands on the beacon at " .. p.dx .. "," .. p.dy)
+    end
+  end)
+
   test("two spread consumers: two poles, one spanning wire", function()
     local built = { entities = { machine_at(1, 1), machine_at(9, 1) }, width = 13, height = 5 }
     local result = poles.plan(built, SMALL, MARGINS)

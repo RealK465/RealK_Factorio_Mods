@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.14
-verified: 2026-08-20
+verified: 2026-08-22
 ---
 # Verified API reference
 
@@ -1009,3 +1009,60 @@ canonical — and the whole suite was then run from the legacy worktree against 
 (163/163, 2026-08-20): the live ring drains out of both lanes, and both comparators survive the
 blueprint round trip, `">="`-to-glyph normalisation included. So none of this is forked.
 Detail in `factorio-2.0.md`.
+
+## 25. Beacons: supply area, module inventory, and what transmits — measured 2026-08-22
+
+The facts the beacon feature stands on. The permanent harness is `tests/beacon_spec.lua`; every
+measured claim below is a live assertion there, so a Wube retune fails a spec rather than
+silently moving the geometry.
+
+**The supply area is the beacon's COLLISION BOX expanded by `supply_area_distance` on every
+side — an edge rule, NOT the pole's centre radius (§10).** Measured with a sweep: a vanilla
+beacon (3x3, collision inset 0.3, distance 3) and an assembling machine 2 stepped away from it
+one tile at a time, membership read from `LuaEntity.get_beacon_effect_receivers()`. The machine
+receives with its top-left 3, 4 and 5 tiles over and stops at 6 — the edge rule's boundary
+(collision edge 2.7 + 3 = 5.7 against the machine's 6.3); a centre-radius rule would already
+have failed at 5 (1.5 + 3 = 4.5 against 5.3). Same boundary vertically, and **corner overlap
+counts**: a machine at the diagonal (5,5) still receives, (6,6) does not. So coverage is
+collision-box overlap with the expanded square, the pole rule's shape with a different origin.
+`planner.beacon_reach` encodes exactly this; `layout.build` centres each tier's beacon on the
+machine+recycler band because from there the square spans both (the vanilla pair with room to
+spare). One honesty caveat inherited from the pole stand-ins: `consumer_margin` clamps the
+collision inset at 0.45, so for a prototype whose real inset exceeds that the shrunken box is
+NOT a subset of the real one and the reach check can over-promise slightly — the same bound
+the pole pass has always carried, not something the beacon added.
+
+**A beacon's module insert plan lives under `defines.inventory.beacon_modules`, and it
+round-trips.** Both directions measured, §21's methodology: a real beacon with two speed
+modules captured via `create_blueprint` reads back `items[1].items.in_inventory[*].inventory ==
+defines.inventory.beacon_modules`; a hand-written blueprint entity using that constant stamps a
+ghost whose `insert_plan` carries both stacks. `blueprint.lua`'s `items_of` was hardcoded to
+`crafter_modules`, so the beacon entity record carries a `module_inventory` field the planner
+resolves — layout.lua runs on the host interpreter, where `defines.inventory` does not exist
+(the pure runner guards it).
+
+**`get_supply_area_distance(quality)` answers on a beacon prototype** — the same getter family
+§10 verified for poles (`runtime-api.json` lists subclasses `["ElectricPole","Beacon"]`).
+Vanilla reads 3 at normal; the planner reads it at the beacon's build quality and never assumes
+quality scaling either way.
+
+**What a vanilla beacon accepts, by §16's own rule, no new mechanism:** `allowed_effects =
+{consumption, speed, pollution}` (`data/base/prototypes/entity/entities.lua:7686`), so quality
+and productivity modules refuse insertion (their positive effect is disallowed) and speed and
+efficiency go in. `planner.accepts_module(beacon, item)` works unchanged with the beacon as
+holder — a beacon has no recipe half, which is the one difference from the machine pair and why
+`module_refusal` grew a nil-recipe guard.
+
+**Transmission is gated by the RECEIVER's `allowed_effects`, not the beacon's** — the sibling
+mod's corrected finding (`pure-modules-realk/CLAUDE.md` → Gotchas), not re-measured here: a
+speed module's negative quality component leaves the beacon and lands on every covered machine
+and recycler, even though quality is not in the beacon's own `allowed_effects`. That is why the
+beacon-module default is efficiency (all-negative consumption, costs the loop nothing) and the
+tooltip warns about speed.
+
+**Adjacent-tier bleed, doc-level, not measured:** with the vanilla pitch a tier's beacon also
+reaches its neighbour's pair (the supply square spans ~8 columns against a 6-column pitch), so
+most machines in a beaconed loop sit in two beacons' areas. Vanilla's `profile` is the
+1/sqrt(N) table with `beacon_counter = "same_type"`, so the second beacon applies at ~0.71 —
+diminishing, never zero. UNVERIFIED in game; nothing in the mod depends on it, it only shapes
+what a player sees on the machine tooltip.

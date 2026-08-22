@@ -33,11 +33,15 @@ local function items_of(entity)
   -- module_inventory_size at all, and the comparison would be the crash.
   if not (modules and modules.name and (modules.count or 0) > 0) then return nil end
 
+  -- Stack indices are 0-based. crafter_modules is the module inventory for both the assembling
+  -- machines and the furnace-type recycler; a beacon's is a different constant, which rides in
+  -- on the entity record (tests/beacon_spec.lua measured the round-trip) -- the planner
+  -- resolves it, because layout.lua also runs on the host interpreter where defines.inventory
+  -- does not exist.
+  local inventory = entity.module_inventory or defines.inventory.crafter_modules
   local positions = {}
   for stack = 0, modules.count - 1 do
-    -- Stack indices are 0-based, and crafter_modules is the module inventory for both the
-    -- assembling machines and the furnace-type recycler.
-    positions[#positions + 1] = { inventory = defines.inventory.crafter_modules, stack = stack }
+    positions[#positions + 1] = { inventory = inventory, stack = stack }
   end
 
   -- id.quality nil means normal, which is how the engine writes it too.

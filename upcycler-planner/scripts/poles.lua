@@ -23,10 +23,13 @@ local poles = {}
 -- the real box -- so the test can under-promise (an extra pole, an over-honest warning) but
 -- never credit a pole with a machine the game would leave dark.
 
--- Strict inequalities: an area that merely touches at the border covers nothing.
+-- Strict inequalities: an area that merely touches at the border covers nothing. Exported,
+-- because the beacon-reach check in planner.lua is the same rule with a different origin
+-- (api.md §25) and a second hand-maintained copy is how the two would drift.
 local function overlap(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1)
   return ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1
 end
+poles.overlap = overlap
 
 -- Centres follow the plan's own rule -- half a footprint in -- so odd sizes sit mid-tile and
 -- even ones on a tile boundary, and the supply square shifts with them.

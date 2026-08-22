@@ -10,6 +10,8 @@ Build options pickers with only one option are hidden. In vanilla, the recycler 
 
 To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
 
+The beacon pickers are hidden too: beacons are optional and the loop plans none unless you pick one. Tick **Show all build options** to pick a beacon; once one is chosen, its pickers stay visible.
+
 ## What is the active provider chest for?
 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.

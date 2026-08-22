@@ -9,6 +9,83 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-22 — beacons, measured first and opt-in by design
+
+The owner asked for beacons and beacon modules in the layout. Explored, designed and shipped
+into the open 0.5.0 section in one session; the calls that shaped it — per-tier column
+placement, off by default, efficiency-module default — were the owner's, made on a comparison
+of the placement geometries and of what a speed module actually does to a quality loop.
+
+**Measured before implementing, and both measurements paid.** Two engine facts gated the
+design, and neither was in `analysis/`: which inventory constant a beacon's blueprint insert
+plan targets, and where its supply area is measured from. A throwaway-turned-permanent spec
+(`tests/beacon_spec.lua`) answered both in one run: `defines.inventory.beacon_modules`
+round-trips through `create_blueprint`/`get_blueprint_entities` and stamps into ghost insert
+plans, and the supply area is the **collision box expanded by `supply_area_distance`** — an
+edge rule, not the pole's centre radius, distinguished by a machine five tiles over that a
+centre rule could not reach. Both now live in `api.md` §25 with the sweep numbers.
+
+**The layout change is one floor and one emission.** The fluid clamp generalised into
+`gap_floor = (fluid and 1 or 0) + beacon width`, and each tier stands one beacon centred on
+its machine+recycler band (machine alone on the terminal tier), flush against the tier column,
+west of the pipe run. The `module_inventory` constant rides the params because `layout.lua`
+runs on the host interpreter, where the pure runner guards `defines` down to `direction` —
+reaching for `defines.inventory` there fails loudly, which is exactly what it is for.
+
+**What needed no beacon-aware code is the finding worth keeping**: `poles.lua`. A beacon in
+`built.entities` is an obstacle through `occupied()` and a consumer through
+`electric_consumers()` — both generic scans — so the pole pass covers and avoids beacons
+without knowing they exist. A pure spec now pins that, so a future name-aware branch fails it.
+The file's one change came out of the review pass: its rectangle-overlap primitive is now
+exported and `beacon_reach` delegates to it, instead of hand-maintaining a second copy of the
+same rule. Three reviewers swept the diff; that duplication was the only finding.
+
+**A four-angle cleanup pass (reuse / simplification / efficiency / altitude) then tightened
+what the reviews had let stand.** The beacon placement formula, written twice and tied only by
+comments, became `layout.beacon_offset` — interior_height's own pattern, so `beacon_reach` can
+no longer drift from the built position. `modules_for`/`module_fits` finished the nil-recipe
+generalisation `module_refusal` had started, deleting their two beacon-only clones; the
+efficiency default now scores a memoised candidate map instead of re-reading `module_effects`
+per call; the beacon params collapsed into `footprint_of` (which now carries
+`module_inventory`); the tier-invariant beacon modules table hoisted out of the tier loop; the
+stash dance the measurement spec had copied moved into `stamp.place_entities`; and the
+zero-gap pure test — byte-identical input to its neighbour, so it could never fail alone —
+now requests mixed below-floor gaps. Deliberately NOT done, each with its reason on record:
+beacon resolution stays outside `resources()` (the pole's precedent, and the memoised map
+removed the double-scan cost), `items_of` keeps its commented crafter_modules default, and
+the terminal/beacon module handlers stay two narrative handlers rather than one parameterised
+one.
+
+**A fourth, full review at the owner's request found the one real gap the first three
+missed**: the beacon handler lacked the unfiltered-picker snap-back guard its two sibling
+handlers carry — with every beacon in a modset slot-less or unplaceable, the empty candidate
+list leaves the picker unfiltered, and a non-beacon pick would sit in the strip while
+`chosen_beacon` silently read it as off. Guard added, and its spec proved drivable (the API
+accepts an off-filter `elem_value` write, so the branch is pinned rather than trusted). Also
+out of that review: dead `buildable_beacons` dropped, the efficiency default now refuses a
+modded hybrid with a negative quality rider, and §25 records the 0.45 margin clamp's
+over-promise bound. Suite 191 → 192.
+
+**The quality trade is real and shaped the defaults.** A vanilla beacon refuses quality and
+productivity modules at insertion (§16's own rule, beacon as holder), but transmission is
+gated by the *receiver's* `allowed_effects` — the sibling mod's corrected finding — so a
+speed module's negative quality lands on every covered machine and recycler. Two speed-3s at
+vanilla effectivity cost −7.5% quality against the +10% four quality-3s give. Hence: off by
+default, efficiency by default, speed pickable with a warning tooltip.
+
+**Suite 167 → 191**, all green on the first full run after the GUI wiring; the end-to-end spec
+revives a beaconed loop and asks the engine itself (`get_beacon_effect_receivers`) whether
+every machine and recycler receives. Static tier clean. The 2.0 backport was not attempted —
+the owner has not asked, and the forked files would all need the port done by hand.
+
+**Owner follow-up, same day: both beacon pickers hidden by default**, researched or not — the
+chests' direction, one step further. The first cut left the beacon picker always visible
+(clear-is-the-second-option, the pole's rule); the owner wanted the default strip free of it
+entirely. One predicate now serves both buttons: show-all reveals them, a chosen beacon keeps
+them visible so the opt-in stays clearable, clearing returns them to hidden. The changelog
+entry now names the path in, since a hidden opt-in the changelog does not point at is a
+feature nobody finds.
+
 ## 2026-08-20 — a played game hung, and the profile I trusted was of the wrong shape
 
 The owner picked a high tier in the 2.0 game and Factorio stopped responding. **No Lua error, no

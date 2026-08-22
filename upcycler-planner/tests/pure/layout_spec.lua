@@ -470,6 +470,135 @@ describe("layout.build across footprints and recipes", function()
   end)
 end)
 
+describe("layout.build beacon plans", function()
+  -- module_inventory is opaque to the layout -- a number the planner resolved, carried onto
+  -- the entity for the serialiser -- so a sentinel proves the carry without touching defines.
+  local function beacon_params(overrides)
+    local params = params_with()
+    params.beacon = {
+      name = "beacon", quality = "normal", width = 3, height = 3,
+      module_slots = 2, module_inventory = 99,
+    }
+    params.modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      terminal_module = { name = "productivity-module", quality = "normal" },
+      beacon_module = { name = "efficiency-module", quality = "normal" },
+    }
+    for key, value in pairs(overrides or {}) do params[key] = value end
+    return params
+  end
+
+  test("one beacon per tier in a floored column: vanilla three tiers grow 11 to 20", function()
+    local built = layout.build(beacon_params())
+    assert(built.width == 20, "width " .. built.width .. ", expected 11 + 3*3 = 20")
+    local beacons = by_name(built, "beacon")
+    assert(#beacons == 3, "beacon count " .. #beacons .. ", expected one per tier")
+    local at = {}
+    for _, b in pairs(beacons) do
+      at[b.dx] = b.dy
+      assert(b.modules.name == "efficiency-module", "beacon module " .. tostring(b.modules.name))
+      assert(b.modules.count == 2, "beacon module count " .. tostring(b.modules.count))
+      assert(b.module_inventory == 99, "module_inventory not carried onto the entity")
+    end
+    -- Non-terminal beacons centre on the machine+recycler band (rows 4..10 -> dy 6); the
+    -- terminal tier has no recycler and centres on the machine alone (dy 4). All flush against
+    -- their tier column at col - 3.
+    assert(at[1] == 6, "tier 1 beacon at dy " .. tostring(at[1]) .. ", expected 6")
+    assert(at[7] == 6, "tier 2 beacon at dy " .. tostring(at[7]) .. ", expected 6")
+    assert(at[13] == 4, "terminal beacon at dy " .. tostring(at[13]) .. ", expected 4")
+    assert(built.utility_columns and #built.utility_columns == 3,
+      "beacon columns must be reported for the pole pass")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("requested gaps below the beacon's width are floored, never honoured", function()
+    -- The floor lives in layout.build like the fluid clamp, so no pole-ladder attempt can
+    -- take away the ground the beacon stands on. Mixed below-floor requests, not {0,0,0} --
+    -- absent gaps already compute to zero, so all-zero would be byte-identical input to the
+    -- first test and could never fail on its own.
+    local built = layout.build(beacon_params({ column_gaps = { 1, 2, 0 } }))
+    assert(built.width == 20, "width " .. built.width .. " -- the floor did not hold")
+    assert(#by_name(built, "beacon") == 3, "a floored column lost its beacon")
+    for _, col in pairs(built.utility_columns) do
+      assert(col.width == 3, "column floored to " .. col.width .. ", expected the beacon's 3")
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a wider requested column keeps the beacon flush against its tier", function()
+    -- A pole wider than the beacon widens the column; the beacon stays on the east side of it,
+    -- against the machines, and the spare ground to its west is the pole's.
+    local built = layout.build(beacon_params({ column_gaps = { 5, 5, 5 } }))
+    assert(built.width == 26, "width " .. built.width .. ", expected 2 + 3*5 + 2*3 + 3 = 26")
+    local at = {}
+    for _, b in pairs(by_name(built, "beacon")) do at[b.dx] = true end
+    for _, dx in pairs({ 3, 11, 19 }) do
+      assert(at[dx], "no beacon flush against its tier column at " .. dx)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a fluid plan stands the beacon west of the pipe run", function()
+    local params = beacon_params({
+      fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" },
+      machine = {
+        name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
+        module_slots = 2, direction = defines.direction.west,
+      },
+    })
+    local built = layout.build(params)
+    assert(built.width == 23, "width " .. built.width .. ", expected 2 + 3*4 + 2*3 + 3 = 23")
+    local beacon_at, pipe_at = {}, {}
+    for _, e in pairs(built.entities) do
+      if e.name == "beacon" then beacon_at[e.dx] = true end
+      if e.name == "pipe" then pipe_at[e.dx] = true end
+    end
+    -- Machines start at 5, 12, 19; the run keeps the column's east edge (col - 1) and the
+    -- beacon stands immediately west of it.
+    for _, col in pairs({ 5, 12, 19 }) do
+      assert(pipe_at[col - 1], "no pipe run beside the machine at " .. col)
+      assert(beacon_at[col - 4], "no beacon west of the pipe for the machine at " .. col)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a tall beacon clamps inside the interior rows instead of poking the ring", function()
+    -- Height 13 fills the whole interior (rows 1..13 with the vanilla band); the centring
+    -- formula alone would start it above the ring. The overlap invariant is the real assertion.
+    local built = layout.build(beacon_params({
+      beacon = { name = "tall-beacon", quality = "normal", width = 3, height = 13,
+        module_slots = 2, module_inventory = 99 },
+    }))
+    for _, b in pairs(by_name(built, "tall-beacon")) do
+      assert(b.dy == 1, "tall beacon at dy " .. b.dy .. ", expected clamped to row 1")
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("no beacon module plans the beacons empty, slots intact", function()
+    local params = beacon_params()
+    params.modules.beacon_module = nil
+    local built = layout.build(params)
+    for _, b in pairs(by_name(built, "beacon")) do
+      assert(b.modules.name == nil, "an empty beacon grew a module")
+      assert(b.modules.count == 2, "the slot count must survive an empty plan")
+    end
+  end)
+
+  test("a beacon module without a beacon changes nothing", function()
+    -- Built from params_with() directly rather than beacon_params({ beacon = nil }): a nil in
+    -- an overrides table is invisible to pairs(), the `{ field = nil }` trap.
+    local params = params_with()
+    params.modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      terminal_module = { name = "productivity-module", quality = "normal" },
+      beacon_module = { name = "efficiency-module", quality = "normal" },
+    }
+    assert(deep_equal(layout.build(params_with()), layout.build(params)),
+      "a stray beacon module changed the beaconless plan")
+  end)
+end)
+
 describe("layout.build determinism", function()
   test("the same params build the same plan, twice", function()
     -- The desync-safety contract stated at the top of layout.lua, held to structurally: the

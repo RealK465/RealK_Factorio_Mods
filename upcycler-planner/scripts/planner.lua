@@ -331,6 +331,17 @@ local function pole_candidates()
   return candidates("poles", function(entity) return entity.type == "electric-pole" end)
 end
 
+-- Slot-less beacons are excluded up front: a beacon with no module inventory transmits
+-- nothing, so planning one would stand a powered statue in every column. Placeability is the
+-- machine list's own gate, for the same reason it has it.
+local function beacon_candidates()
+  return candidates("beacons", function(entity)
+    return entity.type == "beacon"
+      and (entity.module_inventory_size or 0) > 0
+      and entity.items_to_place_this ~= nil
+  end)
+end
+
 local function pipe_candidates()
   return candidates("pipes", function(entity) return entity.type == "pipe" end)
 end
@@ -497,6 +508,12 @@ function planner.pipes()
   return names_of("pipe_names", pipe_candidates())
 end
 
+-- Beacons as names for the chests' reason: the offered set cannot be a bare type filter, or
+-- show-all would put slot-less and unplaceable beacons straight back in the picker.
+function planner.beacons()
+  return names_of("beacon_names", beacon_candidates())
+end
+
 function planner.chests(role)
   return names_of("chest_names_" .. role, chest_candidates(role))
 end
@@ -510,6 +527,10 @@ end
 
 function planner.is_pole(name)
   return pole_candidates()[name] ~= nil
+end
+
+function planner.is_beacon(name)
+  return beacon_candidates()[name] ~= nil
 end
 
 function planner.is_pipe(name)
@@ -860,34 +881,40 @@ function planner.is_module(name)
 end
 
 -- One module's refusals, in the order worth reporting: the buildings it goes into, then the
--- recipe. Returns the message, or nil when nothing refuses it.
+-- recipe. Returns the message, or nil when nothing refuses it. The recipe may be nil -- a
+-- beacon crafts nothing, so its module answers to the beacon alone.
 local function module_refusal(item, holders, recipe)
   for _, holder in pairs(holders) do
     if not planner.accepts_module(holder, item) then
       return { "upl-message.module-not-accepted", item.localised_name, holder.localised_name }
     end
   end
-  if not planner.accepts_module(recipe, item) then
+  if recipe and not planner.accepts_module(recipe, item) then
     return { "upl-message.module-not-accepted-by-recipe", item.localised_name }
   end
 end
 
--- What the terminal machine's picker offers: the modules this machine and this recipe both
--- accept. Not memoised -- it depends on the pair, and the scan is a dozen items.
-function planner.modules_for(machine, recipe)
+-- What a module picker offers: the modules this holder and this recipe both accept. The
+-- recipe may be nil, module_refusal's own rule -- a beacon crafts nothing, so its modules
+-- answer to the holder alone. Not memoised -- it depends on the pair, and the scan is a
+-- dozen items.
+function planner.modules_for(holder, recipe)
   local names = {}
   for name, item in pairs(module_items()) do
-    if planner.accepts_module(machine, item) and planner.accepts_module(recipe, item) then
+    if planner.accepts_module(holder, item)
+      and (not recipe or planner.accepts_module(recipe, item))
+    then
       names[#names + 1] = name
     end
   end
   return names
 end
 
-function planner.module_fits(name, machine, recipe)
+function planner.module_fits(name, holder, recipe)
   local item = name and module_items()[name]
   if not item then return false end
-  return planner.accepts_module(machine, item) and planner.accepts_module(recipe, item)
+  return planner.accepts_module(holder, item)
+    and (not recipe or planner.accepts_module(recipe, item))
 end
 
 -- The default for the terminal machine: the strongest researched module that actually raises
@@ -898,6 +925,37 @@ function planner.terminal_module(force, machine, recipe)
   return best_by(module_candidates("productivity"), function(name, value)
     if not planner.is_unlocked(force, name) then return nil end
     if not planner.module_fits(name, machine, recipe) then return nil end
+    return value
+  end)
+end
+
+-- Efficiency-family candidates for the beacon's default, name -> how much consumption the
+-- module saves. Pure prototype data, memoised like module_candidates -- whose positive-only
+-- rule this cannot reuse, since efficiency's whole effect is negative. A modded hybrid with a
+-- negative quality rider is excluded here: it would transmit exactly the harm the default
+-- exists to avoid, so it stays pickable but never the default.
+local function efficiency_candidates()
+  if memo.efficiency_modules then return memo.efficiency_modules end
+  local map = {}
+  for name, item in pairs(module_items()) do
+    local effects = item.module_effects or {}
+    local value = effects["consumption"]
+    if value and value < 0 and (effects["quality"] or 0) >= 0 then map[name] = -value end
+  end
+  memo.efficiency_modules = map
+  return map
+end
+
+-- The beacon's default module: the strongest researched EFFICIENCY module the beacon accepts,
+-- or nothing. Scored by the consumption effect -- the effect, not the category name, the way
+-- every other default here reads module_effects -- because a speed module's negative quality
+-- side effect transmits to every covered machine and recycler (api.md §25; this loop exists
+-- to roll quality), so the honest default is the one family that costs the loop nothing.
+-- Speed stays pickable.
+function planner.beacon_module(force, beacon)
+  return best_by(efficiency_candidates(), function(name, value)
+    if not planner.is_unlocked(force, name) then return nil end
+    if not planner.accepts_module(beacon, module_items()[name]) then return nil end
     return value
   end)
 end
@@ -1007,18 +1065,22 @@ end
 -- Quality can ADD module slots (quality_affects_module_slots -- off for every vanilla machine,
 -- but a modded one may set it), and module_inventory_size is documented as the normal-quality
 -- figure only. So the count is read at the quality the building will actually be placed at.
-local function module_slots(entity, quality)
-  return entity.get_inventory_size(defines.inventory.crafter_modules, quality)
+local function module_slots(entity, quality, inventory)
+  return entity.get_inventory_size(inventory or defines.inventory.crafter_modules, quality)
     or entity.module_inventory_size
 end
 
-local function footprint_of(entity, quality)
+local function footprint_of(entity, quality, inventory)
   return {
     name = entity.name,
     quality = quality,
     width = entity.tile_width,
     height = entity.tile_height,
-    module_slots = module_slots(entity, quality),
+    module_slots = module_slots(entity, quality, inventory),
+    -- Which inventory the module insert plan targets; nil means the serialiser's
+    -- crafter_modules default. Carried as a plain value because layout.lua runs on the host
+    -- interpreter too, where defines.inventory does not exist.
+    module_inventory = inventory,
   }
 end
 
@@ -1057,6 +1119,27 @@ local function chosen_pole(force, choices)
   if not (name and planner.is_pole(name)) then name = planner.pole(force) end
   if not name then return nil end
   return name, planner.build_quality(choices.pole_quality)
+end
+
+-- The beacon is optional like the pole but simpler: it has NO researched-best default, so nil
+-- already means exactly one thing -- off -- and no clear-flag is needed to tell an explicit
+-- clear from a never-touched picker. A stale name reads as off too, never as a substitute
+-- beacon the player did not ask for.
+local function chosen_beacon(choices)
+  if choices.beacon and planner.is_beacon(choices.beacon) then
+    return choices.beacon, planner.build_quality(choices.beacon_quality)
+  end
+  return nil
+end
+
+-- The terminal module's shape: nil is a real answer ("place the beacon empty"), recorded in
+-- no_beacon_module. Answers to the beacon prototype alone -- a beacon crafts nothing, so the
+-- recipe never enters into it.
+local function chosen_beacon_module(force, choices, beacon)
+  if choices.no_beacon_module then return nil end
+  local name = choices.beacon_module
+  if name and planner.is_module(name) then return name end
+  return planner.beacon_module(force, beacon)
 end
 
 -- The inserter follows the belt's pattern with one addition: a pick can be individually
@@ -1167,6 +1250,33 @@ local function electric_consumers(entities)
     end
   end
   return out
+end
+
+-- Whether one beacon, standing where layout.build stands it -- layout.beacon_offset is the
+-- one owner of that position, so this cannot drift from the built plan -- reaches both
+-- footprints. The measured rule (tests/beacon_spec.lua): the supply area is the beacon's
+-- collision box expanded by the supply distance on every side, and a receiver counts on
+-- collision-box overlap. Margins shrink both boxes like the pole pass's stand-ins, so the
+-- answer can under-promise -- an over-honest warning -- but never claim reach the game would
+-- not deliver. Plain values in, so a spec can exercise shapes no installed mod ships; the
+-- recycler is nil on the terminal tier, whose band is the machine alone.
+function planner.beacon_reach(beacon, machine, recycler, fluid)
+  local bx, by = layout.beacon_offset(machine.height, recycler and recycler.height,
+    beacon, fluid)
+  local m, s = beacon.margin, beacon.supply
+  local x0, y0 = bx + m - s, by + m - s
+  local x1, y1 = bx + beacon.width - m + s, by + beacon.height - m + s
+  -- The pole pass's own overlap rule -- strict inequalities, touching covers nothing -- with
+  -- the beacon's expanded square as the first box.
+  local function reaches(tx0, ty0, tx1, ty1)
+    return poles.overlap(x0, y0, x1, y1, tx0, ty0, tx1, ty1)
+  end
+  local mm = machine.margin
+  if not reaches(mm, mm, machine.width - mm, machine.height - mm) then return false end
+  if not recycler then return true end
+  local rm = recycler.margin
+  return reaches(rm, machine.height + rm,
+    recycler.width - rm, machine.height + recycler.height - rm)
 end
 
 -- Poles stand on a FINISHED layout, but where they CAN stand is part of that layout -- so the
@@ -1334,10 +1444,16 @@ function planner.plan(force, choices, gathered)
   -- What a utility column costs where one opens: the pole's own width, plus one for the pipe
   -- run when the recipe takes a fluid. WHICH tiers open one is not decided here --
   -- plan_with_poles measures that against real coverage -- and a poleless plan opens none at
-  -- all, leaving layout.build's own fluid clamp as the only thing that can widen a column.
+  -- all, leaving layout.build's own floor clamp as the only thing that can widen a column.
   local pole_name, pole_quality = chosen_pole(force, choices)
   local pole = pole_name and prototypes.entity[pole_name]
-  local pole_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
+  -- A beacon plan floors every column at the beacon's width already, so a pole column only
+  -- costs more when the pole is the wider of the two -- the beacon's own ground is free
+  -- standing room for a pole that fits beside it.
+  local beacon_name, beacon_quality = chosen_beacon(choices)
+  local beacon = beacon_name and prototypes.entity[beacon_name]
+  local pole_gap = (#fluids == 1 and 1 or 0)
+    + math.max(pole and pole.tile_width or 0, beacon and beacon.tile_width or 0)
 
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
@@ -1361,11 +1477,18 @@ function planner.plan(force, choices, gathered)
     inserter = r.inserter,
     requester = r.requester, container = r.container, provider = r.provider,
     overflow = r.overflow,
+    -- Off unless the player picked one: the beacon has no researched-best default, because it
+    -- costs a column of width per tier and its transmittable modules trade against the quality
+    -- rolls the loop exists for. Footprint and slots resolved per prototype like the machine's.
+    beacon = beacon
+      and footprint_of(beacon, beacon_quality, defines.inventory.beacon_modules) or nil,
     -- One pair per module, or nil for "leave that machine empty" -- which only ever happens to
-    -- the terminal one.
+    -- the terminal one, and for "place the beacon empty".
     modules = {
       quality_module = r.quality_module,
       terminal_module = r.terminal_module,
+      beacon_module = beacon and planner.with_quality(
+        chosen_beacon_module(force, choices, beacon), choices.beacon_module_quality) or nil,
     },
     requests = requests,
     -- One stack of the product in front of each recycler: enough to keep it busy through a
@@ -1451,13 +1574,14 @@ function planner.validate(force, choices)
   -- input connection against the pipe run. Computed per prototype like the recycler's eject,
   -- and refused by name when nothing works -- piping a machine wrong is the reference
   -- blueprints' own defect, and the one thing this feature must never reproduce.
-  local machine_width = machine.tile_width
+  local machine_width, machine_height = machine.tile_width, machine.tile_height
   if #fluids == 1 then
     local fluid_orientation = planner.machine_fluid_orientation(machine)
     if not fluid_orientation then
       return false, { "upl-message.machine-no-fluid-face", machine.localised_name }
     end
     machine_width = fluid_orientation.width
+    machine_height = fluid_orientation.height
   end
 
   local recycler = choices.recycler and prototypes.entity[choices.recycler]
@@ -1546,6 +1670,24 @@ function planner.validate(force, choices)
   end
   if refused then return false, refused end
 
+  -- The beacon is optional and defaults to off, so everything about it only runs on a pick.
+  -- Its module answers to the beacon alone -- no recipe, a beacon crafts nothing -- and a
+  -- beacon taller than the interior rows would poke through the ring belts, which layout.build
+  -- clamps against and this refuses honestly instead.
+  local beacon_name, beacon_quality = chosen_beacon(choices)
+  local beacon = beacon_name and prototypes.entity[beacon_name]
+  local beacon_module
+  if beacon then
+    if beacon.tile_height > layout.interior_height(machine_height, orientation.height) then
+      return false, { "upl-message.beacon-too-tall", beacon.localised_name }
+    end
+    beacon_module = chosen_beacon_module(force, choices, beacon)
+    if beacon_module then
+      local beacon_refusal = module_refusal(prototypes.item[beacon_module], { beacon }, nil)
+      if beacon_refusal then return false, beacon_refusal end
+    end
+  end
+
   -- Warnings from here: planning ahead of research is legitimate, since the result is ghosts
   -- that bots will build once the technology lands.
   if not force.is_quality_unlocked(choices.quality) then
@@ -1574,6 +1716,12 @@ function planner.validate(force, choices)
   -- The pole's build quality matters twice over: it gates who can build the ghosts, and it
   -- sets the reach the whole pole layout is computed at.
   if pole_name then build_qualities[#build_qualities + 1] = pole_quality end
+  if beacon then
+    build_qualities[#build_qualities + 1] = beacon_quality
+    if beacon_module then
+      build_qualities[#build_qualities + 1] = planner.build_quality(choices.beacon_module_quality)
+    end
+  end
   -- Ten entries at most, and in the ordinary game every one of them is "normal" -- so ask the
   -- force once per distinct tier rather than once per material, on a path every refresh runs.
   local asked = {}
@@ -1597,6 +1745,23 @@ function planner.validate(force, choices)
   -- small pole unlocks with the same technology as the electric inserter.
   if not choices.no_poles and not pole_name then
     return true, { "upl-message.no-pole-researched" }, r
+  end
+
+  -- A beacon whose supply cannot span its tier's machine+recycler pair from the column is a
+  -- warning, not a refusal: the loop runs fine, the beacon just reaches less than the player
+  -- expects. Only the pair band needs checking -- the terminal beacon centres on the machine
+  -- alone, a strictly easier reach from the same column. Unreachable in vanilla, whose beacon
+  -- covers the tallest eligible pair with room to spare; a modded short-reach beacon is who
+  -- this is for.
+  if beacon and not planner.beacon_reach(
+    { width = beacon.tile_width, height = beacon.tile_height,
+      margin = consumer_margin(beacon),
+      supply = beacon.get_supply_area_distance(beacon_quality) },
+    { width = machine_width, height = machine_height, margin = consumer_margin(machine) },
+    { width = orientation.width, height = orientation.height, margin = consumer_margin(recycler) },
+    #fluids == 1)
+  then
+    return true, { "upl-message.beacon-out-of-reach", beacon.localised_name }, r
   end
 
   return true, nil, r
