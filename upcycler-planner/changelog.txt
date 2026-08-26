@@ -2,17 +2,16 @@
 Version: 0.6.0
 Date: ????
   Features:
-    - Circuit limits: tick the new checkbox and the loop is wired to stop every machine
-      once the output chest holds your maximum. Taking items out restarts it.
-    - The Limits window also sets a minimum per quality: the loop keeps at least that many
-      items in each tier's chest and only recycles the surplus.
-    - Each quality's items now wait in buffer chests, so your logistic requests and
-      construction bots can take them. Untick the new "Use buffer chests" checkbox to keep
-      every item in the loop, like before.
+    - Circuit limits: you're now able to configure a minimum reserve of lower quality items to keep in the loop.
+    - Circuit limits: you can also configure the maximum of items to produce (so the loop stops when limit is reached).
+    - Lower quality items now stay in buffer chests by default instead of requester chests
+      (so they can be used by construction robots (uncheck "Use buffer chests" to keep the old behavior)).
   Gui:
-    - The chest pickers are named for their jobs now: Ingredient, Item, Plain, Output and
-      Overflow chest.
     - The Place button now works while the Settings or Limits window is open.
+    - The chest and module pickers are named for their jobs now: Ingredient, Stock, Relay,
+      Output and Overflow chest, and Final machine module.
+  Locale:
+    - Reworded the planner's labels, tooltips and messages to be shorter and clearer.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-08-22

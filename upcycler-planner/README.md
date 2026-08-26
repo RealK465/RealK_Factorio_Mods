@@ -5,7 +5,7 @@ as a blueprint for your bots to build.**
 
 Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outposts, Upcycler Planner designs quality upcycling loops.
 
-![Planning a loop and placing it as ghosts](https://files.catbox.moe/thkeot.gif)
+![Planning a loop and stamping the blueprint](https://files.catbox.moe/thkeot.gif)
 
 ## How to use it
 
@@ -13,18 +13,18 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
    You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. You are able to modify some options in the design like belts to use, electric poles, modules... each one defaults to the best researched option and can be built at a quality of your choice. Selectors with only one option are hidden, and so are the five chests and the beacon, clicking **Settings** in the title bar brings them all back with **Show all build options**.
-4. Press **Place**. The loop arrives as a blueprint in your hand, so you can see it, move it, rotate it and flip it before you commit.
-5. Place it like any other blueprint. Shift-click builds through trees and rocks, and control-shift-click clears buildings too. Undo takes the whole loop back in one step, and the blueprint stays in your hand if you want to stamp another.
+3. Under **Build options** you can change what the loop is made of: belts, inserters, chests, modules, electric poles and more. Each one defaults to the best you have researched, and each can be built at a quality of your choice. Options with only one choice are hidden, and so are the five chests and the beacons. Click **Settings** in the title bar and tick **Show all build options** to bring them all back.
+4. Press **Place**. The loop arrives as a blueprint in your hand, so you can look it over, move it, rotate it and flip it before you commit.
+5. Place it like any other blueprint. Shift-click builds through trees and rocks, and Ctrl+Shift-click clears buildings too. Undo takes the whole loop back in one step, and the blueprint stays in your hand if you want to stamp another.
 
 ## What it builds
 
 The loop contains:
 
-- A column for each quality with a crafting machine and recycler with requester chests.
-- Belts, filtered inserters, chests, electric poles... already set up and configured by you.
+- One column per quality, each with a crafting machine, a recycler, and the chests that feed and drain them.
+- Belts, filtered inserters, chests and electric poles, all placed and set up for you from the options you picked.
 - Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them. Untick **Use buffer chests** in the build options to keep every item in the loop instead.
-- Optionally beacons beside every column: pick one under **Show all build options**, and choose how many stack per tier — extra beacons add no width. Their modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
+- Beacons beside every column, if you want them: pick one under **Show all build options**, then choose how many stack per tier — extra beacons add no width. Their modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
 
 Finished items collect in a passive provider chest at the end.
 
@@ -32,7 +32,7 @@ Anything the loop rolls above the quality you asked for has nothing left to use 
 
 ## Circuit limits
 
-Tick **Circuit limits** in the build options and the loop comes wired: every machine stops once the output chest holds the maximum you set, and starts again when bots take items away. You can also keep a minimum of each lower quality in its chest — the loop only recycles the surplus above it.
+Tick **Circuit limits** in the build options and the loop comes wired: every machine and recycler stops once the output chest holds the maximum you set, and starts again when bots take items away. You can also keep a minimum of each lower quality in its chest — the loop then only recycles the surplus above it.
 
 The **Limits...** button opens a window with one row per quality: **Min** for the lower tiers, **Max** for your target.
 
@@ -40,21 +40,19 @@ The **Limits...** button opens a window with one row per quality: **Min** for th
 
 This was the main motivation for creating this mod.
 
-Modded machines, recyclers, modules, poles... can be selected.
+Modded machines, recyclers, belts, modules and poles can all be picked, and the layout sizes itself to whatever you choose.
 Only researched options are offered, and the planner's settings can show everything instead.
 
 ![Planning a loop with modded machines and recyclers](https://files.catbox.moe/ulihf9.gif)
 
 ## Good to know
 
-- Recipes with two fluids or that return a fluid (like the quantum processor) are not supported yet.
-- Items that recycle into themselves (like steel) are not supported.
+- Recipes that need two different fluids, or that give back a fluid (like the quantum processor), are not supported yet.
+- Items that recycle into themselves (like steel) cannot be looped.
 
 ## Requirements
 
-Factorio with **Space Age**.
-
-Supports both Factorio 2.1 and 2.0. The main development branch is Factorio 2.1.
+Factorio with **Space Age**. Both Factorio 2.1 and 2.0 are supported.
 
 ## Credits
 
@@ -67,7 +65,7 @@ Also by two planners that showed how good this kind of mod can feel:
 
 ## AI-Assisted Development
 
-The development of this mod was done with help of AI coding assistants.
+The development of this mod was done with the help of AI coding assistants.
 
 ## License
 

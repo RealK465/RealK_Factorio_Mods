@@ -6,11 +6,11 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 
 ## Why are some build options missing?
 
-Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The five chest pickers are always hidden: the planner uses the biggest chest you have researched.
+A build option with only one choice is hidden. In vanilla that means the recycler and the pipe, which have no alternatives; they come back as soon as a mod adds one. The five chest options are always hidden: the planner uses the biggest chest you have researched.
 
-To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
+To show them anyway — to pick their quality, for example — tick **Show all build options** in the planner's settings.
 
-The beacon pickers are hidden too: beacons are optional and the loop plans none unless you pick one. Tick **Show all build options** to pick a beacon; once one is chosen, its pickers stay visible. A small drop-down beside them sets how many beacons stack per tier — extra ones add no width.
+The beacons are hidden too, because they are optional and the loop plans none unless you pick one. Tick **Show all build options** to choose a beacon; once one is chosen, it stays visible. A small drop-down beside it sets how many beacons stack per tier — extra ones add no width.
 
 ## What is the active provider chest for?
 
@@ -24,7 +24,7 @@ Each quality's items wait in buffer chests, so your logistic requests and constr
 
 ## Why did the machines stop working?
 
-If you built the loop with **Circuit limits** on, that's the limits doing their job: every machine pauses once the output chest holds your maximum. Take items out of the chest and the loop starts again. To change the numbers, reopen the planner and press **Limits...**; to run without limits, untick the checkbox and place the loop again.
+If you built the loop with **Circuit limits** on, that's the limits doing their job: the loop pauses once the output chest holds your maximum. Take items out of the chest and it starts again. To change the numbers, reopen the planner and press **Limits...**; to run without limits, untick the checkbox and place the loop again.
 
 ## Why is my fluid recipe refused?
 
