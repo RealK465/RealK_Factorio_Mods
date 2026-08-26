@@ -9,6 +9,43 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — 0.6.0 / 0.6.1 released, and the gallery API's duplicate rule corrected
+
+The owner authorised the pair and the portal refresh in one ask: 0.6.0 for Factorio 2.0 from
+`legacy/2.0`, 0.6.1 as its 2.1 port from `main`, description and FAQ resynced, and the replaced
+`images/01-planner-menu.jpg` swapped into the gallery. The numbering followed the four prior
+pairs — main's open 0.6.0 became the **2.0** number and main re-graded to 0.6.1 — which is the
+standing convention, put to the owner rather than assumed because a version number is theirs.
+
+The full gate ran on both tracks before either upload: data stage clean on **2.1.16** and
+**2.0.77**, and **242/242** headless plus a graphics pass on each. Two runner facts fell out of
+it, neither a mod bug. `validate.ps1` has **no `-CheckUnusedPrototypeData` switch** — the flag is
+a raw `factorio.exe` argument the script does not pass through, and PowerShell's
+parameter-binding error still exits **0**, so the failed run reads as a pass exactly the way the
+skill warns the flag's own warnings do. And the script's scratch write-data folder is keyed by
+**mod name, not install**, so validating both tracks concurrently makes them fight over one
+`.lock`: the 2.1 run failed with `module prototypes.planner.shortcut not found` for a file that
+was on disk the whole time. Run the two tracks sequentially.
+
+**The gallery API does not behave the way `factorio-release` describes.** The skill says
+re-uploading an unchanged file is free because images are content-addressed and the call returns
+the id it already had. It does not: `images/add` answers
+`{"error":"InvalidRequest","message":"Image already exists"}`, and fmtk-free tooling that reads
+`.id` off that body sees an empty id — which is very likely what the 2026-08-17 "one of five
+survived" measurement actually was, misread as a flake because the raw body was never printed.
+The retry advice that follows from it cannot work; a duplicate fails identically every time
+(four attempts here). What saved the gallery was the skill's *other* rule, which held exactly as
+written: ids were collected and asserted before `images/edit`, so the abort left the live gallery
+untouched instead of trimming it to one image.
+
+The recovery is the shape to reuse. `images/add` had already appended the new shot, so the
+gallery read six; the four unchanged ids came from a cache-busted
+`GET /api/mods/<name>/full`, and each was **identified rather than assumed** — pixel dimensions
+plus a 16x16 greyscale signature against the local files, every match exact at distance 0. The
+sixth, 719x651, matched nothing on disk, which is precisely what the superseded menu shot should
+look like. Only then was the five-id order set. Guessing which id was which would have scrambled
+or deleted the wrong image, and `images/edit` answers `{"success":true}` either way.
+
 ## 2026-08-26 — the text pass committed, synced to legacy/2.0, the 2.0 build measured green
 
 The owner reviewed the reworded strings, rewrote the 0.6.0 changelog's feature entries in

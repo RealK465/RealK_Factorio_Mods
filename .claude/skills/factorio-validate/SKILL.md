@@ -246,6 +246,30 @@ Two things to know before trusting it:
 **Not wired into `validate.ps1`** — pass the flag on a hand-built run for now. Worth turning
 into a switch on the script once a mod is large enough to want it on every validation.
 
+**There is no `-CheckUnusedPrototypeData` parameter, and inventing one reads as a pass.**
+`validate.ps1` takes only `-ModPath`, `-FactorioPath`, `-Disable`, `-KeepDump` and `-Live`;
+anything else fails PowerShell's parameter binding — and the wrapper still **exits 0**, so the
+run looks green while the game never launched. Read the output, not the exit code (measured
+2026-08-26). This is the same shape as the flag's own warnings above: on this script, exit 0
+means very little on its own.
+
+## Never validate two tracks concurrently
+
+The scratch write-data folder is keyed by **mod name only** —
+`%TEMP%\factorio-validate-<mod>-data` — not by install. Run `main` and the legacy worktree at
+the same time and both target that one folder: the second run's cleanup hits a `.lock` the first
+still holds, staging is clobbered mid-flight, and the failure names something entirely
+unrelated. Measured 2026-08-26, validating upcycler-planner on 2.1 and 2.0 together:
+
+```
+Error Util.cpp:81: Failed to load mod "upcycler-planner": __upcycler-planner__/data.lua:1:
+  module prototypes.planner.shortcut not found; no such file ...
+```
+
+`prototypes/planner/shortcut.lua` was on disk and unchanged throughout, and both tracks passed
+individually seconds later. **Run the two tracks sequentially** — a validation is ~4 s, so there
+is nothing to gain, and the misdirection costs far more than the wait.
+
 ## Stage somewhere SHORT: MAX_PATH silently disables the mod
 
 Windows still caps a path at **260 characters**, and a deep scratch directory

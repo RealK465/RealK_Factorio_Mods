@@ -209,18 +209,42 @@ deliberately. All of this is a **public write** and needs the repo owner's expli
 for that release, exactly like the upload.
 
 **Never build the `images/edit` list from a loop's return values without checking every one.**
-Uploaded back-to-back, `images/add` starts returning an *empty* id partway through — no error,
-no non-zero exit, just a blank where the id should be (measured 2026-08-17: one of five
-survived, then three of five on the retry). Because the list *is* the gallery, feeding those
-partial results straight into `images/edit` deletes every image whose id went missing, and the
-call still answers `{"success":true}`. Collect the ids first, assert you have one per file, and
-only then set the order. Uploads that fail this way succeed immediately when retried on their
-own, so a short pause and a retry per file is enough.
+Because the list *is* the gallery, feeding a partial result straight into `images/edit` deletes
+every image whose id went missing, and the call still answers `{"success":true}`. Collect the
+ids first, assert you have one per file, and only then set the order. This rule has now paid
+for itself twice; keep it whatever else changes below.
 
-Re-uploading an unchanged file is free and safe: images are **content-addressed**, so a file
-already on the portal returns the id it already had. That means the fix for a trimmed gallery is
-simply to re-upload everything and set the full list — the unchanged images keep their original
-ids and nothing is orphaned.
+**Re-uploading an unchanged file does NOT return its existing id — it fails.** `images/add`
+refuses a duplicate outright:
+
+```
+{"error":"InvalidRequest","message":"Image already exists"}
+```
+
+Measured 2026-08-26, four identical attempts, no flake and no recovery. A caller reading `.id`
+off that body gets an empty string, which is almost certainly what the 2026-08-17 "one of five
+survived, then three of five" measurement really was — recorded here as a back-to-back rate
+limit, and the retry advice that followed from it cannot work. **Print the raw body before
+believing an id is missing.** (An earlier version of this section said images are
+content-addressed, so re-uploading everything was the safe fix for a trimmed gallery. It is not,
+and that instruction would now abort partway.)
+
+So **only upload files the portal does not already have**, and rebuild the rest of the list from
+what is live:
+
+1. `GET /api/mods/<name>/full?cb=<random>` for the current ids — cache-buster mandatory, below.
+2. **Identify each id rather than assuming its position.** Download
+   `https://assets-mod.factorio.com/assets/<id>.png` and match it to the local file by pixel
+   dimensions plus a coarse perceptual signature (a 16x16 greyscale downsample compares fine
+   across the portal's jpg→png recode; exact matches score 0). Ordering is not guaranteed to be
+   what you last set, and a wrong guess reorders or deletes the wrong image.
+3. `images/add` for the genuinely new files only.
+4. `images/edit` with the full ordered list.
+
+Note that step 3 **already appends** each new image to the live gallery — so between the add and
+the edit the gallery is longer than it should be, and an id you drop in step 4 is the one being
+replaced. That is the intended way to swap a shot: upload the replacement, then set the list
+without the old id.
 
 **Reading the page back is CDN-cached.** `GET /api/mods/<name>/full` served the *pre-edit*
 values immediately after three successful writes — license still `mit`, images `0`,
