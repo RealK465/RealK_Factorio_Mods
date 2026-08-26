@@ -103,6 +103,22 @@ script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   gui.on_setting_changed(game.get_player(event.player_index))
 end)
 
+-- The three closes the engine performs without raising on_gui_closed -- dying, becoming a
+-- spectator, and disconnecting -- reach gui.close_if_unfocused, which explains what it does
+-- and why it closes rather than retakes the focus.
+--
+-- One controller change covers the first two and every other controller a player can be put
+-- into; a disconnect raises none, so the rejoin is where that one is caught. Neither event is
+-- hot: a player changes controller when they die, spectate or open remote view, and joins
+-- once.
+script.on_event(defines.events.on_player_controller_changed, function(event)
+  gui.close_if_unfocused(game.get_player(event.player_index))
+end)
+
+script.on_event(defines.events.on_player_joined_game, function(event)
+  gui.close_if_unfocused(game.get_player(event.player_index))
+end)
+
 script.on_event(defines.events.on_player_removed, function(event)
   state.forget(event.player_index)
 end)

@@ -654,6 +654,92 @@ describe("the modal", function()
     end)
   end)
 
+  test("a close the engine never announces takes the modal with it", function()
+    -- Restore whatever we find rather than assuming a character: by the time this file runs in
+    -- the full suite the player has none, and only the character controller takes an entity.
+    local was = player().controller_type
+    local character = player().character
+    gui.open(player())
+    assert(frame() and frame().valid, "test setup: the modal did not open")
+
+    -- Becoming a spectator closes a player's GUIs WITHOUT raising on_gui_closed -- the docs say
+    -- so and api.md S28 measures it -- which used to leave the modal standing with its focus
+    -- gone, so Esc stopped closing it. Driven by controller rather than by dying because
+    -- character.die() hangs a headless benchmark run outright.
+    player().set_controller({ type = defines.controllers.spectator })
+    after_ticks(3, function()
+      assert(not frame(), "the modal outlived the focus the engine silently took off it")
+      if character and character.valid then
+        player().set_controller({ type = defines.controllers.character, character = character })
+      else
+        player().set_controller({ type = was })
+      end
+    end)
+  end)
+
+  test("a death and respawn leaves no modal Esc cannot close", function()
+    gui.open(player())
+    assert(frame() and frame().valid, "test setup: the modal did not open")
+
+    -- The respawn state is where a death puts the player, reached here without a death screen
+    -- for the benchmark to sit waiting on.
+    player().ticks_to_respawn = 120
+    after_ticks(3, function()
+      assert(not frame(), "the modal survived the death that unfocused it")
+      player().ticks_to_respawn = nil
+      after_ticks(3, function()
+        assert(not frame(), "a modal came back with the player")
+        assert(player().character and player().character.valid,
+          "test teardown: the player did not respawn with a character")
+      end)
+    end)
+  end)
+
+  test("the sweep leaves a modal that still holds the focus alone", function()
+    -- The guard earns its keep on the common path: a controller change is a player flipping to
+    -- remote view far more often than it is a death, and every one of them reaches the handler.
+    gui.close_if_unfocused(player())
+    assert(not frame(), "the sweep conjured a modal out of nothing")
+
+    gui.open(player())
+    gui.close_if_unfocused(player())
+    assert(frame() and frame().valid, "the sweep closed a modal that was perfectly focused")
+    assert(player().opened == frame(), "the sweep disturbed the focus it was checking")
+  end)
+
+  test("the sweep leaves a modal alone while another GUI holds the focus", function()
+    -- The state the test above cannot see: the planner standing with the focus deliberately
+    -- somewhere else, which is what clicking a chest with the settings panel up leaves behind
+    -- (pinned by "another GUI taking focus" earlier in this file). Sweeping on "not the modal"
+    -- rather than on "nothing at all" would close the planner out from under that chest.
+    gui.open(player())
+    -- The panel has to be up for the chest to get the focus at all: without one, the close
+    -- request the chest raises is honoured and takes the modal with it, and the engine then
+    -- force-closes the chest for having been opened during on_gui_closed (api.md S17).
+    gui.open_settings(player())
+    local surface = player().surface
+    -- Beside the player, not at a fixed spot: by this point in the file the respawn test above
+    -- has given them a character again, and a character has a reach the earlier chest test --
+    -- which runs while the suite's player has none -- never had to satisfy.
+    local at = surface.find_non_colliding_position("iron-chest", player().position, 32, 1)
+    local chest = surface.create_entity({ name = "iron-chest", position = at, force = player().force })
+    assert(chest, "test setup: no chest to open")
+
+    player().opened = chest
+    after_ticks(2, function()
+      assert(player().opened == chest,
+        "test setup: the chest never took the focus, opened is " .. tostring(player().opened))
+      assert(frame() and frame().valid, "test setup: the planner should have survived the chest")
+
+      gui.close_if_unfocused(player())
+      assert(frame() and frame().valid, "the sweep closed a planner whose focus was lent out")
+      assert(player().opened == chest, "the sweep stole the focus back from the chest")
+
+      player().opened = nil
+      chest.destroy()
+    end)
+  end)
+
   test("clicking a picker without changing it leaves the modal standing", function()
     -- on_gui_click reaches the same handler as on_gui_elem_changed, carrying the value already in
     -- the button -- and it arrives as the engine opens its chooser. A handler that rebuilds the
