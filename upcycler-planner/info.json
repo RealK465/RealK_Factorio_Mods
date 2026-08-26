@@ -5,7 +5,7 @@
   "author": "RealK",
   "factorio_version": "2.0",
   "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/upcycler-planner",
-  "description": "Choose an item and a target quality, and the mod designs the whole upcycling loop and hands it to you as a blueprint.",
+  "description": "Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.",
   "dependencies": ["base >= 2.0.0", "quality >= 2.0.0"],
   "quality_required": true,
   "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**", "tests/**"] }

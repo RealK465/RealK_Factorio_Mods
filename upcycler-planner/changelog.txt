@@ -3,7 +3,8 @@ Version: 0.6.2
 Date: ????
   Bugfixes:
     - Fixed that the planner window stayed open after you died, and stopped closing with Esc.
-      It closes now, and reopening it brings back everything you had picked.
+  Locale:
+    - Reworded the mod description in the mod browser.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.1
 Date: 2026-08-26
