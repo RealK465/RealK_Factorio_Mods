@@ -9,6 +9,20 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — buffer stock committed, and the 2.0 track measures it green too
+
+The owner authorised the commit and the sync: buffer-by-default went to `main` as one
+commit (57ecf1d, 20 files, suite at 240) and cherry-picked onto `legacy/2.0` with **no
+conflict at all** — the forked `planner.lua`, `gui.lua` and `planner_spec.lua` auto-merged,
+none of the stock-role code touching the 2.0 seams. Before the pick, 2.0.77's own
+`prototype-api.json` confirmed `"buffer"` in `logistic_mode`'s union (an inline union
+there — the named `LogisticMode` type is 2.1's) and its `technology.lua` showed
+`logistic-system` unlocking `buffer-chest`, so the same no-extra-research argument holds.
+Then the whole suite ran from the legacy worktree against base 2.0.77: **240/240**, the
+buffer-ghost round-trip, the kind flip and the GUI toggle included. Divergence stays
+exactly the declared six-file set; legacy keeps `0.5.0`, the pairing being a release
+decision as before.
+
 ## 2026-08-26 — the item chests become buffer chests, behind a checked-by-default checkbox
 
 The owner asked whether the per-tier item chests should be buffer chests ("not the
