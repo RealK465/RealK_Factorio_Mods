@@ -205,29 +205,13 @@ describe("poles.plan over a real plan", function()
 end)
 
 describe("poles.plan connectivity", function()
-  -- Every wire_to edge as an undirected adjacency, walked from the first pole: how many of
-  -- the placed poles one component actually reaches.
+  -- Every wire_to edge walked undirected from the first pole (the shared support walker):
+  -- how many of the placed poles one component actually reaches.
+  local component = require("tests.support.component")
   local function reachable_from_first(result)
-    local adjacent = {}
-    for i, p in pairs(result.entities) do
-      if p.wire_to then
-        adjacent[i] = adjacent[i] or {}
-        adjacent[p.wire_to] = adjacent[p.wire_to] or {}
-        adjacent[i][p.wire_to] = true
-        adjacent[p.wire_to][i] = true
-      end
-    end
-    local visited, stack, count = { [1] = true }, { 1 }, 1
-    while #stack > 0 do
-      local i = stack[#stack]
-      stack[#stack] = nil
-      for j in pairs(adjacent[i] or {}) do
-        if not visited[j] then
-          visited[j] = true
-          count = count + 1
-          stack[#stack + 1] = j
-        end
-      end
+    local count = 0
+    for _ in pairs(component(result.entities, 1, "wire_to")) do
+      count = count + 1
     end
     return count
   end

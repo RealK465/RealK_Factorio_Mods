@@ -58,25 +58,28 @@ script.on_event(CONFIRM_INPUT, function(event)
   gui.confirm_key(game.get_player(event.player_index))
 end)
 
--- All four GUI events go through the one dispatcher, which reads the handler name off the
+-- All six GUI events go through the one dispatcher, which reads the handler name off the
 -- element's tags; on_gui_closed below is separate because it is about the frame, not a widget.
+-- The text pair serves the circuit wizard's threshold fields, the mod's only textfields.
 script.on_event(defines.events.on_gui_click, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_elem_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_selection_state_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_checked_state_changed, dispatch.on_gui_event)
+script.on_event(defines.events.on_gui_text_changed, dispatch.on_gui_event)
+script.on_event(defines.events.on_gui_confirmed, dispatch.on_gui_event)
 
 script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
   if not (element and element.valid) then return end
   local player = game.get_player(event.player_index)
   if element.name == gui.FRAME then
-    if gui.settings_open(player) then
-      -- Esc (or the engine's confirm, or another window taking over) with the settings panel
-      -- up dismisses just the panel, the way a nested window would go. The engine has already
-      -- nilled player.opened; retake it only when nothing else claimed it -- opening a GUI
-      -- during this event force-closes whichever one the engine was not asked for (measured
-      -- in gui_spec), so a clicked chest must keep its chest.
-      gui.close_settings(player)
+    if gui.close_side_panel(player) then
+      -- Esc (or the engine's confirm, or another window taking over) with a side panel up --
+      -- the settings panel, the circuit wizard -- dismisses just the panel, the way a nested
+      -- window would go. The engine has already nilled player.opened; retake it only when
+      -- nothing else claimed it -- opening a GUI during this event force-closes whichever
+      -- one the engine was not asked for (measured in gui_spec), so a clicked chest must
+      -- keep its chest.
       if player.opened == nil then player.opened = element end
     else
       gui.close(player)
@@ -122,6 +125,7 @@ if script.active_mods["factorio-test"] then
   require("__factorio-test__/init")({
     "tests.pure.layout_spec",
     "tests.pure.poles_spec",
+    "tests.pure.circuits_spec",
     "tests.state_spec",
     "tests.planner_spec",
     "tests.plan_spec",

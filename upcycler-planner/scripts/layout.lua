@@ -169,19 +169,23 @@ function layout.build(params)
   local height = r.height
 
   local entities = {}
+  -- Returns the entity so a call site can tag what it just placed -- the circuit pass finds
+  -- its entities by those tags, and an assignment at the site beats an open-ended merge
+  -- parameter on every helper.
   local function add(entity)
     entities[#entities + 1] = entity
+    return entity
   end
 
   local function belt(dx, dy, direction)
-    add({ name = params.belt, dx = dx, dy = dy, w = 1, h = 1, direction = direction })
+    return add({ name = params.belt, dx = dx, dy = dy, w = 1, h = 1, direction = direction })
   end
 
   -- The inserter and the chests arrive as { name, quality } pairs -- the machine and the recycler
   -- already do, and the player picks a quality for each. The belt and the pipe stay bare names:
   -- they are the engine's own quality exceptions, so there is nothing to carry.
   local function inserter(dx, dy, direction, filters, filter_mode)
-    add({
+    return add({
       name = params.inserter.name, quality = params.inserter.quality,
       dx = dx, dy = dy, w = 1, h = 1, direction = direction,
       filters = filters, filter_mode = filter_mode,
@@ -196,7 +200,7 @@ function layout.build(params)
   end
 
   local function chest(spec, dx, dy, requests)
-    add({
+    return add({
       name = spec.name, quality = spec.quality, dx = dx, dy = dy, w = 1, h = 1,
       requests = requests,
     })
@@ -226,6 +230,10 @@ function layout.build(params)
     belt(0, y, SOUTH)
     belt(width - 1, y, NORTH)
   end
+  -- Everything built so far is the perimeter ring -- the per-tier product belts below stay
+  -- untagged. The circuit pass rides the top row as its wire relay on a plan too wide for
+  -- direct hops; a structural fact recorded like utility_columns, not circuit knowledge.
+  for _, e in pairs(entities) do e.circuit_role = "ring" end
 
   local ingredient_names = {}
   for _, ingredient in pairs(params.recipe.ingredients) do
@@ -318,6 +326,10 @@ function layout.build(params)
       quality = machine.quality,
       recipe = params.recipe.name, recipe_quality = quality,
       modules = module_slot(machine_module, machine.module_slots),
+      -- circuit_role/circuit_tier: structural tags the circuit pass finds entities by
+      -- (scripts/circuits.lua). Written unconditionally -- they cost nothing when circuits
+      -- are off, and the serialiser reads only the fields it names.
+      circuit_role = "machine", circuit_tier = index,
     })
 
     -- Ingredients at this tier come off the ring into the feed chest, then into the machine.
@@ -346,7 +358,10 @@ function layout.build(params)
       -- AND above it, which is the whole of what ">=" says. It used to be one filter per tier
       -- above the target, clamped to the inserter's five slots, so a long modded quality chain
       -- silently lost its top tiers; one comparator is exact and cannot be outrun.
-      chest(params.provider, col_product, ROW_FEED_CHEST)
+      -- The census chest of the target tier: the circuit pass counts the finished product
+      -- here, so the target's threshold is the loop's off switch.
+      local output = chest(params.provider, col_product, ROW_FEED_CHEST)
+      output.circuit_role, output.circuit_tier = "census", index
       inserter(col_product, ROW_HARVEST, NORTH,
         { { name = params.recipe.product, quality = quality, comparator = ">=" } }, "whitelist")
 
@@ -381,6 +396,7 @@ function layout.build(params)
         quality = recycler.quality,
         -- A recycler cannot take productivity modules at all; quality is the whole point here.
         modules = module_slot(params.modules.quality_module, recycler.module_slots),
+        circuit_role = "recycler", circuit_tier = index,
       })
 
       -- Product: off the ring into a buffer, then into the recycler. The buffer is what lets
@@ -393,10 +409,16 @@ function layout.build(params)
       -- exact quality.
       inserter(col_buffer, r.unload_inserter, SOUTH,
         { { name = params.recipe.product, quality = quality } }, "whitelist")
-      chest(params.requester, col_buffer, r.lower_chest, {
+      -- Also this tier's census chest: it is where the tier's product settles, so its count
+      -- is what the reserve below and the cap on the machines read.
+      local buffer = chest(params.requester, col_buffer, r.lower_chest, {
         { name = params.recipe.product, quality = quality, count = params.product_buffer },
       })
-      inserter(col_buffer, r.lower_inserter, SOUTH)
+      buffer.circuit_role, buffer.circuit_tier = "census", index
+      -- The reserve point: gating THIS inserter is what keeps a tier's floor in the chest --
+      -- the recycler only ever eats what the inserter hands it.
+      local reserve = inserter(col_buffer, r.lower_inserter, SOUTH)
+      reserve.circuit_role, reserve.circuit_tier = "reserve", index
 
       -- Ingredients the recycler rolled ABOVE this tier: the machine above would reject them
       -- and stall the eject, so they are pulled out and put back on the ring for a higher

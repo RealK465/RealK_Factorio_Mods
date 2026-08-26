@@ -29,6 +29,12 @@ Finished items collect in a passive provider chest at the end.
 
 Anything the loop rolls above the quality you asked for has nothing left to use it, so it goes into an active provider chest and your bots take it away. Loops aiming at the highest quality don't need one and don't get one.
 
+## Circuit limits
+
+Tick **Circuit limits** in the build options and the loop comes wired: every machine stops once the output chest holds the maximum you set, and starts again when bots take items away. You can also keep a minimum of each lower quality in its chest — the loop only recycles the surplus above it.
+
+The **Limits...** button opens a window with one row per quality: **Min** for the lower tiers, **Max** for your target.
+
 ## Works with your mods
 
 This was the main motivation for creating this mod.

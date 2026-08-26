@@ -57,6 +57,7 @@ local state = require("scripts.state")
 
 local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
+local CIRCUITS_FRAME = "upl-circuits"
 -- The shortcut button AND its hotkey custom-input share this prototype name (the Krastorio 2
 -- pairing shape), so the button, the key and the tooltip's keybind hint all rename together.
 local SHORTCUT = "upl-open"
@@ -73,6 +74,7 @@ end
 -- Shared with control.lua, so the event wiring and the GUI cannot drift on a rename.
 gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
+gui.CIRCUITS_FRAME = CIRCUITS_FRAME
 gui.SHORTCUT = SHORTCUT
 
 local function frame_of(player)
@@ -81,20 +83,41 @@ local function frame_of(player)
   return nil
 end
 
--- The panel lives inside the container, so it is found through it -- and dies with it, which
--- is most of what used to need code.
-local function settings_frame_of(player)
+-- The container has ONE side slot beside the planner column, and every panel that can stand
+-- in it -- the settings panel, the circuit wizard, whatever joins them -- is an entry in
+-- SIDE_PANELS below (filled at the end of the file, once the builders exist; require-time,
+-- so nothing of it reaches saved state). The slot mechanics -- find the open panel, close
+-- whatever holds the slot, recreate it after a rebuild, refuse the Confirm key under it --
+-- all iterate that table, so a new panel is one entry rather than an edit per site. A panel
+-- lives inside the container, so it is found through it -- and dies with it, which is most
+-- of what used to need code.
+local SIDE_PANELS
+
+local function panel_frame_of(player, name)
   local frame = frame_of(player)
-  local panel = frame and frame[SETTINGS_FRAME]
+  local panel = frame and frame[name]
   if panel and panel.valid then return panel end
   return nil
 end
 
--- control.lua asks this on a close request for the modal: with the panel up, Esc (or the
--- engine's confirm, or another window taking over) dismisses the panel first, the way a nested
--- window would go, and only a second request closes the planner itself.
+-- The open side panel's name, or nil. At most one can be open -- opening any panel closes
+-- the slot first -- so the first hit is the answer.
+local function side_panel_name(player)
+  for name in pairs(SIDE_PANELS) do
+    if panel_frame_of(player, name) then return name end
+  end
+  return nil
+end
+
+-- control.lua asks these on a close request for the modal: with a panel up, Esc (or the
+-- engine's confirm, or another window taking over) dismisses the panel first, the way a
+-- nested window would go, and only a second request closes the planner itself.
 function gui.settings_open(player)
-  return settings_frame_of(player) ~= nil
+  return panel_frame_of(player, SETTINGS_FRAME) ~= nil
+end
+
+function gui.circuits_open(player)
+  return panel_frame_of(player, CIRCUITS_FRAME) ~= nil
 end
 
 -- The engine's element chooser -- the window a choose-elem-button opens -- is invisible to
@@ -371,6 +394,11 @@ function gui.refresh(player)
   local ok, message, gathered = planner.validate(player.force, choices)
   confirm.enabled = ok
 
+  -- The Limits button follows the checkbox through every path that lands here -- the
+  -- checkbox's own handler included, so neither has to repaint it by hand.
+  local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
+  limits.enabled = choices.circuit_enabled == true
+
   -- validate() and plan() check the same things, so a validated set of choices always yields
   -- a plan; the guard is here because a mismatch would otherwise show as a blank label.
   local plan = ok and planner.plan(player.force, choices, gathered) or nil
@@ -392,6 +420,13 @@ function gui.refresh(player)
       warned = true
       caption[#caption + 1] = "\n"
       caption[#caption + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
+    end
+    -- The circuit pass's own shortfall, the unpowered warning's twin: an unwired entity runs
+    -- without its limit, so the plan still places and the player should know.
+    if plan.circuit_unlinked then
+      warned = true
+      caption[#caption + 1] = "\n"
+      caption[#caption + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
     end
     status.caption = caption
     status.style.font_color = warned and COLOR_WARNING or COLOR_PLAIN
@@ -478,6 +513,94 @@ local function build_settings_panel(player, frame)
   end
 end
 
+-- The circuit numbers, backfilled so the wizard's fields open holding what the plan would
+-- really use: every lower tier's reserve defaults to ZERO -- keep nothing back -- and the
+-- target's cap to one stack of the product, the buffer chest's own sizing rule. Keyed by
+-- quality NAME under two families (circuit_min_ / circuit_max_), so a value survives the
+-- target moving and a remembered floor can never become a ceiling. The cap needs a product
+-- to size it, so it waits for a recipe; called from apply_defaults AND from the wizard's own
+-- build, since the target can change while the panel is up.
+local function backfill_thresholds(choices)
+  local tiers = planner.tiers_up_to(choices.quality) or {}
+  for i = 1, #tiers - 1 do
+    local key = "circuit_min_" .. tiers[i]
+    if not choices[key] then choices[key] = 0 end
+  end
+  local target = tiers[#tiers]
+  if target and not choices["circuit_max_" .. target] then
+    -- The planner owns the sizing rule, so the number shown here and the number a
+    -- GUI-less plan() falls back to are one value.
+    choices["circuit_max_" .. target] = planner.default_circuit_max(chosen_recipe(choices))
+  end
+end
+
+-- The circuit-limits wizard: one numeric field per quality tier the loop climbs, over the
+-- exact tier array the circuit pass consumes, so the wizard and the plan cannot disagree
+-- about which tiers exist. The settings panel's shape and lifecycle -- a second
+-- window-styled column, rebuilt from scratch on open, re-created after a modal rebuild,
+-- dead with the frame. Scrolled, because a modded chain can run to hundreds of tiers.
+local function build_circuits_panel(player, frame)
+  local choices = state.of(player.index).choices
+  backfill_thresholds(choices)
+
+  local panel = frame.add({ type = "frame", name = CIRCUITS_FRAME, direction = "vertical" })
+  panel.style.left_margin = 12
+  local titlebar =
+    add_titlebar(panel, "upl-circuits-titlebar", { "upl-gui.circuit-limits-title" }, frame)
+  titlebar.add({
+    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
+    tags = dispatch.tags("circuits-close"),
+  })
+
+  local content = panel.add({
+    type = "frame", name = "upl-circuits-content", style = "inside_shallow_frame_with_padding",
+    direction = "vertical",
+  })
+  local list = content.add({
+    type = "scroll-pane", name = "upl-circuits-list", direction = "vertical",
+  })
+  list.style.maximal_height = 400
+
+  -- One row per tier, and the row SAYS which rule it sets: the lower tiers hold a "Min" --
+  -- the reserve the loop keeps, enforced on the recycler's feed inserter -- and the target
+  -- holds the "Max", the cap that stops every machine. The word is on the row, not only in
+  -- the tooltip, because the two numbers mean opposite things (owner's ask: be clear).
+  local tiers = planner.tiers_up_to(choices.quality) or {}
+  for index, tier in ipairs(tiers) do
+    local is_target = index == #tiers
+    local key = (is_target and "circuit_max_" or "circuit_min_") .. tier
+    local row = list.add({
+      type = "flow", name = "upl-circuit-row-" .. tier, direction = "horizontal",
+    })
+    row.style.vertical_align = "center"
+    local kind = row.add({
+      type = "label", style = "semibold_caption_label",
+      caption = { is_target and "upl-gui.circuit-max" or "upl-gui.circuit-min" },
+    })
+    kind.style.minimal_width = 32
+    local label = row.add({
+      type = "label",
+      caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
+    })
+    -- One width for every label, or the fields stagger with the tier names.
+    label.style.minimal_width = 110
+    local field = row.add({
+      -- numeric keeps every keystroke a digit, so the handler's tonumber can only see a
+      -- number or an emptied field -- never a letter to reject.
+      type = "textfield", name = "upl-circuit-limit-" .. tier,
+      text = choices[key] and tostring(choices[key]) or "",
+      numeric = true, allow_decimal = false, allow_negative = false,
+      lose_focus_on_confirm = true,
+      tooltip = { is_target and "upl-gui.circuit-max-tooltip"
+        or "upl-gui.circuit-keep-tooltip" },
+      -- The row's own storage key rides in the tags, so one handler serves both families
+      -- and can never write a Min into a Max.
+      tags = dispatch.tags("circuit-limit", { key = key }),
+    })
+    field.style.width = 60
+  end
+end
+
 -- Everything decided before a single widget exists: a default for anything never picked, and
 -- the top machine's module re-resolved against the pair it depends on. Split out of gui.open
 -- because it touches no element -- a reader after "where is the inserter button built" should
@@ -533,6 +656,10 @@ local function apply_defaults(player, choices)
     choices.trash_unrequested = true
   end
 
+  -- The circuit thresholds, whenever a product is known to size them from. circuit_enabled
+  -- itself needs no default: nil already means off, the beacon's own rule.
+  backfill_thresholds(choices)
+
   -- Nothing to resolve until an item is picked, so this is safe before the recipe exists.
   resolve_terminal_module(player, choices)
   -- And nothing to resolve until a beacon is picked -- choices.beacon itself is deliberately
@@ -549,7 +676,7 @@ function gui.open(player)
   local old = frame_of(player)
   local keep = old and old.location
   if keep and keep.x == 0 and keep.y == 0 then keep = nil end
-  local had_settings = settings_frame_of(player) ~= nil
+  local had_panel = side_panel_name(player)
   destroy_modal(player)
   -- Before 0.4.2 the settings lived in a second gui.screen frame; a save from those builds can
   -- still carry one, and nothing else would ever remove it.
@@ -841,6 +968,26 @@ function gui.open(player)
   })
   pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
 
+  -- Circuit limits: opt-in, off by default. Ticked, the plan wires the loop and pauses each
+  -- tier at a stock threshold -- the target's threshold is the whole loop's off switch -- and
+  -- the Limits button opens the per-tier wizard beside the modal. Always shown, like the
+  -- trash checkbox: the checkbox IS the opt-in, so it has nothing to hide behind.
+  local circuits_row = group("circuits")
+  circuits_row.style.vertical_align = "center"
+  circuits_row.add({
+    type = "checkbox", name = "upl-circuit-enabled", state = choices.circuit_enabled == true,
+    caption = { "upl-gui.circuit-enabled" },
+    tooltip = { "upl-gui.circuit-enabled-tooltip" },
+    tags = dispatch.tags("circuit-enabled"),
+  })
+  local limits_button = circuits_row.add({
+    type = "button", name = "upl-circuit-limits", caption = { "upl-gui.circuit-limits" },
+    tooltip = { "upl-gui.circuit-limits-tooltip" },
+    tags = dispatch.tags("circuit-limits"),
+  })
+  limits_button.style.left_margin = 8
+  limits_button.enabled = choices.circuit_enabled == true
+
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
     caption = { "upl-gui.trash-unrequested" },
@@ -872,8 +1019,9 @@ function gui.open(player)
     caption = { "upl-gui.confirm" }, tags = dispatch.tags("confirm"),
   })
 
-  -- The rebuild took the panel down with the old frame; a player who had it open keeps it.
-  if had_settings then build_settings_panel(player, frame) end
+  -- The rebuild took the side panel down with the old frame; a player who had one open
+  -- keeps it -- whichever one held the slot.
+  if had_panel then SIDE_PANELS[had_panel].build(player, frame) end
 
   gui.refresh(player)
 end
@@ -905,13 +1053,27 @@ function gui.toggle_key(player)
   gui.toggle(player)
 end
 
--- Opens the settings panel in the modal's body. The panel touches player.opened not at all --
--- the modal keeps it, and control.lua turns the next close request into "panel first".
-function gui.open_settings(player)
-  gui.close_settings(player)
+-- Opens a panel in the modal's body. A panel touches player.opened not at all -- the modal
+-- keeps it, and control.lua turns the next close request into "panel first". Opening any
+-- panel closes whatever holds the slot first, so the modal never grows a third column.
+local function open_side_panel(player, name)
+  gui.close_side_panel(player)
   local frame = frame_of(player)
   if not frame then return end
-  build_settings_panel(player, frame)
+  SIDE_PANELS[name].build(player, frame)
+end
+
+function gui.open_settings(player)
+  open_side_panel(player, SETTINGS_FRAME)
+end
+
+function gui.open_circuits(player)
+  open_side_panel(player, CIRCUITS_FRAME)
+end
+
+function gui.close_circuits(player)
+  local panel = panel_frame_of(player, CIRCUITS_FRAME)
+  if panel then panel.destroy() end
 end
 
 function gui.close_settings(player)
@@ -919,9 +1081,25 @@ function gui.close_settings(player)
   -- those builds may still carry, so its close X keeps working across the upgrade.
   local legacy = player.gui.screen[SETTINGS_FRAME]
   if legacy and legacy.valid then legacy.destroy() end
-  local panel = settings_frame_of(player)
+  local panel = panel_frame_of(player, SETTINGS_FRAME)
   if panel then panel.destroy() end
 end
+
+-- Closes whichever side panel holds the slot, through its own closer. Returns whether one
+-- did -- control.lua's close request goes "panel first" exactly when this says so.
+function gui.close_side_panel(player)
+  local name = side_panel_name(player)
+  if not name then return false end
+  SIDE_PANELS[name].close(player)
+  return true
+end
+
+-- The slot's registry -- see side_panel_name above. Filled here, after the builders and
+-- closers it names exist; a third panel is one entry.
+SIDE_PANELS = {
+  [SETTINGS_FRAME] = { build = build_settings_panel, close = gui.close_settings },
+  [CIRCUITS_FRAME] = { build = build_circuits_panel, close = gui.close_circuits },
+}
 
 -- Reopened rather than repainted when a setting flips: open() rereads both settings and
 -- rebuilds every filter, the quality list and every picker's visibility from them -- and
@@ -942,6 +1120,43 @@ end)
 
 dispatch.register("settings-close", function(event)
   gui.close_settings(game.get_player(event.player_index))
+end)
+
+dispatch.register("circuit-limits", function(event)
+  local player = game.get_player(event.player_index)
+  if gui.circuits_open(player) then gui.close_circuits(player) else gui.open_circuits(player) end
+end)
+
+dispatch.register("circuits-close", function(event)
+  gui.close_circuits(game.get_player(event.player_index))
+end)
+
+-- The per-tier threshold fields -- the mod's first textfields. Every valid keystroke commits,
+-- so the Confirm key can never outrun an uncommitted edit; Enter confirms, snapping the text
+-- back to what actually holds, and then sheds focus -- that is what lose_focus_on_confirm
+-- does, a confirm dropping focus and never the reverse, so a click away from an emptied
+-- field fires nothing and the display can sit stale until Enter or a rebuild. Accepted: the
+-- value underneath stays right either way. No refresh on either path: a threshold moves no
+-- geometry and no warning, and a rebuild here would destroy the field mid-type.
+local CIRCUIT_LIMIT_CAP = 2147483647 -- circuit constants are int32; past this the engine clamps
+
+dispatch.register("circuit-limit", function(event)
+  local choices = state.of(event.player_index).choices
+  local key = event.element.tags.key
+  -- The field's numeric/no-decimal/no-negative flags mean tonumber only ever sees a
+  -- non-negative integer or an emptied field, so the cap is the one live guard.
+  local value = tonumber(event.element.text)
+  if event.name == defines.events.on_gui_confirmed then
+    value = math.min(value or choices[key] or 0, CIRCUIT_LIMIT_CAP)
+    choices[key] = value
+    event.element.text = tostring(value)
+    return
+  end
+  -- on_gui_text_changed: a transient state -- an emptied field mid-edit -- leaves the last
+  -- value standing, and the text is never rewritten under the player's cursor.
+  if value then
+    choices[key] = math.min(value, CIRCUIT_LIMIT_CAP)
+  end
 end)
 
 dispatch.register("setting", function(event)
@@ -1019,6 +1234,7 @@ local function settled_on(choices, ...)
 end
 
 dispatch.register("quality", function(event)
+  local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "quality")
   -- Read the list this dropdown was built from, never a re-derived one: research finishing
@@ -1026,7 +1242,9 @@ dispatch.register("quality", function(event)
   local targets = event.element.tags.targets
   choices.quality = targets[event.element.selected_index]
   if settled() then return end
-  gui.refresh(game.get_player(event.player_index))
+  -- The circuit wizard lists one row per tier, and the target just moved the tier list -- a
+  -- rebuild keeps an open wizard in step, and the cheap repaint stands when it is closed.
+  if gui.circuits_open(player) then gui.open(player) else gui.refresh(player) end
 end)
 
 dispatch.register("machine", function(event)
@@ -1250,6 +1468,20 @@ dispatch.register("trash", function(event)
   state.of(event.player_index).choices.trash_unrequested = event.element.state
 end)
 
+dispatch.register("circuit-enabled", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  -- The trash checkbox's double-fire pair, but this one refreshes -- the warning line and the
+  -- Limits button both follow the tick -- so the settled guard keeps the second event from
+  -- designing the loop again.
+  local settled = settled_on(choices, "circuit_enabled")
+  choices.circuit_enabled = event.element.state
+  if settled() then return end
+  -- Unchecking takes the wizard with it -- limits on a loop that will not be wired are noise.
+  if not choices.circuit_enabled then gui.close_circuits(player) end
+  gui.refresh(player)
+end)
+
 -- Confirm does not build anything. It designs the loop and hands the player the blueprint, and
 -- from there the engine owns everything: preview, rotation, flipping, snapping, undo, and the
 -- build. There is no snapshot to keep, because the blueprint IS the frozen plan -- reopening
@@ -1257,11 +1489,12 @@ end)
 --
 -- Public and guarded rather than left inside the button's handler, because the "Confirm window"
 -- key reaches it too and arrives from anywhere: with no modal up, or with the settings panel
--- open beside the pickers. A press of E while the panel is up should dismiss the panel -- the
--- engine's own close, which always runs after this handler, does exactly that through
--- control.lua -- never place a blueprint.
+-- or the circuit wizard open beside the pickers. A press of E while a panel is up should
+-- dismiss the panel -- the engine's own close, which always runs after this handler, does
+-- exactly that through control.lua -- never place a blueprint. The wizard's half also covers
+-- E landing while a threshold field has keyboard focus, whatever the engine does with it.
 function gui.confirm(player)
-  if not frame_of(player) or settings_frame_of(player) then return end
+  if not frame_of(player) or side_panel_name(player) then return end
 
   local choices = state.of(player.index).choices
 

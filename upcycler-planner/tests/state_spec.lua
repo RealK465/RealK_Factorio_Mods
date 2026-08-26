@@ -143,6 +143,25 @@ describe("state.prune -- drop what no longer qualifies", function()
       "a real module was pruned -- membership must be all modules, not one role")
   end)
 
+  test("circuit reserves and caps prune by the quality in their KEY; the enable flag survives", function()
+    -- circuit_min_/circuit_max_<quality> hold numbers, so the value-based _quality$ sweep
+    -- cannot cover them -- the tier a mod removed has to be read out of the key itself.
+    local entry = seeded({
+      circuit_enabled = true,
+      circuit_min_rare = 200,
+      circuit_min_gone = 25,
+      circuit_max_epic = 50,
+      circuit_max_gone = 9,
+    })
+    state.prune()
+    local c = entry.choices
+    assert(c.circuit_enabled == true, "the enable flag was lost -- booleans are not pruned")
+    assert(c.circuit_min_rare == 200, "a live tier's reserve was pruned")
+    assert(c.circuit_min_gone == nil, "a removed tier's reserve survived")
+    assert(c.circuit_max_epic == 50, "a live tier's cap was pruned")
+    assert(c.circuit_max_gone == nil, "a removed tier's cap survived")
+  end)
+
   test("the beacon prunes by membership; a pruned one reads as off; the clear flag survives", function()
     local entry = seeded({
       beacon = "beacon",

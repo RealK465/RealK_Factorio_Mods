@@ -9,31 +9,6 @@ in `changelog.txt` if a player would notice.
 
 ## Layout features
 
-### Circuit control and wires
-**Status:** cut from the first build, at the repo owner's call — keep it simple to start.
-
-The reference belt design garnishes the loop with circuit conditions and green wires: a belt
-gated on `product@q_k < 20` reading its own contents in `entire_belt_hold` mode, a skim inserter
-at `>= 20` diverting overflow into a buffer chest, and a `connect_to_logistic_network` inserter
-at `> 1` feeding it back. Their job is to stop the ring flooding with product; **the loop runs
-without them**, it just circulates more junk.
-
-Everything needed is already verified (`analysis/api.md` §4): control behaviour applies to
-script-created ghosts since 2.1.7; `circuit_condition` / `logistic_condition` /
-`connect_to_logistic_network` are inherited from `LuaGenericOnOffControlBehavior`, which is easy
-to miss because they are only visible via the JSON's `parent` key; wires go through
-`get_wire_connector(defines.wire_connector_id.circuit_green, true).connect_to(other)`; and
-ghost-to-ghost wiring is first-class. **Use the default `wire_origin.player`** — `script`-origin
-wires are invisible to players.
-
-**The plan is already shaped for it.** Since 2026-08-18 an entity's `wire_to` is a plan index
-rather than a position among the poles, so a wire can name any entity — which is what a green
-wire between a belt and an inserter needs, and what a per-type ordinal could never express. The
-serialiser writes `wires` from that field without knowing what kind of entity either end is; a
-second wire kind needs a connector id beside the index, not a new mechanism.
-
-Add when: the plain loop is proven and someone wants throughput or a tidier ring.
-
 ### A second fluid network (two-fluid recipes), and fluid products
 **Status:** out of scope of the 0.2.0 fluid support, on purpose.
 

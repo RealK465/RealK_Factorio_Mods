@@ -10,6 +10,7 @@ local planner = {}
 
 local layout = require("scripts.layout")
 local poles = require("scripts.poles")
+local circuits = require("scripts.circuits")
 
 local memo = {}
 
@@ -1406,6 +1407,39 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
   return plan
 end
 
+-- The shortest circuit-wire distance among everything the circuit pass wires. A wire is
+-- refused past the SHORTER end's reach, so one conservative number serves every hop; each
+-- prototype is asked at the quality it is placed at, since quality genuinely grows a pole's
+-- wire reach and may grow these the same way. The belt carries no quality by the engine's own
+-- rule. get_max_CIRCUIT_wire_distance, not the copper getter beside it -- the two answer
+-- different questions and only this one is documented for circuit wires (api.md S26). A
+-- modded entity with no circuit wire support answers 0, which the decorator turns into
+-- unlinked counts -- a warning, never a refusal. The inserter joins the min only when some
+-- reserve is set: it is wired only then, and a wireless modded inserter must not zero the
+-- reach of a plan that never wires one.
+-- One owner for the cap's default -- one stack of the product, the buffer chest's own sizing
+-- rule -- shared by the wizard's backfill and plan()'s fallback, so the number the player is
+-- shown and the number the plan uses cannot drift. Nil until a recipe names a product.
+function planner.default_circuit_max(recipe)
+  local product = recipe and planner.product_of(recipe)
+  local item = product and prototypes.item[product]
+  return item and item.stack_size or nil
+end
+
+local function circuit_reach(machine, machine_quality, recycler, recycler_quality, r, reserves)
+  local reach = math.min(
+    machine.get_max_circuit_wire_distance(machine_quality),
+    recycler.get_max_circuit_wire_distance(recycler_quality),
+    prototypes.entity[r.requester.name].get_max_circuit_wire_distance(r.requester.quality),
+    prototypes.entity[r.provider.name].get_max_circuit_wire_distance(r.provider.quality),
+    prototypes.entity[r.belt].get_max_circuit_wire_distance())
+  if reserves then
+    reach = math.min(reach,
+      prototypes.entity[r.inserter.name].get_max_circuit_wire_distance(r.inserter.quality))
+  end
+  return reach
+end
+
 -- `gathered` is the resources table validate() already collected in the same code path, so
 -- gui.refresh does not pay for the scans twice; omitted, plan gathers its own.
 function planner.plan(force, choices, gathered)
@@ -1503,6 +1537,8 @@ function planner.plan(force, choices, gathered)
   local pole_gap = (#fluids == 1 and 1 or 0) + (pole and pole.tile_width or 0)
     + (beacon and beacon.tile_width or 0)
 
+  local product_stack = prototypes.item[product.name].stack_size
+
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
@@ -1543,7 +1579,7 @@ function planner.plan(force, choices, gathered)
     requests = requests,
     -- One stack of the product in front of each recycler: enough to keep it busy through a
     -- gap on the belt, and self-limiting rather than hoarding.
-    product_buffer = prototypes.item[product.name].stack_size,
+    product_buffer = product_stack,
   }
   -- With poles, the layout and the pole pass are solved together -- the columns a plan opens
   -- are the ones poles turned out to need. Without them there is nothing to weigh, so the
@@ -1560,6 +1596,36 @@ function planner.plan(force, choices, gathered)
     })
   else
     plan = layout.build(layout_params)
+  end
+
+  -- Circuit limits, decorated onto the finished plan -- strictly after the pole pass, since
+  -- circuits change no geometry and so have nothing to solve together with it. An unset cap
+  -- falls back to default_circuit_max, so plan() stays callable without the GUI's defaults
+  -- having run; the cap lives under its own circuit_max_<quality> key, never a re-read
+  -- minimum, so a remembered floor cannot become a ceiling when the target moves onto its
+  -- tier. "Zero means off" is normalised HERE, once: decorate sees a sparse minimums table
+  -- and a nil maximum, never a zero -- so the reach below and the decorator's wiring read
+  -- the same tables and cannot disagree about which entities are actually wired.
+  if choices.circuit_enabled then
+    local minimums = {}
+    for i = 1, #tiers - 1 do
+      local floor = choices["circuit_min_" .. tiers[i]]
+      if floor and floor > 0 then minimums[tiers[i]] = floor end
+    end
+    local maximum = choices["circuit_max_" .. choices.quality]
+      or planner.default_circuit_max(recipe)
+    if not (maximum and maximum > 0) then maximum = nil end
+    local unlinked = circuits.decorate(plan.entities, {
+      tiers = tiers,
+      minimums = minimums,
+      maximum = maximum,
+      product = product.name,
+      reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r,
+        next(minimums) ~= nil),
+    })
+    -- Reported like the pole pass's unpowered: only the built geometry knows it, and the loop
+    -- still runs -- an unwired entity just runs without its limit.
+    if unlinked > 0 then plan.circuit_unlinked = unlinked end
   end
 
   -- Carried on the plan rather than through the layout: which chests exist is geometry, whether
@@ -1816,6 +1882,26 @@ function planner.validate(force, choices)
     #fluids == 1, beacon_count)
   then
     return true, { "upl-message.beacon-out-of-reach", beacon.localised_name }, r
+  end
+
+  -- A circuit floor the buffer chest cannot physically hold could never fill -- the count
+  -- tops out at capacity and the reserve inserter only draws ABOVE the floor -- so that
+  -- tier's recycling would stop silently, the exact failure the request-raising rule in
+  -- circuits.decorate closes for the trash-unrequested case. Capacity is asked at the
+  -- chest's build quality, since quality grows a chest's inventory.
+  if choices.circuit_enabled then
+    local slots = prototypes.entity[r.requester.name]
+      .get_inventory_size(defines.inventory.chest, r.requester.quality) or 0
+    local capacity = slots * prototypes.item[product.name].stack_size
+    local tiers = planner.tiers_up_to(choices.quality)
+    for i = 1, #tiers - 1 do
+      local floor = choices["circuit_min_" .. tiers[i]]
+      if floor and floor > 0 and floor >= capacity then
+        return true, {
+          "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
+        }, r
+      end
+    end
   end
 
   return true, nil, r

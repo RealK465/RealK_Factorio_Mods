@@ -54,6 +54,27 @@ local function wipe(surface)
   end
 end
 
+-- How many ghosts one wire network holds: walk get_wire_connector(...).connections outward
+-- from a start ghost. Shared by the pole-copper and circuit-green network tests -- the two
+-- used to carry the walk independently, in different bookkeeping.
+local function reachable(start, connector_id)
+  local visited, stack, count = { [start.unit_number] = true }, { start }, 0
+  while #stack > 0 do
+    local ghost = stack[#stack]
+    stack[#stack] = nil
+    count = count + 1
+    local connector = ghost.get_wire_connector(connector_id, false)
+    for _, connection in pairs(connector and connector.connections or {}) do
+      local other = connection.target.owner
+      if not visited[other.unit_number] then
+        visited[other.unit_number] = true
+        stack[#stack + 1] = other
+      end
+    end
+  end
+  return count, visited
+end
+
 -- Stamps through the player's cursor -- the route a real click takes, and the only one that
 -- accepts flip arguments, which build_blueprint has none of. Forced build mode, so reach never
 -- enters into it.
@@ -247,23 +268,7 @@ describe("stamping the blueprint", function()
     -- overflow tap's -- see plan_spec's medium-pole scenario for why it costs one.
     assert(#poles == 6, "pole ghost count " .. #poles)
 
-    local index_of = {}
-    for i, ghost in pairs(poles) do index_of[ghost.unit_number] = i end
-    local visited, stack = { [1] = true }, { 1 }
-    while #stack > 0 do
-      local ghost = poles[stack[#stack]]
-      stack[#stack] = nil
-      local connector = ghost.get_wire_connector(defines.wire_connector_id.pole_copper, false)
-      for _, connection in pairs(connector and connector.connections or {}) do
-        local other = index_of[connection.target.owner.unit_number]
-        if other and not visited[other] then
-          visited[other] = true
-          stack[#stack + 1] = other
-        end
-      end
-    end
-    local reached = 0
-    for _ in pairs(visited) do reached = reached + 1 end
+    local reached = reachable(poles[1], defines.wire_connector_id.pole_copper)
     assert(reached == #poles, "only " .. reached .. " of " .. #poles .. " poles share the network")
   end)
 
@@ -291,6 +296,120 @@ describe("stamping the blueprint", function()
       assert(ghost.direction == defines.direction.west, "plant ghost lost its rotation")
       assert(ghost.get_recipe() and ghost.get_recipe().name == "battery", "plant ghost recipe")
     end
+  end)
+
+  test("circuit limits survive the stamp: gates on all three kinds, one green network, neutral belts", function()
+    -- The naming trap, read back off real ghosts on purpose: the BLUEPRINT field is
+    -- circuit_enabled, but a live control behaviour spells the same flag
+    -- circuit_enable_disable -- a read of .circuit_enabled here would come back nil and
+    -- prove nothing (the belt's read_contents_mode / circuit_contents_read_mode split
+    -- again, api.md S21).
+    stamp(gear_plan({
+      circuit_enabled = true, circuit_max_rare = 77,
+      circuit_min_normal = 5, circuit_min_uncommon = 9,
+    }))
+
+    -- Every machine carries the one cap: the target's count against the maximum.
+    local machines = ghosts_of(nauvis(), "assembling-machine-3")
+    assert(#machines == 3, "machine ghost count " .. #machines)
+    for _, ghost in pairs(machines) do
+      local cb = ghost.get_control_behavior()
+      assert(cb and cb.circuit_enable_disable == true, "a machine ghost lost its gate")
+      local condition = cb.circuit_condition
+      assert(condition.first_signal and condition.first_signal.name == "iron-gear-wheel"
+        and condition.first_signal.quality == "rare" and condition.constant == 77,
+        "machine condition came back as " .. serpent.line(condition))
+    end
+
+    -- The recycler is a furnace, whose blueprint group carries control_behavior and nothing
+    -- else -- the half of the design that had no precedent in the mod before this test. It
+    -- stops at the same cap as the machines.
+    for _, ghost in pairs(ghosts_of(nauvis(), "recycler")) do
+      local cb = ghost.get_control_behavior()
+      assert(cb and cb.circuit_enable_disable == true, "a recycler ghost lost its gate")
+      assert(cb.circuit_condition.first_signal.quality == "rare"
+        and cb.circuit_condition.constant == 77,
+        "recycler condition " .. serpent.line(cb.circuit_condition))
+    end
+
+    -- The reserve inserters hold their floors, strictly above, at their own tiers. A signal's
+    -- quality reads back OMITTED when it is normal -- the same default omission as a north
+    -- direction or a whitelist filter_mode -- so nil means normal here.
+    local reserves = 0
+    for _, ghost in pairs(ghosts_on(nauvis())) do
+      if ghost.ghost_prototype.type == "inserter" then
+        local cb = ghost.get_control_behavior()
+        if cb and cb.circuit_enable_disable then
+          local c = cb.circuit_condition
+          assert(c.comparator == ">", "reserve comparator " .. tostring(c.comparator))
+          local tier = c.first_signal.quality or "normal"
+          assert((tier == "normal" and c.constant == 5)
+            or (tier == "uncommon" and c.constant == 9),
+            "reserve condition " .. serpent.line(c))
+          reserves = reserves + 1
+        end
+      end
+    end
+    assert(reserves == 2, reserves .. " gated inserters, expected one reserve per lower tier")
+
+    -- One green component spanning every gated entity and every census chest: 3 machines,
+    -- 2 recyclers, 2 reserve inserters, 2 buffer chests, the output chest.
+    local start
+    for _, ghost in pairs(ghosts_of(nauvis(), "passive-provider-chest")) do start = ghost end
+    assert(start, "no output chest ghost to walk from")
+    local reached = reachable(start, defines.wire_connector_id.circuit_green)
+    assert(reached == 10, "the green network spans " .. reached .. " ghosts, expected 10")
+
+    -- Direct mode on a vanilla plan: the ring must carry no wires and no behaviour -- a belt
+    -- that grew either would gate or read the very path the limits leave alone.
+    for _, ghost in pairs(ghosts_of(nauvis(), "transport-belt")) do
+      assert(ghost.get_control_behavior() == nil, "a belt ghost grew a control behaviour")
+      local connector = ghost.get_wire_connector(defines.wire_connector_id.circuit_green, false)
+      assert(not connector or #connector.connections == 0, "a belt ghost was wired in direct mode")
+    end
+  end)
+
+  test("the widest vanilla pitch stays one green network, through the ring relay", function()
+    -- The substation+beacon+pipe column stretches a machine-row hop to 9.0 centre-to-centre
+    -- -- exactly the wire reach, where nothing records whether the engine measures centres
+    -- or connector points. The decorator's half-tile margin sends this plan through the
+    -- ring relay instead of gambling on the boundary; this stamps it and proves every gated
+    -- ghost still shares one network on the engine's own arithmetic.
+    local plan = planner.plan(force(), {
+      recipe = "battery", quality = "rare",
+      machine = "chemical-plant", recycler = "recycler",
+      pole = "substation", beacon = "beacon", beacon_count = 4,
+      circuit_enabled = true, circuit_max_rare = 50,
+      circuit_min_normal = 5, circuit_min_uncommon = 5,
+    })
+    assert(plan, "widest-pitch plan failed in test setup")
+    assert(plan.circuit_unlinked == nil,
+      "unlinked " .. tostring(plan.circuit_unlinked) .. " on the widest vanilla pitch")
+    local relayed = false
+    for _, e in pairs(plan.entities) do
+      if e.circuit_role == "ring" and e.circuit_wire_to then relayed = true end
+    end
+    assert(relayed, "test premise: this geometry must push the spine onto the ring relay")
+
+    stamp(plan)
+    local start
+    for _, ghost in pairs(ghosts_of(nauvis(), "passive-provider-chest")) do start = ghost end
+    assert(start, "no output chest ghost to walk from")
+    local _, visited = reachable(start, defines.wire_connector_id.circuit_green)
+    local function all_reached(name, expected)
+      local ghosts = ghosts_of(nauvis(), name)
+      local hit = 0
+      for _, ghost in pairs(ghosts) do
+        if visited[ghost.unit_number] then hit = hit + 1 end
+      end
+      assert(hit == expected, name .. ": " .. hit .. " of " .. #ghosts
+        .. " on the network, expected " .. expected)
+    end
+    all_reached("chemical-plant", 3)
+    all_reached("recycler", 2)
+    -- Five requester ghosts stand (three feed, two buffers); only the two census buffers
+    -- belong on the network.
+    all_reached("requester-chest", 2)
   end)
 end)
 

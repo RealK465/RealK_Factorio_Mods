@@ -78,8 +78,19 @@ function state.prune()
     -- Matched by key rather than listed by name: a picker added later must not be able to keep
     -- a tier that no longer exists just because nobody remembered to add its key here. The
     -- target `quality` has no underscore, so it keeps its own test above.
+    -- One pass, the precedence structural: a circuit reserve or cap prunes by the quality in
+    -- its KEY (circuit_min_<quality> / circuit_max_<quality> hold numbers), and only what
+    -- neither family claims falls through to the value test -- so a modded tier whose own
+    -- name ends in _quality cannot trip the wrong sweep. circuit_enabled is a plain boolean
+    -- like no_poles, nothing to prune; the target `quality` has no underscore and keeps its
+    -- own test above.
     for key, quality in pairs(c) do
-      if key:match("_quality$") and not planner.is_quality(quality) then c[key] = nil end
+      local tier = key:match("^circuit_min_(.+)$") or key:match("^circuit_max_(.+)$")
+      if tier then
+        if not planner.is_quality(tier) then c[key] = nil end
+      elseif key:match("_quality$") and not planner.is_quality(quality) then
+        c[key] = nil
+      end
     end
     -- Left by 0.3.1 and earlier, which snapshotted the choices when the placement tool went
     -- into the cursor. Nothing reads it now, and the first configuration change after the

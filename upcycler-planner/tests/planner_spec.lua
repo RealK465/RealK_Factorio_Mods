@@ -611,6 +611,29 @@ describe("validate", function()
       "expected the build-quality warning, got " .. tostring(message and message[1]))
     assert(gathered, "warning path must still return gathered resources")
   end)
+
+  test("a circuit floor larger than the buffer chest warns but does not refuse", function()
+    -- The count tops out at the chest's capacity and the reserve inserter only draws above
+    -- the floor, so an oversized floor would stop that tier's recycling silently -- the loop
+    -- still runs, which is what keeps this a warning. A requester chest holds 48 stacks of
+    -- gears at normal, so a million is comfortably past any vanilla chest.
+    local f = force()
+    research.full(f)
+    local ok, message, gathered = planner.validate(f, choices_with({
+      circuit_enabled = true, circuit_min_uncommon = 1000000,
+    }))
+    assert(ok == true, "an oversized floor must not refuse")
+    assert(message and message[1] == "upl-message.circuit-min-too-big",
+      "expected the floor warning, got " .. tostring(message and message[1]))
+    assert(gathered, "warning path must still return gathered resources")
+
+    -- A floor that fits stays silent.
+    local ok2, message2 = planner.validate(f, choices_with({
+      circuit_enabled = true, circuit_min_uncommon = 200,
+    }))
+    assert(ok2 == true and message2 == nil,
+      "a fitting floor warned: " .. tostring(message2 and message2[1]))
+  end)
 end)
 
 describe("recipe-shape helpers", function()
