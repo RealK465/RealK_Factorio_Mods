@@ -9,6 +9,52 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — every player-facing string reworded, and three labels renamed
+
+The owner asked for a clarity pass over everything a player reads: the locale, the README, the
+FAQ and the mod description. An audit of the ~110 strings against the code that assembles them
+found three classes of problem.
+
+**Terminology drift.** One concept had three names — the GUI said *Build options*, the README
+*Selectors*, the FAQ *Build options pickers*. The five chest labels mixed schemes: three named
+a job (Ingredient, Output, Overflow), one named a kind (*Plain chest*), and one was vague
+against a label already using the word (*Item chest* beside *Item to upcycle*). The
+`terminal-module` picker was captioned *Top machine module* while its own tooltip called it
+"the last machine". Settled as the vocabulary table now in `decisions.md`; the code keys were
+deliberately left alone.
+
+**Two strings had gone stale or were never complete.** The mod description still said the mod
+"places it as ghosts", which stopped being true at 0.4.0 when Confirm started handing over a
+blueprint. And the *Show all build options* setting described itself as revealing "the chests
+and the ones with only one choice" — never mentioning the beacon group, which `beacon_visible`
+has also gated since 2026-08-22.
+
+**The warning family was unevenly finished.** `quality-not-researched` and
+`recipe-not-researched` both reassured with "The loop will wait for it";
+`build-quality-not-researched` and `no-pole-researched` stated the fact and stopped — the
+second of those meaning "the loop arrives with no power", which is exactly what the player
+would want to know. Now one family. Two other messages were repaired rather than reworded:
+`inserter-too-few-filters` ignored a `__2__` that `planner.lua` had been passing all along, and
+`no-recycler` said "Pick a recycler" for a picker that is hidden in a vanilla game.
+
+**Renaming `container` was the one that mattered.** Its published 0.5.1 label was *Buffer
+chest*, and this same unreleased version adds a *Use buffer chests* checkbox about a different
+role — so leaving it would have shipped one word meaning two things in one window. All three
+renames were free because 0.6.0 has no tag; the owner rewrote the changelog's feature entries
+in their own voice afterwards, and the rename line went back in for the collision's sake.
+
+Key set verified unchanged (109 before and after), placeholders and plural forms intact, file
+pure ASCII, `info.json` description byte-identical to `[mod-description]`. No Lua changed, so
+the suite was not at risk; the data stage was validated green regardless.
+
+**One reported bug was checked and found not to exist.** The review claimed that
+`gui.apply_defaults` re-defaulting the recycler only `if not choices.recycler` leaves a dead
+end when the mod supplying a remembered recycler is uninstalled — a stale name that `validate`
+refuses behind a picker `worth_showing` hides. It does not: `state.prune` runs on
+`on_configuration_changed`, which is exactly when a mod leaves, and it already nils a recycler
+that has dropped out of `planner.recyclers()`. Nothing was parked, and nothing needs fixing;
+recorded here so the same reasoning is not repeated from the same starting point.
+
 ## 2026-08-26 — the place-button fix committed, synced to legacy/2.0, both measured green
 
 The owner authorised commit, push and the legacy sync in one ask. The fix went to `main` as

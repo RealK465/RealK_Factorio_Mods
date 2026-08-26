@@ -14,8 +14,8 @@ Confirm hands over an ordinary blueprint instead**, so preview, rotation, flippi
 undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF: belt, inserter, ingredient chest, item chest, plain chest, output chest,
-overflow chest, quality module, top machine module, electric pole, pipe, beacon, beacon module,
+is built OUT OF: belt, inserter, ingredient chest, stock chest, relay chest, output chest,
+overflow chest, quality module, final machine module, electric pole, pipe, beacon, beacon module,
 a beacons-per-tier count, the circuit-limits checkbox with its per-tier Limits wizard (since
 2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
@@ -269,7 +269,7 @@ re-opening any of these, and don't restate a reason here.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
   then a **Build options** block for what it is built **out of**, sorted into six captioned
   concept groups — Transport (belt, inserter, pipe), Chests (the five roles), Modules (quality
-  and top machine), Beacons (beacon, its module, the per-tier count), Power (pole), Circuits
+  and final machine), Beacons (beacon, its module, the per-tier count), Power (pole), Circuits
   (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests and
   trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
   own quality except the belt and the pipe, which the engine gives no quality bonus.
@@ -287,7 +287,7 @@ re-opening any of these, and don't restate a reason here.
   Reasons: `decisions.md`; measurements: `analysis/api.md` §17 and §19.
 - **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
   game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
-  machine, belt, quality module, and the two whose *clear* is the second option (pole, top machine
+  machine, belt, quality module, and the two whose *clear* is the second option (pole, final machine
   module). **The five chests go the other way and are hidden whatever their count.** A hidden
   picker still holds its default, and hides its row label with it. What that costs — a hidden
   picker takes its quality box with it — is what *Show all build options* exists to undo, the
@@ -298,7 +298,7 @@ re-opening any of these, and don't restate a reason here.
 - **`storage` holds flat strings only** — never a `{name, quality}` table.
 - Belt ring is the layout (`.ai-support/analysis/layout-belt-ring.md`); the bot loop is a
   deferred toggle, not a dead idea (`analysis/layout-bot-loop.md`).
-- Modules are planned rather than requested. The top machine's module is its own picker,
+- Modules are planned rather than requested. The final machine's module is its own picker,
   defaulting to the best researched **productivity** module and to **nothing** when the recipe or
   the machine refuses productivity — never to a quality module. Clearing it means "leave that
   machine empty".
@@ -326,7 +326,7 @@ re-opening any of these, and don't restate a reason here.
 - Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
   (active provider): it is the loop's one sink that empties itself.
-- **The item chests are buffer chests by default** (2026-08-26): the stock role's kind follows
+- **The stock chests are buffer chests by default** (2026-08-26): the stock role's kind follows
   the "Use buffer chests" checkbox — buffer chests share each tier's items with personal
   logistics and construction bots, requester chests keep them in the loop. Toggling refills the
   stock picker with the new kind's best and keeps its quality; the ingredient, output and

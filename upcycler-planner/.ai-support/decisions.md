@@ -193,10 +193,10 @@ per-release approval.
   returned as a value because `player.print` is unobservable from a spec.
 - **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
   crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
-  belt, inserter, requester chest, buffer chest, output chest, overflow chest, quality module,
-  top machine module, electric pole, pipe, and the trash-unrequested checkbox (checked by
-  default). The
-  inserter, the first three chests and the top machine's module joined the strip on 2026-08-17 at
+  belt, inserter, ingredient chest, stock chest, relay chest, output chest, overflow chest,
+  quality module, final machine module, electric pole, pipe, and the trash-unrequested checkbox
+  (checked by default). The
+  inserter, the first three chests and the final machine's module joined the strip on 2026-08-17 at
   the repo owner's request, closing the parked chest picker and the parked productivity-module one;
   the overflow chest joined them on 2026-08-20 with the tap it feeds;
   **nothing the plan places is auto-picked any more** except the underground pipe, which is
@@ -256,7 +256,7 @@ per-release approval.
   a modset that adds an alternative brings each of them back. The count is taken on the list the
   picker would really offer, so the setting above moves it too. Seven pickers are exempt: the
   item, the target quality, the machine, the belt and the quality module are the choice whatever
-  the count, and the pole and the top machine's module have a *clear* that is itself the second
+  the count, and the pole and the final machine's module have a *clear* that is itself the second
   option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
   of the request. The pipe carries one extra condition of its own: it stays out of the strip until
   the chosen recipe takes a fluid, since it plumbs nothing otherwise.
@@ -344,7 +344,7 @@ per-release approval.
   loop.
 - **The build options are six captioned concept groups** (owner's call, 2026-08-22,
   superseding the 2026-08-17 six-column grid; Circuits joined 2026-08-26): Transport (belt,
-  inserter, pipe), Chests (the four roles), Modules (quality, top machine), Beacons (beacon,
+  inserter, pipe), Chests (the five roles), Modules (quality, final machine), Beacons (beacon,
   its module, the per-tier count drop-down), Power (pole), Circuits (the enable checkbox and
   the Limits button) — each a `semibold_caption_label` over a horizontal flow of
   icon pickers, the trash checkbox below them all. Twelve icon-only pickers in one flat grid
@@ -355,6 +355,31 @@ per-release approval.
   `analysis/api.md` §19). A group whose every picker is hidden — the chests by default, the
   beacon group until show-all or a pick — hides caption and row together, the rule owned once
   by the group rather than by each button.
+- **The player-facing vocabulary is fixed, and the code keys are not renamed to match it**
+  (2026-08-26, owner's clarity pass over every string a player sees). One word per concept,
+  used identically in the locale, the README and the FAQ:
+
+  | Concept | Player word | Code key |
+  |---|---|---|
+  | the strip of pickers | *build options* — never "selectors" or "pickers" | — |
+  | `requester` role | **Ingredient chest** | `requester` |
+  | `stock` role | **Stock chest** (was *Item chest*, and *Buffer chest* before that) | `stock` |
+  | `container` role | **Relay chest** (was *Plain chest*) | `container` |
+  | `provider` role | **Output chest** | `provider` |
+  | `overflow` role | **Overflow chest** | `overflow` |
+  | the machine at the target tier | **Final machine** — never "top" or "last" | `terminal_module` |
+
+  Three renames landed at once and all three were free, because 0.6.0 had not shipped: *Item
+  chest* was spending the word "Item" that `Item to upcycle` already owned; *Plain chest* was
+  the only one of the five named after a **kind** rather than a job; and *Top machine module*
+  read as a screen position while its own tooltip said "last machine". **Renaming `container`
+  mattered most**: its published 0.5.1 label was *Buffer chest*, and 0.6.0 introduces a *Use
+  buffer chests* checkbox about the `stock` role — two unrelated meanings for one word, in one
+  window. The code keys stay as they are: they are the layout's vocabulary, not the player's,
+  and renaming them would touch every spec for no behavioural gain.
+  Every picker carrying a quality box also says **what higher quality buys** ("holds more",
+  "swings faster", "reaches further"); the belt and the pipe say they have no quality bonus,
+  which is the engine's own rule (`quality/locale/en/quality.cfg`, *quality-bonus-exceptions*).
 - **Storage holds flat strings.** `machine` / `machine_quality` pairs rather than the
   `{name, quality}` tables the `-with-quality` widgets speak. `control.lua`'s stated contract is
   that storage holds nothing but strings, and a nested table there fails silently rather than
@@ -392,15 +417,16 @@ per-release approval.
   If scaling is ever added, repeat *columns per tier* rather than inventing new geometry.
 - **Modules are planned, not merely requested**: quality below the target tier, the player's
   pick at it, quality in the recyclers.
-- **The top machine's module is its own picker, defaulting to productivity or to nothing**
+- **The final machine's module is its own picker, defaulting to productivity or to nothing**
   (repo owner's call, 2026-08-17). At the target tier quality has nothing left to roll into, so
   the default is the strongest researched module that actually raises productivity — and
   **nothing at all** when the recipe or the machine refuses it, which is the common case:
   `allow_productivity` defaults to false and only ~43 of base's 193 recipes opt in. With no
-  productivity module researched the top machine is left **empty** rather than given a quality
+  productivity module researched the final machine is left **empty** rather than given a quality
   module: that would be choosing for the player, and the picker is where the choice belongs. Clearing the picker
-  means "leave the top machine empty", the pole's rule, recorded in `no_terminal_module` so an
-  explicit clear is not re-defaulted at open.
+  means "leave the final machine empty", the pole's rule, recorded in `no_terminal_module` so an
+  explicit clear is not re-defaulted at open. The picker is labelled *Final machine module* —
+  the code key stays `terminal_module`; see the player-facing vocabulary bullet below.
 - **The two module pickers own their qualities separately.** One shared module quality was
   deliberate while the terminal module was derived from the quality module; once it became a
   choice of its own, one quality would have tied two unrelated decisions together.
@@ -434,7 +460,7 @@ per-release approval.
   sink in the loop that empties itself. `stock` is the one role whose KIND is itself a choice —
   the bullet below.
 - **The stock chests are buffer chests by default, requester chests by untick** (2026-08-26,
-  owner's call: "opt in checkbox checked by default"). The per-tier item chests — the census
+  owner's call: "opt in checkbox checked by default"). The per-tier stock chests — the census
   chests the reserve inserters drain — are the `stock` role, split out of `requester` (which now
   covers only the ingredient feed chests; those, the output and the overflow never change kind).
   **Why buffer**: a buffer chest requests exactly as a requester does (same tech —
