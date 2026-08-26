@@ -9,6 +9,21 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — committed, and the 2.0 track measures the same feature green
+
+The owner authorised the commit and the sync: circuit limits went to `main` as one commit
+(0ad3bc6, 34 files, suite at 237) with the README and FAQ now describing the feature, and the
+cherry-pick onto `legacy/2.0` conflicted on `info.json` alone — the forked `planner.lua`,
+`gui.lua` and `planner_spec.lua` all auto-merged, none of the circuit code going near the 2.0
+seams, exactly the overflow tap's precedent. Legacy keeps `0.5.0` (the version pairing
+belongs to a release request, the 0.4.x rule) and the divergent set is unchanged — the
+circuit feature needed **no new forked file**: `get_max_circuit_wire_distance`,
+`circuit_green`, `get_inventory_size(index, quality)` and `lose_focus_on_confirm` all exist
+on 2.0.77, checked in its own `runtime-api.json` before the pick. Then the whole suite ran
+from the legacy worktree against base 2.0.77: **237/237**, the blueprint circuit round-trip,
+the live pause/resume, the reserve floor and the widest-pitch relay included — which retires
+the "schema read, not a measurement" caveat from the landing entry by measurement.
+
 ## 2026-08-26 — the owner catches the floor/trash deadlock
 
 "What if the reserve limit is > than the number of requester items in the chests? with trash
