@@ -14,14 +14,14 @@ Confirm hands over an ordinary blueprint instead**, so preview, rotation, flippi
 undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
 recycler, the last two with a quality of their own) above a **Build options** block for what it
-is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, overflow chest,
-quality module, top machine module, electric pole, pipe, beacon, beacon module, a beacons-per-tier
-count, the circuit-limits checkbox with its per-tier Limits wizard (since 2026-08-26), and the
-trash-unrequested checkbox.
+is built OUT OF: belt, inserter, ingredient chest, item chest, plain chest, output chest,
+overflow chest, quality module, top machine module, electric pole, pipe, beacon, beacon module,
+a beacons-per-tier count, the circuit-limits checkbox with its per-tier Limits wizard (since
+2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
-(until show-all or an actual pick), and the four chests, so a vanilla game
-sees five of the thirteen — laid out as **six captioned concept groups** (Transport, Chests,
+(until show-all or an actual pick), and the five chests, so a vanilla game
+sees five of the fourteen — laid out as **six captioned concept groups** (Transport, Chests,
 Modules, Beacons, Power, Circuits), each a row of icon pickers under a small caption; a fully
 hidden group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
@@ -32,7 +32,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (237 tests as of 2026-08-26) — planner, layout, poles, circuits, blueprint,
+suite under `tests/` (240 tests as of 2026-08-26) — planner, layout, poles, circuits, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -267,10 +267,11 @@ re-opening any of these, and don't restate a reason here.
   it into the inventory keeps the design. It is **not** one-shot the way the tool was: it stays in
   hand, so the same loop can be stamped repeatedly.
 - The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
-  then a **Build options** block for what it is built **out of**, sorted into five captioned
-  concept groups — Transport (belt, inserter, pipe), Chests (the four roles), Modules (quality
-  and top machine), Beacons (beacon, its module, the per-tier count), Power (pole) — with the
-  trash-unrequested checkbox below them. A fully hidden group hides its caption with it. Every picker carries its
+  then a **Build options** block for what it is built **out of**, sorted into six captioned
+  concept groups — Transport (belt, inserter, pipe), Chests (the five roles), Modules (quality
+  and top machine), Beacons (beacon, its module, the per-tier count), Power (pole), Circuits
+  (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests and
+  trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
   own quality except the belt and the pipe, which the engine gives no quality bonus.
 - A build material with a quality travels as a `{ name, quality }` pair from `resources()`
   through the layout params to the ghost; a bare string means it has no quality dimension at
@@ -287,7 +288,7 @@ re-opening any of these, and don't restate a reason here.
 - **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
   game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
   machine, belt, quality module, and the two whose *clear* is the second option (pole, top machine
-  module). **The four chests go the other way and are hidden whatever their count.** A hidden
+  module). **The five chests go the other way and are hidden whatever their count.** A hidden
   picker still holds its default, and hides its row label with it. What that costs — a hidden
   picker takes its quality box with it — is what *Show all build options* exists to undo, the
   chests and the pipe's fluid condition included.
@@ -322,9 +323,15 @@ re-opening any of these, and don't restate a reason here.
   Out-of-reach wires warn (`circuit_unlinked`), never refuse — an unwired condition gates
   nothing, measured. Reasons and the rejected shapes (the first-built demand cascade
   included): `decisions.md`; the verified engine surface: `analysis/api.md` §26.
-- Chests are 1x1, and each of the four roles offers only its own kind — the role is fixed, the
+- Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
-  (active provider): it is the loop's one sink that empties itself. Inserters reach one tile, are never fuelled and never belt-stacking, and
+  (active provider): it is the loop's one sink that empties itself.
+- **The item chests are buffer chests by default** (2026-08-26): the stock role's kind follows
+  the "Use buffer chests" checkbox — buffer chests share each tier's items with personal
+  logistics and construction bots, requester chests keep them in the loop. Toggling refills the
+  stock picker with the new kind's best and keeps its quality; the ingredient, output and
+  overflow chests never change kind. Trade-offs and the rejected always/never shapes:
+  `decisions.md`. Inserters reach one tile, are never fuelled and never belt-stacking, and
   a chosen one that is short of filter slots is named in the refusal **only when a better one
   exists** — otherwise the recipe is blamed, which is every vanilla case. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1

@@ -1,7 +1,8 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
 -- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
--- four chests, the quality module, the top machine's own module, the electric pole, the pipe,
--- the beacon, its module and its per-tier count, and whether the chests trash their surplus.
+-- five chests, the quality module, the top machine's own module, the electric pole, the pipe,
+-- the beacon, its module and its per-tier count, whether the stock chests are buffer chests
+-- the base can draw on, and whether the chests trash their surplus.
 -- The build options are five captioned rows, one per concept -- Transport, Chests, Modules,
 -- Beacons, Power -- because one flat grid of a dozen icon-only pickers left hovering as the
 -- only way to tell them apart (owner's ask, 2026-08-22).
@@ -12,7 +13,7 @@
 -- whatever the count -- item, target quality, machine, belt, quality module -- and two more
 -- because clearing them IS the second option: the pole ("no poles") and the top machine's
 -- module ("leave it empty"). The pipe has one more condition of its own: it is out of the
--- strip entirely until the recipe takes a fluid. The four chests go the other way and are
+-- strip entirely until the recipe takes a fluid. The five chests go the other way and are
 -- hidden whatever the count, and the beacon, its module and the count drop-down go with
 -- them: hidden whatever the count and whatever is researched, revealed by show-all, and kept
 -- visible once a beacon is actually chosen (beacon_visible below). Those two rules live on
@@ -252,8 +253,10 @@ local function inserter_options(player)
   return offered(player, planner.inserters(), planner.buildable)
 end
 
-local function chest_options(player, role)
-  return offered(player, planner.chests(role), planner.buildable)
+-- The stock picker's list follows the buffer-chests checkbox, so the kind the player will
+-- get is the kind the picker shows; the other four roles ignore the flag.
+local function chest_options(player, role, buffered)
+  return offered(player, planner.chests(role, buffered), planner.buildable)
 end
 
 local function pipe_options(player)
@@ -507,7 +510,7 @@ end
 
 -- The circuit numbers, backfilled so the wizard's fields open holding what the plan would
 -- really use: every lower tier's reserve defaults to ZERO -- keep nothing back -- and the
--- target's cap to one stack of the product, the buffer chest's own sizing rule. Keyed by
+-- target's cap to one stack of the product, the stock chest's own sizing rule. Keyed by
 -- quality NAME under two families (circuit_min_ / circuit_max_), so a value survives the
 -- target moving and a remembered floor can never become a ceiling. The cap needs a product
 -- to size it, so it waits for a recipe; called from apply_defaults AND from the wizard's own
@@ -628,9 +631,13 @@ local function apply_defaults(player, choices)
   if not choices.inserter then
     choices.inserter = planner.inserter(player.force, planner.filters_needed(chosen_recipe(choices)))
   end
+  -- The stock chests' kind: buffer chests unless the player unticked it, normalised before
+  -- the chest loop so the stock default is drawn from the right list and the checkbox has a
+  -- real boolean to show. nil means never touched, the trash checkbox's rule.
+  choices.buffer_stock = planner.stock_buffered(choices)
   for _, role in ipairs(planner.CHEST_ROLES) do
     if not choices[role] then
-      choices[role] = planner.chest(player.force, role)
+      choices[role] = planner.chest(player.force, role, choices.buffer_stock)
     end
   end
   -- The pole differs from the pair above: clearing it is a real choice ("no poles"),
@@ -866,7 +873,7 @@ function gui.open(player)
 
   -- The chests keep their rule -- hidden whatever the count (owner's call, 2026-08-18), the
   -- default being the answer nearly every time, show-all bringing them back quality included --
-  -- but the rule now lives once, on the group, instead of on each of the four buttons.
+  -- but the rule now lives once, on the group, instead of on each button.
   local chests, chests_label = group("chests")
   chests_label.visible = show_all_options(player)
   chests.visible = chests_label.visible
@@ -874,7 +881,7 @@ function gui.open(player)
   -- One button per chest role, driven by the role list so they cannot drift apart. The role
   -- rides in the tags, which is what lets them share a single handler.
   for _, role in ipairs(planner.CHEST_ROLES) do
-    local chest_names = chest_options(player, role)
+    local chest_names = chest_options(player, role, planner.stock_buffered(choices))
     local chest_button = chests.add({
       type = "choose-elem-button", name = "upl-" .. role, elem_type = "entity-with-quality",
       elem_filters = name_filter(chest_names),
@@ -980,14 +987,24 @@ function gui.open(player)
   limits_button.style.left_margin = 8
   limits_button.enabled = choices.circuit_enabled == true
 
+  -- Always shown like the trash checkbox below it: the tick IS the choice, and the picker it
+  -- re-lists sits hidden with the other chests.
+  local buffer_stock = options.add({
+    type = "checkbox", name = "upl-buffer-stock", state = choices.buffer_stock,
+    caption = { "upl-gui.buffer-stock" },
+    tooltip = { "upl-gui.buffer-stock-tooltip" },
+    tags = dispatch.tags("buffer-stock"),
+  })
+  -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
+  -- box graphic stays put, so the mark ends up hanging half out of the square.
+  buffer_stock.style.top_margin = 8
+
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
     caption = { "upl-gui.trash-unrequested" },
     tooltip = { "upl-gui.trash-unrequested-tooltip" },
     tags = dispatch.tags("trash"),
   })
-  -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
-  -- box graphic stays put, so the mark ends up hanging half out of the square.
   trash.style.top_margin = 8
 
   -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
@@ -1322,7 +1339,7 @@ dispatch.register("chest", function(event)
     choices[role .. "_quality"] = planner.build_quality(value.quality)
   end
   if not choices[role] then
-    choices[role] = planner.chest(player.force, role)
+    choices[role] = planner.chest(player.force, role, planner.stock_buffered(choices))
     event.element.elem_value = with_quality(choices[role], choices[role .. "_quality"])
   end
   if settled() then return end
@@ -1458,6 +1475,21 @@ dispatch.register("trash", function(event)
   -- One click fires this from both on_gui_click and on_gui_checked_state_changed; reading the
   -- element's current state makes the second run a harmless repeat.
   state.of(event.player_index).choices.trash_unrequested = event.element.state
+end)
+
+dispatch.register("buffer-stock", function(event)
+  local choices = state.of(event.player_index).choices
+  -- The trash checkbox's double-fire pair, but this one rebuilds -- the stock picker's offered
+  -- list changes kind with the tick -- so the settled guard keeps the second event from
+  -- rebuilding the modal it just rebuilt.
+  local settled = settled_on(choices, "buffer_stock")
+  choices.buffer_stock = event.element.state
+  if settled() then return end
+  -- The stored pick belongs to the other kind now; forgetting it is what lets apply_defaults
+  -- refill the picker with the new kind's best. The quality survives on purpose -- any chest
+  -- can be built at any researched tier.
+  choices.stock = nil
+  gui.open(game.get_player(event.player_index))
 end)
 
 dispatch.register("circuit-enabled", function(event)

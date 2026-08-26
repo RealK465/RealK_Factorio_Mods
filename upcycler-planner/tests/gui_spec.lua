@@ -134,6 +134,7 @@ describe("the modal", function()
     widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
     widget({ "upl-options", "upl-chests-strip", "upl-requester" })
+    widget({ "upl-options", "upl-chests-strip", "upl-stock" })
     widget({ "upl-options", "upl-chests-strip", "upl-container" })
     widget({ "upl-options", "upl-chests-strip", "upl-provider" })
     widget({ "upl-options", "upl-chests-strip", "upl-overflow" })
@@ -143,6 +144,8 @@ describe("the modal", function()
     widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
     widget({ "upl-options", "upl-beacons-strip", "upl-beacon-count" })
     widget({ "upl-options", "upl-power-strip", "upl-pole" })
+    assert(widget({ "upl-options", "upl-buffer-stock" }).state == true,
+      "buffer chests default checked")
     assert(widget({ "upl-options", "upl-trash" }).state == true, "trash defaults checked")
 
     -- The paths above pin which picker lives in which concept group; what is left is that each
@@ -165,11 +168,11 @@ describe("the modal", function()
     assert(widget({ "upl-options", "upl-transport-strip", "upl-pipe" }).visible == false,
       "no recipe and one pipe: the pipe picker must be hidden twice over")
 
-    -- The chests are the exception the other way: hidden whatever the count, so the buffer
-    -- goes even though wooden, iron and steel are a real choice. The count is asserted so this
-    -- keeps testing the rule rather than accidentally agreeing with the count rule. The rule
-    -- lives on the GROUP -- caption and row hide together, the buttons stay built inside.
-    assert(#planner.chests("container") > 1, "test premise: the buffer has real alternatives")
+    -- The chests are the exception the other way: hidden whatever the count, so the plain
+    -- chest goes even though wooden, iron and steel are a real choice. The count is asserted so
+    -- this keeps testing the rule rather than accidentally agreeing with the count rule. The
+    -- rule lives on the GROUP -- caption and row hide together, the buttons stay built inside.
+    assert(#planner.chests("container") > 1, "test premise: the plain chest has real alternatives")
     assert(widget({ "upl-options", "upl-chests-strip" }).visible == false,
       "the chests group must be hidden until show all build options is on")
     assert(widget({ "upl-options", "upl-chests-label" }).visible == false,
@@ -216,7 +219,9 @@ describe("the modal", function()
     -- Bulk beats speed in the scoring, and the belt-stacking one is not a candidate at all.
     assert(c.inserter == "bulk-inserter", "inserter default " .. tostring(c.inserter))
     assert(c.requester == "requester-chest", "requester default " .. tostring(c.requester))
-    assert(c.container == "steel-chest", "buffer chest default " .. tostring(c.container))
+    assert(c.buffer_stock == true, "buffer chests must default on")
+    assert(c.stock == "buffer-chest", "stock default " .. tostring(c.stock))
+    assert(c.container == "steel-chest", "plain chest default " .. tostring(c.container))
     assert(c.provider == "passive-provider-chest", "provider default " .. tostring(c.provider))
     -- Nothing to default before an item is picked: the top machine's module follows the pair.
     assert(c.terminal_module == nil, "terminal module defaulted with no recipe chosen")
@@ -462,15 +467,15 @@ describe("the modal", function()
   end)
 
   test("a chest picker writes its own role, and clearing snaps that role back", function()
-    -- The buffer role is the one with a real choice in vanilla (wooden, iron, steel), which is
-    -- what makes it the honest one to drive through the shared handler. Its group is hidden by
-    -- default, but a hidden picker is still built and still handles its events -- the point.
+    -- The plain-chest role is the one with a real choice in vanilla (wooden, iron, steel),
+    -- which is what makes it the honest one to drive through the shared handler. Its group is
+    -- hidden by default, but a hidden picker is still built and handles its events -- the point.
     open_with_gears()
     local button = widget({ "upl-options", "upl-chests-strip", "upl-container" })
     button.elem_value = { name = "iron-chest", quality = "uncommon" }
     fire(button)
-    assert(choices().container == "iron-chest", "buffer pick lost")
-    assert(choices().container_quality == "uncommon", "buffer quality lost on pick")
+    assert(choices().container == "iron-chest", "plain-chest pick lost")
+    assert(choices().container_quality == "uncommon", "plain-chest quality lost on pick")
     -- One handler serves all three buttons, so the role in the tags is load-bearing: a write
     -- that reached a sibling role would silently swap the wrong chest.
     assert(choices().requester == "requester-chest", "the requester role was overwritten")
@@ -478,7 +483,7 @@ describe("the modal", function()
 
     button.elem_value = nil
     fire(button)
-    assert(choices().container == "steel-chest", "buffer did not snap back to the largest")
+    assert(choices().container == "steel-chest", "plain chest did not snap back to the largest")
     local shown = button.elem_value
     assert(shown and shown.name == "steel-chest", "snap-back not shown on the strip")
   end)
@@ -803,6 +808,41 @@ describe("the modal", function()
     -- harmless repeat because the handler reads the element, not the event.
     fire(box)
     assert(choices().trash_unrequested == false, "the double-fire changed the answer")
+  end)
+
+  test("the buffer-chests checkbox swaps the stock picker's kind, refilling its best", function()
+    open_with_gears()
+    -- A deliberate quality on the stock pick, to prove the toggle keeps it: the player asked
+    -- for uncommon chests, not for an uncommon buffer chest specifically.
+    local button = widget({ "upl-options", "upl-chests-strip", "upl-stock" })
+    button.elem_value = { name = "buffer-chest", quality = "uncommon" }
+    fire(button)
+    assert(choices().stock_quality == "uncommon", "test setup: the quality did not take")
+
+    local box = widget({ "upl-options", "upl-buffer-stock" })
+    box.state = false
+    fire(box)
+    -- The toggle rebuilds the modal (the picker's offered list changes kind), so every widget
+    -- is re-fetched; the pick of the old kind is forgotten and the new kind's best fills in.
+    assert(choices().buffer_stock == false, "unticking did not reach the choices")
+    assert(choices().stock == "requester-chest",
+      "stock did not refill as a requester: " .. tostring(choices().stock))
+    assert(choices().stock_quality == "uncommon", "the quality did not survive the toggle")
+    local shown = widget({ "upl-options", "upl-chests-strip", "upl-stock" }).elem_value
+    assert(shown and shown.name == "requester-chest", "the refill is not shown on the strip")
+    assert(widget({ "upl-options", "upl-buffer-stock" }).state == false,
+      "the rebuilt checkbox lost its tick")
+
+    -- The double-fire pair: the settled guard must keep the second event from rebuilding
+    -- the modal again, and the answer must hold.
+    fire(widget({ "upl-options", "upl-buffer-stock" }))
+    assert(choices().buffer_stock == false, "the double-fire changed the answer")
+
+    box = widget({ "upl-options", "upl-buffer-stock" })
+    box.state = true
+    fire(box)
+    assert(choices().stock == "buffer-chest",
+      "re-ticking did not refill the buffer kind: " .. tostring(choices().stock))
   end)
 
   test("Confirm hands over a filled blueprint and closes", function()

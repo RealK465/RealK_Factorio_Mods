@@ -6,6 +6,12 @@ Date: ????
       once the output chest holds your maximum. Taking items out restarts it.
     - The Limits window also sets a minimum per quality: the loop keeps at least that many
       items in each tier's chest and only recycles the surplus.
+    - Each quality's items now wait in buffer chests, so your logistic requests and
+      construction bots can take them. Untick the new "Use buffer chests" checkbox to keep
+      every item in the loop, like before.
+  Gui:
+    - The chest pickers are named for their jobs now: Ingredient, Item, Plain, Output and
+      Overflow chest.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-08-22

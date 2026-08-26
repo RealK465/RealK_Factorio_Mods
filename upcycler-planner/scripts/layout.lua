@@ -399,19 +399,20 @@ function layout.build(params)
         circuit_role = "recycler", circuit_tier = index,
       })
 
-      -- Product: off the ring into a buffer, then into the recycler. The buffer is what lets
-      -- the recycler keep working while the ring is busy with other tiers.
+      -- Product: off the ring into the stock chest, then into the recycler. The chest is what
+      -- lets the recycler keep working while the ring is busy with other tiers.
       --
       -- It requests the product as well as catching it off the belt, so bots can top it up
       -- when the ring is slow. On the first tier that also means the player's own production
       -- of the item feeds the loop, which is how an upcycler is normally fed; the higher tiers
       -- cannot pull from the base at all, because the engine forces every request to name an
-      -- exact quality.
+      -- exact quality. Which KIND the planner hands over is the player's checkbox: a buffer
+      -- chest shares the tier's items with the base, a requester chest keeps them in.
       inserter(col_buffer, r.unload_inserter, SOUTH,
         { { name = params.recipe.product, quality = quality } }, "whitelist")
       -- Also this tier's census chest: it is where the tier's product settles, so its count
       -- is what the reserve below and the cap on the machines read.
-      local buffer = chest(params.requester, col_buffer, r.lower_chest, {
+      local buffer = chest(params.stock, col_buffer, r.lower_chest, {
         { name = params.recipe.product, quality = quality, count = params.product_buffer },
       })
       buffer.circuit_role, buffer.circuit_tier = "census", index

@@ -1140,3 +1140,31 @@ plan's green network reads back as one connected component over machines, recycl
 chests via `get_wire_connector(circuit_green, false).connections`. Use the defines symbolically,
 never a literal: the JSON's `"order"` is a doc-sort hint (it puts `pole_copper` at 6 where
 §21's decoded sample serialised 5), and the decoded value is the measured one.
+
+## 27. Buffer chests: the enum, the unlock, and the blueprint shape — verified 2026-08-26
+
+**`"buffer"` is a `LogisticMode` value** [verified against prototype-api.json 2.1.16]:
+`LogisticMode` = `active-provider | passive-provider | requester | storage | buffer`
+(`prototype-api.json`, type `LogisticMode`; required on `LogisticContainerPrototype`). The
+stock role's buffered predicate tests `logistic_mode == "buffer"` on `logistic-container`,
+exactly parallel to the other logistic roles.
+
+**Vanilla unlocks all three request-capable kinds in one technology** [game data]:
+`logistic-system` carries `unlock-recipe` effects for `active-provider-chest`,
+`requester-chest` AND `buffer-chest` (`data/base/prototypes/technology.lua`, the
+`logistic-system` entry, ~line 3994). So buffer-by-default costs the mod no research beyond
+what the requester role already required — the same argument recorded for the overflow role.
+
+**A buffer chest serialises exactly as a requester** [measured, `blueprint_spec`]: same
+`request_filters` shape — `sections`, flat filters with `count`, `trash_not_requested`, and
+a `request_from_buffers` flag the engine tolerates on the buffer kind (blueprint.lua writes
+it uniformly; the round-trip stamps buffer ghosts whose logistic point reads back the
+request and the trash flag). Circuit wiring is kind-agnostic too: the widest-pitch relay
+test walks one green component over buffer-kind census chests.
+
+**Engine behaviour relied on but NOT re-measured here** (long-standing game rules, stated in
+these words so nobody mistakes them for citations): a buffer chest provides to personal
+logistics, construction robots and requesters with "request from buffers" ticked, and never
+requests from another buffer chest. These are the vanilla logistics rules the decision in
+`../decisions.md` reasons from, checked at 2.1.16 only insofar as the suite exercises
+requests INTO buffer ghosts.
