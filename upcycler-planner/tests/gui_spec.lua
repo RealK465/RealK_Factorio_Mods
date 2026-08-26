@@ -901,6 +901,20 @@ describe("the modal", function()
     assert(frame() and frame().valid, "the key closed the planner under the panel")
   end)
 
+  -- The key's panel guard is the key's alone: a click on Place beside an open panel is an
+  -- unambiguous ask, and a button that silently did nothing there read as broken (owner's
+  -- report, 2026-08-26).
+  test("the Place button places with the settings panel open", function()
+    open_with_gears()
+    gui.open_settings(player())
+    fire(widget({ "upl-buttons", "upl-confirm" }), defines.events.on_gui_click)
+
+    local stack = player().cursor_stack
+    assert(stack and stack.valid_for_read and stack.is_blueprint,
+      "the button did not place a blueprint while the settings panel was open")
+    assert(frame() == nil, "placing did not close the planner, panel and all")
+  end)
+
   test("the circuits group: the checkbox arms Limits, and the wizard lists a field per tier", function()
     open_with_gears()
     local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
@@ -997,6 +1011,20 @@ describe("the modal", function()
     assert(not (stack and stack.valid_for_read),
       "the key placed a blueprint while the wizard was open")
     assert(frame() and frame().valid, "the key closed the planner under the wizard")
+  end)
+
+  -- The settings panel's button test, on the wizard: the fields commit every keystroke, so
+  -- the click places exactly the thresholds on display.
+  test("the Place button places with the wizard open", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    fire(widget({ "upl-buttons", "upl-confirm" }), defines.events.on_gui_click)
+
+    local stack = player().cursor_stack
+    assert(stack and stack.valid_for_read and stack.is_blueprint,
+      "the button did not place a blueprint while the wizard was open")
+    assert(frame() == nil, "placing did not close the planner, wizard and all")
   end)
 
   test("a target change with the wizard open reshapes its rows", function()

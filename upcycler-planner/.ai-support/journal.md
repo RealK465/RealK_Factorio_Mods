@@ -9,7 +9,18 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
-## 2026-08-26 — buffer stock committed, and the 2.0 track measures it green too
+## 2026-08-26 — the Place button works beside an open side panel
+
+The owner reported the Place button doing nothing while the settings panel or the Limits
+wizard was open. Root cause: `gui.confirm` guarded on `side_panel_name`, a guard written for
+the Confirm **key** — E under a panel must dismiss the panel, never place — but the button
+routes through the same function, so a deliberate click was swallowed with it. The guard
+moved to `gui.confirm_key` (after the chooser swallow, so a presumed chooser still gets its
+press first); `gui.confirm` keeps only the frame check both routes share. The button now
+places with a panel up — the panel dies with the frame on the normal close — and the wizard
+case is safe by construction, since the threshold fields commit every keystroke. Two new
+specs pin the button beside each panel, mirroring the two key-refusal specs, which stand
+unchanged. `decisions.md` rewritten in both places that stated the old shared guard.
 
 The owner authorised the commit and the sync: buffer-by-default went to `main` as one
 commit (57ecf1d, 20 files, suite at 240) and cherry-picked onto `legacy/2.0` with **no
