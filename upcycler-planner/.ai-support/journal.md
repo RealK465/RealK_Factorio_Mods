@@ -54,7 +54,22 @@ positional accidents of test order, not mod behaviour.
 
 Gate: **246/246** headless (242 before), luacheck 0/0, emmylua warnings only and none of them on
 the two edited files, data stage clean on 2.1.16, `check-ai-support` green. Not run: the graphics
-tier, which belongs to a release, and the 2.0 track, which has had no cherry-pick yet.
+tier, which belongs to a release.
+
+**Committed, pushed and synced to `legacy/2.0` in the same session** on the owner's ask —
+`23e369b` on main, `bfe3c67` on legacy. The cherry-pick conflicted **only** in `info.json`,
+resolved by keeping legacy's own `0.6.0`: the 2.0 track is bumped by a release, never by a sync,
+which is the same call the 0.6.0 sync recorded. `scripts/gui.lua` **auto-merged** despite being a
+forked file — the new function lands well clear of the `contains_value` fork — and was read by
+hand rather than trusted, since a clean auto-merge on a divergent file is precisely where a
+silent wrong answer would come from. `git diff main -- .` afterwards lists the declared divergent
+set and nothing else.
+
+The 2.0 build then measured green on its own install: data stage clean on **base 2.0.77** with
+`data-final-fixes.lua` loading, and **246/246**, the four new specs included. No rewrite and no
+gate were needed — `on_player_controller_changed`, `on_player_joined_game` and
+`LuaControl::opened` all exist in 2.0.77's own `runtime-api.json`, checked before the pick rather
+than discovered by the suite.
 
 ## 2026-08-26 — 0.6.0 / 0.6.1 released, and the gallery API's duplicate rule corrected
 
