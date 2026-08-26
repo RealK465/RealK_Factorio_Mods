@@ -9,6 +9,33 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the 0.6.2 / 0.6.3 pair, and the portal description caught up
+
+The owner asked for the pair to ship and for the portal's description and FAQ to be brought back
+in line with `README.md` and `faq.md`. **0.6.2 for Factorio 2.0, 0.6.3 for Factorio 2.1**, the
+usual shape: the 2.0 section carries the entries (the unfocus fix and the reworded mod
+description), the 2.1 one points at it, and both sections live in the one shared `changelog.txt`
+on both branches.
+
+Gates, all green before either upload: data stage clean on 2.1.16 and on 2.0.77; **246/246
+headless on both tracks**; 246/246 through a real client on 2.1; static tier clean (luacheck
+silent, emmylua warnings only, the same nilability pedantry on `loop_spec` as before). The two
+validations were run **sequentially** — the scratch write-data folder is keyed by mod name
+alone, which is what the concurrent run broke earlier the same day.
+
+**The description had drifted and the FAQ had not.** `fmtk details --readme --faq` had last run
+before the reword, so the portal was still leading with the old sentence while `faq.md` matched
+byte for byte. Worth recording is how the comparison has to be done: the portal **normalises the
+markdown it stores** — `-` bullets come back as `*`, and it drops the README's leading `#
+Upcycler Planner` heading — so a raw `diff` against the local file reports every line as
+changed and says nothing. Normalise the bullets, strip the H1, then compare; that is what showed
+the FAQ was already correct and the description was one paragraph out.
+
+Reading the page back needs the cache-buster (`…/full?cb=<random>`), as ever. Post-upload check:
+four releases now end 0.6.0/2.0, 0.6.1/2.1, 0.6.2/2.0, 0.6.3/2.1; license still
+`default_gnugplv3`, category `utilities`, gallery still five images — nothing was touched but the
+two text fields.
+
 ## 2026-08-26 — one description again, in both places
 
 The owner asked for a new short description, and for the rule that had frozen the old pair to be
