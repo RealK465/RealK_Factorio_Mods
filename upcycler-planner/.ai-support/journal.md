@@ -9,6 +9,38 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the text pass committed, synced to legacy/2.0, the 2.0 build measured green
+
+The owner reviewed the reworded strings, rewrote the 0.6.0 changelog's feature entries in
+their own voice, and replaced `images/01-planner-menu.jpg` with a shot of the renamed pickers,
+then authorised commit, push and the legacy sync in one ask.
+
+Before committing, the owner's changelog edits were checked against the format rules and two
+mechanical faults fixed: a **trailing space** on a continuation line — which the parser treats
+as an error and reports misleadingly — and "instead requester chests". Terminating periods were
+added to match every other section in the file. The deleted rename line went back in, because
+the `container` role's published 0.5.1 label was *Buffer chest* and 0.6.0 adds a *Use buffer
+chests* checkbox about a different role; without the entry an upgrading player meets one word
+meaning two things and no note explaining it.
+
+Docs were brought in line with the three renames in the same commit — the mod's `CLAUDE.md`,
+five bullets in `decisions.md`, and the new vocabulary table that now owns the mapping so it
+cannot drift again. `check-ai-support.ps1` green (41 API citations, 16 game-data, 8 evidence
+files, 114 paths).
+
+`main` went out as 930d192 (9 files). The cherry-pick onto `legacy/2.0` conflicted **only** in
+`info.json`, exactly as expected: resolved by taking the new `description` and keeping the 2.0
+band — `factorio_version` `"2.0"`, `base`/`quality >= 2.0.0`, and **no** `expansion_required`,
+which does not exist in 2.0 and would gate nothing. `git diff main -- .` afterwards lists
+exactly the declared divergent set and nothing else. The 2.0 build was validated from the
+legacy worktree's own script: data stage clean against **base 2.0.77**, which was the check
+that mattered, since the resolved `info.json` was written by hand. No Lua changed on either
+branch, so the suite was never at risk.
+
+Note for the next sync: legacy's `info.json` still reads `0.5.0` against main's `0.6.0`. That
+is not drift — the 2.0 track has not been bumped for the 0.6.0 work yet, and a bump is a
+release action needing the owner's approval for that specific release.
+
 ## 2026-08-26 — every player-facing string reworded, and three labels renamed
 
 The owner asked for a clarity pass over everything a player reads: the locale, the README, the
