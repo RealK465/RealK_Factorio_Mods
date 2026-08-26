@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2026-08-26
+  Changes:
+    - Version 0.6.0, ported to Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.0
-Date: ????
+Date: 2026-08-26
   Features:
     - Circuit limits: you're now able to configure a minimum reserve of lower quality items to keep in the loop.
     - Circuit limits: you can also configure the maximum of items to produce (so the loop stops when limit is reached).
@@ -12,6 +17,8 @@ Date: ????
       Output and Overflow chest, and Final machine module.
   Locale:
     - Reworded the planner's labels, tooltips and messages to be shorter and clearer.
+  Changes:
+    - Releasing for Factorio 2.0. Version 0.6.1 is the Factorio 2.1 build of the same change.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-08-22
