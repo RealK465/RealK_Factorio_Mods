@@ -1,7 +1,7 @@
 # Upcycler Planner
 
-**Choose an item and a target quality. The mod designs the whole upcycling loop and hands it to you
-as a blueprint for your bots to build.**
+**Choose an item and a target quality, the mod designs and gives you an entirely configurable
+upcycling loop blueprint.**
 
 Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outposts, Upcycler Planner designs quality upcycling loops.
 

@@ -9,6 +9,25 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — one description again, in both places
+
+The owner asked for a new short description, and for the rule that had frozen the old pair to be
+updated with it. `info.json` and the locale `[mod-description]` now both read *"Choose an item
+and a target quality, the mod designs and gives you an entirely configurable upcycling loop
+blueprint."* — the owner's own wording, with the typo fixed and a full stop added, nothing else
+touched.
+
+That retires the drift recorded earlier the same day: the locale key had claimed the loop is
+"placed as ghosts" ever since 0.4.0 made it untrue, and the standing decision was to leave the
+pair alone because nobody had asked. `decisions.md` now says the opposite — one string, moved
+together, on both branches — since the only reason for the freeze was the absence of a request.
+
+Both branches carry the pair, the `Locale:` entry in the open 0.6.2 section, and this record;
+`locale/` is not a divergent file, so a change there is a change on `legacy/2.0` too.
+`README.md`'s opening line went the same way on the owner's follow-up ask, so the sentence now
+reads the same in all three places. That one is the portal's long description, so it reaches the
+page only at the next approved upload — nothing was published here.
+
 ## 2026-08-26 — the modal no longer outlives a death, and two measurements taken wrong first
 
 `deferred.md`'s last housekeeping item shipped: a modal left open across a death, a spectator

@@ -19,14 +19,21 @@ ships (leading dot).
   account. Checked free beforehand (`GET /api/mods/upcycler-planner` 404 on 2026-08-16, method
   sanity-checked against `mining-patch-planner`) — worth having done: `pure-modules` was
   lost to a squat by a deleted account, and portal names stay taken after the account goes.
-- **The locale `[mod-description]` and `info.json`'s `description` are allowed to differ, and
-  do — leave them alone.** The locale key overrides `info.json` in the in-game mod browser
-  (`mod-structure.html`), so the two strings reach different readers: the locale one in game,
-  the `info.json` one as the portal's short summary. The locale key still says the loop is
-  "placed as ghosts", which stopped being true at 0.4.0; the 0.6.0 text pass (commit `930d192`)
-  updated only `info.json`, while its message and `journal.md` claim both were synced — the
-  record is what is wrong there, not the file. Put to the repo owner on 2026-08-26 and kept as
-  it stands. Do not resync the pair unprompted.
+- **The locale `[mod-description]` and `info.json`'s `description` carry the same string, and
+  move together.** The locale key overrides `info.json` in the in-game mod browser
+  (`mod-structure.html`), so the two reach different readers — the locale one in game, the
+  `info.json` one as the portal's short summary — which is why they are worth keeping equal
+  rather than letting one drift. They did drift: the 0.6.0 text pass (commit `930d192`) updated
+  only `info.json`, leaving the locale key claiming the loop is "placed as ghosts", untrue since
+  0.4.0. **Both were rewritten on 2026-08-26 at the repo owner's request** to *"Choose an item
+  and a target quality, the mod designs and gives you an entirely configurable upcycling loop
+  blueprint."* — the owner's own wording, so correct an error in it, never restyle it to taste.
+  The pair is still not resynced or reworded unprompted; when the owner does ask, **edit both,
+  on both branches**, since `locale/` is not a divergent file and `info.json` diverges only in
+  version, dependencies and feature flags. **The README's opening line is the third place the
+  sentence lives** — it is the portal's long description, and it was reworded to the same
+  sentence on the same day, at the owner's follow-up ask. Keep the three together; the README
+  half only reaches the portal at the next approved `fmtk details --readme`.
 - **Prototype prefix `upl-`**, with settings and locale mod-level keys using the full
   `upcycler-planner`. Prototype names share one flat global namespace and a collision there is
   silent, which is the whole reason for a tag; settings are listed to players beside other mods'
