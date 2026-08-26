@@ -19,6 +19,14 @@ ships (leading dot).
   account. Checked free beforehand (`GET /api/mods/upcycler-planner` 404 on 2026-08-16, method
   sanity-checked against `mining-patch-planner`) — worth having done: `pure-modules` was
   lost to a squat by a deleted account, and portal names stay taken after the account goes.
+- **The locale `[mod-description]` and `info.json`'s `description` are allowed to differ, and
+  do — leave them alone.** The locale key overrides `info.json` in the in-game mod browser
+  (`mod-structure.html`), so the two strings reach different readers: the locale one in game,
+  the `info.json` one as the portal's short summary. The locale key still says the loop is
+  "placed as ghosts", which stopped being true at 0.4.0; the 0.6.0 text pass (commit `930d192`)
+  updated only `info.json`, while its message and `journal.md` claim both were synced — the
+  record is what is wrong there, not the file. Put to the repo owner on 2026-08-26 and kept as
+  it stands. Do not resync the pair unprompted.
 - **Prototype prefix `upl-`**, with settings and locale mod-level keys using the full
   `upcycler-planner`. Prototype names share one flat global namespace and a collision there is
   silent, which is the whole reason for a tag; settings are listed to players beside other mods'
@@ -342,6 +350,23 @@ per-release approval.
   Closing the modal takes the panel with it for free; a rebuild triggered by flipping a
   setting re-creates an open panel with fresh ticks, which also retired the repaint-on-change
   loop.
+- **When the engine closes the modal without saying so, the mod finishes the close rather than
+  retaking the focus** (2026-08-26, the owner's call between the two shapes). Dying, becoming a
+  spectator and disconnecting all close a player's GUIs, and `on_gui_closed` is documented not to
+  fire for any of the three — so the modal used to be left standing with its focus gone, and Esc
+  stopped closing it until the player reached for the button or the hotkey. `gui.close_if_unfocused`
+  destroys it instead, reached from `on_player_controller_changed` (which covers death, respawn,
+  spectator and every other controller) and from `on_player_joined_game` (a disconnect raises no
+  controller change). Closing beats re-arming on two counts: it is what every vanilla window does,
+  and it is what this modal **already** did on a switch to remote view, where the engine does raise
+  the event — so re-arming would have made death the one path that behaved differently. It costs
+  the player nothing, because every pick lives in `storage` and reopening restores the whole
+  configuration. The guard is on the *state*, never on the event: the frame stands and
+  `player.opened` is **nil** — nil rather than "not the frame", because the modal deliberately
+  keeps standing when another GUI takes the focus off its settings panel, and the wider test
+  would close the planner out from under that chest. Remote view needs no branch at all, having
+  destroyed the frame before the handler runs. Measurements, including the two that were read
+  wrong first: `analysis/api.md` §28.
 - **The build options are six captioned concept groups** (owner's call, 2026-08-22,
   superseding the 2026-08-17 six-column grid; Circuits joined 2026-08-26): Transport (belt,
   inserter, pipe), Chests (the five roles), Modules (quality, final machine), Beacons (beacon,

@@ -199,8 +199,3 @@ twice. What is left:
   that picking a fluid recipe repaints the picker's visibility at all. Closing it needs a fixture
   pipe prototype in the test mod — the same trick would settle the recycler and chest rules, which
   are pinned only in the one-option direction for the same reason.
-- **`player.opened` is not re-armed when a player rejoins.** `on_gui_closed` is documented not to
-  fire when a GUI closes because the player disconnected, died or became a spectator, so a modal
-  left open across a rejoin keeps its frame and loses the focus — Esc stops closing it until it is
-  closed by button or shortcut. Predates the settings window; either close the GUI on
-  `on_player_left_game` or re-arm on `on_player_joined_game`, both one handler.

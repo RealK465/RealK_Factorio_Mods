@@ -444,6 +444,28 @@ function gui.close(player)
   if entry then entry.chooser_maybe_open = nil end
 end
 
+-- Finishes a close the engine started but never announced. Dying, turning spectator and
+-- disconnecting all close a player's GUIs, and on_gui_closed is documented not to fire for any
+-- of the three -- so the modal was left standing with its focus gone, and Esc stopped closing
+-- it until the player used the button or the hotkey. Measured, with the state each path leaves
+-- behind: analysis/api.md S28.
+--
+-- Closing rather than handing player.opened back is what every vanilla window does, and what
+-- this modal ALREADY does on a switch to remote view, where the engine does raise
+-- on_gui_closed. It costs the player nothing: every pick lives in storage, so reopening
+-- restores the whole configuration.
+--
+-- The test is "nothing at all is focused", NOT "the modal is not focused", and the difference
+-- is load-bearing: a modal whose settings panel was dismissed by the player clicking a chest
+-- stands with player.opened pointing at the CHEST, deliberately, and gui_spec pins it. Every
+-- state this function exists for reads nil instead -- measured, all six rows of S28 -- so nil
+-- separates the two exactly. Remote view needs no branch either way, having destroyed the
+-- frame through on_gui_closed long before this runs.
+function gui.close_if_unfocused(player)
+  local frame = frame_of(player)
+  if frame and player.opened == nil then gui.close(player) end
+end
+
 -- A tooltip for a control with no visible label: the row label it would have had, promoted to a
 -- bold first line, so the tooltip names its own control the way the game's icon buttons do.
 -- Every picker in the strip leans on it; the titlebar's button has a caption instead.

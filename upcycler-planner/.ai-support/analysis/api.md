@@ -1168,3 +1168,70 @@ logistics, construction robots and requesters with "request from buffers" ticked
 requests from another buffer chest. These are the vanilla logistics rules the decision in
 `../decisions.md` reasons from, checked at 2.1.16 only insofar as the suite exercises
 requests INTO buffer ghosts.
+
+## 28. The closes the engine performs without raising `on_gui_closed` — measured 2026-08-26
+
+`on_gui_closed`'s own description names the exception [doc]: *"This can only be raised when the
+GUI's player controller is still valid. If a GUI is thus closed due to the player
+disconnecting, dying, or becoming a spectator in other ways, it won't cause this event to be
+raised."* What it does not say is what a **mod's** `gui.screen` frame is left as, which is the
+part that decided the fix. Measured headless on **2.1.16**, modal open, one path per run.
+
+| Path | `on_player_controller_changed` | the mod's frame | `player.opened` |
+|---|---|---|---|
+| remote view (`character`→`remote`) | fires, `old_type = 1` | **destroyed** | — the engine raised `on_gui_closed` and the mod's own handler ran |
+| back from remote | fires, `old_type = 7` | already gone | — |
+| spectator (`character`→`spectator`) | fires, `old_type = 1` | **stands** | **nil** |
+| back from spectator | fires, `old_type = 5` | stands | **nil** |
+| respawn state (`character`→`ghost`) | fires | stands | **nil** |
+| respawn (`ghost`→`character`) | fires, plus `on_player_respawned` | stands | **nil** |
+
+Three things follow, and the first is the one that is easy to get backwards:
+
+- **Remote view is not one of the broken paths.** The engine raises `on_gui_closed` there, so
+  the modal is already torn down by the mod's ordinary handler before anything else runs. That
+  matters because remote view is far and away the most common controller change, so a handler
+  that closed on *every* controller change would look identical in behaviour but would be
+  reasoning from a false premise.
+- **`on_player_controller_changed` covers every broken path there is** — death, respawn,
+  spectator, and by construction `god`, `editor` and `cutscene`, since the event is about the
+  controller and not about the reason. A disconnect raises none of it, so the rejoin
+  (`on_player_joined_game`) is the only other hook needed.
+- **The distinguishing condition is "the frame stands and `player.opened` is nil"** — nil
+  specifically, not "is not the frame". Every broken row above reads nil, but a *healthy* state
+  exists where the frame stands and `opened` points at something else on purpose: the modal
+  keeps standing when another GUI takes the focus off its settings panel, which `gui_spec`
+  pins. Testing "not the frame" would close the planner out from under that chest, so
+  `gui.close_if_unfocused` tests for nil.
+
+`defines.controllers` numeric values, since the measurements above are in raw numbers
+[measured]: `ghost = 0`, `character = 1`, `god = 2`, `editor = 4`, `spectator = 5`,
+`cutscene = 6`, `remote = 7`.
+
+**Two measurement traps, both hit here before the numbers above came out right.**
+
+- **Reading an event flag in the same tick as the write reports "(none)".** Two rounds of this
+  investigation concluded `on_player_controller_changed` does not fire on death, because the
+  watcher was read immediately after `set_controller` / `ticks_to_respawn`. It fires; it is
+  simply raised later in the tick. Read it from `after_ticks`.
+- **`LuaEntity.die()` on the player's character HANGS a headless `--benchmark` run** — the
+  runner never returns and the process has to be killed. `player.ticks_to_respawn = 120`
+  reaches the same respawn state with no death screen for the benchmark to wait on, and
+  `= nil` respawns immediately; `LuaPlayer::ticks_to_respawn` is writable and documents both
+  halves. This is why `gui_spec` reaches the death path that way.
+
+**NOT verified, stated so nobody reads the table as wider than it is:**
+
+- **A real death was never run to completion** — the respawn state was entered through
+  `ticks_to_respawn`, which does not raise `on_player_died`. The end state is the same one a
+  death leaves (`controller_type = ghost`, frame standing, `opened` nil), and the fix keys on
+  that state rather than on the reason, so the gap is in the reproduction and not in the
+  coverage.
+- **Multiplayer disconnect and rejoin were not measured at all** — headless single-player has
+  no second client to drop. `on_player_joined_game` is wired on the strength of the
+  `on_gui_closed` doc quoted above, which names disconnecting alongside the two paths that
+  *were* measured.
+- **Single-player save/load was not measured.** `on_player_joined_game` is documented not to
+  fire there, so if the engine restored the frame without restoring `player.opened` the same
+  state would arise with nothing to catch it. GUI state is saved, so the expectation is that
+  the pair comes back consistent — expectation, not a measurement.

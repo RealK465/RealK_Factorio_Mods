@@ -9,6 +9,53 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the modal no longer outlives a death, and two measurements taken wrong first
+
+`deferred.md`'s last housekeeping item shipped: a modal left open across a death, a spectator
+switch or a rejoin kept its frame and lost its focus, so Esc stopped closing it. The owner chose
+**closing** over re-arming from two shapes put to them; the reasons are in `decisions.md`, and
+the deciding one only existed because of a measurement — remote view already closes the modal, so
+re-arming would have made death the one path that behaved differently.
+
+**The exploration changed the fix.** The deferred note proposed `on_player_left_game` or
+`on_player_joined_game`; the events those name are neither necessary nor sufficient.
+`on_player_controller_changed` turned out to cover death, respawn, spectator and every other
+controller in one handler, and remote view — which fires it constantly — turned out to be
+*already correct*, because the engine raises `on_gui_closed` there. So the handler guards on the
+state ("the frame stands but does not own `player.opened`") rather than on the event, and the
+common controller change reaches no branch. Only the multiplayer disconnect sits outside the
+event, which is what `on_player_joined_game` is still wired for. Full table: `analysis/api.md`
+§28.
+
+**Two readings were wrong before they were right, both worth not repeating.** Rounds 2 and 3 of
+the throwaway harness concluded that `on_player_controller_changed` does not fire on death — it
+does; the watcher was being read in the same tick as the write, and the event is raised later in
+it. And `character.die()` **hangs a headless `--benchmark` run outright**: the runner never
+returned and the process had to be killed. `ticks_to_respawn = 120` reaches the same respawn
+state with no death screen to wait on, which is how `gui_spec` now gets there. Both recorded in
+§28 rather than only here, since the next investigation will meet them before it reads this.
+
+**The guard was wrong on the first pass, and the existing suite is what said so.** It read "the
+frame stands but does not own `player.opened`", which is true of every broken state — and also
+of a healthy one this file already pins: with the settings panel up, a player clicking a chest
+dismisses the panel, keeps the planner, and leaves `opened` pointing at the **chest**. The first
+guard would have closed the planner out from under it on the player's next controller change.
+Narrowed to `opened == nil`, which every measured broken state reads and that one does not, and
+a spec now holds the distinction from the other side.
+
+**Two suite facts fell out of the spec work**, both about the player rather than the mod. By the
+time `gui_spec` runs in a full suite the player has **no character** — an earlier spec leaves it
+that way — so the spectator test failed only in the full run, passing in isolation, because it
+assumed one to hand back; it now captures `controller_type` and restores whatever it found. And
+the *respawn* test hands a character back, so anything after it in the file is the first thing in
+this suite that has to satisfy a character's **reach**: the new chest test failed placing its
+chest at the fixed spot the older chest test uses, and passes centred on the player. Both are
+positional accidents of test order, not mod behaviour.
+
+Gate: **246/246** headless (242 before), luacheck 0/0, emmylua warnings only and none of them on
+the two edited files, data stage clean on 2.1.16, `check-ai-support` green. Not run: the graphics
+tier, which belongs to a release, and the 2.0 track, which has had no cherry-pick yet.
+
 ## 2026-08-26 — 0.6.0 / 0.6.1 released, and the gallery API's duplicate rule corrected
 
 The owner authorised the pair and the portal refresh in one ask: 0.6.0 for Factorio 2.0 from
