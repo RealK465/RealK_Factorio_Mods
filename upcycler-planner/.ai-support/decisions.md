@@ -154,9 +154,12 @@ per-release approval.
   open. The message still prints and the shortcut reopens with every choice remembered; the
   alternative was re-taking `player.opened` inside `on_gui_closed`, the exact hazard
   `gui.close_settings` already documents. Evidence: `analysis/api.md` §22.
-  `gui.confirm(player)` is public and **guards its own preconditions** — a modal must be open and
-  the settings panel may not be open — because the key can arrive with neither, where the
-  button never can.
+  `gui.confirm(player)` is public and **guards the one precondition both routes share** — a
+  modal must be open, which the key cannot know and the button gets for free. **The side-panel
+  guard is the key's alone**, on `gui.confirm_key` (2026-08-26, owner's report: Place clicked
+  beside an open panel silently did nothing and read as broken): E under an open panel belongs
+  to the panel, which the engine's close then dismisses "panel first", while a click on Place
+  beside one is an unambiguous ask — the button places, and the panel dies with the frame.
   **The key swallows one press while an element chooser is presumed open** (2026-08-20, after a
   press of E over the machine picker's floating chooser placed the blueprint and tore the
   chooser down instead of selecting). The chooser has no API surface at all — no event, no
@@ -642,8 +645,9 @@ per-release approval.
   column in the invisible container, mutual exclusion between the two panels, "panel first" on
   close, recreated across rebuilds — holding one numeric textfield per tier (the mod's first
   textfields: valid keystrokes commit at once so the Confirm key can never outrun an edit,
-  Enter snaps the display back to what holds, and `gui.confirm` refuses while the wizard is
-  open, which also covers E landing in a focused field). **Each row says which rule it sets**
+  Enter snaps the display back to what holds, and `gui.confirm_key` refuses while the wizard
+  is open, which also covers E landing in a focused field — the Place button, an unambiguous
+  click, places instead since 2026-08-26, on the thresholds already committed). **Each row says which rule it sets**
   — a Min or Max label ahead of the quality (the owner's ask: the UI must be clear that the
   two numbers mean opposite things), with the tooltips spelling both out. The numbers live in
   storage as flat values under TWO families — `circuit_min_<quality>` for the reserves,

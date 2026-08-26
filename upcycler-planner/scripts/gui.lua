@@ -1512,13 +1512,12 @@ end)
 -- the modal cannot change what is already in the player's hand.
 --
 -- Public and guarded rather than left inside the button's handler, because the "Confirm window"
--- key reaches it too and arrives from anywhere: with no modal up, or with the settings panel
--- or the circuit wizard open beside the pickers. A press of E while a panel is up should
--- dismiss the panel -- the engine's own close, which always runs after this handler, does
--- exactly that through control.lua -- never place a blueprint. The wizard's half also covers
--- E landing while a threshold field has keyboard focus, whatever the engine does with it.
+-- key reaches it too and can arrive with no modal up at all. That is the only guard here: a
+-- click on Place beside an open side panel is an unambiguous ask, so the button places with
+-- the settings panel or the wizard still up -- the panel dies with the frame. The KEY is the
+-- one that must not place there (E belongs to the panel), and gui.confirm_key owns that guard.
 function gui.confirm(player)
-  if not frame_of(player) or side_panel_name(player) then return end
+  if not frame_of(player) then return end
 
   local choices = state.of(player.index).choices
 
@@ -1566,12 +1565,19 @@ end)
 -- returns, the engine's close runs as it always has, and the shortcut reopens with every
 -- choice remembered. The button never swallows, because reaching it is itself the click that
 -- clears the presumption.
+--
+-- With a side panel up the key places nothing either: E belongs to the panel, and the engine's
+-- own close then dismisses it through control.lua's "panel first". The wizard's half of that
+-- is also what stands between a focused threshold field and E placing mid-edit, whatever the
+-- engine does with the keypress. The BUTTON takes neither guard -- a click on Place beside an
+-- open panel is an unambiguous ask, and gui.confirm answers it.
 function gui.confirm_key(player)
   local entry = state.peek(player.index)
   if entry and entry.chooser_maybe_open then
     entry.chooser_maybe_open = nil
     return
   end
+  if side_panel_name(player) then return end
   gui.confirm(player)
 end
 

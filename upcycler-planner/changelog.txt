@@ -12,6 +12,7 @@ Date: ????
   Gui:
     - The chest pickers are named for their jobs now: Ingredient, Item, Plain, Output and
       Overflow chest.
+    - The Place button now works while the Settings or Limits window is open.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-08-22
