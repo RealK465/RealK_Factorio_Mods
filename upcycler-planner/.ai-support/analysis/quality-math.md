@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.14
-verified: 2026-08-17
+verified_against: 2.1.16
+verified: 2026-08-26
 ---
 # Quality maths, recycler mechanics, and how closed loops fail
 

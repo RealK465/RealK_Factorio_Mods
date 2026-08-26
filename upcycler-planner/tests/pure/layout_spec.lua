@@ -713,6 +713,56 @@ describe("layout.build beacon plans", function()
   end)
 end)
 
+describe("layout.build circuit tags", function()
+  -- The structural facts the circuit pass finds entities by: written unconditionally, since
+  -- they cost nothing when circuits are off and the serialiser reads only fields it names.
+  local function tally(built)
+    local count = {}
+    for _, e in pairs(built.entities) do
+      if e.circuit_role then count[e.circuit_role] = (count[e.circuit_role] or 0) + 1 end
+    end
+    return count
+  end
+
+  test("machines, recyclers, censuses, reserves and the perimeter carry tags; nothing else does", function()
+    local built = layout.build(params_with())
+    local count = tally(built)
+    assert(count.machine == 3, "tagged machines " .. tostring(count.machine))
+    assert(count.recycler == 2, "tagged recyclers " .. tostring(count.recycler))
+    -- One census per tier: the buffer chest below, or the output chest on the terminal.
+    assert(count.census == 3, "tagged censuses " .. tostring(count.census))
+    -- One reserve point per lower tier: the buffer-to-recycler inserter, the only hand that
+    -- can draw a tier's chest below its floor.
+    assert(count.reserve == 2, "tagged reserves " .. tostring(count.reserve))
+    -- The perimeter of an 11x15 ring, and NOT the four per-tier product belts: a relay
+    -- riding a column's own belt would gate the product path it is meant to bypass.
+    assert(count.ring == 48, "tagged ring belts " .. tostring(count.ring))
+    local untagged_belts = 0
+    for _, e in pairs(built.entities) do
+      if e.name == "transport-belt" and not e.circuit_role then
+        untagged_belts = untagged_belts + 1
+      end
+    end
+    assert(untagged_belts == 4, "untagged product belts " .. untagged_belts)
+  end)
+
+  test("every tagged tier matches the tier the entity is pinned to", function()
+    local built = layout.build(params_with())
+    local tiers = { "normal", "uncommon", "rare" }
+    for _, e in pairs(built.entities) do
+      if e.circuit_role == "machine" then
+        assert(e.recipe_quality == tiers[e.circuit_tier],
+          "machine tagged tier " .. e.circuit_tier .. " crafts at " .. e.recipe_quality)
+      end
+      if e.circuit_role == "census" and e.circuit_tier < 3 then
+        assert(e.requests and e.requests[1].quality == tiers[e.circuit_tier],
+          "census tier " .. e.circuit_tier .. " buffers " .. tostring(e.requests
+            and e.requests[1].quality))
+      end
+    end
+  end)
+end)
+
 describe("layout.build determinism", function()
   test("the same params build the same plan, twice", function()
     -- The desync-safety contract stated at the top of layout.lua, held to structurally: the

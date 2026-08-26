@@ -16,23 +16,24 @@ blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting 
 recycler, the last two with a quality of their own) above a **Build options** block for what it
 is built OUT OF: belt, inserter, requester chest, buffer chest, output chest, overflow chest,
 quality module, top machine module, electric pole, pipe, beacon, beacon module, a beacons-per-tier
-count, and the trash-unrequested checkbox.
+count, the circuit-limits checkbox with its per-tier Limits wizard (since 2026-08-26), and the
+trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
 (until show-all or an actual pick), and the four chests, so a vanilla game
-sees five of the thirteen — laid out as **five captioned concept groups** (Transport, Chests,
-Modules, Beacons, Power), each a row of icon pickers under a small caption; a fully hidden
-group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
+sees five of the thirteen — laid out as **six captioned concept groups** (Transport, Chests,
+Modules, Beacons, Power, Circuits), each a row of icon pickers under a small caption; a fully
+hidden group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
 inside the planner's own screen element, styled as a window of its own — from a captioned
 **Settings** button in the titlebar, holding the two per-player settings: show unresearched
 items, and show every picker whatever the count.
 What it emits is the belt-ring family — see
 `.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
-what was deliberately left out (circuits and wires, fluid recipes, bot transport).
+what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (210 tests as of 2026-08-22) — planner, layout, poles, blueprint, state,
-the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
+suite under `tests/` (237 tests as of 2026-08-26) — planner, layout, poles, circuits, blueprint,
+state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
@@ -150,13 +151,15 @@ scripts/                            one file per runtime concern, required by co
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
   poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
+  circuits.lua the opt-in circuit-limit conditions and green wires, decorating a finished
+               plan -- pure like layout.lua, and strictly after the pole pass
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
   *_spec.lua                        in-game specs: planner, plan, blueprint, beacon, state,
                                     loop, fluid, gui
-  pure/                             layout + poles geometry, runs on host Lua too
+  pure/                             layout + poles + circuits geometry, runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
   support/layout_params.lua         the canonical vanilla layout fixture the pure specs share
@@ -307,6 +310,18 @@ re-opening any of these, and don't restate a reason here.
   with **no item name**, so one slot covers any recipe. Footprint unchanged; it costs one extra
   pole. The terminal catcher is a single `">="` for the same reason. Why each part is as it is:
   `decisions.md`; the measurements: `analysis/api.md` §24.
+- **Circuit limits are opt-in and combinator-free: reserve and cap** (2026-08-26). Every
+  machine and recycler stops at one shared cap — the output chest's count of the product at
+  the target quality — and each lower tier's buffer-to-recycler inserter holds that tier's
+  floor, never drawing the chest below the player's minimum (0 by default, meaning no
+  reserve and no wire for that tier). Plain enable conditions on existing entities, one
+  green network, no new entities, no footprint change. `scripts/circuits.lua` decorates the
+  finished plan (pure, strictly after the pole pass); the numbers live in `storage` as flat
+  `circuit_min_<quality>` / `circuit_max_<quality>` values, edited in a wizard panel whose
+  rows are labelled Min/Max, following the settings panel's sibling-column mechanics.
+  Out-of-reach wires warn (`circuit_unlinked`), never refuse — an unwired condition gates
+  nothing, measured. Reasons and the rejected shapes (the first-built demand cascade
+  included): `decisions.md`; the verified engine surface: `analysis/api.md` §26.
 - Chests are 1x1, and each of the four roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
   (active provider): it is the loop's one sink that empties itself. Inserters reach one tile, are never fuelled and never belt-stacking, and

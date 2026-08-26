@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.14
-verified: 2026-08-22
+verified_against: 2.1.16
+verified: 2026-08-26
 ---
 # Verified API reference
 
@@ -1066,3 +1066,77 @@ most machines in a beaconed loop sit in two beacons' areas. Vanilla's `profile` 
 1/sqrt(N) table with `beacon_counter = "same_type"`, so the second beacon applies at ~0.71 —
 diminishing, never zero. UNVERIFIED in game; nothing in the mod depends on it, it only shapes
 what a player sees on the machine tooltip.
+
+## 26. Circuit conditions in blueprints, per-quality signals, and wire reach — measured 2026-08-26
+
+The surface the circuit-limits feature stands on. Schema facts read from
+`runtime-api.json`; everything marked measured is pinned by the permanent suite
+(`tests/pure/circuits_spec.lua`, `tests/blueprint_spec.lua` → "circuit limits survive the
+stamp", `tests/loop_spec.lua` → "a circuit limit on a live machine" and "a gated inserter
+leaves the floor in the chest"). Schema reads were against 2.1.14; **the install advanced to
+2.1.16 mid-session** and the whole suite passes there, so the measured claims hold on both.
+
+**Machines AND furnaces can be circuit-gated.** `LuaAssemblingMachineControlBehavior` and
+`LuaFurnaceControlBehavior` both declare `"parent":"LuaGenericOnOffControlBehavior"`, whose
+whole own surface is `circuit_enable_disable`, `circuit_condition`, `connect_to_logistic_network`
+and `logistic_condition`. Blueprint side: `AssemblingMachineBlueprintControlBehavior` and
+`FurnaceBlueprintControlBehavior` are the same shape — `{circuit_enabled (default false),
+circuit_condition: CircuitCondition}` — and the furnace variant group carries `control_behavior`
+and nothing else (§21's recycler-can-never-have-a-recipe fact, now exercised). Measured: both
+survive `set_blueprint_entities` → `build_blueprint`, read back off the ghosts.
+
+**The rename trap has a second instance.** The blueprint field is `circuit_enabled`; the same
+flag on a live control behaviour is `circuit_enable_disable` — exactly the belt's
+`circuit_contents_read_mode` / `read_contents_mode` split §21 records. A spec that read
+`.circuit_enabled` off a ghost would get nil and prove nothing. (Third spelling, unused here:
+`LuaLogisticContainerControlBehavior` gates its request with `circuit_condition_enabled`.)
+
+**A wire signal is per-quality, and a condition picks one exact tier.** `SignalID` carries an
+optional `quality` (*"Defaults to `normal`"*), so `first_signal = {type = "item", name = P,
+quality = "rare"}` compares only the rare-tier count. There is NO quality comparator inside
+`CircuitCondition` — its `comparator` compares the numeric values. The quality comparator §24
+measured lives on `ItemFilter`/`BlueprintItemFilter` (and the standalone `QualityCondition`
+concept), a different mechanism; on the wire, quality is signal identity. Measured: a machine
+gated `P@normal < 5` pauses at 5 and resumes when the chest drains. Reading a condition back
+off a ghost, **`first_signal.quality` is OMITTED when it is normal** — the same default
+omission as a north `direction` or a whitelist `filter_mode` (§21/§24) — so a read-back
+compare must treat nil as normal.
+
+**Wired chests broadcast without any control_behavior.** `ContainerBlueprintControlBehavior`
+and `LogisticContainerBlueprintControlBehavior` both default `read_contents` to **true**; a
+plain container's control behaviour parents `LuaControlBehavior`, not GenericOnOff, so a chest
+can never be enable/disabled — it only reports. Same for a wired transport belt the other way:
+with no control_behavior at all it neither reads nor gates (`circuit_enabled` defaults false)
+— measured on stamped ghosts, `get_control_behavior()` nil.
+
+**An enable condition with no connected network gates nothing.** Measured live: a machine with
+`circuit_enable_disable = true` and an unfulfilled condition but no wire crafts normally. This
+is what makes `plan.circuit_unlinked` a warning rather than a refusal — an out-of-reach entity
+degrades to exactly the uncircuited loop.
+
+**Circuit wire reach is 9 for everything this mod wires.** `default_`, `inserter_`,
+`transport_belt_`, `assembling_machine_` and `furnace_circuit_wire_max_distance` are all 9
+(`data/core/lualib/circuit-connector-sprites.lua:99-202`); chests take the default, and
+`InserterPrototype`'s own default is **0** — a modded inserter that never sets it has no
+circuit reach at all, which is why the reserve inserter joins the reach min whenever a
+reserve is set. The runtime read is `LuaEntityPrototype.get_max_circuit_wire_distance(quality)`
+— *"The maximum circuit wire distance for this entity. 0 if the entity doesn't support
+circuit wires."* Its neighbour `get_max_wire_distance` (§10's pole getter) is the COPPER
+reach and answers a different question; the two agree on these families at 2.1.16, but only
+the circuit one is documented for this job — a review round caught the wrong sibling in use.
+`planner.circuit_reach` takes a min over the wired prototypes at their build qualities;
+quality scaling on non-pole reach is unmeasured either way, and the min is conservative.
+**Where the engine measures a wire is UNMEASURED** — entity centres or connector geometry
+(`LuaWireConnector.can_wire_reach` exists, so reach IS modelled at connector level) — and
+the widest vanilla pitch puts a spine hop at exactly 9.0 centre-to-centre. The decorator
+keeps half a tile of margin against the reach for that reason, and `blueprint_spec`'s
+widest-pitch test walks the resulting network on the engine's own arithmetic.
+
+**Green ghost-to-ghost wires ride the same `wires` tuples as pole copper.** `BlueprintWire` =
+`{source_entity_number, source_connector_id, target_entity_number, target_connector_id}`;
+`blueprint.lua`'s `connect()` now takes the connector and writes both ends for
+`defines.wire_connector_id.circuit_green` exactly as for `pole_copper`. Measured: a stamped
+plan's green network reads back as one connected component over machines, recyclers and census
+chests via `get_wire_connector(circuit_green, false).connections`. Use the defines symbolically,
+never a literal: the JSON's `"order"` is a doc-sort hint (it puts `pole_copper` at 6 where
+§21's decoded sample serialised 5), and the decoded value is the measured one.

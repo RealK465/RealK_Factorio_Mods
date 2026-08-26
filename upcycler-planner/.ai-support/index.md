@@ -9,7 +9,7 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 | File | Genre | What is in it | Read it when |
 |---|---|---|---|
 | `decisions.md` | register | what is settled and why — identity, interaction, what gets planned, what is refused, what was rejected | before any design change, and before re-opening a question |
-| `deferred.md` | register | parked work, each entry with enough context to pick up cold — circuits, fluids, the bot loop | scoping, or answering "why isn't X here?" |
+| `deferred.md` | register | parked work, each entry with enough context to pick up cold — the second fluid network, the bot loop, the full-height ladder | scoping, or answering "why isn't X here?" |
 | `journal.md` | journal | dated sessions, newest first: what was built, what broke, what the harness proved | a bug smells familiar, or a decision needs the story behind it |
 | `analysis/` | evidence | the research — decoded blueprints, verified API, layout specs, quality maths, reference mods. Start at its own `index.md` | before re-deriving anything about the engine or the layout |
 

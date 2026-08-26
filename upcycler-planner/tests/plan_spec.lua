@@ -350,4 +350,78 @@ describe("planner.plan", function()
     end
     assert(seen == 100, "iron-plate request " .. tostring(seen) .. ", expected 100")
   end)
+
+  describe("circuit limits", function()
+    test("off by default: no condition, no circuit wire, anywhere", function()
+      local plan = planner.plan(force(), choices_with())
+      for _, e in pairs(plan.entities) do
+        assert(e.control_behavior == nil, e.name .. " carries a condition with circuits off")
+        assert(e.circuit_wire_to == nil, e.name .. " carries a circuit wire with circuits off")
+      end
+      assert(plan.circuit_unlinked == nil, "an undecorated plan reports a shortfall")
+    end)
+
+    test("on: one cap gates every machine and recycler; reserves follow their minimums", function()
+      local plain = planner.plan(force(), choices_with())
+      local plan = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 123, circuit_min_uncommon = 25,
+      }))
+      assert(plan.width == plain.width and plan.height == plain.height,
+        "circuits changed the footprint: " .. plan.width .. "x" .. plan.height)
+      assert(plan.circuit_unlinked == nil,
+        "unlinked " .. tostring(plan.circuit_unlinked) .. " on a vanilla plan")
+
+      -- Every machine and recycler carries the SAME stop: the output chest's count of the
+      -- product at the target quality against the cap.
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "machine" or e.circuit_role == "recycler" then
+          local c = e.control_behavior and e.control_behavior.circuit_condition
+          assert(c, e.circuit_role .. " tier " .. e.circuit_tier .. " carries no gate")
+          assert(c.first_signal.name == "iron-gear-wheel"
+            and c.first_signal.quality == "rare" and c.constant == 123,
+            e.circuit_role .. " gates on " .. serpent.line(c))
+        end
+      end
+
+      -- The named minimum reaches its tier's inserter; the unset one (normal, default 0)
+      -- keeps nothing back and is left ungated and unwired.
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "reserve" and e.circuit_tier == 2 then
+          local c = e.control_behavior.circuit_condition
+          assert(c.comparator == ">" and c.first_signal.quality == "uncommon"
+            and c.constant == 25, "the uncommon reserve gates on " .. serpent.line(c))
+        end
+        if e.circuit_role == "reserve" and e.circuit_tier == 1 then
+          assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+            "a zero-minimum reserve was gated or wired")
+        end
+        -- The floor rides the census chest's request too, or trash-unrequested bots would
+        -- hold the count below it forever: gears buffer one stack of 100, plus the floor.
+        if e.circuit_role == "census" and e.circuit_tier == 2 then
+          assert(e.requests[1].count == 125,
+            "the floored census requests " .. e.requests[1].count)
+        end
+        if e.circuit_role == "census" and e.circuit_tier == 1 then
+          assert(e.requests[1].count == 100,
+            "the unfloored census requests " .. e.requests[1].count)
+        end
+      end
+    end)
+
+    test("a zero cap through the choices means no cap at all", function()
+      -- The planner is the one owner of "zero means off": decorate never sees the zero,
+      -- only the absence it becomes.
+      local plan = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25,
+      }))
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "machine" or e.circuit_role == "recycler" then
+          assert(e.control_behavior == nil, e.circuit_role .. " gated under a zero cap")
+        end
+        if e.circuit_role == "reserve" and e.circuit_tier == 2 then
+          assert(e.control_behavior, "the reserve must survive a zero cap")
+        end
+      end
+    end)
+  end)
 end)

@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: ????
+  Features:
+    - Circuit limits: tick the new checkbox and the loop is wired to stop every machine
+      once the output chest holds your maximum. Taking items out restarts it.
+    - The Limits window also sets a minimum per quality: the loop keeps at least that many
+      items in each tier's chest and only recycles the surplus.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.1
 Date: 2026-08-22
   Changes:

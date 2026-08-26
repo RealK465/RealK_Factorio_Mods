@@ -81,9 +81,10 @@ per-release approval.
   GitHub-flavoured markdown, and images only as URLs to somewhere else.
 - **`faq.md` is the portal FAQ tab**, synced by `fmtk details --faq` and shipped in the zip
   like `README.md` — deliberately not in `package.ignore`, it is a few hundred bytes of player
-  help. Three entries: the research gate and the setting that lifts it (2026-08-16, the owner's
-  pick), where the hidden pickers went (2026-08-17 — the question this release generates), and
-  why a two-fluid recipe is refused.
+  help. The entries track the question each release generates: the research gate and the
+  setting that lifts it (2026-08-16, the owner's pick), where the hidden pickers went
+  (2026-08-17), what the active provider chest is for, why machines pause under circuit
+  limits (2026-08-26), and why a two-fluid recipe is refused.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
   window first, then the vanilla loops, then the modded ones. The gallery has no order but upload
   order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
@@ -196,7 +197,7 @@ per-release approval.
   the repo owner's request, closing the parked chest picker and the parked productivity-module one;
   the overflow chest joined them on 2026-08-20 with the tap it feeds;
   **nothing the plan places is auto-picked any more** except the underground pipe, which is
-  derived from the pipe rather than chosen. The strip is five captioned concept groups — see
+  derived from the pipe rather than chosen. The strip is six captioned concept groups — see
   its own bullet below.
   The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
   over an auto-pick) carries no quality — like the belt, nothing about it scales with quality —
@@ -338,10 +339,11 @@ per-release approval.
   Closing the modal takes the panel with it for free; a rebuild triggered by flipping a
   setting re-creates an open panel with fresh ticks, which also retired the repaint-on-change
   loop.
-- **The build options are five captioned concept groups** (owner's call, 2026-08-22,
-  superseding the 2026-08-17 six-column grid): Transport (belt, inserter, pipe), Chests (the
-  four roles), Modules (quality, top machine), Beacons (beacon, its module, the per-tier
-  count drop-down), Power (pole) — each a `semibold_caption_label` over a horizontal flow of
+- **The build options are six captioned concept groups** (owner's call, 2026-08-22,
+  superseding the 2026-08-17 six-column grid; Circuits joined 2026-08-26): Transport (belt,
+  inserter, pipe), Chests (the four roles), Modules (quality, top machine), Beacons (beacon,
+  its module, the per-tier count drop-down), Power (pole), Circuits (the enable checkbox and
+  the Limits button) — each a `semibold_caption_label` over a horizontal flow of
   icon pickers, the trash checkbox below them all. Twelve icon-only pickers in one flat grid
   left hovering as the only way to tell them apart; small captions name the concepts while the
   pickers stay icons — chosen from three offered shapes over per-picker labelled rows and over
@@ -552,6 +554,88 @@ per-release approval.
   And the catcher's filter list — target quality plus one entry per tier above it, nearest first,
   **clamped to the inserter's five slots** — collapsed into that single `">="`, which is both
   exact and immune to a modded quality chain longer than five tiers.
+- **Circuit limits: reserve and cap, opt-in and combinator-free** (owner's calls, 2026-08-26;
+  the semantics are the owner's correction of the first-built demand cascade, same day — the
+  journal has the story). Two rules. The CAP: every machine and every recycler carries the one
+  shared condition `product@target < max`, counted in the output chest — machines run free
+  until the cap is met, then the whole loop stops, and it wakes as bots draw the chest down.
+  The RESERVES: each lower tier's buffer-to-recycler inserter carries `product@tier > min`,
+  so the loop never grinds a tier's chest below the floor the player set — the floor is
+  enforced on the INSERTER, the only hand that can draw the chest down, while the machines
+  stay ungated per tier. A zero minimum (the default) keeps nothing back, and that tier's
+  inserter is left ungated and unwired. The recyclers joining the cap is the one half the
+  owner did not spell out: without it a parked loop keeps grinding its surplus — and tier
+  0 keeps pulling the player's base production — while nothing consumes the result, which is
+  the waste the feature exists to stop; one line to remove if free-running is ever preferred.
+  Combinator-free because the layout already separates what each condition needs: buffer
+  chests hold one tier's product each, the output chest alone holds the target's, and a wire
+  signal is distinct per quality (`SignalID.quality`, api.md §26) — every rule is a single
+  comparison on an entity that inherits on/off behaviour (machines, the furnace recycler,
+  inserters alike), and the census chests broadcast by default with no configuration.
+  Two approximations, both accepted: an inserter's swing checks the condition at pickup, so
+  a bonus-sized hand can dip a few items below the floor (the mechanism is exact at hand
+  size one, measured); and a swing in flight can land one hand past the cap.
+  **A floor raises its census chest's logistic request by the same amount** (owner's catch,
+  2026-08-26, option picked from three): the buffer requests one stack, and with
+  trash-unrequested on — the default — bots skim anything above the request, so a floor past
+  the request could never fill and the tier would silently stop recycling. Growing the
+  request keeps the working-stock band on top of the kept floor, preserves the one-stack
+  hoard cap's intent, and on the first tier makes bots actively deliver toward the floor —
+  the literal reading of "keep this many in the chest". The rejected shapes: exempting
+  floored chests from trash (loses the hoard cap, floor never topped up from the base) and a
+  warning alone (asks the player to learn an internal number). What remains impossible — a
+  floor at or past the chest's physical capacity — validates as a warning
+  (`circuit-min-too-big`), asked at the chest's build quality since quality grows inventory.
+  **Rejected:** the demand cascade (per-tier machine thresholds, recyclers gated on the tier
+  above — built first, replaced the same day: the owner wants machines running whenever the
+  cap allows, and MIN to read as a hard keep, not a stock target); and hard floors via
+  compound conditions on the recycler (`> min AND < cap` needs a decider per tier — gating
+  the inserter says the same thing in one comparison).
+  **The wiring is a tree beside the pole tree**: a scalar `circuit_wire_to` plan index per
+  entity, `wire_to`'s own shape, resolved to `circuit_green` by the serialiser's now
+  connector-parameterised `connect()`. Generalising `wire_to` into a typed list was rejected:
+  it touches poles.lua's output shape, which carries the falsified-parity-sweep obligation,
+  for no functional gain — a tree needs one parent pointer. Each column chains reserve
+  inserter → census chest → recycler → machine (the terminal's output chest straight to its
+  machine); the cross-tier spine rides the MACHINE row, not the chest row: machines share
+  rows, so spine hops are pure horizontal pitch (3–9 vanilla — the substation+beacon+pipe
+  column reaches exactly the 9-tile wire reach), where the chest row's last hop to the
+  output chest spans the whole machine+recycler band (3+Hm+Hr = 10 vanilla) and would have
+  forced the relay on every plan. **Every reach comparison keeps half a tile of margin**:
+  where the engine measures a wire — entity centres or the off-centre connector points — is
+  unrecorded (§26), and the margin turns an exact-boundary hop into a relay or an honest
+  warning where guessing wrong would drop the wire silently at build and split the network;
+  a blueprint spec stamps the widest vanilla pitch and walks the one green component. When a
+  hop exceeds the margined reach — that pitch, or fat modded columns — the spine falls back
+  to relaying along the top ring belts (1-tile hops, any width; a wired belt with no
+  control_behavior stays neutral, §26), each machine tapping the belt above it.
+  An entity even that cannot reach is counted in `plan.circuit_unlinked` and warned about,
+  never refused: an unconnected enable condition gates nothing (measured, §26), so the loop
+  degrades to exactly the uncircuited one.
+  **Off by default costs nothing, provably** — plan_spec pins a circuits-off plan carrying no
+  condition and no circuit wire anywhere. `scripts/circuits.lua` is a pure decorator run
+  strictly after the pole pass (circuits change no geometry, so there is nothing to solve
+  together); layout.lua only records structural tags (`circuit_role`/`circuit_tier`, the
+  `utility_columns` precedent) and knows nothing about conditions.
+  **The wizard is the settings panel's sibling in every mechanic** — a second window-styled
+  column in the invisible container, mutual exclusion between the two panels, "panel first" on
+  close, recreated across rebuilds — holding one numeric textfield per tier (the mod's first
+  textfields: valid keystrokes commit at once so the Confirm key can never outrun an edit,
+  Enter snaps the display back to what holds, and `gui.confirm` refuses while the wizard is
+  open, which also covers E landing in a focused field). **Each row says which rule it sets**
+  — a Min or Max label ahead of the quality (the owner's ask: the UI must be clear that the
+  two numbers mean opposite things), with the tooltips spelling both out. The numbers live in
+  storage as flat values under TWO families — `circuit_min_<quality>` for the reserves,
+  `circuit_max_<quality>` for the cap — keyed by quality NAME so a value survives the target
+  moving, and split so a remembered floor can never become a ceiling when the target lands on
+  its tier; both pruned by the quality in the key. Defaults: reserves 0, cap one stack of
+  the product (the buffer chest's own sizing rule). **Zero means off on both sides**: a zero
+  reserve keeps nothing and stays unwired, and a zero cap means no cap — machines and
+  recyclers ungated and unwired, each remaining reserve its own two-entity island — so a cap
+  committed empty before any item was picked disables nothing silently, and the Max tooltip
+  says "0 means no limit". A cap backfilled from one product's stack is remembered across an
+  item change like every other choice — the number was defaulted, not chosen, and the
+  wizard shows it for re-picking.
 - **Nothing is ever built outside the ring — poles included.** The repo owner's call,
   2026-08-17, replacing the first-built external pipe header the same day: the ring rectangle
   is the plan's entire footprint, so the ground the player reserves is exactly what they see,

@@ -9,6 +9,158 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the owner catches the floor/trash deadlock
+
+"What if the reserve limit is > than the number of requester items in the chests? with trash
+unrequested option it will never work" — and it would not have: the buffer chest requests one
+stack, trash-unrequested (checked by default) skims anything above the request, so a floor
+past the request could never fill and that tier's recycling would stop silently. Three fixes
+were laid out — grow the request with the floor, exempt floored chests from trash, warn only
+— and the owner picked the first. `circuits.decorate` now raises a floored census chest's
+request by the floor when it gates the reserve inserter, so trash skims only above
+floor-plus-working-stock and tier 0's bots actively deliver toward the floor; a floor the
+chosen chest cannot physically hold gets a validate warning (`circuit-min-too-big`, capacity
+asked at the chest's build quality). Pinned in the pure spec (requests 100/75 on the 50-buffer
+fixture), plan_spec (125/100 on gears), and planner_spec (the warning, and silence when the
+floor fits). Suite 235 → 237.
+
+## 2026-08-26 — a cleanup round: one slot, one owner, one pass
+
+Four cleanup lenses (reuse, simplification, efficiency, altitude) over the still-uncommitted
+feature, findings applied with no behaviour change intended and none observed. The side
+panels became DATA — a `SIDE_PANELS` registry in `gui.lua` behind one find/close/recreate
+mechanism, so the confirm guard, the close-request branch in `control.lua`, the rebuild
+survival and the mutual exclusion all iterate it and a third panel (the expected-output
+display is the standing candidate) is one entry, not five edits. "Zero means off" gained one
+owner: the planner normalises reserves to a SPARSE table and a zero cap to nil before
+`circuits.decorate`, whose contract is now "absence means off" — the reach min and the
+wiring read the same tables and cannot drift; `plan_spec` pins the zero-cap path at the
+planner boundary. The cap's default likewise: `planner.default_circuit_max` is called by
+both the wizard's backfill and plan()'s fallback, so the number shown and the number used
+are one value. Smaller strokes: layout's `add` returns its entity and the call sites tag
+directly (both `extra` merge loops gone), the two prune sweeps merged into one
+structurally-ordered pass, the relay belt-tap search became a single advancing pointer
+(was quadratic at exactly the long-chain scale relay exists for), the textfield handler
+dropped guards its numeric field makes unreachable, and the pure connectivity walker moved
+to `tests/support/component.lua` — the pole and circuit specs' third copy was the signal.
+Suite 234 → 235 (the zero-cap pin), all green.
+
+## 2026-08-26 — a review round hardens the reach handling
+
+The owner asked for a formal review pass (fresh reviewer, the diff against 601b2a4 and the
+owner's spec as the yardstick, nothing from the build session). Verdict: no criticals, three
+important hardening items, all taken. `circuit_reach` was calling
+`get_max_wire_distance` — the COPPER getter — where `get_max_circuit_wire_distance` is the
+documented circuit one; the two agree on vanilla 2.1.16, so nothing was broken, but the
+wrong sibling would fail silently the day the engine distinguishes them (§26 now records
+both). The reserve inserter was missing from the reach min entirely — and
+`InserterPrototype.circuit_wire_max_distance` defaults to 0, so a wireless modded inserter
+would have had its reserve wire dropped at build with no warning; it now joins the min
+whenever a reserve is set, and only then, so an unused wireless inserter cannot zero a plan
+that never wires one. And the substation+beacon+pipe column puts a machine-row spine hop at
+exactly 9.0 against the 9 reach, where nothing records whether the engine measures centres
+or connector points: every reach comparison now keeps half a tile of margin — an
+exact-boundary hop becomes a relay or an honest warning instead of a silent gamble — and a
+blueprint spec stamps that widest vanilla pitch and walks the one green component.
+
+Minors taken in the same pass: a zero cap now means NO cap (machines ungated, matching the
+zero-reserve rule, closing the accidental-dead-loop the reviewer found in the empty-wizard
+Enter path; the Max tooltip says so), the field elements renamed to the honest
+`upl-circuit-limit-<tier>`, the lose_focus_on_confirm comment's causality corrected, the
+uncheck-closes-wizard branch got its spec, and the panel/ring walks moved to ipairs. Left on
+the table for the owner: forcing the reserve inserters' hand size to one would make the
+floors exact (today a capacity-bonus grab can dip a few below) at a throughput cost. Suite
+231 → 234.
+
+## 2026-08-26 — the owner corrects the semantics: reserve and cap, on the inserters
+
+Reviewing the freshly-built cascade, the owner redefined both halves the same day: the MIN is
+a **hard keep** — "the inserters should not remove items from the requester chests if the
+items are < than the min" — and the machines "should be always work until the provider chest
+has reached the maximum". So the cascade's per-tier machine thresholds went, replaced by one
+shared cap (`product@target < max`, counted in the output chest) on every machine, and the
+floors moved off the recyclers onto the **buffer-to-recycler inserters** (`product@tier >
+min`) — which dissolved the compound-condition problem that had made hard floors look like
+they needed a decider per tier: gating the inserter says it in one comparison. Two calls made
+here and flagged to the owner as one-liners to reverse: the recyclers stop at the cap too
+(otherwise a parked loop grinds surplus and tier 0 keeps draining the base — the exact waste
+the feature exists to stop), and the reserve default is 0, with a zero-floor inserter left
+ungated and unwired entirely.
+
+Storage split into two families — `circuit_min_<quality>` and `circuit_max_<quality>` — so a
+remembered floor can never turn into a ceiling when the target moves onto its tier; the
+wizard rows grew Min/Max labels ("ui should be clear about this too"), and the cap defaults
+to a stack where the reserves default to zero. Suite 228 → 231, green after two findings:
+an inserter's `direction` is its PICKUP side (the new reserve rig had it backwards — the tap
+and relief rigs knew), and a condition read back off a ghost **omits `first_signal.quality`
+when it is normal**, the default-omission family again (api.md §26). The reserve mechanism
+itself measured exact at hand size one: 8 in, floor 5, exactly 3 moved.
+
+**The install advanced under the session** — the suite header read base 2.1.14 in the
+morning and 2.1.16 after the owner's message. Everything passes on 2.1.16;
+`CLAUDE.local.md`'s version line was brought up to date for the default install, the other
+three installs unverified. The seven 2.1-stamped evidence files were re-pointed to
+`verified_against: 2.1.16` on two grounds, not a blind bump: `check-ai-support` re-validated
+all 40 API and 16 game-data citations against the new install, and the 231-test suite —
+which pins the measured claims — is green there. Prose claims with neither a citation nor a
+test carry the residual risk of a two-patch drift; §9's UNVERIFIED list already says so for
+the ones that matter. The static tier's emmylua typedefs are still 2.1.14-generated —
+regenerate with `-RegenerateTypedefs` at the next static run.
+
+## 2026-08-26 — circuit limits land: the demand cascade, combinator-free
+
+The owner asked for circuitry: per-tier MIN stocks in the chests and a MAX at the target that
+shuts the machines off, pointing at TornBreeze's portal discussion (*"Some design ideas"* —
+per-tier thresholds, machines stopping when their level has enough, recyclers when the next
+level does; their blueprint file link had already expired, but the description carried the
+design). The deferred circuits entry turned out to be waiting for exactly this, and the
+`wire_to`-as-plan-index seam built on 2026-08-18 paid off as designed.
+
+**The design collapsed to something much simpler than the reference garnish.** TornBreeze's
+build needs combinators; this layout does not, because the buffer chests already separate
+stock per tier and a 2.x wire signal is distinct per quality — so the whole cascade is plain
+enable conditions on the machines and recyclers the plan already places, one green network,
+zero new entities, zero footprint change. Four owner decisions, each picked from presented
+options: cascade semantics (over hard MIN floors, which need a decider per tier, and over
+MAX-only), off by default, the wizard as a sibling panel, numeric textfields. Architecture
+likewise chosen from three offered: a pure `scripts/circuits.lua` decorator (poles.lua's
+sibling, but strictly post-hoc since circuits move no geometry) over threading layout.build,
+plus the scalar `circuit_wire_to` over generalising `wire_to` into a list — the list variant
+touches poles' output shape and its falsified-parity-sweep obligation for no gain a tree
+needs. One wrinkle found while comparing the architects' drafts: a chest-row census spine has
+a vanilla-breaking last hop (buffer chest to output chest spans 3+Hm+Hr = 10 tiles against
+the universal 9-tile wire reach), so the spine rides the machine row instead — pure
+horizontal pitch, 3–8 on vanilla — and only a wide modded plan falls back to relaying along
+the top ring belts at 1-tile hops.
+
+**Verified before coding, then pinned by the suite** (`analysis/api.md` §26): furnaces gate
+exactly like assembling machines (both inherit GenericOnOff; the recycler's blueprint group
+carries `control_behavior` and nothing else); `SignalID.quality` makes a condition
+tier-exact; wired chests broadcast by default; every relevant `circuit_wire_max_distance` is
+9 (`data/core/lualib/circuit-connector-sprites.lua`); an enable condition with no connected
+wire gates nothing — measured live, which is what makes `circuit_unlinked` honestly a
+warning; and the §21 rename trap has a second instance, blueprint `circuit_enabled` against
+runtime `circuit_enable_disable`, which the blueprint spec now reads back by the runtime
+name on purpose.
+
+**The suite grew 210 → 228, green on the first full run**: a pure `circuits_spec` (conditions
+per tier, connectivity by BFS not wire values, the relay under a synthetic short reach, the
+all-out-of-reach degradation), layout tag pins, plan-level off-is-byte-identical and
+threshold-defaulting pins, the stamped round-trip (gates on both entity kinds, an
+exactly-8-ghost green component, neutral ring belts), the live pause-at-5 / resume-on-drain /
+unwired-runs-free measurement, prune-by-key for `circuit_min_*`, and five wizard GUI specs
+(arm-open-swap, commit-without-rebuild, Esc panel-first, the Confirm-key refusal, target
+reshaping the rows). The mod's first textfields required wiring `on_gui_text_changed` and
+`on_gui_confirmed` into the dispatcher — dispatch itself needed nothing, it routes on tags.
+
+Left deliberately: the graphics-tier pass stays a release step (the E-over-focused-field
+question is guarded structurally — confirm refuses while the wizard is open — so the live
+check is confirmation, not a gate); the README/portal description is untouched until the
+owner words the feature; the 2.0 backport waits for a release request — 2.0.77's API JSON
+already shows `LuaFurnaceControlBehavior` and the blueprint `circuit_enabled` family, so it
+looks fork-free, but that is a schema read, not a measurement. Changelog opened 0.6.0 with
+`Date: ????`; `info.json` bumped to match. Nothing committed, nothing published.
+
 ## 2026-08-22 — 0.5.0 / 0.5.1 released, and a graphics-tier seed flake hardened
 
 The owner authorised the pair: 0.5.0 for Factorio 2.0 from `legacy/2.0`, 0.5.1 as its 2.1

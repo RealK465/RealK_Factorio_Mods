@@ -96,11 +96,10 @@ local function request_filters_of(entity, trash_unrequested)
   }
 end
 
--- Copper between two pole entries, written on BOTH ends -- which is what create_blueprint emits
--- for a pair of connected poles, and there is no reason to hand the engine a shape it would not
--- have produced itself.
-local function connect(a, b)
-  local connector = defines.wire_connector_id.pole_copper
+-- A wire between two entries -- pole copper or circuit green, the caller's connector -- written
+-- on BOTH ends, which is what create_blueprint emits for a pair of connected poles, and there
+-- is no reason to hand the engine a shape it would not have produced itself.
+local function connect(a, b, connector)
   a.wires = a.wires or {}
   b.wires = b.wires or {}
   a.wires[#a.wires + 1] = { a.entity_number, connector, b.entity_number, connector }
@@ -129,14 +128,24 @@ function blueprint.entities(plan)
       use_filters = entity.filters and true or nil,
       filter_mode = entity.filter_mode,
       request_filters = request_filters_of(entity, plan.trash_unrequested),
+      -- Written by the circuit pass in blueprint shape already (circuit_enabled plus a
+      -- circuit_condition), so it passes through verbatim; nil on everything ungated.
+      control_behavior = entity.control_behavior,
     }
   end
 
   -- A second pass, because connect() writes BOTH ends and so needs the partner's entry to
   -- exist -- and wire_to genuinely can name an entity later in the array, since poles.lua grows
-  -- its spanning tree by distance rather than by index.
+  -- its spanning tree by distance rather than by index. The connector ids live here alone:
+  -- layout.lua and circuits.lua run on the host interpreter too, where defines does not exist.
   for index, entity in ipairs(plan.entities) do
-    if entity.wire_to then connect(entities[index], entities[entity.wire_to]) end
+    if entity.wire_to then
+      connect(entities[index], entities[entity.wire_to], defines.wire_connector_id.pole_copper)
+    end
+    if entity.circuit_wire_to then
+      connect(entities[index], entities[entity.circuit_wire_to],
+        defines.wire_connector_id.circuit_green)
+    end
   end
 
   return entities

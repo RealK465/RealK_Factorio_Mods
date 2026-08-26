@@ -18,6 +18,10 @@ Machines and recyclers sometimes roll an item above the quality you asked for. N
 
 Loops aiming at the highest quality can't roll past it, so they don't get one.
 
+## Why did the machines stop working?
+
+If you built the loop with **Circuit limits** on, that's the limits doing their job: every machine pauses once the output chest holds your maximum. Take items out of the chest and the loop starts again. To change the numbers, reopen the planner and press **Limits...**; to run without limits, untick the checkbox and place the loop again.
+
 ## Why is my fluid recipe refused?
 
 Only recipes with one fluid ingredient are supported. Two kinds can't be looped: recipes needing two different fluids (only ammonia rocket fuel in vanilla), and recipes that return a fluid alongside the item (like the quantum processor).

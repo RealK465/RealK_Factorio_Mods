@@ -240,3 +240,94 @@ describe("the recycler eject under a rolled-up ingredient", function()
     end)
   end)
 end)
+
+describe("a circuit limit on a live machine", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  -- The cascade's one genuinely emergent claim, measured: a machine gated on a wired chest's
+  -- count stops when the stock is met, resumes when it drains, and a machine whose condition
+  -- has NO connected wire just runs -- the graceful degradation plan.circuit_unlinked leans
+  -- on. Runtime names here, not blueprint ones: circuit_enable_disable, the S21 rename trap.
+  test("pauses at the threshold, resumes on drain; unwired runs free", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+
+    local function gated_machine(position)
+      local machine = s.create_entity({
+        name = "assembling-machine-2", position = position, force = f,
+      })
+      machine.set_recipe("iron-gear-wheel", "normal")
+      machine.get_inventory(defines.inventory.crafter_input)
+        .insert({ name = "iron-plate", count = 40, quality = "normal" })
+      local cb = machine.get_or_create_control_behavior()
+      cb.circuit_enable_disable = true
+      cb.circuit_condition = {
+        comparator = "<", constant = 5,
+        first_signal = { type = "item", name = "iron-gear-wheel", quality = "normal" },
+      }
+      return machine
+    end
+
+    local wired = gated_machine({ 1.5, 1.5 })
+    local free = gated_machine({ 1.5, 8.5 })
+
+    local chest = s.create_entity({ name = "steel-chest", position = { 4.5, 1.5 }, force = f })
+    chest.get_inventory(defines.inventory.chest)
+      .insert({ name = "iron-gear-wheel", count = 5, quality = "normal" })
+    wired.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+      .connect_to(chest.get_wire_connector(defines.wire_connector_id.circuit_green, true))
+
+    after_ticks(300, function()
+      assert(wired.products_finished == 0,
+        "the wired machine crafted " .. wired.products_finished .. " past its met limit")
+      assert(free.products_finished > 0,
+        "the unwired machine idled -- a condition with no network must gate nothing")
+
+      chest.get_inventory(defines.inventory.chest).clear()
+      after_ticks(300, function()
+        assert(wired.products_finished > 0,
+          "the wired machine never resumed after its chest drained")
+      end)
+    end)
+  end)
+
+  -- The reserve rule live: an inserter gated "count > floor" on its source chest stops with
+  -- the floor still inside. Hand size forced to one, because a multi-item grab checked at
+  -- swing start could otherwise dip below the floor -- the plan does not force it, so the
+  -- shipped reserve is approximate to the inserter's hand; this pins the mechanism itself.
+  test("a gated inserter leaves the floor in the chest", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 8, 2 }, force = f })
+    s.create_entity({ name = "substation", position = { 5, 2 }, force = f })
+
+    local source = s.create_entity({ name = "steel-chest", position = { 0.5, 2.5 }, force = f })
+    local sink = s.create_entity({ name = "steel-chest", position = { 0.5, 0.5 }, force = f })
+    -- Direction is the PICKUP side: south is the source chest, the drop lands north in the
+    -- sink -- the tap and relief rigs above follow the same rule.
+    local hand = s.create_entity({
+      name = "fast-inserter", position = { 0.5, 1.5 },
+      direction = defines.direction.south, force = f,
+    })
+    hand.inserter_stack_size_override = 1
+
+    source.get_inventory(defines.inventory.chest)
+      .insert({ name = "iron-gear-wheel", count = 8, quality = "normal" })
+    hand.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+      .connect_to(source.get_wire_connector(defines.wire_connector_id.circuit_green, true))
+    local cb = hand.get_or_create_control_behavior()
+    cb.circuit_enable_disable = true
+    cb.circuit_condition = {
+      comparator = ">", constant = 5,
+      first_signal = { type = "item", name = "iron-gear-wheel", quality = "normal" },
+    }
+
+    after_ticks(300, function()
+      local kept = source.get_item_count({ name = "iron-gear-wheel", quality = "normal" })
+      local moved = sink.get_item_count({ name = "iron-gear-wheel", quality = "normal" })
+      assert(kept == 5, "the reserve held " .. kept .. " gears, expected the floor of 5")
+      assert(moved == 3, "the inserter moved " .. moved .. " gears, expected the 3 surplus")
+    end)
+  end)
+end)

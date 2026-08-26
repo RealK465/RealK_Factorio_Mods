@@ -60,6 +60,29 @@ local function settings_panel()
   return f and f[gui.SETTINGS_FRAME]
 end
 
+-- The circuit wizard, reached the settings panel's way: through the frame, never the screen.
+local function circuits_panel()
+  local f = frame()
+  return f and f[gui.CIRCUITS_FRAME]
+end
+
+-- The wizard's row list, then one row (nil when the tier has none), then a row's field --
+-- one owner for the inner path, so a container rename breaks one helper instead of every
+-- assertion.
+local function circuit_list()
+  local panel = circuits_panel()
+  assert(panel and panel.valid, "the circuit wizard is not open")
+  return panel["upl-circuits-content"]["upl-circuits-list"]
+end
+
+local function circuit_row(tier)
+  return circuit_list()["upl-circuit-row-" .. tier]
+end
+
+local function circuit_field(tier)
+  return circuit_row(tier)["upl-circuit-limit-" .. tier]
+end
+
 local function settings_widget(name)
   local panel = settings_panel()
   assert(panel and panel.valid, "the settings panel is not open")
@@ -836,6 +859,121 @@ describe("the modal", function()
     assert(not (stack and stack.valid_for_read),
       "the key placed a blueprint while the settings panel was open")
     assert(frame() and frame().valid, "the key closed the planner under the panel")
+  end)
+
+  test("the circuits group: the checkbox arms Limits, and the wizard lists a field per tier", function()
+    open_with_gears()
+    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
+    local button = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-limits" })
+    assert(box.state == false, "circuit limits must start off")
+    assert(button.enabled == false, "Limits must be dead until the checkbox is ticked")
+
+    box.state = true
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(choices().circuit_enabled == true, "the tick did not reach the choices")
+    -- Re-fetched: the handler refreshes, never rebuilds, so the reference itself survives --
+    -- which is also worth asserting, a rebuild here would eat the click's second event.
+    assert(button.valid and button.enabled == true, "the tick did not arm Limits in place")
+
+    fire(button, defines.events.on_gui_click)
+    local panel = circuits_panel()
+    assert(panel and panel.valid, "Limits opened nothing")
+    assert(panel.parent == frame(), "the wizard must be a column inside the planner's element")
+    assert(player().gui.screen[gui.CIRCUITS_FRAME] == nil,
+      "the wizard must not be a separate screen window")
+    -- Full research defaults the target to the top of the chain, so every tier is a row.
+    -- The lower tiers open as Min 0 -- keep nothing back -- and the target as Max one
+    -- stack of gears; the row's first label says which rule the field sets.
+    for _, tier in pairs({ "normal", "uncommon", "rare", "epic" }) do
+      assert(circuit_field(tier).text == "0",
+        tier .. " field opened as " .. circuit_field(tier).text)
+      assert(circuit_row(tier).children[1].caption[1] == "upl-gui.circuit-min",
+        tier .. " row is not labelled Min")
+    end
+    assert(circuit_field("legendary").text == "100",
+      "the target field opened as " .. circuit_field("legendary").text)
+    assert(circuit_row("legendary").children[1].caption[1] == "upl-gui.circuit-max",
+      "the target row is not labelled Max")
+  end)
+
+  test("typing commits without a rebuild; Enter snaps the text to what holds", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+
+    local field = circuit_field("uncommon")
+    field.text = "25"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().circuit_min_uncommon == 25, "the keystroke did not commit")
+    assert(field.valid, "the keystroke rebuilt the modal under the cursor")
+
+    -- An emptied field mid-edit keeps the last value; Enter then restores the display.
+    field.text = ""
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().circuit_min_uncommon == 25, "an emptied field clobbered the value")
+    fire(field, defines.events.on_gui_confirmed)
+    assert(field.text == "25", "Enter left the field showing " .. field.text)
+  end)
+
+  test("unchecking the checkbox takes the wizard with it", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
+    box.state = false
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(choices().circuit_enabled == false, "the untick did not reach the choices")
+    assert(circuits_panel() == nil, "limits on a loop that will not be wired are noise")
+  end)
+
+  test("the wizard and the settings panel swap; Esc dismisses the wizard first", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    gui.open_settings(player())
+    assert(circuits_panel() == nil, "the settings panel did not close the wizard")
+    gui.open_circuits(player())
+    assert(settings_panel() == nil, "the wizard did not close the settings panel")
+
+    -- Esc asks the container to close; control.lua turns that into "panel first", the
+    -- settings panel's own path.
+    player().opened = nil
+    after_ticks(2, function()
+      assert(circuits_panel() == nil, "the wizard survived Esc")
+      assert(frame() and frame().valid, "Esc with the wizard up closed the modal too")
+      assert(player().opened == frame(), "the modal did not take the focus back")
+    end)
+  end)
+
+  test("the Confirm key is refused while the wizard is open", function()
+    -- The guard is also what stands between a focused threshold field and E placing the
+    -- blueprint mid-edit, whatever the engine does with the keypress.
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    gui.confirm_key(player())
+
+    local stack = player().cursor_stack
+    assert(not (stack and stack.valid_for_read),
+      "the key placed a blueprint while the wizard was open")
+    assert(frame() and frame().valid, "the key closed the planner under the wizard")
+  end)
+
+  test("a target change with the wizard open reshapes its rows", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    assert(circuit_field("legendary"), "test premise: the default target lists every tier")
+
+    local dropdown = widget({ "upl-content", "upl-table", "upl-quality" })
+    dropdown.selected_index = 1 -- uncommon, the first offered target
+    fire(dropdown, defines.events.on_gui_selection_state_changed)
+
+    assert(choices().quality == "uncommon", "the target change did not land")
+    assert(circuits_panel() and circuits_panel().valid, "the rebuild dropped the wizard")
+    assert(circuit_field("uncommon"), "the wizard lost the tier the new target keeps")
+    assert(circuit_row("rare") == nil,
+      "the wizard still lists a tier the new target dropped")
   end)
 end)
 

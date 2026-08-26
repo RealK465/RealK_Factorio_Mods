@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.14
-verified: 2026-08-15
+verified_against: 2.1.16
+verified: 2026-08-26
 ---
 # The bot loop — deferred alternative layout
 
