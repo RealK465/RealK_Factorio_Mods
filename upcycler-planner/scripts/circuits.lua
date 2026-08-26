@@ -4,12 +4,12 @@
 -- every machine and every recycler is enabled only while the output chest holds fewer than
 -- the maximum of the product at the TARGET quality -- one shared condition, so the whole
 -- loop stops at the cap and wakes on its own as bots draw the chest down. The RESERVES: each
--- tier's buffer-to-recycler inserter is enabled only while that tier's product count is
--- ABOVE its minimum, so the loop never grinds a tier's stock below what the player asked to
--- keep -- a floor held by the inserter, where the machines run free below the cap. A zero
--- minimum means no reserve, and that tier's inserter is left unwired entirely.
+-- tier's reserve inserter -- stock chest to recycler -- is enabled only while that tier's
+-- product count is ABOVE its minimum, so the loop never grinds a tier's stock below what the
+-- player asked to keep -- a floor held by the inserter, where the machines run free below the
+-- cap. A zero minimum means no reserve, and that tier's inserter is left unwired entirely.
 --
--- Combinator-free because the layout already separates what the conditions need: the buffer
+-- Combinator-free because the layout already separates what the conditions need: the stock
 -- chests hold exactly one tier's product each, the output chest alone holds the target's,
 -- and a wire signal is distinct per quality -- so every rule above is a single comparison,
 -- and the census needs no reading config at all (a wired chest broadcasts by default).

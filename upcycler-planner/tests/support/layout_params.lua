@@ -25,6 +25,9 @@ function layout_params.vanilla(overrides)
     belt = "transport-belt",
     inserter = { name = "fast-inserter", quality = "normal" },
     requester = { name = "requester-chest", quality = "normal" },
+    -- The buffer-chests default; a spec probing the unbuffered kind overrides with a
+    -- requester, exactly as the planner would hand over.
+    stock = { name = "buffer-chest", quality = "normal" },
     container = { name = "iron-chest", quality = "normal" },
     provider = { name = "passive-provider-chest", quality = "normal" },
     overflow = { name = "active-provider-chest", quality = "normal" },

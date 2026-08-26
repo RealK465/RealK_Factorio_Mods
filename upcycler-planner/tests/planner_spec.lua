@@ -411,7 +411,9 @@ describe("the chest roles", function()
 
   test("each role offers only 1x1 chests in its own logistic mode", function()
     for _, role in pairs(planner.CHEST_ROLES) do
-      local names = planner.chests(role)
+      -- Buffered, so the stock role lists its own kind here; its unbuffered kind is the
+      -- requester list by construction, pinned in the membership test below.
+      local names = planner.chests(role, true)
       assert(#names > 0, "no chests offered for role " .. role)
       for _, name in pairs(names) do
         local entity = prototypes.entity[name]
@@ -419,12 +421,13 @@ describe("the chest roles", function()
           name .. " is not 1x1 -- the layout's chest positions are one tile")
         if role == "container" then
           assert(entity.type == "container" and not entity.logistic_mode,
-            name .. " talks to the logistic network and must not be a plain buffer")
+            name .. " talks to the logistic network and must not be a plain chest")
         else
           -- One logistic mode per role, named rather than derived: the overflow chest has to be
           -- an ACTIVE provider, because it is the only sink in the loop that empties itself.
           local modes = {
             requester = "requester",
+            stock = "buffer",
             provider = "passive-provider",
             overflow = "active-provider",
           }
@@ -440,9 +443,16 @@ describe("the chest roles", function()
   test("membership is per role: a requester chest is not a buffer, and vice versa", function()
     assert(planner.is_chest("requester-chest", "requester"), "requester membership")
     assert(not planner.is_chest("requester-chest", "container"),
-      "a logistic chest must never pass as the plain buffer")
+      "a logistic chest must never pass as the plain chest")
     assert(not planner.is_chest("steel-chest", "requester"), "a plain chest is no requester")
     assert(not planner.is_chest("passive-provider-chest", "requester"), "roles must not blur")
+    -- The stock role's membership follows the buffered flag: each kind admits only itself.
+    assert(planner.is_chest("buffer-chest", "stock", true), "buffered stock membership")
+    assert(not planner.is_chest("requester-chest", "stock", true),
+      "a requester passed the buffered stock role")
+    assert(planner.is_chest("requester-chest", "stock", false), "unbuffered stock membership")
+    assert(not planner.is_chest("buffer-chest", "stock", false),
+      "a buffer chest passed the unbuffered stock role")
     -- An infinity chest reports a logistic_mode too, and a chest that conjures items out of
     -- nothing is never a correct buffer in a loop whose job is to conserve one population.
     assert(not planner.is_chest("infinity-chest", "provider"), "infinity chest admitted")
@@ -460,8 +470,10 @@ describe("the building-material picks at full research", function()
     assert(planner.belt(f) == "turbo-transport-belt", "fastest researched belt (SA modset)")
     -- 1x1 with the largest supply area; the substation is pickable but never the default.
     assert(planner.pole(f) == "medium-electric-pole", "default pole")
-    assert(planner.chest(f, "container") == "steel-chest", "plain buffer chest")
+    assert(planner.chest(f, "container") == "steel-chest", "plain chest pick")
     assert(planner.chest(f, "requester") == "requester-chest", "requester pick")
+    assert(planner.chest(f, "stock", true) == "buffer-chest", "buffered stock pick")
+    assert(planner.chest(f, "stock", false) == "requester-chest", "unbuffered stock pick")
     assert(planner.chest(f, "provider") == "passive-provider-chest", "provider pick")
     assert(planner.quality_module(f) == "quality-module-3", "strongest quality module")
     assert(planner.pipe(f) == "pipe", "pipe pick")

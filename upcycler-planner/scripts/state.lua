@@ -70,8 +70,13 @@ function state.prune()
     if c.terminal_module and not planner.is_module(c.terminal_module) then
       c.terminal_module = nil
     end
+    -- The stock role prunes against the KIND the player's checkbox picks, so a pick left over
+    -- from the other kind falls back the way a stale prototype does. c.buffer_stock itself is
+    -- a plain boolean like no_poles -- nothing to prune.
     for _, role in pairs(planner.CHEST_ROLES) do
-      if c[role] and not planner.is_chest(c[role], role) then c[role] = nil end
+      if c[role] and not planner.is_chest(c[role], role, planner.stock_buffered(c)) then
+        c[role] = nil
+      end
     end
     -- The qualities the buildings and modules are placed AT are choices in their own right,
     -- separate from the target above, and a mod can take a tier out from under any of them.

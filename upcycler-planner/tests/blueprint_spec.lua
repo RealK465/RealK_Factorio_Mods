@@ -210,13 +210,30 @@ describe("stamping the blueprint", function()
       end
     end
     assert(requested, "no requester ghost carries the iron-plate request")
+
+    -- The stock chests ride the same translation as buffer chests: same flat filter shape,
+    -- same trash flag, read back off the ghost rather than trusted from the table.
+    local stocked = 0
+    for _, ghost in pairs(ghosts_of(nauvis(), "buffer-chest")) do
+      local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
+      assert(point, "stock ghost has no logistic point")
+      assert(point.trash_not_requested == true, "trash default did not reach the stock ghost")
+      local slot = point.sections[1] and point.sections[1].get_slot(1)
+      assert(slot and slot.value and slot.value.name == "iron-gear-wheel",
+        "stock ghost requests " .. tostring(slot and slot.value and slot.value.name))
+      assert(slot.min == 100, "gear request min " .. tostring(slot.min))
+      stocked = stocked + 1
+    end
+    assert(stocked == 2, "stock ghosts " .. stocked .. ", expected one per lower tier")
   end)
 
-  test("unticking the trash checkbox reaches every requester ghost", function()
+  test("unticking the trash checkbox reaches every requesting ghost", function()
     stamp(gear_plan({ trash_unrequested = false }))
-    for _, ghost in pairs(ghosts_of(nauvis(), "requester-chest")) do
-      local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
-      assert(point.trash_not_requested == false, "unticked trash flag lost on the way down")
+    for _, name in pairs({ "requester-chest", "buffer-chest" }) do
+      for _, ghost in pairs(ghosts_of(nauvis(), name)) do
+        local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
+        assert(point.trash_not_requested == false, "unticked trash flag lost on " .. name)
+      end
     end
   end)
 
@@ -407,9 +424,9 @@ describe("stamping the blueprint", function()
     end
     all_reached("chemical-plant", 3)
     all_reached("recycler", 2)
-    -- Five requester ghosts stand (three feed, two buffers); only the two census buffers
-    -- belong on the network.
-    all_reached("requester-chest", 2)
+    -- The two census stock chests belong on the network; the three feed requesters do not.
+    all_reached("buffer-chest", 2)
+    all_reached("requester-chest", 0)
   end)
 end)
 

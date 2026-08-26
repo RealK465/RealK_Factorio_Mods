@@ -286,19 +286,22 @@ describe("planner.plan", function()
 
   describe("the picked inserter and chests reach the plan", function()
     test("a pick, at its own quality, replaces the default everywhere it appears", function()
+      -- buffer_stock off so the plan carries no buffer chests of its own: this test needs
+      -- "a buffer chest in the plan" to mean exactly one thing -- the bad requester pick.
       local plan = planner.plan(force(), choices_with({
         inserter = "fast-inserter", inserter_quality = "rare",
         requester = "buffer-chest", requester_quality = "uncommon",
         container = "iron-chest",
         provider = "storage-chest", provider_quality = "epic",
+        buffer_stock = false,
       }))
       assert(plan, "plan failed")
       -- Only the requester and the provider are role-checked against the pick: buffer-chest and
       -- storage-chest are the wrong logistic mode, so both fall back rather than being built.
       assert(count_by_name(plan, "fast-inserter") > 0, "the picked inserter was not planned")
       assert(count_by_name(plan, "bulk-inserter") == 0, "the default inserter survived the pick")
-      assert(count_by_name(plan, "iron-chest") > 0, "the picked buffer chest was not planned")
-      assert(count_by_name(plan, "steel-chest") == 0, "the default buffer survived the pick")
+      assert(count_by_name(plan, "iron-chest") > 0, "the picked plain chest was not planned")
+      assert(count_by_name(plan, "steel-chest") == 0, "the default plain chest survived the pick")
       assert(count_by_name(plan, "buffer-chest") == 0, "a buffer chest is not a requester")
       assert(count_by_name(plan, "requester-chest") > 0, "the requester role fell back wrongly")
       assert(count_by_name(plan, "storage-chest") == 0, "a storage chest is not a provider")
@@ -315,12 +318,29 @@ describe("planner.plan", function()
     test("the defaults are the best researched, at normal", function()
       local plan = planner.plan(force(), choices_with())
       assert(count_by_name(plan, "bulk-inserter") > 0, "default inserter missing")
-      assert(count_by_name(plan, "steel-chest") > 0, "default buffer chest missing")
+      assert(count_by_name(plan, "steel-chest") > 0, "default plain chest missing")
+      -- The stock role's default kind: buffer chests, one per lower tier.
+      assert(count_by_name(plan, "buffer-chest") == 2,
+        "stock chests " .. count_by_name(plan, "buffer-chest"))
       for _, e in pairs(plan.entities) do
-        if e.name == "bulk-inserter" or e.name == "steel-chest" then
+        if e.name == "bulk-inserter" or e.name == "steel-chest" or e.name == "buffer-chest" then
           assert(e.quality == "normal", e.name .. " defaulted to " .. tostring(e.quality))
         end
       end
+    end)
+
+    test("unticking buffer chests plans the stock chests as requesters", function()
+      local plan = planner.plan(force(), choices_with({ buffer_stock = false }))
+      assert(count_by_name(plan, "buffer-chest") == 0, "a buffer chest survived the untick")
+      -- The stock chests fold into the requester kind: 3 feed chests + 2 product chests.
+      local product_chests = 0
+      for _, e in pairs(plan.entities) do
+        if e.name == "requester-chest" and e.requests and e.requests[1]
+          and e.requests[1].name == "iron-gear-wheel" then
+          product_chests = product_chests + 1
+        end
+      end
+      assert(product_chests == 2, "requester-kind stock chests " .. product_chests)
     end)
 
     test("a stale pick falls back rather than erroring", function()
@@ -328,11 +348,15 @@ describe("planner.plan", function()
       -- is not a signal to place nothing, it is a signal to use the default.
       local plan = planner.plan(force(), choices_with({
         inserter = "stack-inserter", requester = "steel-chest", provider = "iron-chest",
+        -- A requester in the stock role is the wrong KIND while the checkbox is on, the
+        -- same staleness as the rest -- the flip heals a save whose pick predates a toggle.
+        stock = "requester-chest",
       }))
       assert(plan, "a stale pick must not break the plan")
       assert(count_by_name(plan, "stack-inserter") == 0, "a belt-stacker reached the plan")
       assert(count_by_name(plan, "bulk-inserter") > 0, "the inserter did not fall back")
-      assert(count_by_name(plan, "requester-chest") > 0, "the requester did not fall back")
+      assert(count_by_name(plan, "requester-chest") == 3, "the requester did not fall back")
+      assert(count_by_name(plan, "buffer-chest") == 2, "the stock role did not fall back")
       assert(count_by_name(plan, "passive-provider-chest") == 1, "the provider did not fall back")
     end)
   end)

@@ -414,14 +414,20 @@ local function is_single_tile(entity)
   return entity.tile_width == 1 and entity.tile_height == 1
 end
 
--- The four chest roles the layout builds with, one predicate each. Keyed rather than written out
--- four times, because everything downstream -- the picker's list, the default pick, prune's
+-- The five chest roles the layout builds with, one predicate each. Keyed rather than written out
+-- five times, because everything downstream -- the picker's list, the default pick, prune's
 -- membership test -- is the same question asked once per role. The order is the one the modal
--- shows them in: what feeds the loop, what relieves it, what it hands back to the base, and what
--- it hands away.
+-- shows them in: what feeds the machines, what holds each tier's items, what relieves the eject,
+-- what it hands back to the base, and what it hands away.
 --
--- `container` is deliberately a PLAIN chest: the buffers inside the loop must not talk to the
--- player's network, or the loop would compete with the base for its own intermediates. The three
+-- `stock` is the one role whose KIND the player switches (2026-08-26, decisions.md): buffer
+-- chests by default, so personal logistics and construction bots can draw on the loop's items,
+-- or requester chests to keep them locked in. The flag rides through every accessor as
+-- `buffered` rather than living in this table, because the unbuffered kind IS the requester
+-- role's list -- resolved_role below collapses the pair, so the scans stay memoised per kind.
+--
+-- `container` is deliberately a PLAIN chest: the eject's relief must not talk to the
+-- player's network, or the loop would compete with the base for its own intermediates. The
 -- logistic roles test `type` strictly, because an infinity chest reports a logistic_mode too and
 -- a chest that conjures items out of nothing is never a correct buffer in a loop whose whole job
 -- is to conserve one population of items.
@@ -429,9 +435,10 @@ end
 -- `overflow` is the one role that has to be an ACTIVE provider rather than the player's pick of
 -- logistic chest. It is the loop's only unbounded sink -- bots take its contents away -- and a
 -- passive provider or a plain chest would merely fill, at which point the ring saturates again a
--- few hours later. `logistic-system` unlocks it alongside the requester chest, so it costs no
--- research the mod did not already require.
-planner.CHEST_ROLES = { "requester", "container", "provider", "overflow" }
+-- few hours later. `logistic-system` unlocks it alongside the requester and the buffer chest
+-- (base technology.lua), so neither it nor the stock role's default costs research the mod did
+-- not already require.
+planner.CHEST_ROLES = { "requester", "stock", "container", "provider", "overflow" }
 
 local CHEST_ACCEPTS = {
   container = function(entity)
@@ -440,6 +447,9 @@ local CHEST_ACCEPTS = {
   requester = function(entity)
     return entity.type == "logistic-container" and entity.logistic_mode == "requester"
   end,
+  stock = function(entity)
+    return entity.type == "logistic-container" and entity.logistic_mode == "buffer"
+  end,
   provider = function(entity)
     return entity.type == "logistic-container" and entity.logistic_mode == "passive-provider"
   end,
@@ -447,6 +457,22 @@ local CHEST_ACCEPTS = {
     return entity.type == "logistic-container" and entity.logistic_mode == "active-provider"
   end,
 }
+
+-- The stock role's kind switch: unbuffered stock chests ARE requester chests, so the pair
+-- shares one candidate scan and one membership test instead of duplicating the list under a
+-- second memo key. Every public accessor resolves through here; `buffered` is ignored for the
+-- four fixed roles.
+local function resolved_role(role, buffered)
+  if role == "stock" and not buffered then return "requester" end
+  return role
+end
+
+-- The one reading of the checkbox: nil -- never touched, or a save from before it existed --
+-- means buffered. Every caller derives the accessors' `buffered` argument through here, so a
+-- raw nil can never slip into resolved_role and read as the opposite default.
+function planner.stock_buffered(choices)
+  return choices.buffer_stock ~= false
+end
 
 -- Placeability is load-bearing here, not defensive: base ships 1x1 CONTAINERS for the crash
 -- site and the tips-and-tricks simulations (red-chest, blue-chest, crash-site-chest-1/2) that no
@@ -515,7 +541,8 @@ function planner.beacons()
   return names_of("beacon_names", beacon_candidates())
 end
 
-function planner.chests(role)
+function planner.chests(role, buffered)
+  role = resolved_role(role, buffered)
   return names_of("chest_names_" .. role, chest_candidates(role))
 end
 
@@ -542,8 +569,8 @@ function planner.is_inserter(name)
   return electric_inserter_candidates()[name] ~= nil
 end
 
-function planner.is_chest(name, role)
-  return chest_candidates(role)[name] ~= nil
+function planner.is_chest(name, role, buffered)
+  return chest_candidates(resolved_role(role, buffered))[name] ~= nil
 end
 
 -- How many filter slots a plan for this recipe needs, and whether it plumbs anything. Both are
@@ -1064,8 +1091,8 @@ end
 -- rather than whatever prototype iteration happens to reach first. Scored at normal for the
 -- pole's reason -- quality grows every chest's inventory alike, since
 -- quality_affects_inventory_size defaults true -- so the ranking is the same at any tier.
-function planner.chest(force, role)
-  return best_by(chest_candidates(role), function(_, entity)
+function planner.chest(force, role, buffered)
+  return best_by(chest_candidates(resolved_role(role, buffered)), function(_, entity)
     if not entity_is_buildable(force, entity) then return nil end
     return entity.get_inventory_size(defines.inventory.chest) or 0
   end)
@@ -1182,11 +1209,14 @@ local function chosen_inserter(force, choices, filters_needed)
   return nil, prototypes.entity[choices.inserter]
 end
 
--- The belt's rule once per chest role: a picked chest wins, a stale name falls back.
+-- The belt's rule once per chest role: a picked chest wins, a stale name falls back. The stock
+-- role's kind follows the checkbox, so a pick of the other kind reads as stale and falls back
+-- to the active kind's best -- which is also what heals a save whose flag and pick disagree.
 local function chosen_chest(force, choices, role)
+  local buffered = planner.stock_buffered(choices)
   local name = choices[role]
-  if name and planner.is_chest(name, role) then return name end
-  return planner.chest(force, role)
+  if name and planner.is_chest(name, role, buffered) then return name end
+  return planner.chest(force, role, buffered)
 end
 
 -- The terminal machine's module is the pole's shape rather than the belt's: nil is a real answer
@@ -1239,6 +1269,7 @@ local function resources(force, recipe, machine, choices)
     pipe_to_ground = planner.pipe_to_ground_for(force, pipe),
     container = chest("container"),
     requester = chest("requester"),
+    stock = chest("stock"),
     provider = chest("provider"),
     overflow = chest("overflow"),
     -- Pairs like every other build material with a quality. The two module pickers own their own
@@ -1417,7 +1448,7 @@ end
 -- unlinked counts -- a warning, never a refusal. The inserter joins the min only when some
 -- reserve is set: it is wired only then, and a wireless modded inserter must not zero the
 -- reach of a plan that never wires one.
--- One owner for the cap's default -- one stack of the product, the buffer chest's own sizing
+-- One owner for the cap's default -- one stack of the product, the stock chest's own sizing
 -- rule -- shared by the wizard's backfill and plan()'s fallback, so the number the player is
 -- shown and the number the plan uses cannot drift. Nil until a recipe names a product.
 function planner.default_circuit_max(recipe)
@@ -1430,7 +1461,7 @@ local function circuit_reach(machine, machine_quality, recycler, recycler_qualit
   local reach = math.min(
     machine.get_max_circuit_wire_distance(machine_quality),
     recycler.get_max_circuit_wire_distance(recycler_quality),
-    prototypes.entity[r.requester.name].get_max_circuit_wire_distance(r.requester.quality),
+    prototypes.entity[r.stock.name].get_max_circuit_wire_distance(r.stock.quality),
     prototypes.entity[r.provider.name].get_max_circuit_wire_distance(r.provider.quality),
     prototypes.entity[r.belt].get_max_circuit_wire_distance())
   if reserves then
@@ -1486,7 +1517,8 @@ function planner.plan(force, choices, gathered)
   end
 
   local r = gathered or resources(force, recipe, machine, choices)
-  if not (r.inserter and r.belt and r.container and r.requester and r.provider and r.quality_module) then
+  if not (r.inserter and r.belt and r.container and r.requester and r.stock and r.provider
+    and r.quality_module) then
     return nil
   end
   if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
@@ -1559,8 +1591,8 @@ function planner.plan(force, choices, gathered)
     -- because the player picks a quality for each of them and the belt has none to pick.
     belt = r.belt,
     inserter = r.inserter,
-    requester = r.requester, container = r.container, provider = r.provider,
-    overflow = r.overflow,
+    requester = r.requester, stock = r.stock, container = r.container,
+    provider = r.provider, overflow = r.overflow,
     -- Off unless the player picked one: the beacon has no researched-best default, because it
     -- costs a column of width per tier and its transmittable modules trade against the quality
     -- rolls the loop exists for. Footprint and slots resolved per prototype like the machine's;
@@ -1763,6 +1795,10 @@ function planner.validate(force, choices)
   if not r.belt then return false, { "upl-message.no-belt" } end
   if not r.container then return false, { "upl-message.no-chest" } end
   if not (r.requester and r.provider) then return false, { "upl-message.no-logistic-chest" } end
+  -- Only reachable with buffer chests on: unbuffered, the stock role shares the requester's
+  -- list, so a missing stock is the missing requester already refused above. Unreachable in
+  -- vanilla either way -- logistic-system unlocks all three logistic kinds together.
+  if not r.stock then return false, { "upl-message.no-buffer-chest" } end
   -- Only asked for when the target has a tier above it: at the top of the chain nothing can roll
   -- past, so the tap is not built and its chest is not needed. Unreachable in vanilla, where the
   -- same technology unlocks the active provider and the requester chest already required above.
@@ -1822,6 +1858,7 @@ function planner.validate(force, choices)
     r.quality_module.quality,
     r.inserter.quality,
     r.requester.quality,
+    r.stock.quality,
     r.container.quality,
     r.provider.quality,
   }
@@ -1884,14 +1921,14 @@ function planner.validate(force, choices)
     return true, { "upl-message.beacon-out-of-reach", beacon.localised_name }, r
   end
 
-  -- A circuit floor the buffer chest cannot physically hold could never fill -- the count
+  -- A circuit floor the stock chest cannot physically hold could never fill -- the count
   -- tops out at capacity and the reserve inserter only draws ABOVE the floor -- so that
   -- tier's recycling would stop silently, the exact failure the request-raising rule in
   -- circuits.decorate closes for the trash-unrequested case. Capacity is asked at the
   -- chest's build quality, since quality grows a chest's inventory.
   if choices.circuit_enabled then
-    local slots = prototypes.entity[r.requester.name]
-      .get_inventory_size(defines.inventory.chest, r.requester.quality) or 0
+    local slots = prototypes.entity[r.stock.name]
+      .get_inventory_size(defines.inventory.chest, r.stock.quality) or 0
     local capacity = slots * prototypes.item[product.name].stack_size
     local tiers = planner.tiers_up_to(choices.quality)
     for i = 1, #tiers - 1 do

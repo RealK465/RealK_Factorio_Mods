@@ -13,7 +13,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
    You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. You are able to modify some options in the design like belts to use, electric poles, modules... each one defaults to the best researched option and can be built at a quality of your choice. Selectors with only one option are hidden, and so are the four chests and the beacon, clicking **Settings** in the title bar brings them all back with **Show all build options**.
+3. You are able to modify some options in the design like belts to use, electric poles, modules... each one defaults to the best researched option and can be built at a quality of your choice. Selectors with only one option are hidden, and so are the five chests and the beacon, clicking **Settings** in the title bar brings them all back with **Show all build options**.
 4. Press **Place**. The loop arrives as a blueprint in your hand, so you can see it, move it, rotate it and flip it before you commit.
 5. Place it like any other blueprint. Shift-click builds through trees and rocks, and control-shift-click clears buildings too. Undo takes the whole loop back in one step, and the blueprint stays in your hand if you want to stamp another.
 
@@ -23,6 +23,7 @@ The loop contains:
 
 - A column for each quality with a crafting machine and recycler with requester chests.
 - Belts, filtered inserters, chests, electric poles... already set up and configured by you.
+- Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them. Untick **Use buffer chests** in the build options to keep every item in the loop instead.
 - Optionally beacons beside every column: pick one under **Show all build options**, and choose how many stack per tier — extra beacons add no width. Their modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
 
 Finished items collect in a passive provider chest at the end.

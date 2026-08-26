@@ -9,6 +9,36 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the item chests become buffer chests, behind a checked-by-default checkbox
+
+The owner asked whether the per-tier item chests should be buffer chests ("not the
+ingredients ones") and, after the trade-offs — reserve stock the player can actually pull
+via personal logistics and construction bots, against construction draining a loop that
+upcycles exactly the things construction uses — picked a hybrid of the offered options:
+"opt in checkbox checked by default", with the picker made dynamic ("propose requester
+chests when checkbox is unchecked and buffer chests when checked... automatically fill the
+best value"). That forced the role split the discussion had predicted: the census chests
+left the `requester` role for a new `stock` role whose kind resolves through the flag
+(`resolved_role` collapses unbuffered stock onto the requester list, so no duplicate scan),
+and the modal gained its fifth chest picker plus the "Use buffer chests" checkbox beside
+trash-unrequested. Toggling forgets the stock pick, rebuilds the modal and refills the new
+kind's best, keeping the quality; prune tests the stock pick against the kind each player's
+own flag names. The locale collision this exposed — the plain relief chest had been
+labelled "Buffer chest" since the pickers landed — resolved as Item chest (stock) / Plain
+chest (container), and `circuit-min-too-big` now says "item chest"; the owner then asked
+the requester picker to say it is the ingredients one, which settled the whole strip on
+job-based names — Ingredient / Item / Plain / Output / Overflow chest (internal role keys
+untouched), recorded as a Gui entry in the open 0.6.0 section. Suite 237 → 240 (the
+kind flip in plan and prune, the GUI toggle round-trip, buffer ghosts in the blueprint
+round-trip and the relay walk); evidence in `analysis/api.md` §27, the full reasoning in
+`decisions.md`. A three-reviewer round (correctness, simplicity, conventions) found no
+functional defect and four cleanups, all applied: the `~= false` idiom centralised as
+`planner.stock_buffered(choices)` — which also closes the latent raw-nil-into-resolved_role
+inversion the correctness pass noted — two stale "four chests" comments, the Decided
+bullet still saying five groups without Circuits, and a sweep of "buffer" comments that
+had come to collide with the buffer-chest kind (circuits.lua, decisions.md, two specs).
+Uncommitted — the feature sits in the open 0.6.0 section.
+
 ## 2026-08-26 — committed, and the 2.0 track measures the same feature green
 
 The owner authorised the commit and the sync: circuit limits went to `main` as one commit

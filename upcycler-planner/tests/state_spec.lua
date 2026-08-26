@@ -48,6 +48,7 @@ describe("state.prune -- drop what no longer qualifies", function()
       pole = "small-electric-pole",
       inserter = "fast-inserter",
       requester = "requester-chest",
+      stock = "buffer-chest",
       container = "steel-chest",
       provider = "passive-provider-chest",
       machine_quality = "uncommon",
@@ -67,7 +68,8 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.machine_quality == "uncommon", "machine_quality pruned wrongly")
     assert(c.inserter == "fast-inserter", "inserter pruned wrongly")
     assert(c.requester == "requester-chest", "requester pruned wrongly")
-    assert(c.container == "steel-chest", "buffer chest pruned wrongly")
+    assert(c.stock == "buffer-chest", "stock chest pruned wrongly")
+    assert(c.container == "steel-chest", "plain chest pruned wrongly")
     assert(c.provider == "passive-provider-chest", "provider pruned wrongly")
     assert(c.inserter_quality == "rare", "inserter_quality pruned wrongly")
     assert(c.trash_unrequested == false, "boolean choice touched by prune")
@@ -97,6 +99,7 @@ describe("state.prune -- drop what no longer qualifies", function()
       pole_quality = "not-a-quality",
       inserter = "stack-inserter",       -- builds belt stacks
       requester = "steel-chest",         -- plain chest in a logistic role
+      stock = "requester-chest",         -- the wrong KIND while buffer_stock reads true
       container = "requester-chest",     -- logistic chest in the plain role
       provider = "requester-chest",      -- the wrong logistic mode
       inserter_quality = "not-a-quality",
@@ -115,12 +118,27 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.pole_quality == nil, "bogus build quality survived")
     assert(c.inserter == nil, "belt-stacking inserter survived")
     assert(c.requester == nil, "plain chest survived in a logistic role")
-    assert(c.container == nil, "logistic chest survived as the plain buffer")
+    assert(c.stock == nil, "a requester survived in the buffered stock role")
+    assert(c.container == nil, "logistic chest survived in the plain role")
     assert(c.provider == nil, "requester chest survived as the provider")
     -- Matched by key, not listed by name: every *_quality choice is pruned, including ones
     -- added after prune was written.
     assert(c.inserter_quality == nil, "bogus inserter quality survived")
     assert(c.container_quality == nil, "bogus chest quality survived")
+  end)
+
+  test("the stock role prunes by the kind the checkbox picks", function()
+    -- The same name is valid under one flag and stale under the other; the flag rides in the
+    -- same choices table, so prune reads each player's own answer, never a global.
+    local unbuffered = seeded({ buffer_stock = false, stock = "requester-chest" })
+    local buffered = state.of(IDX + 1)
+    buffered.choices = { buffer_stock = true, stock = "requester-chest" }
+    state.prune()
+    state.forget(IDX + 1)
+    assert(unbuffered.choices.stock == "requester-chest",
+      "the unbuffered requester pick was pruned")
+    assert(unbuffered.choices.buffer_stock == false, "the checkbox choice was touched by prune")
+    assert(buffered.choices.stock == nil, "a requester survived the buffered flag")
   end)
 
   test("the terminal module prunes by module membership; the explicit clears survive", function()

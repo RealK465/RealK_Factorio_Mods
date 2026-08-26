@@ -6,7 +6,7 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 
 ## Why are some build options missing?
 
-Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The four chest pickers are always hidden: the planner uses the biggest chest you have researched.
+Build options pickers with only one option are hidden. In vanilla, the recycler and the pipe have no alternatives, so they don't appear. They come back when a mod adds another option. The five chest pickers are always hidden: the planner uses the biggest chest you have researched.
 
 To show them anyway (for example, to pick their quality), tick **Show all build options** in the planner's settings.
 
@@ -17,6 +17,10 @@ The beacon pickers are hidden too: beacons are optional and the loop plans none 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.
 
 Loops aiming at the highest quality can't roll past it, so they don't get one.
+
+## Why are bots taking items out of the loop?
+
+Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them — handy when you want a few of a lower quality without visiting the loop. If you'd rather keep every item in, untick **Use buffer chests** in the build options and place the loop again.
 
 ## Why did the machines stop working?
 

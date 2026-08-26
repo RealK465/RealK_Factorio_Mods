@@ -213,7 +213,7 @@ per-release approval.
   (`quality/locale/en/quality.cfg`, *quality-bonus-exceptions*). So `belt_speed` is a plain
   attribute with no quality variant the way `get_crafting_speed(quality)` has one — a legendary
   belt carries exactly as much as a normal one — while the machine, recycler, module, pole,
-  inserter and all four chests each have a bonus worth choosing. For the inserter and the chests
+  inserter and all five chests each have a bonus worth choosing. For the inserter and the chests
   those bonuses are swing speed and inventory size
   (`quality_affects_inventory_size` **defaults true** on `ContainerPrototype`, so a chest gets
   it without base opting in; `analysis/api.md` §15).
@@ -419,16 +419,37 @@ per-release approval.
   tile, so footprint is a geometric constraint of the row plan rather than a preference. A
   modded 1x1 chest with more slots still wins legitimately; anything bigger is out regardless of
   research — the picker cannot offer it either.
-- **The four chest roles are fixed; only the chest is the player's.** `requester`, `container`,
-  `provider` and `overflow` are one predicate each, and each picker offers only its own kind: a
-  requester chest cannot be swapped for a buffer chest, nor the plain relief buffer for a
-  logistic one.
-  The reason is the loop's own contract — the buffers inside it must not talk to the player's
-  network, or the loop competes with the base for its own intermediates — so the role is
-  geometry-and-semantics while the chest is taste. Largest researched inventory remains the
+- **The five chest roles are fixed; only the chest is the player's.** `requester`, `stock`,
+  `container`, `provider` and `overflow` are one predicate each, and each picker offers only its
+  own kind: a requester chest cannot be swapped for a passive provider, nor the plain relief
+  chest for a logistic one.
+  The reason is the loop's own contract — the relief chest inside it must not talk to the
+  player's network, or the loop competes with the base for its own intermediates — so the role
+  is geometry-and-semantics while the chest is taste. Largest researched inventory remains the
   default per role. `overflow` is the one role pinned to a specific logistic mode (active
   provider) rather than merely to a kind, for the reason in its own bullet above: it is the only
-  sink in the loop that empties itself.
+  sink in the loop that empties itself. `stock` is the one role whose KIND is itself a choice —
+  the bullet below.
+- **The stock chests are buffer chests by default, requester chests by untick** (2026-08-26,
+  owner's call: "opt in checkbox checked by default"). The per-tier item chests — the census
+  chests the reserve inserters drain — are the `stock` role, split out of `requester` (which now
+  covers only the ingredient feed chests; those, the output and the overflow never change kind).
+  **Why buffer**: a buffer chest requests exactly as a requester does (same tech —
+  `logistic-system` unlocks requester, buffer and active provider together, base
+  `technology.lua` — same slots, same blueprint request shape), and additionally provides to
+  personal logistics, construction bots and ticked requesters — which is what makes the circuit
+  Min reserve stock the player can actually use instead of items locked away. **Why a
+  checkbox**: construction bots serving nearby ghosts drain the loop's intermediates — modules,
+  belts and machines are exactly what players upcycle — and outside consumers can dip below a
+  circuit floor (the wire only gates the loop's own reserve inserter), so "always buffer" and
+  "never buffer" were both rejected; the trade genuinely cuts both ways and the checkbox sits
+  beside trash-unrequested. **Mechanics**: `choices.buffer_stock`, nil-means-true (`~= false`,
+  the trash idiom); the stock picker's offered list, membership test, default pick and prune all
+  resolve through the flag (`resolved_role` — the unbuffered kind IS the requester list, so no
+  duplicate scan); toggling forgets the stock pick so the rebuild refills the new kind's best,
+  and keeps the quality. One asymmetry accepted: a buffered loop cannot seed itself from stock
+  the base holds in OTHER buffer chests, since buffers never request from buffers — the
+  requester-kind untick restores that.
 - **Both new pickers gate on `items_to_place_this`**, the same test the machine list uses. Found
   on 2026-08-17 by reading the data dump rather than by reasoning: base ships 1x1 *containers*
   for the crash site and the tips-and-tricks simulations (`red-chest`, `blue-chest`,
@@ -559,7 +580,7 @@ per-release approval.
   journal has the story). Two rules. The CAP: every machine and every recycler carries the one
   shared condition `product@target < max`, counted in the output chest — machines run free
   until the cap is met, then the whole loop stops, and it wakes as bots draw the chest down.
-  The RESERVES: each lower tier's buffer-to-recycler inserter carries `product@tier > min`,
+  The RESERVES: each lower tier's reserve inserter (stock chest to recycler) carries `product@tier > min`,
   so the loop never grinds a tier's chest below the floor the player set — the floor is
   enforced on the INSERTER, the only hand that can draw the chest down, while the machines
   stay ungated per tier. A zero minimum (the default) keeps nothing back, and that tier's
@@ -567,7 +588,7 @@ per-release approval.
   owner did not spell out: without it a parked loop keeps grinding its surplus — and tier
   0 keeps pulling the player's base production — while nothing consumes the result, which is
   the waste the feature exists to stop; one line to remove if free-running is ever preferred.
-  Combinator-free because the layout already separates what each condition needs: buffer
+  Combinator-free because the layout already separates what each condition needs: stock
   chests hold one tier's product each, the output chest alone holds the target's, and a wire
   signal is distinct per quality (`SignalID.quality`, api.md §26) — every rule is a single
   comparison on an entity that inherits on/off behaviour (machines, the furnace recycler,
@@ -576,7 +597,7 @@ per-release approval.
   a bonus-sized hand can dip a few items below the floor (the mechanism is exact at hand
   size one, measured); and a swing in flight can land one hand past the cap.
   **A floor raises its census chest's logistic request by the same amount** (owner's catch,
-  2026-08-26, option picked from three): the buffer requests one stack, and with
+  2026-08-26, option picked from three): the stock chest requests one stack, and with
   trash-unrequested on — the default — bots skim anything above the request, so a floor past
   the request could never fill and the tier would silently stop recycling. Growing the
   request keeps the working-stock band on top of the kept floor, preserves the one-stack
@@ -629,7 +650,7 @@ per-release approval.
   `circuit_max_<quality>` for the cap — keyed by quality NAME so a value survives the target
   moving, and split so a remembered floor can never become a ceiling when the target lands on
   its tier; both pruned by the quality in the key. Defaults: reserves 0, cap one stack of
-  the product (the buffer chest's own sizing rule). **Zero means off on both sides**: a zero
+  the product (the stock chest's own sizing rule). **Zero means off on both sides**: a zero
   reserve keeps nothing and stays unwired, and a zero cap means no cap — machines and
   recyclers ungated and unwired, each remaining reserve its own two-entity island — so a cap
   committed empty before any item was picked disables nothing silently, and the Max tooltip

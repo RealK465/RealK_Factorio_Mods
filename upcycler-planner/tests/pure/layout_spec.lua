@@ -328,25 +328,25 @@ describe("layout.build per-tier wiring", function()
     end
   end)
 
-  test("feed chests request this tier's ingredients, buffers request the product", function()
+  test("feed chests request this tier's ingredients, stock chests request the product", function()
     local built = layout.build(params_with())
+    -- 3 feed chests (one per tier, params.requester) and 2 stock chests (non-terminal
+    -- tiers, params.stock) -- distinct params since the stock kind became the player's
+    -- checkbox, so a wrong-param regression shows as a wrong name here.
     local feed = by_name(built, "requester-chest")
-    -- 3 feed chests (one per tier) + 2 product buffers (non-terminal tiers).
-    assert(#feed == 5, "requester chest count " .. #feed)
-    local ingredient_requests, product_requests = 0, 0
+    assert(#feed == 3, "feed chest count " .. #feed)
     for _, c in pairs(feed) do
-      assert(c.requests and #c.requests == 1, "chest with unexpected request shape")
-      local r = c.requests[1]
-      if r.name == "iron-plate" then
-        assert(r.count == 100, "ingredient request count " .. r.count)
-        ingredient_requests = ingredient_requests + 1
-      elseif r.name == "iron-gear-wheel" then
-        assert(r.count == 50, "product buffer count " .. r.count)
-        product_requests = product_requests + 1
-      end
+      assert(c.requests and #c.requests == 1, "feed chest with unexpected request shape")
+      assert(c.requests[1].name == "iron-plate", "feed chest requests " .. c.requests[1].name)
+      assert(c.requests[1].count == 100, "ingredient request count " .. c.requests[1].count)
     end
-    assert(ingredient_requests == 3, "feed requests " .. ingredient_requests)
-    assert(product_requests == 2, "buffer requests " .. product_requests)
+    local stock = by_name(built, "buffer-chest")
+    assert(#stock == 2, "stock chest count " .. #stock)
+    for _, c in pairs(stock) do
+      assert(c.requests and #c.requests == 1, "stock chest with unexpected request shape")
+      assert(c.requests[1].name == "iron-gear-wheel", "stock chest requests " .. c.requests[1].name)
+      assert(c.requests[1].count == 50, "product request count " .. c.requests[1].count)
+    end
     assert(#by_name(built, "passive-provider-chest") == 1, "exactly one output chest")
   end)
 end)
@@ -729,9 +729,9 @@ describe("layout.build circuit tags", function()
     local count = tally(built)
     assert(count.machine == 3, "tagged machines " .. tostring(count.machine))
     assert(count.recycler == 2, "tagged recyclers " .. tostring(count.recycler))
-    -- One census per tier: the buffer chest below, or the output chest on the terminal.
+    -- One census per tier: the stock chest below, or the output chest on the terminal.
     assert(count.census == 3, "tagged censuses " .. tostring(count.census))
-    -- One reserve point per lower tier: the buffer-to-recycler inserter, the only hand that
+    -- One reserve point per lower tier: the stock-to-recycler inserter, the only hand that
     -- can draw a tier's chest below its floor.
     assert(count.reserve == 2, "tagged reserves " .. tostring(count.reserve))
     -- The perimeter of an 11x15 ring, and NOT the four per-tier product belts: a relay
