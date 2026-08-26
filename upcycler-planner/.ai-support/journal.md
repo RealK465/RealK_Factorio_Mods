@@ -9,6 +9,15 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-26 — the place-button fix committed, synced to legacy/2.0, both measured green
+
+The owner authorised commit, push and the legacy sync in one ask. The fix went to `main` as
+ab0e5dc (6 files, suite at 242) and cherry-picked onto `legacy/2.0` with no conflict — the
+forked `gui.lua` auto-merged, the confirm seams sitting clear of the 2.0 fork's own. The
+change uses no 2.1-only API (plain GUI and state calls), so nothing needed rewriting. The
+whole suite then ran from the legacy worktree against base 2.0.77: **242/242**, the two new
+place-button specs included. Divergence stays exactly the declared set. Both branches pushed.
+
 ## 2026-08-26 — the Place button works beside an open side panel
 
 The owner reported the Place button doing nothing while the settings panel or the Limits
