@@ -8,6 +8,7 @@ evidence. Never ships (leading dot on `.ai-support`).
 | File | What is in it |
 |---|---|
 | `vanilla-robots.md` | The measured baseline: both vanilla robots field by field, the two research caps that decide whether tiers stay meaningful, the force-wide worker-robot research and where its infinite level moves under Space Age, the recipes, and the prototype inheritance a copied tier gets for free |
+| `composite-entities.md` | Why a roboport cannot burn fuel and what is done instead: the prototype-level constraint, Space Exploration's construction pylon read field by field as the worked example, the eleven lifecycle events a composite has to handle, and the three-part shape a fuel-burning roboport would take. Read it before designing any building that needs behaviour from two prototypes at once |
 
 ## Still to be written
 
@@ -19,7 +20,8 @@ Named here rather than in a bullet nobody reads, because each is a real gap:
   is listed as UNVERIFIED in `vanilla-robots.md` §7. It needs measuring before the tier axes are
   fixed, and the result belongs here.
 - **Roboports.** Charging throughput, pad count and radii, if roboports ever come into scope
-  (`../deferred.md` → *Roboports*).
+  (`../deferred.md` → *Roboports*). The *energy source* half of that question is answered in
+  `composite-entities.md`; the throughput half is still unmeasured.
 
 ## Confidence
 
@@ -29,6 +31,8 @@ Claims here are marked where they are not first-hand:
   game's own `data/*.lua`, at the version the file's front matter names (2.1.16). `file:line`
   given where it is game data.
 - **Partially read** — the location was checked but the prototype was not surveyed.
+- **Partially verified** — the prototype fields and defaults were read from the install, but the
+  behaviour they combine into was inferred from a working mod rather than built and run.
 - **UNVERIFIED** — could not be, or simply was not, confirmed from a first-party source. Listed
   explicitly in `vanilla-robots.md` §7 so they are probed in game rather than trusted.
 - Community claims name their source and the game version they apply to.

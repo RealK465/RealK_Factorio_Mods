@@ -9,6 +9,52 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 — composite entities, and why a roboport cannot burn coal
+
+The owner asked whether the modding API allows a roboport that takes fuel instead of
+electricity. It does not, and the interesting part is what is done instead — so the session
+became research rather than code, and the result is `analysis/composite-entities.md`.
+
+**The direct answer is no, and it is deliberate.** `RoboportPrototype::energy_source` is a
+mandatory union of electric and void, with no burner option. Wube's stated reason is that an
+electric buffer is refilled wholesale each tick whereas a burner would have to compute and
+subtract from fuel every tick, against a draw that rises with the number of robots charging.
+Two escape hatches were checked and one of them is closed: `LuaEntity.disabled_by_script` names
+Roboport among the types that ignore writes, so "void power plus a script that switches it off
+when the fuel runs out" does not work. The other is wide open — the *personal* roboport
+equipment has a real `burner` field and needs no script at all.
+
+**The pattern that does work was read out of Space Exploration, not invented.** SE's
+construction pylon is two prototypes at one position: a visible `electric-pole` that carries the
+graphics, item, recipe and health, and a hidden `roboport` child that carries only the roboport
+behaviour. The child is powered because it stands inside its own parent's supply area — no wire,
+no energy-transfer code. The whole runtime cost is 88 lines with no `storage` table at all,
+because the child is found by name and position rather than registered.
+
+**Two details in it are the difference between working and silently broken**, and both are
+written up: `not-blueprintable` on the child is what makes blueprints work (the parent is
+captured, the script recreates the child, and nobody has to handle child ghosts), and the
+creation and removal handlers have to cover eleven events, not two — miss `script_raised_revive`
+or `on_robot_built_entity` and the building works when placed by hand and breaks when a
+construction robot places it. SE's own handler misses `on_entity_cloned`, which other scripts in
+the same mod do listen for; that is recorded as a gap to not copy.
+
+**Applied back to the question**, a fuel-burning roboport is a three-part composite: vanilla
+already ships a hidden `burner-generator` prototype to copy, and an electric pole's
+`maximum_wire_distance` defaults to **0**, so a pole that cannot reach any other pole — an
+isolated private network — is an ordinary supported prototype rather than a hack. The unresolved
+part is player access, not power: the fuel slot and the robot inventory end up on two different
+hidden children and the player gets one thing to click. Three ways out are written down, none
+measured.
+
+**Nothing was built.** Five claims are marked UNVERIFIED in §7 of the analysis, the load-bearing
+one being that the isolated network actually behaves as the field defaults suggest. That wants a
+scratch proof-of-concept before any design leans on it. `deferred.md` → *Roboports* now records
+that a burner tier is possible and still not chosen; the mod's `CLAUDE.md` gained the rule as a
+second entry beside the research-cap fact.
+
+---
+
 ## 2026-08-27 — the 2.0 track, opened the same day the scaffold was
 
 The owner read the scaffold and reversed its 2.1-only call in one line: *"this mod should

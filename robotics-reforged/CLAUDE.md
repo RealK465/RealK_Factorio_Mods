@@ -23,7 +23,7 @@ the `factorio-release` skill's "Published or open?" check rather than trusting t
 **It targets both game versions** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`,
 forked from the scaffold onward. See *The 2.0 build* below.
 
-## The one technical fact worth not re-deriving
+## The two technical facts worth not re-deriving
 
 **Worker-robot research is force-wide and applies to every robot equally**, so research alone
 cannot distinguish one tier from another — and at maxed research it actively erases the
@@ -31,6 +31,13 @@ distinction. The two prototype fields that survive it are `max_speed` and
 `max_payload_size_after_bonus`, which cap a robot *including* bonuses. Any tier design that
 means to stay meaningful in the late game hangs off those two. Measured baseline, both fields'
 exact semantics and vanilla's own numbers: `.ai-support/analysis/vanilla-robots.md`.
+
+**A roboport takes electric or void power and nothing else**, so it cannot be given a burner and
+cannot be switched off by script either. Anything a single prototype refuses — a fuel-burning
+roboport, a roboport welded to something that is not one — is built as a composite: one visible
+parent entity plus hidden children at the same position, created and destroyed by script. Do not
+re-derive the pattern or its lifecycle events; they are written up with a working example in
+`.ai-support/analysis/composite-entities.md`.
 
 ## Dependencies
 

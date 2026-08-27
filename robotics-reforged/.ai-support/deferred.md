@@ -90,6 +90,16 @@ needs a real 4x4 sprite (a recolour will not pass), its own logistics and constr
 and a charging-rate decision that interacts with every robot tier above. Revisit once the robot
 tiers exist and can be played.
 
+**A fuel-burning roboport is on the table, and the research is done.** It was raised on
+2026-08-27 as a possible early-game tier below vanilla's. The engine refuses it directly — a
+roboport takes electric or void power and nothing else — but the composite-entity pattern gets
+there, and Space Exploration ships a working example of a building that is part pole and part
+hidden roboport. The mechanism, the eleven lifecycle events it costs, and the three ways the
+fuel slot and the robot inventory can be reconciled are in `analysis/composite-entities.md`.
+What is *not* settled is whether the mod wants it: it is a second art asset and a control-stage
+script for a mod that currently has neither, and the pattern's open questions (§7 there) want
+an in-game test before anything is designed around it.
+
 ### Quality
 **Status:** open, and **not measured**.
 
