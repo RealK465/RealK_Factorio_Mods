@@ -9,6 +9,45 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 — a survey of what players and the field are building, folded into `deferred.md`
+
+The owner asked for a deep read of the mod plus the portal's *Some design ideas* thread and a
+fresh web survey of upcycling layouts, with the result enriching `deferred.md`. Six entries
+landed, no code touched and no decision changed — the file is a register of "not yet", so
+everything went there rather than into `decisions.md`.
+
+**The thread's substance was already shipped.** TornBreeze's design stops each tier's machines at
+a threshold (200 in their example) and pauses each recycler when the tier above has enough —
+which is 0.6.0's reserve-and-cap, arrived at independently and released four days after the
+thread. What is genuinely new there is **per-quality belt lanes** in place of one shared ring,
+which the author credits for their throughput. The blueprint itself never reached us; the paste
+failed and the fromsmash link is expired, so the five Lightshot screenshots are the record.
+
+**Three layout-side entries were written and the owner cut them before the commit** — the lanes
+above, heat pipes for a loop stamped on Aquilo, and landfill/foundation tiles under the
+footprint. Recorded here so the next survey does not re-file them as discoveries: they are the
+owner's editorial call, not an oversight, and the two objections to lanes stand either way (the
+single ring is what makes the layout tier-count-agnostic, and throughput is not the binding
+constraint at one machine per tier).
+
+**The field survey found the lineage still stationary.** kvdveer's book accumulates the same
+hand-parameterisation fixes it always did (Kane99's foundry and bulk variants plus per-tier limit
+combinators, Oct 2025; NuclearPotato64's legendary-filter fix; Pengudood's unpowered inserters
+under medium poles — all three are defects this mod's generator cannot have). No new architecture
+since the three in `analysis/blueprints.md` §8. What the survey did turn up was **adjacent gaps
+rather than layouts**: nothing plans heat on Aquilo, where the best upcycling machine in the game
+lives; nothing lays tiles the way Mining Patch Planner lays landfill; and the wiki's math page,
+re-checked, still carries no physical layout advice at all.
+
+**Two findings came from inside the repo, not the web.** The beacon count drop-down can offer a
+count that transmits nothing — `profile` is per prototype, vanilla's is 1/sqrt(N) and keeps
+paying, while Pure Modules' own beacon flattens at three (`balance.md`), so the sibling mod in
+this repo is the counter-example. And spoilage appears nowhere in `scripts/`, which is either a
+modded-content guard or a real refusal depending on a measurement nobody has taken.
+
+Also recorded: pacak's multiple-recipes ask and the owner's public reason for declining it, so
+the decision survives outside a portal thread.
+
 ## 2026-08-27 — configurable ingredient amounts, the third side panel
 
 The owner asked for a way to configure the quantity of ingredients from the planner, pre-filled

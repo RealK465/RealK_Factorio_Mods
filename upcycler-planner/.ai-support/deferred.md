@@ -27,7 +27,11 @@ things stayed out, each refused or excluded with its gate:
 **Status:** fully specified in `analysis/layout-bot-loop.md`, intended as a GUI toggle.
 
 Same skeleton, no belts — the logistic network does the transport. About a third of the entities
-and no circuits at all. Two things must be fixed before it ships:
+and no circuits at all. **The genre already settled the shape of that toggle**: Mining Patch
+Planner ships *Simple*, *Compact*, *Super Compact*, *Sparse* and a chest-instead-of-belts
+"logistics" family as named layouts in one picker (portal description, read 2026-08-27), so a
+second layout here is a named choice beside the belt ring rather than a checkbox. Two things
+must be fixed before it ships:
 
 1. the tier-0 return chest requests the product at *normal* quality, which in a connected base
    will drain the player's own production of that item;
@@ -149,6 +153,99 @@ twice. What is left:
   rather than rebuilding the array each round (~17% of a solve), and cache pole centres (~14%).
   `analysis/poles.md` → *The hang* has the profile and the falsified sweep.
 
+### Which item is worth upcycling — the picker ranks nothing
+The item picker offers every upcyclable item and says nothing about which of them is a good
+idea, while the community's heuristics are settled and public (surveyed 2026-08-27):
+
+- **Single-ingredient recipes win**, because crafting doubles the upgrade opportunities per pass
+  at the cost of electricity alone — sparr's whole design rests on it (forum t=122116, community
+  claim), and the recommended-item lists in the field are the same shape: things that recycle
+  back into the intermediates you wanted anyway (t=128693).
+- **Machine choice dominates the yield** — ~1.25% / ~7.6% / ~14.5% input-to-legendary for AM3,
+  EM plant and cryo plant (`quality-math.md` §3). The mod already makes that a player choice; it
+  just never says which way is up.
+
+This is the **expected-output entry above wearing a different hat**, and the two should ship
+together or not at all: both are the same computation from `get_roll_chances()`, and both address
+the same demand — some of this mod's audience is a discoverability gap, not a layout gap
+(`quality-math.md` §5). Cheapest useful version is a figure in the tooltip, not a sorted list:
+a re-ordered picker fights the engine's own item ordering and the *Show unresearched items*
+setting at once.
+
+### Spoilable items are neither refused nor warned about
+Nothing in `scripts/` mentions spoilage at all (grepped 2026-08-27). A loop on an item that
+spoils rots in the feed chests, in the per-tier stock chests and in the recycler queue, and with
+trash-unrequested on — the default — bots then haul the spoilage off to storage, so the failure
+reads as "the loop quietly does nothing" rather than as an error.
+
+**Settle it by measurement before designing anything**, in this order: does any spoilable item
+pass `is_upcyclable` at all in a vanilla Space Age game (`prototypes.item[x].spoil_ticks`
+against the 210-item pin), and does spoilage actually outrun a tier's dwell time at one machine
+per tier. If nothing vanilla qualifies this is a modded-content guard and costs one predicate; if
+Gleba intermediates qualify it is a refusal or a warning, and the refusal list in `decisions.md`
+already has the shape to copy.
+
+### Multiple recipes for one item — declined in public, recorded so it is not re-litigated
+Asked for by pacak on the portal (discussion `6a831b6195e6fa72706517ef`, 2026-08-18): *"When
+something can be crafted using multiple different recipes - would be great to be able to choose
+which recipe to use"*, their example being `pipe-to-ground` as a route to efficient iron plates.
+**The repo owner declined it for the 1.0 feature set**, with the reason: the loop's recipe is
+chosen so that *recycling closes it*, and an alternative crafting recipe returns ingredients the
+loop does not consume — byproducts with nowhere to go, worst in a modded game.
+
+What the code does today, worth knowing before this is ever reopened: `upcyclable()` maps an item
+to the **first** recipe that passes `is_upcyclable`, and the comment there names the only case
+where two can pass — the same ingredient *names* in different amounts — so the pick is
+deterministic (`pairs()` order over prototypes) but arbitrary between those two. If the ask
+returns, the smallest honest version is a picker offering only the recipes whose ingredient set
+the generated recycling recipe actually returns, which is the gate `is_upcyclable` already
+computes; it would not have satisfied pacak's example, which is exactly why the owner said no.
+
+### A beacon count the beacon gains nothing from
+The count drop-down offers 1..`layout.max_beacon_count` and says nothing about what each count
+transmits. Transmission is `N * distribution_effectivity * profile[N]`, and **`profile` is per
+prototype**: vanilla's beacon is 1/sqrt(N) (`data/base/prototypes/entity/entities.lua:7703`, read
+2026-08-27), so 1-4 vanilla beacons transmit 1.5x, 2.12x, 2.60x, 3.0x — sublinear, but every one
+still buys something. **A beacon whose profile flattens buys nothing past its own cap**, and the
+sibling mod in this repo ships exactly that: Pure Modules' beacon reaches 2.8125x at three
+beacons and stays there forever — *"a fourth beacon costs its full power and adds nothing"*
+(`pure-modules-realk/.ai-support/balance.md`). With that beacon picked, this mod's own drop-down
+offers a 4 that costs 7.5 MW, four modules and a stack's worth of rows for zero effect.
+`beacon_counter = "same_type"` is what makes a stack of identical beacons count together, so this
+is the ordinary case for a stack rather than an exotic one.
+
+Cheapest fix: read `profile` and stop offering counts past the last one that raises transmission.
+Fuller fix: name the multiplier beside each count — which is the expected-output entry's shape
+again, and the third thing that argues for doing that work once.
+
+## The blueprint the player is handed
+
+Three small things about the *stack*, none of them layout. `blueprint.give` currently sets the
+entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
+
+- **A snap grid, so a second stamp lines up.** The blueprint is deliberately not one-shot and a
+  second column of the same loop is a thing players want (`decisions.md`), but two stamps line up
+  only by eye today. `blueprint_snap_to_grid` at the plan's own width x height would tile them.
+  The trap is already recorded and already respected in the file: **`set_blueprint_entities`
+  clears the snap grid**, so it must be written after — `analysis/api.md` §21, which notes in as
+  many words that the mod sets none, so this only matters if one is wanted. Open: relative or
+  absolute snapping, and whether forced alignment helps or annoys for a loop usually stamped
+  once.
+- **A label.** A blueprint dragged into the inventory to keep the design arrives unnamed;
+  `LuaItemCommon.label` (and `label_color`) would make it *"Legendary iron gear wheel upcycler"*
+  in the library. One line and one locale key, and it composes with the `preview_icons` already
+  set. `allow_manual_label_change` is the neighbouring field to leave alone — the player's
+  blueprint, the player's name for it.
+- **A logistic group name on the request sections.** 2.0 logistic groups let one *named* section
+  be edited in one place and followed by every chest carrying it. Naming each tier's section
+  would make the whole loop's requests retunable **after** the build — precisely what the
+  Ingredient amounts panel cannot do, since it only writes into the plan. The catch is that a
+  group is force-wide: two loops for different items must not collide, and two loops for the same
+  item at the same tier arguably *should* share, which is a design decision rather than a naming
+  detail. Verify the blueprint-side shape before costing it — a blueprint's logistic filter is
+  already a flatter table than the runtime one (`analysis/api.md` §21), so where `group` sits is
+  not guessable.
+
 ## Housekeeping
 
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
@@ -164,7 +261,25 @@ twice. What is left:
     could expose it, and could also set the checkbox's default.
   - product buffer size (currently one stack of the item).
   - whether to place obstacle-clearing deconstruction orders at all.
-- **Locale beyond `en`** — the cfg is structured for it; no other translations exist.
+- **The ingredient request default is a minute of crafting; the game's own convention is 30
+  seconds** (noted 2026-08-27). Shift-right-click on a machine and shift-left-click on a
+  requester chest fills it with *"enough ingredients for 30 seconds of continuous crafting"* —
+  the vanilla behaviour a player's hands already know, and half what `planner.request_count`
+  asks for. Not a defect: the loop is unattended and a fuller chest rides out belt lulls, and
+  the number is now the player's anyway (Ingredient amounts, 2026-08-27). Worth knowing before
+  anyone "fixes" the formula to match the game, and worth saying in the panel's tooltip if the
+  divergence ever surprises someone.
+- **Per-option hiding in a picker**, the genre's other answer to clutter (noted 2026-08-27).
+  Mining Patch Planner lets a player shift+right-click an entity choice to hide it, permanently
+  and per player. This mod's answer is the count rule plus *Show all build options*, which is a
+  blunter instrument in the other direction: it hides by arithmetic rather than by taste, and a
+  player with four modded belts cannot narrow them. Cheap only if it rides `state.prune`'s
+  existing key shape; the interaction itself has no precedent in this modal, where every click
+  on a picker already means "open the chooser".
+- **Locale beyond `en`** — the cfg is structured for it; no other translations exist. Mining
+  Patch Planner carries `uk`, `ru`, `pl` and `fr`, so shipping one is normal for the genre; the
+  first candidate is **Spanish**, on the only evidence there is — a player who thanked the
+  author in Spanish on the portal (discussion `6a8f5bb2eaca06c38cc3cc94`, 2026-08-27).
 - **Choice reconciliation is written twice, once per layer** (found in review, 2026-08-17).
   `planner`'s `chosen_*` family answers "the pick if it is still valid, else the default" purely;
   `gui.apply_defaults` and the recipe and machine handlers answer the same question destructively,
