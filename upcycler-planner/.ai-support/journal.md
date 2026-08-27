@@ -9,6 +9,51 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 - 0.6.4 / 0.6.5 released on a timer, and the bump the owner declined
+
+The owner asked for the pair to go out "around 16h" while they left for the airport, so the whole
+release was prepared up front and the upload chain fired from a scheduled wake at 16:00:01. Both
+uploads, the details sync and the git side ran unattended against work that had already passed
+every gate; nothing was built or decided after the wake.
+
+**The version number is the owner's, and it is not what the delta graded to.** The brief said
+"minor update", and the unreleased delta - an additive, save-safe feature - grades to a semver
+minor, so 0.7.0 / 0.7.1 was prepared first. The owner then asked for 0.6.4, and when the two
+readings of "minor" were put to them directly they confirmed 0.6.4. So the pair shipped as 0.6.4
+(Factorio 2.0) and 0.6.5 (Factorio 2.1), keeping the already-open number rather than re-grading
+it. Recorded because the next agent reading `factorio-release`'s bump table against this delta
+will get a different answer than the tags show: the table was not wrong, it was overruled, which
+is the owner's call to make.
+
+Track assignment needed no discussion - 2.0 first on the lower number, 2.1 as the port - which is
+what every prior pair back to 0.1.0 did, so the even/odd reading of this mod's tags holds through
+0.6.5.
+
+Gates, all green before the first upload: data stage clean on 2.1.16 and on 2.0.77; **253/253
+headless on both tracks**; 253/253 through a real client on 2.1; static tier clean (luacheck 0/0,
+emmylua the usual nilability warnings only). The two validations were run sequentially, as the
+scratch write-data folder keyed by mod name alone still requires.
+
+**`faq.md` gained the release's question and `README.md` already had it.** The README line on the
+Ingredient amounts **Edit...** button came in with the feature commit, so only the FAQ was behind;
+the new entry covers setting the per-ingredient amounts and - the part no player would guess -
+that clearing a field and pressing Enter returns it to the automatic amount.
+`fmtk details --readme --faq` pushed both. The gallery was not touched: no new shots, so the
+duplicate-upload trap of 2026-08-26 never came up and the five ids stayed where they were.
+
+Post-upload check off a cache-busted `full`: releases now end 0.6.2/2.0, 0.6.3/2.1, 0.6.4/2.0,
+0.6.5/2.1; license still `default_gnugplv3`, category still `utilities`, gallery still five
+images.
+
+**Two agents shared this working tree, and the index is shared with it.** Another agent was
+building the burner roboport's sprites in `robotics-reforged/` and `assets/` during this release,
+and staged them with a repo-wide `git add` that swept this mod's three release files into the
+index alongside their own. Nothing was lost - the fix is that both release commits were made
+pathspec-limited (`git commit -F <msg> -- upcycler-planner/`), which commits those paths from the
+working tree and leaves the rest of the index untouched. Worth knowing before the next concurrent
+session: in this repo `git add -A` is not merely untidy, it hands your files to whoever commits
+first, and a scoped commit is the only thing that reliably undoes it.
+
 ## 2026-08-27 — a survey of what players and the field are building, folded into `deferred.md`
 
 The owner asked for a deep read of the mod plus the portal's *Some design ideas* thread and a
