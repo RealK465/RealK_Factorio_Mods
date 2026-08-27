@@ -12,7 +12,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
    You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
-2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
+2. After clicking it, pick the item you want to upcycle and the quality you are aiming for. The **Edit...** button beside **Ingredient amounts** lets you set how many of each ingredient the loop requests.
 3. Under **Build options** you can change what the loop is made of: belts, inserters, chests, modules, electric poles and more. Each one defaults to the best you have researched, and each can be built at a quality of your choice. Options with only one choice are hidden, and so are the five chests and the beacons. Click **Settings** in the title bar and tick **Show all build options** to bring them all back.
 4. Press **Place**. The loop arrives as a blueprint in your hand, so you can look it over, move it, rotate it and flip it before you commit.
 5. Place it like any other blueprint. Shift-click builds through trees and rocks, and Ctrl+Shift-click clears buildings too. Undo takes the whole loop back in one step, and the blueprint stays in your hand if you want to stamp another.

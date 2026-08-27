@@ -375,6 +375,25 @@ describe("planner.plan", function()
     assert(seen == 100, "iron-plate request " .. tostring(seen) .. ", expected 100")
   end)
 
+  test("an ingredient-amount override replaces the formula; junk falls back", function()
+    local function plate_request(plan)
+      for _, e in pairs(plan.entities) do
+        if e.name == "requester-chest" and e.requests and e.requests[1]
+          and e.requests[1].name == "iron-plate" then
+          return e.requests[1].count
+        end
+      end
+    end
+    local plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = 42 }))
+    assert(plate_request(plan) == 42, "the override did not reach the feed chest")
+    -- A zero or a non-number cannot come from the panel -- only from a stale save -- and
+    -- either reads as "no override" rather than as a request of nothing.
+    plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = 0 }))
+    assert(plate_request(plan) == 100, "a zero override did not fall back to the formula")
+    plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = "junk" }))
+    assert(plate_request(plan) == 100, "a non-number override did not fall back to the formula")
+  end)
+
   describe("circuit limits", function()
     test("off by default: no condition, no circuit wire, anywhere", function()
       local plan = planner.plan(force(), choices_with())

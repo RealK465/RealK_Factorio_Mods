@@ -60,7 +60,8 @@ end)
 
 -- All six GUI events go through the one dispatcher, which reads the handler name off the
 -- element's tags; on_gui_closed below is separate because it is about the frame, not a widget.
--- The text pair serves the circuit wizard's threshold fields, the mod's only textfields.
+-- The text pair serves the mod's textfields: the circuit wizard's thresholds and the
+-- ingredient-amount fields.
 script.on_event(defines.events.on_gui_click, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_elem_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_selection_state_changed, dispatch.on_gui_event)

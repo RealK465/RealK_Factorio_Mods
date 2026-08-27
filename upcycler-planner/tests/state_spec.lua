@@ -180,6 +180,28 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.circuit_max_gone == nil, "a removed tier's cap survived")
   end)
 
+  test("ingredient-amount overrides prune by the chosen recipe's own ingredients", function()
+    -- request_<item> holds the player's number for one of the CHOSEN recipe's ingredients,
+    -- claimed structurally in the key loop like the circuit families. Gears eat iron plates
+    -- and nothing else, so a copper override is a leftover and goes; with no recipe at all,
+    -- every override goes -- the formula default needs no key to fall back to.
+    local entry = seeded({
+      recipe = "iron-gear-wheel",
+      ["request_iron-plate"] = 42,
+      ["request_copper-plate"] = 9,
+    })
+    state.prune()
+    local c = entry.choices
+    assert(c.recipe == "iron-gear-wheel", "premise: the recipe survived")
+    assert(c["request_iron-plate"] == 42, "a live ingredient's override was pruned")
+    assert(c["request_copper-plate"] == nil, "an override survived leaving the recipe")
+
+    entry = seeded({ ["request_iron-plate"] = 42 })
+    state.prune()
+    assert(entry.choices["request_iron-plate"] == nil,
+      "an override survived with no recipe to belong to")
+  end)
+
   test("the beacon prunes by membership; a pruned one reads as off; the clear flag survives", function()
     local entry = seeded({
       beacon = "beacon",

@@ -9,6 +9,33 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 — configurable ingredient amounts, the third side panel
+
+The owner asked for a way to configure the quantity of ingredients from the planner, pre-filled
+with what the mod already does ("I think is 1 stack idk" — it is in fact `request_count`'s
+minute-of-crafting-capped-at-a-stack, which often lands at the stack). Four design calls put to
+the owner, all four resolved to the recommended option: the entry point is a row in the top
+block (label + *Edit...* button, dead until an item is picked), edits reset on an item change,
+the floor is one, and the scope is ingredients only — the product buffer stays a `deferred.md`
+candidate.
+
+Built as the third `SIDE_PANELS` entry, which cost exactly what that registry promised: a
+builder, three dispatch handlers (`requests`, `ingredients-close`, `request-count`) and one
+registry line — mutual exclusion, panel-first Esc, rebuild survival and the Confirm-key guard
+all came free. The one deliberate divergence from the wizard is **no backfill**: only an edit
+is stored (`request_<item>` flat numbers), so an untouched ingredient keeps following the live
+formula and a recipe retune moves the default. The formula's value rides in each field's tags
+for the Enter-on-empty reset — safe because any recipe change rebuilds the modal, panel
+included. `state.prune` claims the family structurally ahead of the `_quality$` sweep (the
+circuit families' precedent; `request_` cannot collide with `requester`/`requester_quality`,
+checked letter by letter). The wizard's int32 cap was renamed `INT32_CAP` and shared.
+
+Specs in the same session: plan_spec (override reaches the feed chest, zero falls back),
+state_spec (prune by the chosen recipe's own ingredients), gui_spec (the button's gate, the
+panel's containment, commit/reset mechanics, reset-on-item-change refilling an open panel, and
+the three-way slot swap). The changelog first opened 0.7.0; **the owner re-graded the bump to
+0.6.4** and reworded the entry in their own voice, `info.json` moving with it. Nothing shipped.
+
 ## 2026-08-26 — the 0.6.2 / 0.6.3 pair, and the portal description caught up
 
 The owner asked for the pair to ship and for the portal's description and FAQ to be brought back

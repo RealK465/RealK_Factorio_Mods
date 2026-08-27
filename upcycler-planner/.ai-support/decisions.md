@@ -225,6 +225,22 @@ per-release approval.
   The Build options pickers carry no per-picker row labels on purpose: each row reads by icon
   under its group's caption, the way the game's own tool settings do, so each tooltip opens
   with its own name in `[font=default-bold]`.
+- **Ingredient amounts are editable in a third side panel** (2026-08-27, the owner's ask; entry
+  point, reset rule, floor and scope each the owner's pick from offered options). An
+  *Ingredient amounts* row closes the top block — a captioned *Edit...* button, dead until an
+  item is picked — opening a panel in the settings panel's slot: one numeric field per item
+  ingredient, at the amount the plan would really use. **Only an edit is stored**
+  (`request_<item>`, flat numbers, the circuit families' key shape, claimed structurally in
+  `state.prune` ahead of the `_quality$` sweep): an untouched ingredient keeps following
+  `request_count` — about a minute of crafting, capped at a stack — so a recipe retune moves
+  the default instead of freezing a number the player never chose. That no-backfill rule is
+  the one deliberate divergence from the wizard, whose numbers ARE the plan's and so must be
+  written back. **Picking a different item clears the family**: the amounts were sized against
+  the old recipe, and the rebuilt panel opens on the new recipe's own defaults. **The floor is
+  one, never zero** — every ingredient keeps a request, so a zeroed field cannot strand items
+  for the trash pass to bin; Enter on an *emptied* field is the way back to automatic, and
+  deletes the override outright. The per-tier product buffer stayed out on the same call —
+  `deferred.md` keeps it as a candidate setting.
 - **Quality is pickable on every entity picker except the belt and the pipe.** A measured call,
   not a taste one, and the engine states the rule itself: every entity type gets its own quality
   bonus apart from transport belt, pipe and rail
