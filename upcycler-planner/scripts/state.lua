@@ -89,10 +89,27 @@ function state.prune()
     -- name ends in _quality cannot trip the wrong sweep. circuit_enabled is a plain boolean
     -- like no_poles, nothing to prune; the target `quality` has no underscore and keeps its
     -- own test above.
+    -- The ingredient-amount overrides belong to the chosen recipe: request_<item> holds the
+    -- player's number for one of ITS ingredients, so an override whose item left the recipe --
+    -- or whose recipe was itself pruned above -- goes with it. The formula default needs no
+    -- key to fall back to. Claimed structurally in the loop below, ahead of the _quality$
+    -- sweep, for the circuit families' reason.
+    local wanted = {}
+    -- `recipe` is the prototype resolved at the top of this iteration; c.recipe survived its
+    -- upcyclable check exactly when it is still set, so the pair answers "the kept recipe".
+    if c.recipe then
+      local items = planner.item_ingredients(recipe)
+      for _, ingredient in pairs(items) do
+        wanted[ingredient.name] = true
+      end
+    end
     for key, quality in pairs(c) do
       local tier = key:match("^circuit_min_(.+)$") or key:match("^circuit_max_(.+)$")
+      local item = key:match("^request_(.+)$")
       if tier then
         if not planner.is_quality(tier) then c[key] = nil end
+      elseif item then
+        if not wanted[item] then c[key] = nil end
       elseif key:match("_quality$") and not planner.is_quality(quality) then
         c[key] = nil
       end

@@ -1,8 +1,9 @@
--- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
--- and, under a "Build options" caption, what it is built OUT OF: the belt, the inserter, the
--- five chests, the quality module, the top machine's own module, the electric pole, the pipe,
--- the beacon, its module and its per-tier count, whether the stock chests are buffer chests
--- the base can draw on, and whether the chests trash their surplus.
+-- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler,
+-- and an Ingredient amounts row whose Edit... button opens a side panel of per-ingredient
+-- request amounts -- and, under a "Build options" caption, what it is built OUT OF: the belt,
+-- the inserter, the five chests, the quality module, the top machine's own module, the
+-- electric pole, the pipe, the beacon, its module and its per-tier count, whether the stock
+-- chests are buffer chests the base can draw on, and whether the chests trash their surplus.
 -- The build options are five captioned rows, one per concept -- Transport, Chests, Modules,
 -- Beacons, Power -- because one flat grid of a dozen icon-only pickers left hovering as the
 -- only way to tell them apart (owner's ask, 2026-08-22).
@@ -59,6 +60,7 @@ local state = require("scripts.state")
 local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
 local CIRCUITS_FRAME = "upl-circuits"
+local INGREDIENTS_FRAME = "upl-ingredients"
 -- The shortcut button AND its hotkey custom-input share this prototype name (the Krastorio 2
 -- pairing shape), so the button, the key and the tooltip's keybind hint all rename together.
 local SHORTCUT = "upl-open"
@@ -76,6 +78,7 @@ end
 gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
 gui.CIRCUITS_FRAME = CIRCUITS_FRAME
+gui.INGREDIENTS_FRAME = INGREDIENTS_FRAME
 gui.SHORTCUT = SHORTCUT
 
 local function frame_of(player)
@@ -119,6 +122,10 @@ end
 
 function gui.circuits_open(player)
   return panel_frame_of(player, CIRCUITS_FRAME) ~= nil
+end
+
+function gui.ingredients_open(player)
+  return panel_frame_of(player, INGREDIENTS_FRAME) ~= nil
 end
 
 -- The engine's element chooser -- the window a choose-elem-button opens -- is invisible to
@@ -626,6 +633,74 @@ local function build_circuits_panel(player, frame)
   end
 end
 
+-- The ingredient-amounts panel: one numeric field per item ingredient of the chosen recipe,
+-- opening at the amount the plan would really use -- the player's stored override if one
+-- exists, else the live formula. Unlike the wizard it backfills NOTHING: only an edit is
+-- stored (request_<item>, flat numbers, the circuit families' key shape), so an untouched
+-- ingredient keeps following request_count and a recipe retune moves the default instead of
+-- freezing a number the player never chose. The formula's value rides in the field's tags so
+-- the reset-to-automatic path cannot re-derive it differently -- safe, because any recipe
+-- change rebuilds the modal and this panel with it. Otherwise the settings panel's shape and
+-- lifecycle: a second window-styled column, rebuilt from scratch on open, re-created after a
+-- modal rebuild, dead with the frame.
+local function build_ingredients_panel(player, frame)
+  local choices = state.of(player.index).choices
+
+  local panel = frame.add({ type = "frame", name = INGREDIENTS_FRAME, direction = "vertical" })
+  panel.style.left_margin = 12
+  local titlebar =
+    add_titlebar(panel, "upl-ingredients-titlebar", { "upl-gui.requests-title" }, frame)
+  titlebar.add({
+    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
+    tags = dispatch.tags("ingredients-close"),
+  })
+
+  local content = panel.add({
+    type = "frame", name = "upl-ingredients-content",
+    style = "inside_shallow_frame_with_padding", direction = "vertical",
+  })
+
+  -- The button that opens this panel waits for an item, but a rebuild can re-create the panel
+  -- after the recipe went away (the item picker cleared) -- say so instead of standing empty.
+  local recipe = chosen_recipe(choices)
+  if not recipe then
+    content.add({ type = "label", caption = { "upl-gui.pick-a-recipe" } })
+    return
+  end
+
+  local list = content.add({
+    type = "scroll-pane", name = "upl-ingredients-list", direction = "vertical",
+  })
+  list.style.maximal_height = 400
+
+  for _, ingredient in pairs(planner.item_ingredients(recipe)) do
+    local key = "request_" .. ingredient.name
+    local default = planner.request_count(ingredient, recipe)
+    local row = list.add({
+      type = "flow", name = "upl-request-row-" .. ingredient.name, direction = "horizontal",
+    })
+    row.style.vertical_align = "center"
+    local label = row.add({
+      type = "label",
+      caption = { "", "[item=" .. ingredient.name .. "] ",
+        prototypes.item[ingredient.name].localised_name },
+    })
+    -- One width for every label, or the fields stagger with the ingredient names.
+    label.style.minimal_width = 110
+    local field = row.add({
+      -- numeric keeps every keystroke a digit, the wizard's rule: the handler's tonumber can
+      -- only see a number or an emptied field.
+      type = "textfield", name = "upl-request-" .. ingredient.name,
+      text = tostring(choices[key] or default),
+      numeric = true, allow_decimal = false, allow_negative = false,
+      lose_focus_on_confirm = true,
+      tooltip = { "upl-gui.request-count-tooltip" },
+      tags = dispatch.tags("request-count", { key = key, default = default }),
+    })
+    field.style.width = 60
+  end
+end
+
 -- Everything decided before a single widget exists: a default for anything never picked, and
 -- the top machine's module re-resolved against the pair it depends on. Split out of gui.open
 -- because it touches no element -- a reader after "where is the inserter button built" should
@@ -833,6 +908,17 @@ function gui.open(player)
   -- stands behind it, and its quality with it.
   recycler_label.visible = worth_showing(player, recycler_names)
   recycler_button.visible = recycler_label.visible
+
+  -- The loop's ingredient requests, edited in a side panel -- the Limits button's shape.
+  -- There is nothing to edit before an item is picked, so the button waits for one; a recipe
+  -- change always rebuilds the modal, so the enabled state cannot go stale.
+  label("requests")
+  local requests_button = rows.add({
+    type = "button", name = "upl-requests", caption = { "upl-gui.requests-edit" },
+    tooltip = { "upl-gui.requests-edit-tooltip" },
+    tags = dispatch.tags("requests"),
+  })
+  requests_button.enabled = choices.recipe ~= nil
 
   -- What the loop is built out of. Still a strip of icons -- each picker leans on
   -- titled_tooltip above rather than a row label -- but grouped by concept: a small caption
@@ -1115,6 +1201,15 @@ function gui.close_circuits(player)
   if panel then panel.destroy() end
 end
 
+function gui.open_ingredients(player)
+  open_side_panel(player, INGREDIENTS_FRAME)
+end
+
+function gui.close_ingredients(player)
+  local panel = panel_frame_of(player, INGREDIENTS_FRAME)
+  if panel then panel.destroy() end
+end
+
 function gui.close_settings(player)
   -- The pre-0.4.2 layout put the settings in its own gui.screen frame; sweep one a save from
   -- those builds may still carry, so its close X keeps working across the upgrade.
@@ -1138,6 +1233,7 @@ end
 SIDE_PANELS = {
   [SETTINGS_FRAME] = { build = build_settings_panel, close = gui.close_settings },
   [CIRCUITS_FRAME] = { build = build_circuits_panel, close = gui.close_circuits },
+  [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = gui.close_ingredients },
 }
 
 -- Reopened rather than repainted when a setting flips: open() rereads both settings and
@@ -1177,7 +1273,7 @@ end)
 -- field fires nothing and the display can sit stale until Enter or a rebuild. Accepted: the
 -- value underneath stays right either way. No refresh on either path: a threshold moves no
 -- geometry and no warning, and a rebuild here would destroy the field mid-type.
-local CIRCUIT_LIMIT_CAP = 2147483647 -- circuit constants are int32; past this the engine clamps
+local INT32_CAP = 2147483647 -- circuit constants and request counts are int32; the engine clamps past it
 
 dispatch.register("circuit-limit", function(event)
   local choices = state.of(event.player_index).choices
@@ -1186,7 +1282,7 @@ dispatch.register("circuit-limit", function(event)
   -- non-negative integer or an emptied field, so the cap is the one live guard.
   local value = tonumber(event.element.text)
   if event.name == defines.events.on_gui_confirmed then
-    value = math.min(value or choices[key] or 0, CIRCUIT_LIMIT_CAP)
+    value = math.min(value or choices[key] or 0, INT32_CAP)
     choices[key] = value
     event.element.text = tostring(value)
     return
@@ -1194,7 +1290,61 @@ dispatch.register("circuit-limit", function(event)
   -- on_gui_text_changed: a transient state -- an emptied field mid-edit -- leaves the last
   -- value standing, and the text is never rewritten under the player's cursor.
   if value then
-    choices[key] = math.min(value, CIRCUIT_LIMIT_CAP)
+    choices[key] = math.min(value, INT32_CAP)
+  end
+end)
+
+dispatch.register("requests", function(event)
+  local player = game.get_player(event.player_index)
+  if gui.ingredients_open(player) then
+    gui.close_ingredients(player)
+  else
+    gui.open_ingredients(player)
+  end
+end)
+
+dispatch.register("ingredients-close", function(event)
+  gui.close_ingredients(game.get_player(event.player_index))
+end)
+
+-- The ingredient-amount fields: the circuit-limit handler's commit rules -- every valid
+-- keystroke commits, Enter snaps the display back to what holds -- with two differences.
+-- The floor is ONE, never zero: every ingredient keeps a request, so a zeroed field cannot
+-- strand items for the trash pass to bin. And Enter on an EMPTIED field deletes the override
+-- outright -- back to the automatic amount, which the display snaps to off the tags -- where
+-- the wizard's fields have no default to return to. No refresh on either path, the wizard's
+-- reason: an amount moves no geometry and no warning.
+--
+-- Unlike the wizard's handler this one matches BOTH event names instead of defaulting the
+-- tail: the dispatcher routes the focus click here too, carrying the DISPLAYED value -- for
+-- an untouched field the formula's own -- and an unfiltered fall-through would freeze that
+-- default as a stored override. The wizard is immune only because backfill already stored
+-- its numbers; here every non-edit has to fall out the bottom.
+dispatch.register("request-count", function(event)
+  local choices = state.of(event.player_index).choices
+  local tags = event.element.tags
+  local value = tonumber(event.element.text)
+  if event.name == defines.events.on_gui_confirmed then
+    if not value then
+      choices[tags.key] = nil
+      event.element.text = tostring(tags.default)
+      return
+    end
+    -- Enter on an UNTOUCHED field re-states the automatic amount -- the focus click's case,
+    -- one event later -- and storing it would freeze the default the same way. Every real
+    -- edit already wrote an override in the branch below, so an absent one plus the default
+    -- on display means there is nothing to commit.
+    if choices[tags.key] == nil and value == tags.default then return end
+    value = math.max(1, math.min(value, INT32_CAP))
+    choices[tags.key] = value
+    event.element.text = tostring(value)
+  elseif event.name == defines.events.on_gui_text_changed then
+    -- An emptied field mid-edit leaves the last value standing, and the text is never
+    -- rewritten under the player's cursor. A transient 0 mid-type commits as 1; the display
+    -- catches up on Enter or the next rebuild.
+    if value then
+      choices[tags.key] = math.max(1, math.min(value, INT32_CAP))
+    end
   end
 end)
 
@@ -1224,6 +1374,13 @@ dispatch.register("recipe", function(event)
   -- nothing happens unless the value actually changed.
   if picked == choices.recipe then return end
   choices.recipe = picked
+
+  -- The ingredient-amount overrides were sized against the OLD recipe, so they reset with it
+  -- (the owner's call): the panel re-opens pre-filled with the new recipe's own defaults.
+  -- Clearing a key during next() is legal Lua, so one pass does it.
+  for key in pairs(choices) do
+    if key:match("^request_") then choices[key] = nil end
+  end
 
   -- The machine list depends on the recipe, so a machine that can no longer craft it is
   -- replaced rather than left behind to fail validation confusingly. Its QUALITY survives the

@@ -1109,6 +1109,17 @@ function planner.request_count(ingredient, recipe)
   return math.max(1, math.min(stack, per_minute))
 end
 
+-- The player's own amount for one ingredient, or the formula. The Ingredient amounts panel
+-- stores an edit as a flat number under request_<item>, and an untouched ingredient has no
+-- key at all -- so the formula stays live and a recipe retune moves the default instead of
+-- freezing a number the player never chose. Anything invalid -- a zero, a stray non-number
+-- from an old save -- falls back the same way.
+local function chosen_request(choices, ingredient, recipe)
+  local override = choices["request_" .. ingredient.name]
+  if type(override) == "number" and override >= 1 then return math.floor(override) end
+  return planner.request_count(ingredient, recipe)
+end
+
 -- Building a plan
 
 -- Quality can ADD module slots (quality_affects_module_slots -- off for every vanilla machine,
@@ -1513,7 +1524,7 @@ function planner.plan(force, choices, gathered)
 
   local requests = {}
   for _, ingredient in pairs(ingredients) do
-    requests[ingredient.name] = planner.request_count(ingredient, recipe)
+    requests[ingredient.name] = chosen_request(choices, ingredient, recipe)
   end
 
   local r = gathered or resources(force, recipe, machine, choices)

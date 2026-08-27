@@ -83,6 +83,19 @@ local function circuit_field(tier)
   return circuit_row(tier)["upl-circuit-limit-" .. tier]
 end
 
+-- The ingredient-amounts panel, the wizard's way: through the frame, never the screen.
+local function ingredients_panel()
+  local f = frame()
+  return f and f[gui.INGREDIENTS_FRAME]
+end
+
+local function request_field(item)
+  local panel = ingredients_panel()
+  assert(panel and panel.valid, "the ingredient-amounts panel is not open")
+  local list = panel["upl-ingredients-content"]["upl-ingredients-list"]
+  return list["upl-request-row-" .. item]["upl-request-" .. item]
+end
+
 local function settings_widget(name)
   local panel = settings_panel()
   assert(panel and panel.valid, "the settings panel is not open")
@@ -130,6 +143,7 @@ describe("the modal", function()
     widget({ "upl-content", "upl-table", "upl-quality" })
     widget({ "upl-content", "upl-table", "upl-machine" })
     widget({ "upl-content", "upl-table", "upl-recycler" })
+    widget({ "upl-content", "upl-table", "upl-requests" })
     widget({ "upl-options", "upl-transport-strip", "upl-belt" })
     widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
@@ -1128,6 +1142,108 @@ describe("the modal", function()
     assert(circuit_field("uncommon"), "the wizard lost the tier the new target keeps")
     assert(circuit_row("rare") == nil,
       "the wizard still lists a tier the new target dropped")
+  end)
+
+  test("the Edit button waits for an item, then opens the ingredient-amounts panel", function()
+    gui.open(player())
+    local button = widget({ "upl-content", "upl-table", "upl-requests" })
+    assert(button.enabled == false, "Edit must be dead until an item is picked")
+
+    -- Picking gears rebuilds the modal, so the button is re-fetched rather than reused.
+    open_with_gears()
+    button = widget({ "upl-content", "upl-table", "upl-requests" })
+    assert(button.enabled == true, "picking an item did not arm Edit")
+
+    fire(button, defines.events.on_gui_click)
+    local panel = ingredients_panel()
+    assert(panel and panel.valid, "Edit opened nothing")
+    assert(panel.parent == frame(), "the panel must be a column inside the planner's element")
+    assert(player().gui.screen[gui.INGREDIENTS_FRAME] == nil,
+      "the panel must not be a separate screen window")
+    -- Gears: 2 plates per 0.5 s craft is 240 a minute, capped at the plate stack of 100 --
+    -- the formula's own value on display, because nothing is stored until the player edits.
+    assert(request_field("iron-plate").text == "100",
+      "the field opened as " .. request_field("iron-plate").text)
+    assert(choices()["request_iron-plate"] == nil,
+      "opening the panel stored an override the player never made")
+  end)
+
+  test("typing commits an override; Enter on an emptied field returns to automatic", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+
+    local field = request_field("iron-plate")
+    -- The focus CLICK reaches the handler too, carrying the displayed default -- it must not
+    -- become a stored override, or every field the player merely touched freezes.
+    fire(field, defines.events.on_gui_click)
+    assert(choices()["request_iron-plate"] == nil, "a click stored the default as an override")
+    -- Enter on the untouched field is the same non-edit, one event later.
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices()["request_iron-plate"] == nil, "Enter stored the default as an override")
+    field.text = "250"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices()["request_iron-plate"] == 250, "the keystroke did not commit")
+    assert(field.valid, "the keystroke rebuilt the modal under the cursor")
+
+    -- An emptied field mid-edit keeps the last value; Enter on it deletes the override and
+    -- snaps the display back to the automatic amount.
+    field.text = ""
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices()["request_iron-plate"] == 250, "an emptied field clobbered the override")
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices()["request_iron-plate"] == nil, "Enter on empty kept the override")
+    assert(field.text == "100", "the display did not snap to the automatic amount")
+
+    -- Zero cannot be typed into a request: the floor is one.
+    field.text = "0"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices()["request_iron-plate"] == 1, "a zero committed below the floor")
+  end)
+
+  test("picking a different item resets the overrides and refills an open panel", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    choices()["request_iron-plate"] = 250
+
+    local button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    button.elem_value = "transport-belt"
+    fire(button)
+
+    assert(choices().recipe == "transport-belt", "premise: the pick landed")
+    assert(choices()["request_iron-plate"] == nil,
+      "an override sized for gears survived onto belts")
+    -- The rebuild re-created the open panel over the NEW recipe's ingredients, at their own
+    -- automatic amounts: belts eat gears, which gears did not.
+    assert(ingredients_panel() and ingredients_panel().valid, "the rebuild dropped the panel")
+    assert(request_field("iron-gear-wheel").text == "100",
+      "the new recipe's field opened as " .. request_field("iron-gear-wheel").text)
+  end)
+
+  test("the ingredient panel shares the slot with the other two", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    gui.open_settings(player())
+    assert(ingredients_panel() == nil, "the settings panel did not close the ingredient panel")
+    gui.open_ingredients(player())
+    assert(settings_panel() == nil, "the ingredient panel did not close the settings panel")
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    assert(ingredients_panel() == nil, "the wizard did not close the ingredient panel")
+    gui.open_ingredients(player())
+    assert(circuits_panel() == nil, "the ingredient panel did not close the wizard")
+  end)
+
+  test("clearing the item leaves an open panel standing on the pick-a-recipe hint", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    local button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    button.elem_value = nil
+    fire(button)
+    assert(choices().recipe == nil, "premise: the clear landed")
+    local panel = ingredients_panel()
+    assert(panel and panel.valid, "the rebuild dropped the panel")
+    assert(panel["upl-ingredients-content"]["upl-ingredients-list"] == nil,
+      "a recipe-less panel still lists ingredient rows")
   end)
 end)
 
