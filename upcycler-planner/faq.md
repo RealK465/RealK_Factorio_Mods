@@ -12,6 +12,12 @@ To show them anyway — to pick their quality, for example — tick **Show all b
 
 The beacons are hidden too, because they are optional and the loop plans none unless you pick one. Tick **Show all build options** to choose a beacon; once one is chosen, it stays visible. A small drop-down beside it sets how many beacons stack per tier — extra ones add no width.
 
+## How do I change how many ingredients the loop requests?
+
+Press **Edit...** beside **Ingredient amounts** in the planner. You get one field per ingredient of the recipe, and each tier's chest requests that many.
+
+Leave a field alone and the planner picks the amount for you. To go back to that after typing your own, clear the field and press Enter. Choosing a different item resets them all.
+
 ## What is the active provider chest for?
 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.
