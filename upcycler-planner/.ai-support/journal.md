@@ -46,7 +46,7 @@ Post-upload check off a cache-busted `full`: releases now end 0.6.2/2.0, 0.6.3/2
 images.
 
 **Two agents shared this working tree, and the index is shared with it.** Another agent was
-building the burner roboport's sprites in `robotics-reforged/` and `assets/` during this release,
+building another mod's sprites in that mod's folder and `assets/` during this release,
 and staged them with a repo-wide `git add` that swept this mod's three release files into the
 index alongside their own. Nothing was lost - the fix is that both release commits were made
 pathspec-limited (`git commit -F <msg> -- upcycler-planner/`), which commits those paths from the
