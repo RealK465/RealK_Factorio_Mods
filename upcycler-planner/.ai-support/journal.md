@@ -9,6 +9,37 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 - 0.6.6 / 0.6.7 shipped, and half a pair shipped first
+
+The spoilage warning went out on both tracks: **0.6.6 for Factorio 2.1**, then **0.6.7 for
+Factorio 2.0**. The entry above records the work; this records how the release went, because it
+went wrong in a way worth not repeating.
+
+**Half a pair was shipped and reported as done.** The owner approved "release it now" against a
+prepared 0.6.6, which was the 2.1 build alone; that got uploaded, tagged and pushed, and the 2.0
+half was left as a follow-up offer. The owner's answer was "no no not possible, ship also version
+2.0". `factorio-release` says to ship a pair **2.0 first** precisely so the 2.0 section carries
+the entries and the 2.1 one points at it - the offer to renumber had been made twice and not
+taken up, and that was read as a decision when it was not. **The lesson is not "ask a third
+time": it is that a mod on two tracks releases as a pair by default, and a single-track release
+is the thing that needs confirming.**
+
+**The recovery, and why it is shaped the way it is.** 0.6.6 was already public and cannot be
+changed, so the documented pair shape was no longer reachable. Rather than duplicate the entry
+into 0.6.7 - the Pure Modules 1.0.2/1.0.3 mistake - 0.6.7 was made the *mirror* of the usual
+pointer: `Version 0.6.6, ported to Factorio 2.0.`, matching 0.6.5's own phrasing. The 0.6.7 zip
+carries **both** sections, which is what keeps the rendered portal changelog honest now that
+0.6.7 is the newest upload; shipping a section only into one track's file was the Pure Modules
+1.0.4/1.0.5 mistake.
+
+**`fmtk version` would have collided.** Legacy sat at 0.6.4 and the tool only increments, so it
+would have produced 0.6.5 - already published, and rejected at upload. The number was set by
+hand to 0.6.7 after a read-only portal GET confirmed it free. Worth remembering whenever the two
+tracks have drifted apart in number: on the legacy branch, check the portal before bumping.
+
+Gates before each upload: 257/257 headless on the target install, data stage exit 0 (with
+`data-final-fixes.lua` loading on 2.0), and both zips verified by listing rather than by reading
+`package.ignore`.
 ## 2026-08-27 - the spoilage warning, and two comments that pointed at the wrong thing
 
 Started as "find a small safe thing to improve" and ended as a shipped feature, because the
