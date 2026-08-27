@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.6
-Date: ????
+Date: 2026-08-27
   Minor Features:
     - The planner now warns when the item you picked spoils, or is made from an
       ingredient that spoils.
