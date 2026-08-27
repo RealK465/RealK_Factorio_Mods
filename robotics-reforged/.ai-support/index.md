@@ -11,7 +11,7 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 | `decisions.md` | register | what is settled and why — today that is identity, packaging and the two-track question, and nothing about the design | before any design change, and before re-opening a question |
 | `deferred.md` | register | the open work: every design question the mod has, each with enough context to pick up cold | scoping, or answering "what has actually been decided here?" |
 | `journal.md` | journal | dated sessions, newest first: what was built, what broke, what was measured | a decision needs the story behind it |
-| `analysis/` | evidence | the research — the measured vanilla robot baseline the design will be argued against. Start at its own `index.md` | before quoting a robot number from memory |
+| `analysis/` | evidence | the research — the measured vanilla robot baseline the design will be argued against, and how a building gets behaviour from two prototypes at once. Start at its own `index.md` | before quoting a robot number from memory, and before designing anything a single prototype cannot be |
 
 ## Which file does this go in?
 
