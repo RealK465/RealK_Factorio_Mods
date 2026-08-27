@@ -9,6 +9,57 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-27 - the spoilage warning, and two comments that pointed at the wrong thing
+
+Started as "find a small safe thing to improve" and ended as a shipped feature, because the
+measurement the small thing needed turned out to be the interesting part.
+
+**The small things first.** Two stale comments, both comment-only, both verified against git
+history rather than guessed. `scripts/planner.lua` carried the ten-line *shortest circuit-wire
+distance* block above `planner.default_circuit_max`, because the 0.6.0 circuit-limits commit
+(`0ad3bc6`) wrote both comment blocks in one edit and inserted the function between the block
+and the `circuit_reach` it described - so one function wore a paragraph about wire reach and
+the other read as undocumented. And `scripts/gui.lua`'s header still said the build options
+were **five** captioned rows, listing Transport/Chests/Modules/Beacons/Power; Circuits became
+the sixth in 0.6.0. `CLAUDE.md` and `decisions.md` both already said six, so the header was the
+last place still wrong. `journal.md` says five too and was left alone - it is dated history.
+
+**Then the spoilage question.** `deferred.md` had insisted it be settled by measurement before
+anything was designed, and that was the right call twice over.
+
+The first thing measurement caught was the note's own API spelling. `deferred.md` said to check
+`prototypes.item[x].spoil_ticks`; **`LuaItemPrototype` has no such attribute**. The data stage
+has one, the runtime does not, and reading it yields nil - so the obvious implementation would
+have found *zero* spoiling items and shipped a guard that never fired, with nothing anywhere
+raising an error. The runtime surface is `get_spoil_ticks(quality)`, a method, and it takes a
+quality because spoil time genuinely grows with the tier (captive biter spawner: 108000 ticks
+normal, 270000 legendary). Recorded as `analysis/api.md` S29.
+
+The second was the answer itself, from a throwaway probe spec run through the real runner and
+deleted after: of the 210 upcyclable items, **10** carry something perishable - `nutrients`
+alone as the product, nine more through an ingredient. The row that decided the design was
+**productivity module 3**, which takes biter eggs. That is a headline upcycling target, and
+refusing it would have cost more than the guard saves - so the owner's pick of *warn* rather
+than *refuse* was the right shape, and it is placed first among the warnings because it is the
+only one that never resolves itself.
+
+**What the owner asked for on top: "check if error messages/warnings are being properly
+displayed."** They were - but nothing was stopping them from stopping. `gui.refresh` carries a
+comment saying warnings "used to be silently dropped here, which made the warnings
+unreachable", and `gui_spec` had **no** coverage of that branch at all: no test touched
+`font_color`, `COLOR_WARNING`, or asserted a warning string reached the status caption.
+`planner_spec` pinned that `validate` *returns* a warning; nothing pinned that the modal
+*shows* one. A new `the status line` describe now covers all three colours - warning
+(build-through, orange, footprint intact), plain, and refusal - and it caught one thing while
+being written: the two branches of `gui.refresh` build the caption differently, a plan nesting
+the message inside a concatenation and a refusal assigning the LocalisedString directly, so the
+helper has to look in both places.
+
+Locale cross-check came back clean: every `upl-message.*` key used in Lua resolves, none are
+orphaned, and the run log carries no `Unknown key`.
+
+Suite 253 -> 257. The two comment fixes and this feature are all unreleased; 0.6.5 is tagged, so
+they open a new section rather than joining one.
 ## 2026-08-27 - 0.6.4 / 0.6.5 released on a timer, and the bump the owner declined
 
 The owner asked for the pair to go out "around 16h" while they left for the airport, so the whole

@@ -33,7 +33,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (253 tests as of 2026-08-27) — planner, layout, poles, circuits, blueprint,
+suite under `tests/` (257 tests as of 2026-08-27) — planner, layout, poles, circuits, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -363,6 +363,11 @@ re-opening any of these, and don't restate a reason here.
   they like.
 - Refused, each with a message: recipes with two or more fluids, machines no rotation can
   pipe, self-recycling items, and recipes that refuse quality modules.
+- **Spoiling items warn, never refuse** (`item-spoils`), and the warning is placed first among
+  the warnings. Ten of the 210 upcyclable items are affected. The runtime read is
+  `LuaItemPrototype.get_spoil_ticks(quality)` — a **method**; there is no `spoil_ticks`
+  attribute, and the wrong spelling reads nil, so every item looks safe. Reasons in
+  `decisions.md`; the table and the measurement in `analysis/api.md` §29.
 
 ## Open questions
 

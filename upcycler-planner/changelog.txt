@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.6
+Date: ????
+  Minor Features:
+    - The planner now warns when the item you picked spoils, or is made from an
+      ingredient that spoils.
+  Changes:
+    - Releasing for Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.5
 Date: 2026-08-27
   Changes:

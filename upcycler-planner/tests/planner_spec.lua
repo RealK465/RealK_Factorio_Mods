@@ -645,6 +645,39 @@ describe("validate", function()
     assert(ok2 == true and message2 == nil,
       "a fitting floor warned: " .. tostring(message2 and message2[1]))
   end)
+
+  test("a spoiling item warns but does not refuse", function()
+    -- Measured 2026-08-27 on 2.1.16: 10 of the 210 upcyclable items carry a spoiling product
+    -- or ingredient. Productivity module 3 is the one that decided the shape -- a headline
+    -- upcycling target whose biter eggs rot in 30 minutes -- and it is why this warns rather
+    -- than refusing: the loop still builds, the player is just told what will happen.
+    local f = force()
+    research.full(f)
+    local ok, message, gathered = planner.validate(f, choices_with({
+      recipe = "productivity-module-3", machine = "assembling-machine-3",
+    }))
+    assert(ok == true, "a spoiling ingredient must not refuse")
+    assert(message and message[1] == "upl-message.item-spoils",
+      "expected the spoilage warning, got " .. tostring(message and message[1]))
+    assert(gathered, "warning path must still return gathered resources")
+
+    -- The product side of the same rule: nutrients is the only upcyclable item that spoils as
+    -- the product itself. Its machine is resolved rather than named, because nutrients are
+    -- organic and no assembling machine in the strip crafts them.
+    local nutrients = planner.recipe_for_item("nutrients")
+    local machines = planner.machines_for(prototypes.recipe[nutrients])
+    local ok2, message2 = planner.validate(f, choices_with({
+      recipe = nutrients, machine = machines[1],
+    }))
+    assert(ok2 == true and message2 and message2[1] == "upl-message.item-spoils",
+      "the spoiling product must warn, got " .. tostring(message2 and message2[1]))
+
+    -- An item with nothing perishable on either side stays silent, so the warning cannot
+    -- become background noise on every plan.
+    local ok3, message3 = planner.validate(f, choices_with())
+    assert(ok3 == true and message3 == nil,
+      "gears warned about spoilage: " .. tostring(message3 and message3[1]))
+  end)
 end)
 
 describe("recipe-shape helpers", function()
