@@ -1,0 +1,11 @@
+{
+  "name": "robotics-reforged",
+  "version": "0.1.0",
+  "title": "Robotics Reforged",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/robotics-reforged",
+  "description": "A rework of Factorio's robot tiers, with new tiers where the progression needs them.",
+  "dependencies": ["base >= 2.1.0", "? space-age"],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**", "tests/**"] }
+}

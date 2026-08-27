@@ -82,6 +82,8 @@ Tracked unpacked folders are this repo's own mods:
 - **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and hands it over as a blueprint. Works end to end (shortcut button or CTRL+U → modal → Confirm → a blueprint in the cursor; the engine builds it), with research-gated pickers and support for modded recyclers, and a permanent four-tier test suite (`tests/`, run via the `factorio-testing` skill) that
   settled the once-open eject question by measurement. **Published** since 2026-08-16, on both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below); `git tag -l 'upcycler-planner_*'` is the list of what has actually shipped. The only mod here with a hard `quality` dependency. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly the thirteen blueprint-entity fields read out of the engine, and that only blueprint *strings* are simulation-restricted, a limit once over-generalised to all runtime blueprint writing.
 
+- **`robotics-reforged/`** — Robotics Reforged. A rework of Factorio's robot tiers, adding new tiers where the progression needs them. **A scaffold, not a mod yet** (created 2026-08-27): folders, docs and wiring only — no Lua, no prototype, and none of the design settled. **Both tracks from the start**: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0` (divergent files declared under *Git* below — `info.json` alone, so far). Unpublished, so the portal name `robotics-reforged` is free but **not ours** — it is claimed by the first upload and needs re-checking before one. The whole design lives as open questions in the mod's `.ai-support/deferred.md`; `.ai-support/decisions.md` holds only identity and packaging, and `analysis/vanilla-robots.md` the measured baseline — chiefly that worker-robot research is force-wide, so `max_speed` and `max_payload_size_after_bonus` are the only fields that keep tiers distinct at maxed research.
+
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
 A mod folder must be named `<name>` or `<name>_<version>`, matching its `info.json` exactly, or Factorio silently won't load it.
@@ -202,6 +204,8 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   where 2.1 offers 210, so the regression pin forks with it), plus `data-final-fixes.lua`,
   which exists **only** on `legacy/2.0` — the 2.0 shims live on that branch alone, never
   version-gated into `main`.
+  For Robotics Reforged it is `info.json` and nothing else, which is what a mod with no code in
+  it can diverge in; the list grows as the mod does.
   `README.md` and `changelog.txt` are **not** on that list — both are kept identical on the two
   branches, for reasons the `factorio-multiversion` skill carries.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
