@@ -1449,6 +1449,15 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
   return plan
 end
 
+-- One owner for the cap's default -- one stack of the product, the stock chest's own sizing
+-- rule -- shared by the wizard's backfill and plan()'s fallback, so the number the player is
+-- shown and the number the plan uses cannot drift. Nil until a recipe names a product.
+function planner.default_circuit_max(recipe)
+  local product = recipe and planner.product_of(recipe)
+  local item = product and prototypes.item[product]
+  return item and item.stack_size or nil
+end
+
 -- The shortest circuit-wire distance among everything the circuit pass wires. A wire is
 -- refused past the SHORTER end's reach, so one conservative number serves every hop; each
 -- prototype is asked at the quality it is placed at, since quality genuinely grows a pole's
@@ -1459,15 +1468,6 @@ end
 -- unlinked counts -- a warning, never a refusal. The inserter joins the min only when some
 -- reserve is set: it is wired only then, and a wireless modded inserter must not zero the
 -- reach of a plan that never wires one.
--- One owner for the cap's default -- one stack of the product, the stock chest's own sizing
--- rule -- shared by the wizard's backfill and plan()'s fallback, so the number the player is
--- shown and the number the plan uses cannot drift. Nil until a recipe names a product.
-function planner.default_circuit_max(recipe)
-  local product = recipe and planner.product_of(recipe)
-  local item = product and prototypes.item[product]
-  return item and item.stack_size or nil
-end
-
 local function circuit_reach(machine, machine_quality, recycler, recycler_quality, r, reserves)
   local reach = math.min(
     machine.get_max_circuit_wire_distance(machine_quality),
@@ -1687,6 +1687,17 @@ end
 
 -- Validation
 
+-- Whether an item rots. `get_spoil_ticks` is a METHOD taking the quality, not the data stage's
+-- `spoil_ticks` field -- LuaItemPrototype carries no such attribute, so reading one gives nil
+-- and every item reads as safe. It returns 0 for anything that does not spoil, and the answer
+-- genuinely grows with the tier (measured 2.1.16: a captive biter spawner lasts 108000 ticks at
+-- normal and 270000 at legendary), so this asks at normal -- the tier every loop holds, and the
+-- one that rots first.
+local function spoils(item_name)
+  local item = prototypes.item[item_name]
+  return item ~= nil and item.get_spoil_ticks("normal") > 0
+end
+
 -- Returns ok, message. `ok` false disables Place; a message alongside ok true is a warning the
 -- player can legitimately build through.
 --
@@ -1855,8 +1866,33 @@ function planner.validate(force, choices)
     end
   end
 
-  -- Warnings from here: planning ahead of research is legitimate, since the result is ghosts
-  -- that bots will build once the technology lands.
+  -- Warnings from here: the plan is sound, so Place stays enabled.
+
+  -- Spoilage, first among the warnings because it is the only one that never resolves itself:
+  -- the research ones below come good when the technology lands, this one is a property of the
+  -- item. The loop holds items for minutes at a time -- in the ingredient chests, in each
+  -- tier's stock chest and on the ring -- so anything that rots does so before it can climb.
+  --
+  -- A warning rather than a refusal (owner's call): whether spoilage outruns the dwell time
+  -- depends on throughput, and productivity module 3 -- biter eggs, 30 minutes -- is one of the
+  -- game's headline upcycling targets, so refusing it outright would cost more than it saves.
+  -- Measured 2026-08-27 on 2.1.16: 10 of the 210 upcyclable items carry a spoiling product or
+  -- ingredient, `nutrients` being the only one that spoils as the product itself.
+  local spoiling = spoils(product.name) and product
+  if not spoiling then
+    for _, ingredient in pairs(ingredients) do
+      if spoils(ingredient.name) then
+        spoiling = ingredient
+        break
+      end
+    end
+  end
+  if spoiling then
+    return true, { "upl-message.item-spoils", prototypes.item[spoiling.name].localised_name }, r
+  end
+
+  -- Planning ahead of research is legitimate, since the result is ghosts that bots will build
+  -- once the technology lands.
   if not force.is_quality_unlocked(choices.quality) then
     return true, { "upl-message.quality-not-researched", prototypes.quality[choices.quality].localised_name }, r
   end

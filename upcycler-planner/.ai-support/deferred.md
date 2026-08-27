@@ -172,18 +172,20 @@ the same demand — some of this mod's audience is a discoverability gap, not a 
 a re-ordered picker fights the engine's own item ordering and the *Show unresearched items*
 setting at once.
 
-### Spoilable items are neither refused nor warned about
-Nothing in `scripts/` mentions spoilage at all (grepped 2026-08-27). A loop on an item that
-spoils rots in the feed chests, in the per-tier stock chests and in the recycler queue, and with
-trash-unrequested on — the default — bots then haul the spoilage off to storage, so the failure
-reads as "the loop quietly does nothing" rather than as an error.
+### Spoilage: does it outrun a tier's dwell time?
+**The warning shipped 2026-08-27** — `item-spoils`, first among the warnings, on the 10 of 210
+upcyclable items that carry a spoiling product or ingredient (`decisions.md` → the spoilage
+bullet; the table and the `get_spoil_ticks` correction in `analysis/api.md` §29). Half the
+original question is answered: Gleba and Nauvis intermediates genuinely qualify, and one of them
+is productivity module 3.
 
-**Settle it by measurement before designing anything**, in this order: does any spoilable item
-pass `is_upcyclable` at all in a vanilla Space Age game (`prototypes.item[x].spoil_ticks`
-against the 210-item pin), and does spoilage actually outrun a tier's dwell time at one machine
-per tier. If nothing vanilla qualifies this is a modded-content guard and costs one predicate; if
-Gleba intermediates qualify it is a refusal or a warning, and the refusal list in `decisions.md`
-already has the shape to copy.
+**The other half was never measured** and is what is parked here: does spoilage actually outrun a
+tier's dwell time at one machine per tier? The warning is deliberately indifferent — it reports
+the property, not a predicted outcome — and the spread argues something finer is possible.
+`stack-inserter` takes jelly at **4 minutes**, which cannot survive any realistic loop; `spidertron`
+takes raw fish at **2.1 hours**, which almost certainly can. A dwell-time model would let the short
+end refuse and the long end stay silent, instead of one warning covering both. Needs a real
+measurement of throughput per tier, which nothing in the mod computes today.
 
 ### Multiple recipes for one item — declined in public, recorded so it is not re-litigated
 Asked for by pacak on the portal (discussion `6a831b6195e6fa72706517ef`, 2026-08-18): *"When

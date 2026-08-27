@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.16
-verified: 2026-08-26
+verified: 2026-08-27
 ---
 # Verified API reference
 
@@ -1235,3 +1235,45 @@ Three things follow, and the first is the one that is easy to get backwards:
   fire there, so if the engine restored the frame without restoring `player.opened` the same
   state would arise with nothing to catch it. GUI state is saved, so the expectation is that
   the pair comes back consistent — expectation, not a measurement.
+
+## 29. Spoilage: the runtime field is a METHOD, and which upcyclable items rot — measured 2026-08-27
+
+**`LuaItemPrototype` has no `spoil_ticks` attribute.** The data stage has one
+(`prototype-api.json`, `ItemPrototype::spoil_ticks`); the runtime class does not, and reading
+`prototypes.item[x].spoil_ticks` therefore yields **nil**, which reads as "does not spoil" for
+every item in the game. `deferred.md` carried exactly that wrong spelling until this session.
+
+The runtime surface is `LuaItemPrototype::get_spoil_ticks(quality) -> uint32`, documented as
+*"The number of ticks before this item spoils, or `0` if it does not spoil."* Confirmed against
+2.1.16's own `runtime-api.json`. The neighbouring attributes that DO exist are `spoil_level`,
+`spoil_result`, `spoil_to_trigger_result`, `spoil_quality_change`, `spoil_quality_min`,
+`spoil_quality_max` and `lab_ignores_spoil_percent` — none of them a duration.
+
+**Spoil time varies by quality**, which is why the getter takes one: a captive biter spawner
+lasts **108000** ticks at normal and **270000** at legendary (2.5x). So a loop's lowest tier is
+always the one that rots first, and `normal` is the honest tier to ask at for a warning.
+
+**The measurement that decided the feature** (headless probe against the SA modset, base 2.1.16):
+of the **210** upcyclable items, **10** carry something perishable — **1** as the product itself
+and **9** through an ingredient. **13** items spoil in the game overall.
+
+| Upcyclable item | What rots | Ticks |
+|---|---|---|
+| `nutrients` | itself (the product) | 18000 |
+| `stack-inserter` | `jelly` | 14400 |
+| `productivity-module-3` | `biter-egg` | 108000 |
+| `overgrowth-yumako-soil` | `biter-egg` | 108000 |
+| `overgrowth-jellynut-soil` | `biter-egg` | 108000 |
+| `biochamber` | `nutrients`, `pentapod-egg` | 18000, 54000 |
+| `artificial-yumako-soil` | `nutrients` | 18000 |
+| `artificial-jellynut-soil` | `nutrients` | 18000 |
+| `capture-robot-rocket` | `bioflux` | 432000 |
+| `spidertron` | `raw-fish` | 453000 |
+
+`productivity-module-3` is the row that decided the shape: it is a headline upcycling target, so
+refusing it outright would have cost more than the guard saves. Hence a warning
+(`decisions.md` → *Spoilage*).
+
+**Not measured, and still open:** whether spoilage actually outruns a tier's dwell time at one
+machine per tier. The warning is deliberately indifferent to that — it reports the property, not
+a predicted outcome.

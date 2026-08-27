@@ -772,6 +772,20 @@ per-release approval.
 - **Anything whose only "producer" is a recycling or Factoriopedia-hidden recipe.** Researching
   `recycling` unlocks every generated `*-recycling` recipe at once, so a naive "some enabled
   recipe produces it" test reads unresearched modules and cheat-mod infinity chests as unlocked.
+- **Spoiling items are deliberately NOT refused** (2026-08-27, owner's call) — they **warn**
+  (`item-spoils`) and build through. The loop holds items for minutes at a time, in the
+  ingredient chests, in each tier's stock chest and on the ring, so anything perishable rots
+  before it can climb; but whether that actually outruns the dwell time depends on throughput,
+  which the planner does not model. What settled it is *which* items are affected: measured
+  2026-08-27, **10 of the 210** upcyclable items carry a spoiling product or ingredient, and one
+  of them is **productivity module 3** (biter eggs, 30 minutes) — a headline upcycling target
+  whose refusal would cost far more than the guard saves. `nutrients` is the only item that
+  spoils as the product itself. The full table, and the runtime-API correction the feature
+  turned up (`get_spoil_ticks(quality)` is a **method**; `LuaItemPrototype` has no `spoil_ticks`
+  attribute, so the obvious spelling reads nil and every item looks safe), are in
+  `analysis/api.md` §29. The warning is placed **first** among the warnings because it is the
+  only one that never resolves itself — the research warnings come good when the technology
+  lands, this one is a property of the item.
 
 ## Testing
 

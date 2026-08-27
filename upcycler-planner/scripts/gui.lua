@@ -2,11 +2,12 @@
 -- and an Ingredient amounts row whose Edit... button opens a side panel of per-ingredient
 -- request amounts -- and, under a "Build options" caption, what it is built OUT OF: the belt,
 -- the inserter, the five chests, the quality module, the top machine's own module, the
--- electric pole, the pipe, the beacon, its module and its per-tier count, whether the stock
--- chests are buffer chests the base can draw on, and whether the chests trash their surplus.
--- The build options are five captioned rows, one per concept -- Transport, Chests, Modules,
--- Beacons, Power -- because one flat grid of a dozen icon-only pickers left hovering as the
--- only way to tell them apart (owner's ask, 2026-08-22).
+-- electric pole, the pipe, the beacon, its module and its per-tier count, the circuit-limits
+-- checkbox and the Limits... button opening its wizard, whether the stock chests are buffer
+-- chests the base can draw on, and whether the chests trash their surplus.
+-- The build options are six captioned rows, one per concept -- Transport, Chests, Modules,
+-- Beacons, Power, Circuits -- because one flat grid of a dozen icon-only pickers left hovering
+-- as the only way to tell them apart (owner's ask, 2026-08-22).
 --
 -- A picker is only built visible when it has something to choose BETWEEN: one option is not a
 -- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an

@@ -1390,3 +1390,83 @@ describe("the open hotkey", function()
     assert(gui.toggle_key(player()) == nil, "an ordinary toggle must not report a refusal")
   end)
 end)
+
+tags("gui")
+describe("the status line", function()
+  -- The one thing planner_spec cannot see. It pins that validate RETURNS a warning; nothing
+  -- pinned that the modal SHOWS one, and gui.refresh records that warnings were once dropped
+  -- here silently -- ok was read and the message thrown away, so every build-through warning
+  -- was unreachable with no error anywhere. These are that regression's guard.
+
+  -- The caption is a LocalisedString array the refresh concatenates, so a warning's position
+  -- in it shifts with however many other warnings landed. Scan for the key rather than index
+  -- into it: the test is "did this reach the player", not "in which slot".
+  local function status()
+    return widget({ "upl-status" })
+  end
+
+  -- Two shapes, because the two branches of gui.refresh build the caption differently: a plan
+  -- concatenates parts under a leading "", so a message is a NESTED table; a refusal assigns
+  -- the LocalisedString itself, so its key is the caption's own first element.
+  local function caption_has(key)
+    local caption = status().caption
+    if type(caption) ~= "table" then return false end
+    if caption[1] == key then return true end
+    for _, part in pairs(caption) do
+      if type(part) == "table" and part[1] == key then return true end
+    end
+    return false
+  end
+
+  local function open_with(item)
+    gui.open(player())
+    local button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    button.elem_value = item
+    fire(button)
+  end
+
+  test("a warning reaches the caption, keeps Place enabled, and is coloured as a warning", function()
+    research.full(player().force)
+    -- Productivity module 3 takes biter eggs, which rot in 30 minutes -- a real Space Age
+    -- upcycling target that warns rather than refusing.
+    open_with("productivity-module-3")
+    assert(caption_has("upl-message.item-spoils"),
+      "the spoilage warning never reached the status line: " .. serpent.line(status().caption))
+    -- A warning is build-through by definition; a warning that disabled Place would be a
+    -- refusal wearing the wrong colour.
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
+      "a build-through warning disabled Place")
+    -- Orange, not the plain white of an unremarkable plan -- the colour IS the signal that
+    -- the line below the footprint is worth reading.
+    local colour = status().style.font_color
+    assert(math.abs(colour.g - 0.7) < 0.01 and math.abs(colour.b - 0.3) < 0.01,
+      "warning colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
+    -- The footprint still shows: a warning ANNOTATES a plan, it does not replace it.
+    assert(caption_has("upl-gui.footprint"), "the warning ate the footprint line")
+  end)
+
+  test("an ordinary plan carries no warning and stays plain", function()
+    research.full(player().force)
+    open_with("iron-gear-wheel")
+    assert(caption_has("upl-gui.footprint"), "no footprint on a valid plan")
+    local colour = status().style.font_color
+    assert(colour.g > 0.99 and colour.b > 0.99,
+      "an unremarkable plan was coloured " .. serpent.line({ colour.r, colour.g, colour.b }))
+  end)
+
+  test("a refusal replaces the caption, disables Place, and is coloured as an error", function()
+    -- Cleared rather than assumed: choices persist per player across tests, so an earlier
+    -- pick would reopen the modal already valid. apply_defaults deliberately never defaults
+    -- the recipe, so clearing it IS the never-picked state.
+    choices().recipe = nil
+    gui.open(player())
+    -- Nothing picked is the refusal every player meets first.
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == false,
+      "Place enabled with nothing picked")
+    assert(caption_has("upl-gui.pick-a-recipe"),
+      "the refusal never reached the status line: " .. serpent.line(status().caption))
+    local colour = status().style.font_color
+    assert(math.abs(colour.g - 0.35) < 0.01 and math.abs(colour.b - 0.35) < 0.01,
+      "error colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
+  end)
+end)
