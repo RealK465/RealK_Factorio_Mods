@@ -1561,38 +1561,26 @@ describe("the modal", function()
     assert(columns_field("normal").text == "1", "the display did not return to one")
   end)
 
-  test("the balanced line names whole counts and no longer offers a one-click write", function()
+  test("the wizard shows nothing below the rows and opening it stores nothing", function()
+    -- The balanced-counts hint that used to close the panel went at the owner's ask
+    -- (2026-08-29); its one-click Apply had already gone after a click on a big layout
+    -- asked the engine for a plan it could not survive (2026-08-28). What remains must
+    -- store nothing the player did not type.
     open_with_gears()
     gui.open_columns(player())
     local panel = columns_panel()
-    local line = panel["upl-columns-content"]["upl-columns-balanced-line"]
-    assert(line, "the balanced line is missing for a working loop")
-
-    -- The line shows exactly what balanced_columns answers, joined with the pinned-one
-    -- target -- the hint and the plan's own clamp share one formula and one cap.
-    local balanced = planner.balanced_columns(player().force, choices())
+    local content = panel["upl-columns-content"]
+    assert(content["upl-columns-balanced-line"] == nil, "the balanced line is back")
+    assert(content["upl-columns-sep"] == nil, "the balanced separator is back")
+    assert(content["upl-columns-use-balanced"] == nil, "the one-click balanced write is back")
     local tiers = planner.tiers_up_to(choices().quality)
-    local parts = {}
-    for index = 1, #tiers - 1 do
-      parts[#parts + 1] = tostring(balanced[tiers[index]])
-    end
-    parts[#parts + 1] = "1"
-    assert(line.caption[2] == table.concat(parts, " / "),
-      "the line shows " .. tostring(line.caption[2])
-      .. " but balanced_columns answers " .. table.concat(parts, " / "))
-
-    -- The Apply button is gone on purpose: one click on a big layout asked the engine for
-    -- a plan it could not survive (owner's report, 2026-08-28). The hint stays informative
-    -- only, so merely opening the wizard stores nothing.
-    assert(panel["upl-columns-content"]["upl-columns-use-balanced"] == nil,
-      "the one-click balanced write is back")
     for index = 1, #tiers - 1 do
       assert(choices()["column_count_" .. tiers[index]] == nil,
-        "the balanced line stored a count for " .. tiers[index])
+        "opening the wizard stored a count for " .. tiers[index])
     end
   end)
 
-  test("the columns wizard follows the target and survives a module change", function()
+  test("the columns wizard follows the target and survives rate changes", function()
     open_with_gears()
     gui.open_columns(player())
 
@@ -1605,28 +1593,24 @@ describe("the modal", function()
     assert(columns_panel()["upl-columns-content"]["upl-columns-list"]["upl-columns-row-uncommon"] == nil,
       "the wizard lists the new target as a lower tier")
 
-    -- A quality-module change moves every station time, so the open wizard rebuilds to a
-    -- fresh balanced line rather than showing a stale one.
+    -- Rate changes -- modules, the mix checkbox, beacons -- move nothing this wizard shows
+    -- since the balanced line went, so the open panel SURVIVES all of them: the same panel
+    -- reference staying valid is what proves the cheap refresh ran, not a rebuild.
+    local before_panel = columns_panel()
     local module_button = widget({ "upl-options", "upl-modules-strip", "upl-quality-module" })
     module_button.elem_value = { name = "quality-module-2", quality = "normal" }
     fire(module_button)
-    assert(columns_panel() and columns_panel().valid, "the module change dropped the wizard")
+    assert(before_panel.valid, "a module change rebuilt the columns wizard for nothing")
 
-    -- The mix checkbox moves the station times too; the wizard survives that rebuild.
     local box = widget({ "upl-options", "upl-mix-strip", "upl-split-enabled" })
     box.state = false
     fire(box, defines.events.on_gui_checked_state_changed)
-    assert(columns_panel() and columns_panel().valid, "the mix untick dropped the wizard")
+    assert(before_panel.valid, "the mix untick rebuilt the columns wizard for nothing")
 
-    -- A beacon change moves the transmitted effects the balanced line is priced with, so it
-    -- REBUILDS the wizard -- the old panel reference dies, which is what proves a rebuild
-    -- rather than a refresh. Caught in review when the wizard still carried a one-click
-    -- write; the declared `rates` invalidation stays for the balanced line itself.
-    local before_panel = columns_panel()
     local beacon_module = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
     beacon_module.elem_value = { name = "efficiency-module", quality = "normal" }
     fire(beacon_module)
-    assert(not before_panel.valid, "the beacon-module change did not rebuild the wizard")
+    assert(before_panel.valid, "a beacon change rebuilt the columns wizard for nothing")
     assert(columns_panel() and columns_panel().valid, "the beacon change dropped the wizard")
   end)
 end)

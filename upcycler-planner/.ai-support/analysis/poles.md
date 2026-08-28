@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.16
-verified: 2026-08-26
+verified: 2026-08-28
 ---
 # Pole placement — the coverage pass
 
@@ -223,15 +223,83 @@ Proven identical over **7040 configurations** — the sweep gained a 5x5 machine
 fragments the wire network into the many components `bridge` then has to join — with two
 deliberate breaks tripping 2330 and 4034 of them.
 
-**What is genuinely left.** `bridge` is still the largest single term (~32% of a 254-tier solve),
-`without_overlapping` rebuilds the candidate array every round (~17%), and `distance_sq`
-recomputes pole centres on every call (~14% in `centre_of`). None of it is a hang — the worst
-measured case is 2.75 s — but 254 tiers is the mod's ceiling, Windows' hang detector fires at
-about 5 s, and Factorio's Lua is slower than the 5.5 host these figures came from, so the margin
-is real rather than comfortable. The next exact wins, largest first: mark dead candidates with a
-flag instead of rebuilding the array, and cache pole centres.
-
 **The lesson worth keeping.** The first pass profiled a *fixture* — a 3x3 machine on the vanilla
 ring — and generalised the answer to shapes it had never run. `bridge` never appeared because
 that fixture's poles all landed in one component, so there was nothing to bridge. Profile the
 shape that is slow, not the shape that is handy.
+
+### Near-linear at physical-column scale — the 2026-08-28 pass
+
+The columns feature multiplied the input: the solve's column count became physical columns, up
+to 254 tiers x 32 each, and the owner's big-layout crashes were this file's remaining
+super-linear terms hitting that product. Every one of them was replaced by an exact
+equal-output structure in one pass:
+
+- **Candidates carry their centre** (`cx`/`cy`, computed once at enumeration) — `centre_of`
+  recomputation was ~14% of a long solve, paid inside every distance call.
+- **`without_overlapping` became a per-attempt dead set** fed by a candidates-by-`dx` bucket
+  index: a placed pole retires only the candidates its footprint can reach, instead of
+  rebuilding the whole array per placement (~17%).
+- **`greedy_cover` keeps exact gains and picks from a lazy max-heap** ordered (gain, then
+  scan position) — the same first-in-scan-order tie rule as the rescanning loop, proven
+  identical. Covering a consumer decrements the gain of every candidate that also covers it
+  (the coverage lists' transpose); rounds went from a full candidate walk each to a heap pop.
+- **`bridge` memoises each candidate's in-reach pole list**, built once through the column
+  buckets and extended by one distance check per new pole — each candidate-pole pair is now
+  checked once across the whole pass, where the window walk repeated it every round. The
+  per-candidate `touched` table became a round-stamped shared table (the per-round allocation
+  was itself a measurable cost), materialised only for the accepted winner.
+- **`components_of` walks neighbours through centre-column buckets**, collecting, sorting and
+  then visiting so the member order — spanning_wires' tie-break vocabulary — is byte-identical
+  to the old ascending scan. Was poles squared, three calls per attempt.
+- **`spanning_wires` offers only to poles within wire reach** (sound because the pole popped
+  each round carries the cut's minimum edge, which is always within reach) **and pops from the
+  same lazy heap** keyed (distance, then component position). Both tie-breaks reproduced, the
+  second-end one included.
+- **`plan_with_poles`' dead-column scan** (planner.lua) binary-searches the one sorted,
+  disjoint column that can hold each pole, and `within_columns` does the same per candidate —
+  both were candidates-or-poles times columns.
+
+Measured on the host interpreter (Lua 5.5), before and after in the same machine session so
+the ratios are honest — the box swings ~2x with thermal state, which is why every pair below
+was taken back to back. `tiers x columns` are physical columns:
+
+| shape | columns | before | after | ratio |
+|---|---|---|---|---|
+| 5 tiers x 32, medium (the vanilla ceiling) | 129 | 0.19 s | 0.06 s | 3x |
+| 254 x 1, medium 3x3 | 254 | 0.77 s | 0.14 s | 6x |
+| 254 x 1, medium 5x5 (the old 82 s hang shape) | 254 | 6.1 s | 0.34 s | 18x |
+| 254 x 1, big electric 5x5 | 254 | 6.8 s | 0.49 s | 14x |
+| 64 x 8, medium 5x5, fluid | 505 | 21.5 s | 0.67 s | 32x |
+| 254 x 8, medium 3x3 | 2025 | 58 s | 1.3 s | 46x |
+| 254 x 32, medium 3x3 (the full ceiling) | 8097 | 754 s | 4.9 s | ~150x |
+| 254 x 32, medium 5x5 | 8097 | killed unfinished past 20 min | 11.8 s | >100x |
+
+(The 754 s row's before came from a faster machine state than its after, so ~150x is the
+conservative reading.) In game (2.1.16 headless, a 35-tier modded chain via a scratch quality
+mod, timed around `validate` + `plan` — one refresh's real cost): 35 tiers x 32 columns went
+**46.7 s to 0.7-1.8 s** across machine states; the old build also tripped factorio-test's
+15 s stuck-process watchdog on that shape, which is the owner's crash reproduced under
+measurement. The 129-column vanilla ceiling went 0.28-0.43 s to 0.08-0.17 s, and vanilla
+one-column plans sat at ~10-25 ms before and after — the fast cases did not move.
+
+The margin was spent the next day: `MAX_COLUMNS_PER_TIER` doubled to 64 (owner's call,
+2026-08-29), measured first — 254 x 64 = 16,193 columns solves in 4.5 s host (11 s with a
+5x5 machine), and in game the 35-tier mod at full 64 columns (2177 columns, 46k entities)
+costs 1.67 s per refresh, the exact linear doubling of its x32's 780 ms. The solve now
+scales with the input where the old one squared, which is what made the doubling a product
+call instead of a hang risk.
+
+**Proven identical** over the 4416-configuration layout grid (six pole shapes, four machine
+footprints, four gap patterns, fluid on/off, tiers x columns to 104 physical columns) plus
+1200 pseudo-random scattered plans that force heavy bridging and spanning ties — every field
+of every pole, `wire_to` included, plus the pinned 8-tier wire tree and the in-game suite
+(333). Both harnesses were falsified first: a dropped spanning second-end tie-break trips 10
+grid and 17 scattered configurations, a flipped greedy tie trips all of them.
+
+**What is genuinely left.** The remaining cost is the honest linear work — enumerating
+candidates over the plan area, round-1 coverage lists, and `layout.build`'s entity tables,
+each paid per ladder attempt. At the current ceiling (253 x 64 + 1 = 16,193 physical
+columns) that is ~4.5 s per solve on the host (~11 s with a 5x5 machine) and a few seconds
+in game: no longer a hang, but not free — `MAX_COLUMNS_PER_TIER` stays a real ceiling, now
+with margin under it rather than none.

@@ -21,8 +21,9 @@ module and its per-tier counts live inside it (since
 2026-08-28) — final machine module, electric pole, pipe, beacon, beacon module,
 a beacons-per-tier count, an Ingredient amounts row whose Edit... button opens the third side
 panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fifth (since
-2026-08-28 — per-tier column counts with a balanced-columns hint; both rows moved down from
-the MAKES block the same day), the circuit-limits checkbox with its per-tier Limits wizard (since
+2026-08-28 — per-tier column counts; both rows moved down from
+the MAKES block the same day, and the balanced-columns hint the panel first carried was
+removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
 2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
@@ -38,7 +39,8 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (333 tests on both tracks as of 2026-08-28) — planner, layout, poles, circuits, the
+suite under `tests/` (331 tests on `main` as of 2026-08-29; `legacy/2.0` holds 333 until the
+pending cherry-pick) — planner, layout, poles, circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -332,15 +334,15 @@ re-opening any of these, and don't restate a reason here.
   `analysis/api.md` §30.
 - **Each lower tier can repeat its whole column** (2026-08-28): a *Columns per tier* row in
   Build options opens the fifth side panel — per-tier counts under only-on-edit
-  `column_count_<quality>` keys, floor one, cap `planner.MAX_COLUMNS_PER_TIER` (32, a
-  performance ceiling named in the field tooltip; it opened at 250 and came down the same
-  day after big-layout crashes), the
+  `column_count_<quality>` keys, floor one, cap `planner.MAX_COLUMNS_PER_TIER` (64, a
+  performance ceiling named in the field tooltip; it opened at 250, came down to 32 the
+  same day after big-layout crashes, and doubled to 64 on 2026-08-29 once the pole solve
+  went near-linear), the
   target pinned at one column. The expansion lives in `planner.plan` alone (`tier_columns` /
   `expand_columns`); layout, circuits, poles, blueprint and quality_math are untouched, and the
-  solve keeps the distinct chain. The wizard shows the balanced column counts from
-  `station_times` — the pace formula's single owner — as a hint to type in; its one-click
-  Apply button was removed the day it landed, for the same crashes ("balanced columns" in
-  every player string; "ratio" stays the module mix's word).
+  solve keeps the distinct chain. The wizard is rows and nothing else: its balanced-counts
+  hint was removed at the owner's ask on 2026-08-29, its one-click Apply having already
+  gone the day the feature landed, for the crashes above.
   The counts and pace follow every keystroke; the yield line never moves with
   columns. Reasons: `.ai-support/decisions.md`.
 - **The status area is one label per line** (2026-08-28): stats always plain white

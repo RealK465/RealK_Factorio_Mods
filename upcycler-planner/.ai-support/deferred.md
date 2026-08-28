@@ -77,8 +77,10 @@ mechanism are the same event.
 
 ### Scaling beyond one machine per tier — SHIPPED in 1.0.0 (2026-08-28)
 Shipped along this entry's own recorded shape: **repeat columns per tier**, the target pinned
-at one, the balanced ratio computed live from `station_times` rather than copied from the
-wiki table. `decisions.md` → the columns-per-tier bullet owns the contract; the recyclers
+at one. The balanced-counts hint the wizard first carried was removed before release
+(owner's ask, 2026-08-29) — the pace line already reports the bottleneck, and the wizard
+now shows nothing it does not store. `decisions.md` → the columns-per-tier bullet owns the
+contract; the recyclers
 still ride 1:1 per column as deliberate over-provision, preserving the eject-and-relief
 mechanism. What stays parked here: the ring is the eventual ceiling (one belt of shared
 circulation), and the wild's builds past that point are bot farms — which is what the
@@ -118,29 +120,26 @@ infinite-quality-tiers-plus stopped dead at its 32nd tier (`uncommon-III`), repo
 played 2.0 game. `planner.walk_quality_chain(first)` is the walk, taking the head so a synthetic
 chain can exercise it; `planner_spec` feeds it 100 stub nodes and two kinds of cycle.
 
-**The cost half is largely paid.** A column index in `coverage` and an incremental spanning tree
-took 254 tiers from 2604 ms to 441 ms per solve, proven identical over 5280 configurations —
-`analysis/poles.md` → *Long chains* carries the evidence and the soundness argument. Guarding
-the nine picker handlers that only refresh halved the number of solves a pick costs on top of
-that — one click raises two events into a tag-routed dispatcher, so each was planning the loop
-twice. What is left:
+**The cost half is paid** (2026-08-28, second pass — `analysis/poles.md` → *Near-linear at
+physical-column scale* carries the measurements, the structures and the falsified parity
+sweeps). Every super-linear term in the pole pass was replaced by an exact equal-output
+structure: cached candidate centres, a dead set over a `dx` bucket index in place of the
+per-placement array rebuild, exact gains under a lazy max-heap in the greedy cover,
+memoised incremental reach lists in `bridge`, bucketed component walks, a windowed heap Prim
+in `spanning_wires`, and binary search for the two column-membership scans. The full
+254 x 32 ceiling went **754 s to under 5 s** per solve on the host; in game, a 35-tier chain
+at 32 columns went **46.7 s to under 2 s** where the old build tripped the test runner's
+stuck-process watchdog — the owner's crash, reproduced and closed. Guarding the nine picker
+handlers that only refresh had already halved the number of solves a pick costs — one click
+raises two events into a tag-routed dispatcher, so each was planning the loop twice.
 
-- **The solve is no longer a hang, but the margin is not comfortable.** A high tier in a played
-  2.0 game was killed by Windows as a hung application; the cause was `bridge` scoring every
-  candidate against every pole, cubic in the chain length, and a column index took the worst
-  measured case from 82 s to 2.5 s. The mod's ceiling is 254 tiers and Windows' hang detector
-  fires at about 5 s, so the next exact wins are worth having: mark dead candidates with a flag
-  rather than rebuilding the array each round (~17% of a solve), and cache pole centres (~14%).
-  `analysis/poles.md` → *The hang* has the profile and the falsified sweep.
-  **The columns feature raised the input ceiling** (2026-08-28): the solve's column count is
-  now physical columns, up to 254 tiers x `MAX_COLUMNS_PER_TIER` each, and the nested
-  dead-column scan in
-  `plan_with_poles` (`utility_columns` x `poles.entities`) plus `poles.lua`'s candidates x
-  columns pass scale with it. The cap opened at 250 and came down to **32 the same day** —
-  the owner hit crashes on big layouts, so the ceiling is now 254 x 32 and the worst case
-  shrank about eightfold with it. If the hang range ever has to come back down further, the
-  cheapest single lever is bucketing `poles.entities` by `dx` once per pass —
-  O(columns + poles) instead of the product (noted in the 1.0.0 cleanup review, not measured).
+What is left is the honest linear work — candidate enumeration over the plan area, round-1
+coverage lists, `layout.build`'s entity tables, each paid per ladder attempt — a few seconds
+in game at the extreme ceiling. The owner spent the new margin the next day:
+`MAX_COLUMNS_PER_TIER` doubled to **64** on 2026-08-29 (measured first — 254 tiers x 64 is
+~4.5 s host, a 35-tier mod at full 64 columns ~0.6 s host — the near-linear solve makes the
+doubling cost proportional where the old code squared it). The cap stays a real ceiling; the
+blueprint the engine is handed still grows with it either way.
 
 ### Which item is worth upcycling — the picker ranks nothing
 The item picker offers every upcyclable item and says nothing about which of them is a good
