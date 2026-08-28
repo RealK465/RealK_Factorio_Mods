@@ -143,6 +143,7 @@ if script.active_mods["factorio-test"] then
     "tests.pure.layout_spec",
     "tests.pure.poles_spec",
     "tests.pure.circuits_spec",
+    "tests.pure.quality_math_spec",
     "tests.state_spec",
     "tests.planner_spec",
     "tests.plan_spec",

@@ -57,6 +57,12 @@ function state.prune()
     if c.quality_module and not planner.is_quality_module(c.quality_module) then
       c.quality_module = nil
     end
+    -- The split's productivity module prunes by ROLE like the quality module -- both are
+    -- belt-shape pickers whose stale pick falls back to a default -- where the terminal and
+    -- beacon modules below prune by mere module membership, their pickers offering any family.
+    if c.productivity_module and not planner.is_productivity_module(c.productivity_module) then
+      c.productivity_module = nil
+    end
     -- c.no_poles is a plain boolean, never a prototype reference -- nothing to prune there.
     if c.pole and not planner.is_pole(c.pole) then c.pole = nil end
     -- A pruned beacon simply reads as off -- it has no default to fall back to. Its module is
@@ -86,9 +92,9 @@ function state.prune()
     -- One pass, the precedence structural: a circuit reserve or cap prunes by the quality in
     -- its KEY (circuit_min_<quality> / circuit_max_<quality> hold numbers), and only what
     -- neither family claims falls through to the value test -- so a modded tier whose own
-    -- name ends in _quality cannot trip the wrong sweep. circuit_enabled is a plain boolean
-    -- like no_poles, nothing to prune; the target `quality` has no underscore and keeps its
-    -- own test above.
+    -- name ends in _quality cannot trip the wrong sweep. circuit_enabled and split_enabled
+    -- are plain booleans like no_poles, nothing to prune; the target `quality` has no
+    -- underscore and keeps its own test above.
     -- The ingredient-amount overrides belong to the chosen recipe: request_<item> holds the
     -- player's number for one of ITS ingredients, so an override whose item left the recipe --
     -- or whose recipe was itself pruned above -- goes with it. The formula default needs no
@@ -105,6 +111,7 @@ function state.prune()
     end
     for key, quality in pairs(c) do
       local tier = key:match("^circuit_min_(.+)$") or key:match("^circuit_max_(.+)$")
+        or key:match("^split_prod_(.+)$")
       local item = key:match("^request_(.+)$")
       if tier then
         if not planner.is_quality(tier) then c[key] = nil end

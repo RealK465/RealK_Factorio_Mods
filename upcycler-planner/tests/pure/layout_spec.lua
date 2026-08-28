@@ -259,6 +259,66 @@ describe("layout.build per-tier wiring", function()
     end
   end)
 
+  test("a split tier mixes the two modules; homogeneous tiers keep the flat shape", function()
+    -- The split arrives as productivity counts per lower tier. Tier 1 mixes 1q+1p on the
+    -- 2-slot machine -- the one case that becomes an ARRAY, quality first so its stacks come
+    -- first -- while tier 2, with no entry, stays the flat all-quality table every existing
+    -- consumer reads, and the terminal and the recyclers never consult the split at all.
+    local built = layout.build(params_with({ modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      productivity_module = { name = "productivity-module", quality = "rare" },
+      terminal_module = { name = "productivity-module", quality = "normal" },
+      split = { 1 },
+    } }))
+    local by_tier = {}
+    for _, m in pairs(by_name(built, "assembling-machine-2")) do
+      by_tier[m.recipe_quality] = m.modules
+    end
+
+    local mixed = by_tier["normal"]
+    assert(mixed[1] and mixed[2] and not mixed.name, "the split tier is not an array")
+    assert(mixed[1].name == "quality-module" and mixed[1].count == 1
+      and mixed[1].quality == "normal", "quality half wrong: " .. mixed[1].name)
+    assert(mixed[2].name == "productivity-module" and mixed[2].count == 1
+      and mixed[2].quality == "rare", "productivity half wrong: " .. mixed[2].name)
+
+    assert(by_tier["uncommon"].name == "quality-module" and by_tier["uncommon"].count == 2,
+      "an unsplit lower tier lost the flat all-quality shape")
+    assert(by_tier["rare"].name == "productivity-module",
+      "the terminal machine must ignore the split")
+    for _, r in pairs(by_name(built, "recycler")) do
+      assert(r.modules.name == "quality-module" and r.modules.count == 4,
+        "a recycler consulted the split")
+    end
+  end)
+
+  test("a split collapses to the flat shape at its edges, and without a productivity module", function()
+    -- All-productivity is still one identity, so it stays a single spec; a split with no
+    -- productivity module to price is a guard case that must read all-quality, never crash.
+    local all_prod = layout.build(params_with({ modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      productivity_module = { name = "productivity-module", quality = "normal" },
+      split = { 2, 2 },
+    } }))
+    for _, m in pairs(by_name(all_prod, "assembling-machine-2")) do
+      if m.recipe_quality ~= "rare" then
+        assert(m.modules.name == "productivity-module" and m.modules.count == 2,
+          "an all-productivity tier should stay one flat spec")
+      end
+    end
+
+    local guarded = layout.build(params_with({ modules = {
+      quality_module = { name = "quality-module", quality = "normal" },
+      split = { 1, 1 },
+    } }))
+    for _, m in pairs(by_name(guarded, "assembling-machine-2")) do
+      if m.recipe_quality ~= "rare" then
+        assert(m.modules.name == "quality-module" and m.modules.count == 2,
+          "a split with no productivity module must read all-quality")
+      end
+    end
+  end)
+
   test("each non-terminal tier carries the blacklist relief inserter for its own ingredients", function()
     local built = layout.build(params_with())
     local blacklists = {}

@@ -105,22 +105,11 @@ in place of a supply area. Revisit if it turns out to be a common ask.
 
 ## Planner intelligence
 
-### Expected-output display
-2.1.13 added `LuaQualityPrototype.get_roll_chances()`, so the GUI could show a real "items in per
-target item out" estimate from the engine rather than a hardcoded table. Some of the demand for
-this mod is a discoverability gap, so showing the maths may be worth more than it looks.
-
-### Optimal module split
-The current rule — quality below target, productivity at target — is correct **for
-normal-quality modules**. Once the player's own modules are high quality the optimal split shifts
-productivity-ward even on lower tiers. Drive this from `get_roll_chances()` when it lands, not
-from a copied wiki table.
-
-**Sharper again on 2026-08-17**, when the top machine's module became its own picker with its own
-quality (the repo owner's call). So the
-only part left to compute is the *split itself*: which module goes in which tier, at the
-qualities the player chose. The mod no longer guesses at anything else — every module it plans is
-either picked or defaulted from a rule the player can see and override.
+Two entries used to live here and **shipped together in 0.7.0 (2026-08-28)**: the optimal
+module split (computed per tier from `get_roll_chances()`, overridable in the Ratios...
+wizard) and the expected-output display (the status line's yield figure, from the same
+solve). `decisions.md` → the module-mix bullets own what is settled; `analysis/api.md` §30
+the engine facts.
 
 ### Self-recycling items
 Steel and friends have no ingredient-reversal recipe, only the lossy 25%-of-itself fallback. A
@@ -165,10 +154,11 @@ idea, while the community's heuristics are settled and public (surveyed 2026-08-
   EM plant and cryo plant (`quality-math.md` §3). The mod already makes that a player choice; it
   just never says which way is up.
 
-This is the **expected-output entry above wearing a different hat**, and the two should ship
-together or not at all: both are the same computation from `get_roll_chances()`, and both address
-the same demand — some of this mod's audience is a discoverability gap, not a layout gap
-(`quality-math.md` §5). Cheapest useful version is a figure in the tooltip, not a sorted list:
+**Half of this shipped in 0.7.0** (2026-08-28): the expected-output display now sits on the
+status line, from `planner.split`'s solve — so the computation this entry needs already
+exists and is memoised. What stays parked is the *ranking* half: a per-item figure in the
+picker's tooltip, which would mean one solve per offered item rather than one per
+configuration. Cheapest useful version is still a figure in the tooltip, not a sorted list:
 a re-ordered picker fights the engine's own item ordering and the *Show unresearched items*
 setting at once.
 
@@ -184,8 +174,11 @@ tier's dwell time at one machine per tier? The warning is deliberately indiffere
 the property, not a predicted outcome — and the spread argues something finer is possible.
 `stack-inserter` takes jelly at **4 minutes**, which cannot survive any realistic loop; `spidertron`
 takes raw fish at **2.1 hours**, which almost certainly can. A dwell-time model would let the short
-end refuse and the long end stay silent, instead of one warning covering both. Needs a real
-measurement of throughput per tier, which nothing in the mod computes today.
+end refuse and the long end stay silent, instead of one warning covering both. The raw material
+arrived with the pace line (2026-08-28): `quality_math.solve`'s flow pass reports expected crafts
+per tier (`yield.machine_sets`/`recycled`) and `planner.loop_seconds` already prices each
+station's craft time — what is still unbuilt is turning those into a per-tier dwell and comparing
+it against `get_spoil_ticks`.
 
 ### Multiple recipes for one item — declined in public, recorded so it is not re-litigated
 Asked for by pacak on the portal (discussion `6a831b6195e6fa72706517ef`, 2026-08-18): *"When
@@ -217,8 +210,9 @@ offers a 4 that costs 7.5 MW, four modules and a stack's worth of rows for zero 
 is the ordinary case for a stack rather than an exotic one.
 
 Cheapest fix: read `profile` and stop offering counts past the last one that raises transmission.
-Fuller fix: name the multiplier beside each count — which is the expected-output entry's shape
-again, and the third thing that argues for doing that work once.
+Fuller fix: name the multiplier beside each count — which since 0.7.0 has its machinery half
+built: the yield display exists, though the split's model deliberately prices beacons as
+invisible (`decisions.md`), so a per-count multiplier stays its own read of `profile`.
 
 ## The blueprint the player is handed
 
@@ -282,16 +276,21 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   Patch Planner carries `uk`, `ru`, `pl` and `fr`, so shipping one is normal for the genre; the
   first candidate is **Spanish**, on the only evidence there is — a player who thanked the
   author in Spanish on the portal (discussion `6a8f5bb2eaca06c38cc3cc94`, 2026-08-27).
-- **Choice reconciliation is written twice, once per layer** (found in review, 2026-08-17).
-  `planner`'s `chosen_*` family answers "the pick if it is still valid, else the default" purely;
-  `gui.apply_defaults` and the recipe and machine handlers answer the same question destructively,
-  in a different idiom. They have already drifted once: `resolve_terminal_module` corrects on
-  `module_fits` (machine **and** recipe), `chosen_terminal_module` only on `is_module` — which is
-  why validate's terminal-module refusal branch is currently unreachable through the modal. One
-  `planner.reconcile(force, choices)` that runs the family and writes back would leave the GUI
-  displaying only. ~50 lines moved and four `gui_spec` cases touched, so it wants a reason: the
-  **roboport picker** below is the one that pays for it, since a new picker has to be taught two
-  resolvers in two files.
+- **Choice reconciliation is written twice, once per layer — three pickers deep since
+  2026-08-28** (found in review, 2026-08-17). `planner`'s `chosen_*` family answers "the pick
+  if it is still valid, else the default" purely; `gui.apply_defaults` and the recipe and
+  machine handlers answer the same question destructively, in a different idiom. They have
+  already drifted once: `resolve_terminal_module` corrects on `module_fits` (machine **and**
+  recipe), `chosen_terminal_module` only on `is_module` — which is why validate's
+  terminal-module refusal branch is currently unreachable through the modal. The predicted
+  third instance arrived with the productivity picker — `chosen_productivity_module` +
+  `resolve_productivity_module` — accepted deliberately to keep the split release's blast
+  radius off shipped terminal/beacon behaviour; both delegate their default to
+  `planner.terminal_module`, and both check `module_fits`, so this pair at least cannot
+  drift the way the terminal one did. The payoff shape is known (the 0.7.0 architecture
+  review's alternative): delete the `resolve_*` pair, export `chosen_*`, and have the
+  widgets compute `elem_value` inline — `resources()` never depended on the pre-write. Still
+  parked for the **roboport picker** below or the next one after it.
 - **`build_qualities` is a hand-list where `state.prune` derives** (found in review, 2026-08-17).
   `planner.validate` names the eight build materials whose quality it checks (the overflow chest
   joined them on 2026-08-20, and had to be added by hand exactly as this note predicts); a picker added later

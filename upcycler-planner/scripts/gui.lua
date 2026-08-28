@@ -386,10 +386,38 @@ local function quality_options(player)
 end
 
 -- Status colours: red is "Place is disabled and this is why"; orange is "it will place, but
--- know this"; plain white is the footprint line.
+-- know this"; plain white is the stats; grey is the empty-state hint, which is not a failure.
 local COLOR_ERROR = { r = 1, g = 0.35, b = 0.35 }
 local COLOR_WARNING = { r = 1, g = 0.7, b = 0.3 }
 local COLOR_PLAIN = { r = 1, g = 1, b = 1 }
+local COLOR_HINT = { r = 0.7, g = 0.7, b = 0.7 }
+
+-- Message icons ride inside the caption as rich text rather than as sprite elements, so a
+-- wrapped sentence keeps hanging under its own icon instead of under a sibling widget.
+local ICON_WARNING = "[img=utility/warning_icon] "
+local ICON_ERROR = "[img=utility/not_available] "
+
+-- One line of the status area: its own label, so every line wraps and colours independently
+-- instead of the whole block turning orange over one warning.
+local function status_line(status, name, caption, color)
+  local line = status.add({ type = "label", name = name, caption = caption })
+  line.style.single_line = false
+  -- The longest validation messages run to a sentence and a half, and an unbounded label
+  -- drags the whole modal out to their width.
+  line.style.maximal_width = 360
+  line.style.font_color = color
+  return line
+end
+
+-- An empty-state sentence for a side panel, in the status area's hint grey: the panel is
+-- waiting for a pick, not reporting a failure.
+local function hint(parent, key)
+  local label = parent.add({ type = "label", name = "upl-hint", caption = { "upl-gui." .. key } })
+  label.style.single_line = false
+  label.style.maximal_width = 360
+  label.style.font_color = COLOR_HINT
+  return label
+end
 
 function gui.refresh(player)
   local frame = frame_of(player)
@@ -411,39 +439,43 @@ function gui.refresh(player)
   limits.enabled = choices.circuit_enabled == true
 
   -- validate() and plan() check the same things, so a validated set of choices always yields
-  -- a plan; the guard is here because a mismatch would otherwise show as a blank label.
+  -- a plan; the guard is here because a mismatch would otherwise show as a blank area.
   local plan = ok and planner.plan(player.force, choices, gathered) or nil
+  status.clear()
   if plan then
-    local caption = {
+    -- The stats first, always plain: what the loop IS -- footprint and counts.
+    status_line(status, "upl-stat-layout", {
       "", { "upl-gui.footprint", plan.width, plan.height },
       "  ", { "upl-gui.summary", plan.machines, plan.recyclers },
-    }
+    }, COLOR_PLAIN)
+
     -- A message alongside ok is a warning the player can build through -- it used to be
-    -- silently dropped here, which made the warnings unreachable.
-    local warned = message ~= nil
-    if message then
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = message
-    end
-    -- The pole pass reports its shortfall on the plan rather than through validate, because
-    -- only the built geometry knows it. Same orange as any other build-through warning.
+    -- silently dropped here, which made the warnings unreachable. The pole and circuit
+    -- passes report their shortfalls on the plan rather than through validate, because only
+    -- the built geometry knows them; all three can land at once, so each gets its own line.
+    local messages = {}
+    if message then messages[#messages + 1] = message end
     if plan.unpowered then
-      warned = true
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
+      messages[#messages + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
     end
-    -- The circuit pass's own shortfall, the unpowered warning's twin: an unwired entity runs
-    -- without its limit, so the plan still places and the player should know.
     if plan.circuit_unlinked then
-      warned = true
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
+      messages[#messages + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
     end
-    status.caption = caption
-    status.style.font_color = warned and COLOR_WARNING or COLOR_PLAIN
+    if #messages > 0 then
+      local separator = status.add({ type = "line", name = "upl-status-sep" })
+      separator.style.horizontally_stretchable = true
+      for index, entry in ipairs(messages) do
+        status_line(status, "upl-message-" .. index,
+          { "", ICON_WARNING, entry }, COLOR_WARNING)
+      end
+    end
+  elseif not message or message[1] == "upl-gui.pick-a-recipe" then
+    -- Nothing picked yet is the state every player opens on: a hint, not an error. Matched
+    -- by key, not just by nil: validate returns this same message for a stale or unresolved
+    -- recipe or quality, none of which is a failure either.
+    hint(status, "pick-a-recipe")
   else
-    status.caption = message or { "upl-gui.pick-a-recipe" }
-    status.style.font_color = COLOR_ERROR
+    status_line(status, "upl-message-1", { "", ICON_ERROR, message }, COLOR_ERROR)
   end
 end
 
@@ -665,7 +697,7 @@ local function build_ingredients_panel(player, frame)
   -- after the recipe went away (the item picker cleared) -- say so instead of standing empty.
   local recipe = chosen_recipe(choices)
   if not recipe then
-    content.add({ type = "label", caption = { "upl-gui.pick-a-recipe" } })
+    hint(content, "pick-a-recipe")
     return
   end
 
@@ -1124,12 +1156,11 @@ function gui.open(player)
   })
   trash.style.top_margin = 8
 
-  -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
-  -- half, and an unbounded label drags the whole modal out to their width.
-  local status = main.add({ type = "label", name = "upl-status", caption = "" })
+  -- The status area: stats first, then one line per message. An empty flow that gui.refresh
+  -- rebuilds whole -- each line is its own label (see status_line), so the lines wrap and
+  -- colour independently.
+  local status = main.add({ type = "flow", name = "upl-status", direction = "vertical" })
   status.style.top_margin = 8
-  status.style.single_line = false
-  status.style.maximal_width = 360
 
   local buttons = main.add({ type = "flow", name = "upl-buttons", direction = "horizontal" })
   buttons.style.top_padding = 4

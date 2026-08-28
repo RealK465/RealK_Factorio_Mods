@@ -16,7 +16,9 @@ blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting 
 recycler, the last two with a quality of their own, plus an Ingredient amounts row whose Edit...
 button opens a third side panel, since 2026-08-27) above a **Build options** block for what it
 is built OUT OF: belt, inserter, ingredient chest, stock chest, relay chest, output chest,
-overflow chest, quality module, final machine module, electric pole, pipe, beacon, beacon module,
+overflow chest, quality module, the mix checkbox with its Ratios wizard — the productivity
+module and its per-tier counts live inside it (since
+2026-08-28) — final machine module, electric pole, pipe, beacon, beacon module,
 a beacons-per-tier count, the circuit-limits checkbox with its per-tier Limits wizard (since
 2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
@@ -33,7 +35,9 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (257 tests as of 2026-08-27) — planner, layout, poles, circuits, blueprint,
+suite under `tests/` (304 tests on `main` as of 2026-08-28; the 2.0 track runs the 280 its
+forked specs keep) — planner, layout, poles, circuits, the
+quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
@@ -154,13 +158,16 @@ scripts/                            one file per runtime concern, required by co
   poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
   circuits.lua the opt-in circuit-limit conditions and green wires, decorating a finished
                plan -- pure like layout.lua, and strictly after the pole pass
+  quality_math.lua the per-tier quality/productivity mix and the loop's expected yield --
+               pure like layout.lua, the engine's roll chances injected by planner.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
   *_spec.lua                        in-game specs: planner, plan, blueprint, beacon, state,
                                     loop, fluid, gui
-  pure/                             layout + poles + circuits geometry, runs on host Lua too
+  pure/                             layout + poles + circuits geometry and the quality maths,
+                                    runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
   support/layout_params.lua         the canonical vanilla layout fixture the pure specs share
@@ -306,6 +313,25 @@ re-opening any of these, and don't restate a reason here.
   defaulting to the best researched **productivity** module and to **nothing** when the recipe or
   the machine refuses productivity — never to a quality module. Clearing it means "leave that
   machine empty".
+- **Each lower tier's machine carries the computed best quality/productivity mix by default**
+  (2.1-only — `legacy/2.0` keeps the flat all-quality rule). A *Mix productivity modules*
+  checkbox, ticked by default, is the opt-out; unticking forces quality-only and parks the
+  per-tier overrides; the whole line shows only when some productivity module fits the
+  machine-and-recipe pair (show-all overrides, the pipe's rule). Solved per tier from engine data
+  in `scripts/quality_math.lua`; the *Ratios...* wizard (fourth side panel, only-on-edit
+  `split_prod_<quality>` keys) holds the productivity picker and the per-tier counts; the
+  picker is belt-shaped
+  with no clear-flag, and a productivity-refusing recipe forces all-quality with no refusal.
+  The status line shows the loop's expected items-in per item-out from the same solve, and
+  its pace — steady-state seconds per item, gated by the slowest station, from the solve's
+  flow pass plus real rates (build quality, module speed penalties, beacons; api.md §31).
+  Recyclers never split. Reasons and mechanics: `.ai-support/decisions.md`, engine facts
+  `analysis/api.md` §30.
+- **The status area is one label per line** (2026-08-28): stats always plain white
+  (footprint and counts, then yield), a separator, then one line per message — orange with a
+  warning icon, red with an error icon on refusals — and a grey hint before an item is
+  picked; the wizards' placeholder sentences wear the same grey. Shape and reasons:
+  `.ai-support/decisions.md`.
 - A picker offers only modules the machine **and** the recipe accept, by the measured rule that
   only a module's *positive* effects must be allowed (`analysis/api.md` §16); both are
   re-resolved when either half of the pair changes.

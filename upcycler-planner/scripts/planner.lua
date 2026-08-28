@@ -882,6 +882,13 @@ function planner.is_quality_module(name)
   return module_candidates("quality")[name] ~= nil
 end
 
+-- Prune's membership test for the productivity pick the SHARED state.lua carries. The pick
+-- itself is a 2.1 feature (the per-tier module mix); this track keeps only the test, so a
+-- save that came back from 2.1 prunes cleanly instead of crashing.
+function planner.is_productivity_module(name)
+  return module_candidates("productivity")[name] ~= nil
+end
+
 -- The ITEM counterpart of planner.buildable: which of these item names the force can make. What
 -- the module pickers narrow their lists with, since a module is an item and has no entity to be
 -- buildable.
