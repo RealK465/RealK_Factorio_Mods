@@ -38,8 +38,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (333 tests on `main` and 304 on `legacy/2.0` as of 2026-08-28 — the
-columns feature's port is pending) — planner, layout, poles, circuits, the
+suite under `tests/` (333 tests on both tracks as of 2026-08-28) — planner, layout, poles, circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
