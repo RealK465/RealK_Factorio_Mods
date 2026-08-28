@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.1
+Date: ????
+  Changes:
+    - Version 0.7.0's tidier status area, ported to Factorio 2.0. The module mix and the
+      yield and time lines stay Factorio 2.1 features.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.0
 Date: ????
   Features:

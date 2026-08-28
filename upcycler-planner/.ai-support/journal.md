@@ -9,6 +9,28 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - the 0.7.1 port: the status area crosses to 2.0, the mix stays home
+
+The owner's call after committing 0.7.0 (`bd58dc5`, main): port to `legacy/2.0`, keep both
+branches committed and pushed. The split fell exactly along the API line. Portable: the
+status-area redesign (pure GUI), hand-ported into the forked `gui.lua` minus the yield and
+pace lines it has nothing to feed. Not portable: mix, yield, pace — all standing on
+`get_roll_chances`, which 2.0.77 does not have. Shared files crossed verbatim
+(`quality_math.lua` and its pure spec run happily on 2.0, the solver just has no caller
+there; layout/blueprint/state/control degrade to the flat shapes), with one seam:
+the shared `state.lua` prunes the 2.1-only productivity pick through
+`planner.is_productivity_module`, so the forked legacy planner gained that one membership
+test — a save coming back from 2.1 prunes cleanly instead of crashing.
+
+The spec forks grew: `gui_spec`, `plan_spec` and `blueprint_spec` joined `planner_spec` on
+the divergent list (repo `CLAUDE.md` updated on both branches), because 0.7.0 filled them
+with 2.1-only surface. Legacy's `gui_spec` took the adapted status-area describe — both
+icon premises hold on 2.0, quantum-processor refuses there too, and the big-pole stacking
+geometry carried over unchanged. Legacy is 0.7.1, changelog section open on BOTH branches
+("the module mix and the yield and time lines stay Factorio 2.1 features"), suite 280/280
+on 2.0.77 first run, static clean, data stage exit 0. Both branches pushed; neither
+released.
+
 ## 2026-08-28 - the pace line: the solve learns to count its own crafts
 
 Third ask of the day: "add the time expected to the stats of quality." The yield knew how
