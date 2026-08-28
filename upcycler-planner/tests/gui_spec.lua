@@ -102,6 +102,26 @@ local function settings_widget(name)
   return panel["upl-settings-content"][name]
 end
 
+-- The module-ratio wizard, reached like the other panels: through the frame, never the screen.
+local function split_panel()
+  local f = frame()
+  return f and f[gui.SPLIT_FRAME]
+end
+
+local function split_field(tier)
+  local panel = split_panel()
+  assert(panel and panel.valid, "the ratio wizard is not open")
+  local list = panel["upl-split-content"]["upl-split-list"]
+  return list["upl-split-row-" .. tier]["upl-split-count-" .. tier]
+end
+
+-- The status area's yield line, or nil. The line is its own named label in the status flow,
+-- so the caption no longer has to be scanned for the key.
+local function yield_entry()
+  local label = widget({ "upl-status" })["upl-stat-yield"]
+  return label and label.caption or nil
+end
+
 -- Open the modal and pick gears through the real recipe handler, the way every later test
 -- needs it: item into the real picker, then the dispatcher.
 local function open_with_gears()
@@ -777,25 +797,24 @@ describe("the modal", function()
 
   test("a click that changes nothing does not design the loop again", function()
     -- The same double event reaches the nine pickers that only REFRESH, where it cost a second
-    -- validate + plan rather than a flash -- invisible, because gui.refresh writes labels instead
-    -- of building anything. That invisibility is also what makes the status caption the
-    -- observable here: refresh always rewrites it, so a sentinel surviving proves the second run
-    -- was skipped. On a long modded quality chain the skipped run is the most expensive thing
-    -- the mod does.
+    -- validate + plan rather than a flash -- invisible, because the status area repaints in
+    -- place. That is also what makes it the observable here: refresh always rebuilds the
+    -- status flow's children, so a child label SURVIVING proves the second run was skipped.
+    -- On a long modded quality chain the skipped run is the most expensive thing the mod does.
     open_with_gears()
     local button = widget({ "upl-options", "upl-transport-strip", "upl-belt" })
-    local status = widget({ "upl-status" })
+    local layout = widget({ "upl-status" })["upl-stat-layout"]
 
-    status.caption = "sentinel"
+    layout.caption = "sentinel"
     fire(button, defines.events.on_gui_click)
-    assert(status.caption == "sentinel",
-      "an unchanged click re-planned the loop; caption became " .. tostring(status.caption))
+    assert(layout.valid and layout.caption == "sentinel",
+      "an unchanged click re-planned the loop")
 
     -- And a genuine pick still repaints, so the guard cannot be swallowing real changes.
     button.elem_value = "transport-belt"
     fire(button)
     assert(choices().belt == "transport-belt", "the pick did not land")
-    assert(status.caption ~= "sentinel", "a genuine pick left the status stale")
+    assert(not layout.valid, "a genuine pick left the status stale")
   end)
 
   test("the settings panel can never separate from the planner window", function()
@@ -1219,7 +1238,7 @@ describe("the modal", function()
       "the new recipe's field opened as " .. request_field("iron-gear-wheel").text)
   end)
 
-  test("the ingredient panel shares the slot with the other two", function()
+  test("the ingredient panel shares the slot with the other three", function()
     open_with_gears()
     gui.open_ingredients(player())
     gui.open_settings(player())
@@ -1231,6 +1250,213 @@ describe("the modal", function()
     assert(ingredients_panel() == nil, "the wizard did not close the ingredient panel")
     gui.open_ingredients(player())
     assert(circuits_panel() == nil, "the ingredient panel did not close the wizard")
+    gui.open_split(player())
+    assert(ingredients_panel() == nil, "the ratio wizard did not close the ingredient panel")
+    gui.open_ingredients(player())
+    assert(split_panel() == nil, "the ingredient panel did not close the ratio wizard")
+  end)
+
+  -- The picker lives inside the wizard since the UI revision, so every look at it opens the
+  -- panel first; one owner for the inner path, the circuit helpers' rule.
+  local function split_module_picker()
+    local panel = split_panel()
+    assert(panel and panel.valid, "the ratio wizard is not open")
+    return panel["upl-split-content"]["upl-split-module-row"]["upl-productivity-module"]
+  end
+
+  test("the productivity picker defaults with the pair, snaps back, and empties honestly", function()
+    open_with_gears()
+    assert(choices().productivity_module == "productivity-module-3",
+      "gears should default the split's module to prod-3, got "
+      .. tostring(choices().productivity_module))
+    gui.open_split(player())
+    local button = split_module_picker()
+    assert(button.elem_value and button.elem_value.name == "productivity-module-3",
+      "the picker does not show the default")
+
+    -- The belt's rule: emptied snaps back to the default, visibly -- through the rebuild
+    -- the escalation runs with the wizard open.
+    button.elem_value = nil
+    fire(button)
+    assert(choices().productivity_module == "productivity-module-3",
+      "clearing did not snap back")
+    assert(split_module_picker().elem_value.name == "productivity-module-3",
+      "the snap-back is not shown")
+
+    -- A recipe that refuses productivity leaves the picker honestly empty beside the
+    -- sentence saying why -- the forced-all-quality case -- and Place stays enabled.
+    local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    recipe_button.elem_value = "wooden-chest"
+    fire(recipe_button)
+    assert(choices().productivity_module == nil,
+      "a refusing recipe left " .. tostring(choices().productivity_module) .. " in choices")
+    assert(split_module_picker().elem_value == nil,
+      "the picker still shows a module the plan cannot use")
+    assert(split_panel()["upl-split-content"]["upl-split-list"] == nil,
+      "a productivity-refusing recipe still lists ratio rows")
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled,
+      "a productivity-refusing recipe disabled Place")
+  end)
+
+  test("the mix row appears only where productivity can mix", function()
+    gui.open(player())
+    assert(widget({ "upl-options", "upl-mix-strip" }).visible == false,
+      "no recipe picked, yet the mix row shows")
+    open_with_gears()
+    assert(widget({ "upl-options", "upl-mix-strip" }).visible == true,
+      "gears take productivity, yet the mix row hides")
+
+    local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    recipe_button.elem_value = "wooden-chest"
+    fire(recipe_button)
+    assert(widget({ "upl-options", "upl-mix-strip" }).visible == false,
+      "a productivity-refusing recipe kept the mix row on display")
+
+    -- Show-all reveals it, the pipe's rule: asking to see everything means everything.
+    player().mod_settings["upcycler-planner-show-all-build-options"] = { value = true }
+    assert(widget({ "upl-options", "upl-mix-strip" }).visible == true,
+      "show-all did not reveal the mix row")
+    player().mod_settings["upcycler-planner-show-all-build-options"] = { value = false }
+  end)
+
+  test("the mix checkbox starts on, disarms Ratios and closes the wizard when unticked", function()
+    open_with_gears()
+    local box = widget({ "upl-options", "upl-mix-strip", "upl-split-enabled" })
+    local button = widget({ "upl-options", "upl-mix-strip", "upl-split" })
+    assert(box.state == true, "the mix must start on")
+    assert(button.enabled == true, "an item is picked, Ratios must be armed")
+    gui.open_split(player())
+
+    box.state = false
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(choices().split_enabled == false, "the untick did not reach the choices")
+    assert(split_panel() == nil, "unticking left the wizard standing")
+    -- Re-fetched: the handler refreshes, never rebuilds, so the reference itself survives.
+    assert(button.valid and button.enabled == false, "the untick did not disarm Ratios in place")
+
+    box.state = true
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(choices().split_enabled == true, "the re-tick did not land")
+    assert(button.enabled == true, "the re-tick did not re-arm Ratios")
+  end)
+
+  test("the Ratios button waits for an item, then opens rows at the computed optimum", function()
+    gui.open(player())
+    local button = widget({ "upl-options", "upl-mix-strip", "upl-split" })
+    assert(button.enabled == false, "Ratios must be dead until an item is picked")
+
+    open_with_gears()
+    button = widget({ "upl-options", "upl-mix-strip", "upl-split" })
+    assert(button.enabled == true, "picking an item did not arm Ratios")
+
+    fire(button, defines.events.on_gui_click)
+    local panel = split_panel()
+    assert(panel and panel.valid, "Ratios opened nothing")
+    assert(panel.parent == frame(), "the wizard must be a column inside the planner's element")
+    assert(player().gui.screen[gui.SPLIT_FRAME] == nil,
+      "the wizard must not be a separate screen window")
+    -- Gears at normal modules: the computed optimum is all-quality, shown as 0 productivity
+    -- slots per lower tier -- and NOTHING stored, the ingredient panel's rule.
+    for _, tier in pairs({ "normal", "uncommon" }) do
+      assert(split_field(tier).text == "0",
+        tier .. " opened as " .. split_field(tier).text)
+      assert(choices()["split_prod_" .. tier] == nil,
+        "opening the wizard stored an override for " .. tier)
+    end
+    -- The target tier has no row -- its machine is the terminal picker's business -- and at
+    -- full research the untouched target defaults to the top of the chain.
+    assert(choices().quality == "legendary", "test premise: the default target moved")
+    local list = panel["upl-split-content"]["upl-split-list"]
+    assert(list["upl-split-row-epic"], "the tier below the target lost its row")
+    assert(list["upl-split-row-legendary"] == nil, "the target tier grew a ratio row")
+  end)
+
+  test("typing a ratio moves the yield line without waiting for Enter", function()
+    -- The field commits every keystroke, and clicking to the next field never fires a
+    -- confirm -- so if only Enter repainted, a player typing through the rows would watch
+    -- the stats sit still while the plan underneath already changed (reported 2026-08-28).
+    open_with_gears()
+    gui.open_split(player())
+    local before = yield_entry()
+    assert(before, "a valid plan must carry the yield line")
+
+    local field = split_field("normal")
+    field.text = "4"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().split_prod_normal == 4, "the keystroke did not commit")
+    assert(field.valid, "the keystroke repaint tore down the wizard's own field")
+    local after = yield_entry()
+    assert(after, "the yield line vanished mid-type")
+    assert(after[2] ~= before[2],
+      "the override is live but the yield line still shows " .. tostring(after[2]))
+  end)
+
+  test("a ratio override commits, clamps, resets on empty Enter, and moves the yield line", function()
+    open_with_gears()
+    gui.open_split(player())
+    local before = yield_entry()
+    assert(before, "a valid plan must carry the yield line")
+
+    local field = split_field("normal")
+    field.text = "2"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().split_prod_normal == 2, "the keystroke did not commit")
+    assert(field.valid, "the keystroke rebuilt the modal under the cursor")
+
+    -- Enter refreshes -- the one wizard whose number moves the status line -- and the field
+    -- must survive its own commit.
+    fire(field, defines.events.on_gui_confirmed)
+    assert(field.valid, "Enter rebuilt the wizard under the cursor")
+    local after = yield_entry()
+    assert(after, "the yield line vanished on an override")
+    assert(after[2] ~= before[2],
+      "forcing half the slots to productivity left the yield at " .. tostring(after[2]))
+
+    -- Over the slot count clamps; empty plus Enter deletes the override and shows the
+    -- optimum again.
+    field = split_field("normal")
+    field.text = "9"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().split_prod_normal == 4, "an over-slots count did not clamp")
+    field.text = ""
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().split_prod_normal == 4, "an emptied field clobbered the override")
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices().split_prod_normal == nil, "Enter on empty kept the override")
+    assert(split_field("normal").text == "0", "the display did not return to the optimum")
+  end)
+
+  test("the wizard follows the target, survives a module change, and says when nothing mixes", function()
+    open_with_gears()
+    gui.open_split(player())
+
+    -- A target change reshapes the rows, the circuit wizard's rule.
+    local dropdown = widget({ "upl-content", "upl-table", "upl-quality" })
+    dropdown.selected_index = 1 -- uncommon
+    fire(dropdown, defines.events.on_gui_selection_state_changed)
+    assert(split_panel() and split_panel().valid, "the rebuild dropped the wizard")
+    assert(split_field("normal"), "the wizard lost the tier the new target keeps")
+    assert(split_panel()["upl-split-content"]["upl-split-list"]["upl-split-row-uncommon"] == nil,
+      "the wizard lists the new target as a lower tier")
+
+    -- A quality-module change rebuilds an open wizard to fresh defaults rather than leaving
+    -- stale ones on display.
+    local module_button = widget({ "upl-options", "upl-modules-strip", "upl-quality-module" })
+    module_button.elem_value = { name = "quality-module-2", quality = "normal" }
+    fire(module_button)
+    assert(split_panel() and split_panel().valid, "the module change dropped the wizard")
+
+    -- A recipe that refuses productivity replaces the rows with the honest sentence.
+    local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    recipe_button.elem_value = "wooden-chest"
+    fire(recipe_button)
+    local panel = split_panel()
+    assert(panel and panel.valid, "the recipe change dropped the wizard")
+    assert(panel["upl-split-content"]["upl-split-list"] == nil,
+      "a productivity-refusing recipe still lists ratio rows")
+    local sentence = panel["upl-split-content"]["upl-hint"]
+    assert(sentence and sentence.caption[1] == "upl-gui.split-no-productivity",
+      "the refusing sentence is missing")
   end)
 
   test("clearing the item leaves an open panel standing on the pick-a-recipe hint", function()
@@ -1244,6 +1470,9 @@ describe("the modal", function()
     assert(panel and panel.valid, "the rebuild dropped the panel")
     assert(panel["upl-ingredients-content"]["upl-ingredients-list"] == nil,
       "a recipe-less panel still lists ingredient rows")
+    local sentence = panel["upl-ingredients-content"]["upl-hint"]
+    assert(sentence and sentence.caption[1] == "upl-gui.pick-a-recipe",
+      "the pick-a-recipe hint is missing")
   end)
 end)
 
@@ -1392,30 +1621,31 @@ describe("the open hotkey", function()
 end)
 
 tags("gui")
-describe("the status line", function()
+describe("the status area", function()
   -- The one thing planner_spec cannot see. It pins that validate RETURNS a warning; nothing
   -- pinned that the modal SHOWS one, and gui.refresh records that warnings were once dropped
   -- here silently -- ok was read and the message thrown away, so every build-through warning
-  -- was unreachable with no error anywhere. These are that regression's guard.
+  -- was unreachable with no error anywhere. These are that regression's guard, plus the
+  -- area's structure: one label per line, so a message's colour cannot bleed into the stats.
 
-  -- The caption is a LocalisedString array the refresh concatenates, so a warning's position
-  -- in it shifts with however many other warnings landed. Scan for the key rather than index
-  -- into it: the test is "did this reach the player", not "in which slot".
   local function status()
     return widget({ "upl-status" })
   end
 
-  -- Two shapes, because the two branches of gui.refresh build the caption differently: a plan
-  -- concatenates parts under a leading "", so a message is a NESTED table; a refusal assigns
-  -- the LocalisedString itself, so its key is the caption's own first element.
-  local function caption_has(key)
-    local caption = status().caption
-    if type(caption) ~= "table" then return false end
-    if caption[1] == key then return true end
-    for _, part in pairs(caption) do
-      if type(part) == "table" and part[1] == key then return true end
+  -- A line's position in the flow shifts with however many other lines landed, so a line is
+  -- found by scanning captions for its key, never by index. Two caption shapes: a stat line
+  -- nests its keys under a leading "", a message line nests the message after its icon.
+  local function line_with(key)
+    for _, child in pairs(status().children) do
+      local caption = child.caption
+      if type(caption) == "table" then
+        if caption[1] == key then return child end
+        for _, part in pairs(caption) do
+          if type(part) == "table" and part[1] == key then return child end
+        end
+      end
     end
-    return false
+    return nil
   end
 
   local function open_with(item)
@@ -1425,48 +1655,124 @@ describe("the status line", function()
     fire(button)
   end
 
-  test("a warning reaches the caption, keeps Place enabled, and is coloured as a warning", function()
+  test("the message icons are real sprite paths", function()
+    -- The engine renders an unknown [img=...] as the literal bracket text, silently; these
+    -- two names are the premise the icon prefixes stand on.
+    assert(helpers.is_valid_sprite_path("utility/warning_icon"), "warning icon path is gone")
+    assert(helpers.is_valid_sprite_path("utility/not_available"), "error icon path is gone")
+  end)
+
+  test("a warning gets its own orange line and the stats stay plain", function()
     research.full(player().force)
     -- Productivity module 3 takes biter eggs, which rot in 30 minutes -- a real Space Age
     -- upcycling target that warns rather than refusing.
     open_with("productivity-module-3")
-    assert(caption_has("upl-message.item-spoils"),
-      "the spoilage warning never reached the status line: " .. serpent.line(status().caption))
+    local warning = line_with("upl-message.item-spoils")
+    assert(warning, "the spoilage warning never reached the status area")
     -- A warning is build-through by definition; a warning that disabled Place would be a
     -- refusal wearing the wrong colour.
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
       "a build-through warning disabled Place")
-    -- Orange, not the plain white of an unremarkable plan -- the colour IS the signal that
-    -- the line below the footprint is worth reading.
-    local colour = status().style.font_color
+    local colour = warning.style.font_color
     assert(math.abs(colour.g - 0.7) < 0.01 and math.abs(colour.b - 0.3) < 0.01,
       "warning colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
-    -- The footprint still shows: a warning ANNOTATES a plan, it does not replace it.
-    assert(caption_has("upl-gui.footprint"), "the warning ate the footprint line")
+    assert(warning.caption[2] == "[img=utility/warning_icon] ",
+      "the warning line carries no icon: " .. serpent.line(warning.caption))
+    -- The stats still show, in their own plain white: a warning ANNOTATES a plan, it neither
+    -- replaces it nor repaints it -- the whole-block orange was the old shape's flaw.
+    local layout = line_with("upl-gui.footprint")
+    assert(layout, "the warning ate the footprint line")
+    assert(layout.style.font_color.g > 0.99 and layout.style.font_color.b > 0.99,
+      "the warning bled into the stats' colour")
+    assert(line_with("upl-gui.yield"), "the warning ate the yield line")
+    -- And the separator stands between the two groups.
+    assert(status()["upl-status-sep"] ~= nil, "no separator between stats and messages")
   end)
 
-  test("an ordinary plan carries no warning and stays plain", function()
+  test("two warnings stack as two lines behind one separator", function()
+    research.full(player().force)
+    -- Two independent sources at once: the spoiling ingredient (validate's one message) and
+    -- a pole that cannot cover the loop (the plan's own shortfall) -- plan_spec's big-pole
+    -- scenario, driven through the modal with the machine pinned to the same assembler so
+    -- the proven too-small-supply geometry carries over. This is the per-line promise: a
+    -- regression that merged the warnings back into one block would pass every
+    -- single-warning test.
+    choices().recipe = "productivity-module-3"
+    choices().quality = "rare"
+    choices().machine = "assembling-machine-3"
+    choices().pole = "big-electric-pole"
+    gui.open(player())
+    local first = status()["upl-message-1"]
+    local second = status()["upl-message-2"]
+    assert(first and second, "two warnings did not get two lines: "
+      .. serpent.line(status().children_names))
+    assert(first.caption[3][1] == "upl-message.item-spoils",
+      "the first line is not the spoilage warning: " .. serpent.line(first.caption))
+    assert(second.caption[3][1] == "upl-message.consumers-unpowered",
+      "the second line is not the pole shortfall: " .. serpent.line(second.caption))
+    for _, line in pairs({ first, second }) do
+      local colour = line.style.font_color
+      assert(math.abs(colour.g - 0.7) < 0.01, "a stacked warning lost the warning colour")
+    end
+    assert(status()["upl-stat-layout"] ~= nil, "the stacked warnings ate the stats")
+    assert(status()["upl-status-sep"] ~= nil, "the stacked warnings lost the separator")
+    -- The pinned picks would leak into the later tests' plans; back to defaults.
+    choices().pole = nil
+    choices().quality = nil
+    choices().machine = nil
+  end)
+
+  test("an ordinary plan is stats only: no separator, no message lines", function()
     research.full(player().force)
     open_with("iron-gear-wheel")
-    assert(caption_has("upl-gui.footprint"), "no footprint on a valid plan")
-    local colour = status().style.font_color
+    local layout = line_with("upl-gui.footprint")
+    assert(layout, "no footprint on a valid plan")
+    local colour = layout.style.font_color
     assert(colour.g > 0.99 and colour.b > 0.99,
       "an unremarkable plan was coloured " .. serpent.line({ colour.r, colour.g, colour.b }))
+    -- The pace stands with the stats, whatever unit its number picked.
+    local pace = status()["upl-stat-time"]
+    assert(pace, "no pace line on a valid plan")
+    assert(tostring(pace.caption[1]):find("^upl%-gui%.time%-"),
+      "pace caption " .. serpent.line(pace.caption))
+    assert(status()["upl-status-sep"] == nil, "a clean plan drew the separator anyway")
+    assert(status()["upl-message-1"] == nil, "a clean plan shows a message")
   end)
 
-  test("a refusal replaces the caption, disables Place, and is coloured as an error", function()
+  test("a refusal is a red line with the error icon, and the stats go with the plan", function()
+    research.full(player().force)
+    -- The quantum processor's recipe returns a fluid alongside the item, so the loop cannot
+    -- recycle its output back -- the faq's own example of a refused recipe.
+    choices().recipe = "quantum-processor"
+    gui.open(player())
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == false,
+      "Place enabled on a refused recipe")
+    local refusal = status()["upl-message-1"]
+    assert(refusal, "the refusal never reached the status area")
+    local colour = refusal.style.font_color
+    assert(math.abs(colour.g - 0.35) < 0.01 and math.abs(colour.b - 0.35) < 0.01,
+      "error colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
+    assert(refusal.caption[2] == "[img=utility/not_available] ",
+      "the refusal line carries no icon: " .. serpent.line(refusal.caption))
+    -- No plan, no stats: a footprint for a loop that cannot exist would be a lie.
+    assert(status()["upl-stat-layout"] == nil, "a refused plan still shows stats")
+  end)
+
+  test("nothing picked is a grey hint, not an error", function()
     -- Cleared rather than assumed: choices persist per player across tests, so an earlier
     -- pick would reopen the modal already valid. apply_defaults deliberately never defaults
     -- the recipe, so clearing it IS the never-picked state.
     choices().recipe = nil
     gui.open(player())
-    -- Nothing picked is the refusal every player meets first.
     assert(widget({ "upl-buttons", "upl-confirm" }).enabled == false,
       "Place enabled with nothing picked")
-    assert(caption_has("upl-gui.pick-a-recipe"),
-      "the refusal never reached the status line: " .. serpent.line(status().caption))
-    local colour = status().style.font_color
-    assert(math.abs(colour.g - 0.35) < 0.01 and math.abs(colour.b - 0.35) < 0.01,
-      "error colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
+    local hint = status()["upl-hint"]
+    assert(hint, "the empty state shows no hint")
+    assert(hint.caption[1] == "upl-gui.pick-a-recipe",
+      "the hint says " .. serpent.line(hint.caption))
+    local colour = hint.style.font_color
+    assert(math.abs(colour.r - 0.7) < 0.01 and math.abs(colour.g - 0.7) < 0.01,
+      "hint colour is " .. serpent.line({ colour.r, colour.g, colour.b }))
+    assert(status()["upl-message-1"] == nil, "the empty state reads as an error line")
   end)
 end)

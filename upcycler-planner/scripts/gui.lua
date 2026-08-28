@@ -1,7 +1,9 @@
 -- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler,
 -- and an Ingredient amounts row whose Edit... button opens a side panel of per-ingredient
 -- request amounts -- and, under a "Build options" caption, what it is built OUT OF: the belt,
--- the inserter, the five chests, the quality module, the top machine's own module, the
+-- the inserter, the five chests, the quality module, the top machine's own module, the mix
+-- checkbox and the Ratios... button opening its wizard -- the sub-menu holding the split's
+-- productivity module and the per-tier counts -- the
 -- electric pole, the pipe, the beacon, its module and its per-tier count, the circuit-limits
 -- checkbox and the Limits... button opening its wizard, whether the stock chests are buffer
 -- chests the base can draw on, and whether the chests trash their surplus.
@@ -63,6 +65,7 @@ local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
 local CIRCUITS_FRAME = "upl-circuits"
 local INGREDIENTS_FRAME = "upl-ingredients"
+local SPLIT_FRAME = "upl-split-panel"
 -- The shortcut button AND its hotkey custom-input share this prototype name (the Krastorio 2
 -- pairing shape), so the button, the key and the tooltip's keybind hint all rename together.
 local SHORTCUT = "upl-open"
@@ -72,6 +75,7 @@ gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
 gui.CIRCUITS_FRAME = CIRCUITS_FRAME
 gui.INGREDIENTS_FRAME = INGREDIENTS_FRAME
+gui.SPLIT_FRAME = SPLIT_FRAME
 gui.SHORTCUT = SHORTCUT
 
 local function frame_of(player)
@@ -119,6 +123,10 @@ end
 
 function gui.ingredients_open(player)
   return panel_frame_of(player, INGREDIENTS_FRAME) ~= nil
+end
+
+function gui.split_open(player)
+  return panel_frame_of(player, SPLIT_FRAME) ~= nil
 end
 
 -- The engine's element chooser -- the window a choose-elem-button opens -- is invisible to
@@ -276,6 +284,14 @@ local function quality_module_filters(player)
     name_filter(planner.quality_modules()))
 end
 
+-- The split's productivity picker, the quality-module filter's mirror: the whole role,
+-- researched subset by default. Fit against the machine-and-recipe pair is the resolver's
+-- business below, exactly as the quality module's fit is validate's.
+local function productivity_module_filters(player)
+  return narrowed(player, planner.unlocked_productivity_modules,
+    name_filter(planner.productivity_modules()))
+end
+
 local function pole_filters(player)
   return narrowed(player, planner.buildable_poles,
     { { filter = "type", type = "electric-pole" } })
@@ -325,6 +341,18 @@ local function resolve_terminal_module(player, choices)
   if not machine then return end
   if planner.module_fits(choices.terminal_module, machine, recipe) then return end
   choices.terminal_module = planner.terminal_module(player.force, machine, recipe)
+end
+
+-- The split's productivity module follows the pair the same way, minus the clear-flag: a
+-- belt-shape picker whose stale or refused pick re-defaults -- to nil when the pair refuses
+-- productivity outright, the forced-all-quality case, its picker honestly empty. The body IS
+-- the planner's own rule, delegated rather than restated, so the widget and the plan cannot
+-- drift.
+local function resolve_productivity_module(player, choices)
+  local machine, recipe = chosen_pair(choices)
+  if not machine then return end
+  choices.productivity_module =
+    planner.chosen_productivity_module(player.force, choices, machine, recipe)
 end
 
 -- What the beacon's module picker offers: the modules the chosen beacon accepts, every module
@@ -378,10 +406,60 @@ local function quality_options(player)
 end
 
 -- Status colours: red is "Place is disabled and this is why"; orange is "it will place, but
--- know this"; plain white is the footprint line.
+-- know this"; plain white is the stats; grey is the empty-state hint, which is not a failure.
 local COLOR_ERROR = { r = 1, g = 0.35, b = 0.35 }
 local COLOR_WARNING = { r = 1, g = 0.7, b = 0.3 }
 local COLOR_PLAIN = { r = 1, g = 1, b = 1 }
+local COLOR_HINT = { r = 0.7, g = 0.7, b = 0.7 }
+
+-- Message icons ride inside the caption as rich text rather than as sprite elements, so a
+-- wrapped sentence keeps hanging under its own icon instead of under a sibling widget.
+local ICON_WARNING = "[img=utility/warning_icon] "
+local ICON_ERROR = "[img=utility/not_available] "
+
+-- One line of the status area: its own label, so every line wraps and colours independently
+-- instead of the whole block turning orange over one warning.
+local function status_line(status, name, caption, color)
+  local line = status.add({ type = "label", name = name, caption = caption })
+  line.style.single_line = false
+  -- The longest validation messages run to a sentence and a half, and an unbounded label
+  -- drags the whole modal out to their width.
+  line.style.maximal_width = 360
+  line.style.font_color = color
+  return line
+end
+
+-- The pace in the largest unit that keeps the number readable: whole seconds up to two
+-- minutes, then minutes, then hours -- one decimal while the number is small, none once it
+-- is not -- and days for the modded chains where a target item is a project. Returns the
+-- formatted amount and the locale-key suffix naming the unit, so the unit word stays in the
+-- locale file.
+local function duration_parts(seconds)
+  -- Thresholds compare the ROUNDED amount, so 119.7 s promotes to "2.0 minutes" rather
+  -- than printing "120 seconds", and 9.97 prints "10", never "10.0".
+  local units = { { "seconds", 1, 120 }, { "minutes", 60, 120 }, { "hours", 3600, 48 } }
+  for _, unit in ipairs(units) do
+    local amount = seconds / unit[2]
+    local whole = math.max(1, math.floor(amount + 0.5))
+    if whole < unit[3] then
+      if unit[1] ~= "seconds" and amount < 9.95 then
+        return string.format("%.1f", amount), unit[1]
+      end
+      return string.format("%d", whole), unit[1]
+    end
+  end
+  return util.format_number(math.floor(seconds / 86400 + 0.5), true), "days"
+end
+
+-- An empty-state sentence for a side panel, in the status area's hint grey: the panel is
+-- waiting for a pick, not reporting a failure.
+local function hint(parent, key)
+  local label = parent.add({ type = "label", name = "upl-hint", caption = { "upl-gui." .. key } })
+  label.style.single_line = false
+  label.style.maximal_width = 360
+  label.style.font_color = COLOR_HINT
+  return label
+end
 
 function gui.refresh(player)
   local frame = frame_of(player)
@@ -398,44 +476,68 @@ function gui.refresh(player)
   confirm.enabled = ok
 
   -- The Limits button follows the checkbox through every path that lands here -- the
-  -- checkbox's own handler included, so neither has to repaint it by hand.
+  -- checkbox's own handler included, so neither has to repaint it by hand. The Ratios
+  -- button rides the same rule for its own checkbox.
   local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
   limits.enabled = choices.circuit_enabled == true
+  local ratios = main["upl-options"]["upl-mix-strip"]["upl-split"]
+  ratios.enabled = planner.split_enabled(choices) and choices.recipe ~= nil
 
   -- validate() and plan() check the same things, so a validated set of choices always yields
-  -- a plan; the guard is here because a mismatch would otherwise show as a blank label.
+  -- a plan; the guard is here because a mismatch would otherwise show as a blank area.
   local plan = ok and planner.plan(player.force, choices, gathered) or nil
+  status.clear()
   if plan then
-    local caption = {
+    -- The stats first, always plain: what the loop IS (footprint, counts) and what it MAKES
+    -- (the yield line, from the same solve the split rides; format_number keeps a modded
+    -- chain's millions readable at a glance).
+    status_line(status, "upl-stat-layout", {
       "", { "upl-gui.footprint", plan.width, plan.height },
       "  ", { "upl-gui.summary", plan.machines, plan.recyclers },
-    }
+    }, COLOR_PLAIN)
+    if plan.yield and plan.yield.per_item > 0 then
+      status_line(status, "upl-stat-yield", { "upl-gui.yield",
+        util.format_number(math.max(1, math.floor(1 / plan.yield.per_item + 0.5)), true),
+        "[item=" .. plan.product .. "]",
+        "[quality=" .. plan.target_quality .. "]" }, COLOR_PLAIN)
+    end
+    -- The pace under the yield, in whichever unit keeps its number readable. Steady-state
+    -- and ideal: it assumes the chests never run dry.
+    if plan.seconds then
+      local amount, unit = duration_parts(plan.seconds)
+      status_line(status, "upl-stat-time", { "upl-gui.time-" .. unit,
+        "[quality=" .. plan.target_quality .. "]",
+        "[item=" .. plan.product .. "]",
+        amount }, COLOR_PLAIN)
+    end
+
     -- A message alongside ok is a warning the player can build through -- it used to be
-    -- silently dropped here, which made the warnings unreachable.
-    local warned = message ~= nil
-    if message then
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = message
-    end
-    -- The pole pass reports its shortfall on the plan rather than through validate, because
-    -- only the built geometry knows it. Same orange as any other build-through warning.
+    -- silently dropped here, which made the warnings unreachable. The pole and circuit
+    -- passes report their shortfalls on the plan rather than through validate, because only
+    -- the built geometry knows them; all three can land at once, so each gets its own line.
+    local messages = {}
+    if message then messages[#messages + 1] = message end
     if plan.unpowered then
-      warned = true
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
+      messages[#messages + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
     end
-    -- The circuit pass's own shortfall, the unpowered warning's twin: an unwired entity runs
-    -- without its limit, so the plan still places and the player should know.
     if plan.circuit_unlinked then
-      warned = true
-      caption[#caption + 1] = "\n"
-      caption[#caption + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
+      messages[#messages + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
     end
-    status.caption = caption
-    status.style.font_color = warned and COLOR_WARNING or COLOR_PLAIN
+    if #messages > 0 then
+      local separator = status.add({ type = "line", name = "upl-status-sep" })
+      separator.style.horizontally_stretchable = true
+      for index, entry in ipairs(messages) do
+        status_line(status, "upl-message-" .. index,
+          { "", ICON_WARNING, entry }, COLOR_WARNING)
+      end
+    end
+  elseif not message or message[1] == "upl-gui.pick-a-recipe" then
+    -- Nothing picked yet is the state every player opens on: a hint, not an error. Matched
+    -- by key, not just by nil: validate returns this same message for a stale or unresolved
+    -- recipe or quality, none of which is a failure either.
+    hint(status, "pick-a-recipe")
   else
-    status.caption = message or { "upl-gui.pick-a-recipe" }
-    status.style.font_color = COLOR_ERROR
+    status_line(status, "upl-message-1", { "", ICON_ERROR, message }, COLOR_ERROR)
   end
 end
 
@@ -657,7 +759,7 @@ local function build_ingredients_panel(player, frame)
   -- after the recipe went away (the item picker cleared) -- say so instead of standing empty.
   local recipe = chosen_recipe(choices)
   if not recipe then
-    content.add({ type = "label", caption = { "upl-gui.pick-a-recipe" } })
+    hint(content, "pick-a-recipe")
     return
   end
 
@@ -699,6 +801,104 @@ end
 -- because it touches no element -- a reader after "where is the inserter button built" should
 -- not have to scroll through it. Hands back the offered target list, which the dropdown is
 -- built from and must not re-derive (see the dropdown's own comment).
+-- The module-ratio wizard: one row per tier below the target, each opening at the computed
+-- best ratio -- how many of the machine's slots hold the productivity module, the rest the
+-- quality module. The ingredient panel's storage rule, not the circuit wizard's: NOTHING is
+-- backfilled into choices, because the optimum moves with research and with the machine and
+-- module picks, and a frozen copy would go stale under all of them. Only an edit is stored
+-- (split_prod_<tier>), and an emptied field returns to the live optimum riding in its tags.
+local function build_split_panel(player, frame)
+  local choices = state.of(player.index).choices
+
+  local panel = frame.add({ type = "frame", name = SPLIT_FRAME, direction = "vertical" })
+  panel.style.left_margin = 12
+  local titlebar = add_titlebar(panel, "upl-split-titlebar", { "upl-gui.split-title" }, frame)
+  titlebar.add({
+    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
+    tags = dispatch.tags("split-close"),
+  })
+
+  local content = panel.add({
+    type = "frame", name = "upl-split-content", style = "inside_shallow_frame_with_padding",
+    direction = "vertical",
+  })
+
+  -- The untouched optimum: what every field opens showing and what an emptied one returns
+  -- to. The overridden solve is not recomputed here -- the fields themselves carry the edits.
+  local defaults = planner.split(player.force, choices, nil, true)
+  if not defaults then
+    hint(content, "pick-a-recipe")
+    return
+  end
+
+  -- The mix's productivity module lives here in the sub-menu, above the counts it feeds --
+  -- the strip keeps only the choice of whether to mix at all. Built before the mixable
+  -- check so a recipe that refuses productivity still shows the honestly empty picker
+  -- beside the sentence saying why.
+  local picker_row = content.add({
+    type = "flow", name = "upl-split-module-row", direction = "horizontal",
+  })
+  picker_row.style.vertical_align = "center"
+  picker_row.style.bottom_margin = 8
+  local picker_label = picker_row.add({
+    type = "label", caption = { "upl-gui.productivity-module" },
+  })
+  picker_label.style.minimal_width = 110
+  local picker = picker_row.add({
+    type = "choose-elem-button", name = "upl-productivity-module",
+    elem_type = "item-with-quality",
+    elem_filters = productivity_module_filters(player),
+    tooltip = titled_tooltip("productivity-module"),
+    tags = dispatch.tags("productivity-module"),
+  })
+  picker.elem_value =
+    with_quality(choices.productivity_module, choices.productivity_module_quality)
+
+  if not defaults.mixable then
+    -- The recipe or the machine refuses productivity: the split is forced all-quality, said
+    -- here in words rather than as rows of dead zeroes. Hint grey, not a failure: the panel
+    -- is explaining its own emptiness.
+    hint(content, "split-no-productivity")
+    return
+  end
+
+  local list = content.add({
+    type = "scroll-pane", name = "upl-split-list", direction = "vertical",
+  })
+  list.style.maximal_height = 400
+
+  local tiers = planner.tiers_up_to(choices.quality) or {}
+  for index = 1, #tiers - 1 do
+    local tier = tiers[index]
+    local key = "split_prod_" .. tier
+    local default = defaults.prods[index] or 0
+    local row = list.add({
+      type = "flow", name = "upl-split-row-" .. tier, direction = "horizontal",
+    })
+    row.style.vertical_align = "center"
+    local label = row.add({
+      type = "label",
+      caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
+    })
+    label.style.minimal_width = 110
+    local field = row.add({
+      -- numeric keeps every keystroke a digit, the other wizards' rule.
+      type = "textfield", name = "upl-split-count-" .. tier,
+      text = tostring(choices[key] or default),
+      numeric = true, allow_decimal = false, allow_negative = false,
+      lose_focus_on_confirm = true,
+      tooltip = { "upl-gui.split-count-tooltip" },
+      -- The storage key, the live optimum and the slot ceiling all ride the tags: one
+      -- handler serves every tier, the reset path restores exactly what the field opened
+      -- with, and the clamp cannot outlive the machine that set it.
+      tags = dispatch.tags("split-count", { key = key, default = default, max = defaults.slots }),
+    })
+    field.style.width = 60
+    local of = row.add({ type = "label", caption = { "upl-gui.split-of", defaults.slots } })
+    of.style.left_margin = 4
+  end
+end
+
 local function apply_defaults(player, choices)
   -- Default anything not chosen yet, so the modal opens usable rather than empty.
   if not choices.recycler then
@@ -757,8 +957,13 @@ local function apply_defaults(player, choices)
   -- itself needs no default: nil already means off, the beacon's own rule.
   backfill_thresholds(choices)
 
+  -- The mix checkbox's nil means never touched and reads as ON; normalised here so the
+  -- widget binds a real boolean, the buffer-chests checkbox's rule.
+  choices.split_enabled = planner.split_enabled(choices)
+
   -- Nothing to resolve until an item is picked, so this is safe before the recipe exists.
   resolve_terminal_module(player, choices)
+  resolve_productivity_module(player, choices)
   -- And nothing to resolve until a beacon is picked -- choices.beacon itself is deliberately
   -- never defaulted here, which is the whole of "beacons are off by default".
   resolve_beacon_module(player, choices)
@@ -1020,6 +1225,38 @@ function gui.open(player)
   terminal_button.elem_value =
     with_quality(choices.terminal_module, choices.terminal_module_quality)
 
+  -- The mix checkbox and the ratio wizard's door, on their own line under the module
+  -- pickers (the owner's call -- a caption and a button crowd an icon row). Otherwise the
+  -- Circuits row's exact shape: the tick IS the opt-out (on by default -- apply_defaults
+  -- normalised the nil), and Ratios opens the sub-menu holding the productivity module and
+  -- the per-tier counts. The button waits for the tick AND an item; the tick half is
+  -- re-synced in gui.refresh, the item half cannot go stale because a recipe change always
+  -- rebuilds.
+  local mix = options.add({ type = "flow", name = "upl-mix-strip", direction = "horizontal" })
+  mix.style.vertical_align = "center"
+  mix.add({
+    type = "checkbox", name = "upl-split-enabled", state = choices.split_enabled,
+    caption = { "upl-gui.split-enabled" },
+    tooltip = { "upl-gui.split-enabled-tooltip" },
+    tags = dispatch.tags("split-enabled"),
+  })
+  local split_button = mix.add({
+    type = "button", name = "upl-split", caption = { "upl-gui.split-edit" },
+    tooltip = { "upl-gui.split-edit-tooltip" },
+    tags = dispatch.tags("split"),
+  })
+  split_button.style.left_margin = 8
+  split_button.enabled = choices.split_enabled and choices.recipe ~= nil
+
+  -- The whole line exists only where a mix is structurally possible -- some productivity
+  -- module must fit the machine-and-recipe pair (research aside: the wizard says "none
+  -- researched yet" in words, a refusing recipe is a fact). Hidden before an item is
+  -- picked, since nothing is known yet; show-all overrides, the pipe's own rule. A pair
+  -- change always rebuilds, so this cannot go stale.
+  local mix_machine, mix_recipe = chosen_pair(choices)
+  mix.visible = show_all_options(player)
+    or (mix_machine ~= nil and planner.mix_possible(mix_machine, mix_recipe))
+
   -- The beacon group: a stack per tier when picked, off until then -- hidden until show-all
   -- or an actual pick brings it out (beacon_visible above), the rule on the group rather than
   -- on each control.
@@ -1116,12 +1353,11 @@ function gui.open(player)
   })
   trash.style.top_margin = 8
 
-  -- Wrapped rather than single-line: the longest validation messages run to a sentence and a
-  -- half, and an unbounded label drags the whole modal out to their width.
-  local status = main.add({ type = "label", name = "upl-status", caption = "" })
+  -- The status area: stats first, then one line per message. An empty flow that gui.refresh
+  -- rebuilds whole -- each line is its own label (see status_line), so the lines wrap and
+  -- colour independently.
+  local status = main.add({ type = "flow", name = "upl-status", direction = "vertical" })
   status.style.top_margin = 8
-  status.style.single_line = false
-  status.style.maximal_width = 360
 
   local buttons = main.add({ type = "flow", name = "upl-buttons", direction = "horizontal" })
   buttons.style.top_padding = 4
@@ -1203,6 +1439,15 @@ function gui.close_ingredients(player)
   if panel then panel.destroy() end
 end
 
+function gui.open_split(player)
+  open_side_panel(player, SPLIT_FRAME)
+end
+
+function gui.close_split(player)
+  local panel = panel_frame_of(player, SPLIT_FRAME)
+  if panel then panel.destroy() end
+end
+
 function gui.close_settings(player)
   -- The pre-0.4.2 layout put the settings in its own gui.screen frame; sweep one a save from
   -- those builds may still carry, so its close X keeps working across the upgrade.
@@ -1227,6 +1472,7 @@ SIDE_PANELS = {
   [SETTINGS_FRAME] = { build = build_settings_panel, close = gui.close_settings },
   [CIRCUITS_FRAME] = { build = build_circuits_panel, close = gui.close_circuits },
   [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = gui.close_ingredients },
+  [SPLIT_FRAME] = { build = build_split_panel, close = gui.close_split },
 }
 
 -- Reopened rather than repainted when a setting flips: open() rereads both settings and
@@ -1259,6 +1505,15 @@ dispatch.register("circuits-close", function(event)
   gui.close_circuits(game.get_player(event.player_index))
 end)
 
+dispatch.register("split", function(event)
+  local player = game.get_player(event.player_index)
+  if gui.split_open(player) then gui.close_split(player) else gui.open_split(player) end
+end)
+
+dispatch.register("split-close", function(event)
+  gui.close_split(game.get_player(event.player_index))
+end)
+
 -- The per-tier threshold fields -- the mod's first textfields. Every valid keystroke commits,
 -- so the Confirm key can never outrun an uncommitted edit; Enter confirms, snapping the text
 -- back to what actually holds, and then sheds focus -- that is what lose_focus_on_confirm
@@ -1284,6 +1539,44 @@ dispatch.register("circuit-limit", function(event)
   -- value standing, and the text is never rewritten under the player's cursor.
   if value then
     choices[key] = math.min(value, INT32_CAP)
+  end
+end)
+
+-- The per-tier ratio fields: the ingredient fields' commit rules -- only an edit is stored,
+-- Enter on an emptied field deletes the override and restores the computed optimum off the
+-- tags -- with a floor of ZERO (no productivity is a legitimate tier) and a ceiling of the
+-- machine's slots. One deliberate divergence from both sibling wizards: EVERY commit
+-- refreshes, keystrokes included, because the yield line on the status caption follows this
+-- number and a player typing through the rows never presses Enter -- clicking the next
+-- field fires no confirm, so an Enter-only repaint left the stats sitting still while the
+-- plan underneath had already changed (reported the day the feature landed). Safe because
+-- gui.refresh never touches a side panel, so the field survives its own commit; the cost is
+-- one memo-missed solve per keystroke, sub-millisecond in vanilla and ~0.1 s at the
+-- 254-tier modded ceiling.
+dispatch.register("split-count", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local tags = event.element.tags
+  local value = tonumber(event.element.text)
+  if event.name == defines.events.on_gui_confirmed then
+    if not value then
+      choices[tags.key] = nil
+      event.element.text = tostring(tags.default)
+      gui.refresh(player)
+      return
+    end
+    -- Enter on an untouched field re-states the optimum -- the focus click's value, one
+    -- event later -- and storing it would freeze a default that research should keep moving.
+    if choices[tags.key] == nil and value == tags.default then return end
+    value = util.clamp(value, 0, tags.max)
+    choices[tags.key] = value
+    event.element.text = tostring(value)
+    gui.refresh(player)
+  elseif event.name == defines.events.on_gui_text_changed then
+    if value then
+      choices[tags.key] = util.clamp(value, 0, tags.max)
+      gui.refresh(player)
+    end
   end
 end)
 
@@ -1431,9 +1724,13 @@ dispatch.register("quality", function(event)
   local targets = event.element.tags.targets
   choices.quality = targets[event.element.selected_index]
   if settled() then return end
-  -- The circuit wizard lists one row per tier, and the target just moved the tier list -- a
-  -- rebuild keeps an open wizard in step, and the cheap repaint stands when it is closed.
-  if gui.circuits_open(player) then gui.open(player) else gui.refresh(player) end
+  -- The circuit and ratio wizards both list one row per tier, and the target just moved the
+  -- tier list -- a rebuild keeps an open one in step, and the cheap repaint stands otherwise.
+  if gui.circuits_open(player) or gui.split_open(player) then
+    gui.open(player)
+  else
+    gui.refresh(player)
+  end
 end)
 
 dispatch.register("machine", function(event)
@@ -1540,7 +1837,9 @@ dispatch.register("quality-module", function(event)
       with_quality(choices.quality_module, choices.quality_module_quality)
   end
   if settled() then return end
-  gui.refresh(player)
+  -- The quality module's strength moves every tier's computed ratio, so an open ratio wizard
+  -- rebuilds to fresh defaults rather than showing stale ones.
+  if gui.split_open(player) then gui.open(player) else gui.refresh(player) end
 end)
 
 dispatch.register("terminal-module", function(event)
@@ -1563,7 +1862,42 @@ dispatch.register("terminal-module", function(event)
   choices.no_terminal_module = not value
   if value then choices.terminal_module_quality = planner.build_quality(value.quality) end
   if settled() then return end
-  gui.refresh(game.get_player(event.player_index))
+  -- The terminal module feeds the split's value recursion, so an open ratio wizard rebuilds
+  -- to fresh defaults -- the target-quality dropdown's own rule.
+  local player = game.get_player(event.player_index)
+  if gui.split_open(player) then gui.open(player) else gui.refresh(player) end
+end)
+
+-- The split's productivity picker: the quality module's shape -- an emptied pick snaps back
+-- to the researched default, which here follows the machine-and-recipe pair and is honestly
+-- NOTHING when the pair refuses productivity. Its value feeds the ratio wizard's defaults,
+-- so the escalation rule is the terminal module's.
+dispatch.register("productivity-module", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local value = event.element.elem_value
+  -- Snap back a pick outside the role -- and one the current machine-and-recipe pair
+  -- refuses, so the widget can never sit showing a module the plan would ignore: the
+  -- chooser offers the whole researched family whatever the pair accepts.
+  if value then
+    local machine, recipe = chosen_pair(choices)
+    if not planner.is_productivity_module(value.name)
+      or (machine and not planner.module_fits(value.name, machine, recipe)) then
+      event.element.elem_value =
+        with_quality(choices.productivity_module, choices.productivity_module_quality)
+      return
+    end
+  end
+  local settled = settled_on(choices, "productivity_module", "productivity_module_quality")
+  choices.productivity_module = value and value.name
+  if value then choices.productivity_module_quality = planner.build_quality(value.quality) end
+  if not choices.productivity_module then
+    resolve_productivity_module(player, choices)
+    event.element.elem_value =
+      with_quality(choices.productivity_module, choices.productivity_module_quality)
+  end
+  if settled() then return end
+  if gui.split_open(player) then gui.open(player) else gui.refresh(player) end
 end)
 
 dispatch.register("pipe", function(event)
@@ -1683,6 +2017,20 @@ dispatch.register("circuit-enabled", function(event)
   if settled() then return end
   -- Unchecking takes the wizard with it -- limits on a loop that will not be wired are noise.
   if not choices.circuit_enabled then gui.close_circuits(player) end
+  gui.refresh(player)
+end)
+
+dispatch.register("split-enabled", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  -- The circuit checkbox's shape exactly: read the element's state (double-fire safe),
+  -- settle-guard the repeated refresh, and take the wizard down on an untick -- ratios for
+  -- a mix that will not be built are noise. The yield line follows through the refresh,
+  -- which also re-syncs the Ratios button.
+  local settled = settled_on(choices, "split_enabled")
+  choices.split_enabled = event.element.state
+  if settled() then return end
+  if not choices.split_enabled then gui.close_split(player) end
   gui.refresh(player)
 end)
 

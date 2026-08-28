@@ -199,6 +199,25 @@ function layout.build(params)
     return { name = spec and spec.name, quality = spec and spec.quality, count = count }
   end
 
+  -- A lower tier's machine under the split: `prod_count` productivity modules, quality in the
+  -- rest. The flat single-spec shape survives whenever the tier is homogeneous -- so every
+  -- plan without a genuine mix, the recyclers and the beacons included, reads exactly as it
+  -- always did, and only a mixed tier carries the array the serialiser fans out into two
+  -- insert plans (quality first, so its stacks come first).
+  local function split_modules(mods, prod_count, slots)
+    local p = math.min(prod_count or 0, slots or 0)
+    if p <= 0 or not mods.productivity_module then
+      return module_slot(mods.quality_module, slots)
+    end
+    if p >= (slots or 0) then
+      return module_slot(mods.productivity_module, slots)
+    end
+    return {
+      module_slot(mods.quality_module, slots - p),
+      module_slot(mods.productivity_module, p),
+    }
+  end
+
   local function chest(spec, dx, dy, requests)
     return add({
       name = spec.name, quality = spec.quality, dx = dx, dy = dy, w = 1, h = 1,
@@ -312,9 +331,16 @@ function layout.build(params)
     -- target quality, so the last machine crafts for yield instead -- and gets nothing at all
     -- when the recipe refuses productivity, which the planner signals with a nil. Written as an
     -- if rather than `is_terminal and terminal or quality`, because that idiom silently falls
-    -- through to the quality module on exactly the nil this has to respect.
-    local machine_module = params.modules.quality_module
-    if is_terminal then machine_module = params.modules.terminal_module end
+    -- through to the quality module on exactly the nil this has to respect. A lower tier's
+    -- machine follows the split -- its computed-or-overridden productivity count -- through
+    -- split_modules above.
+    local machine_modules
+    if is_terminal then
+      machine_modules = module_slot(params.modules.terminal_module, machine.module_slots)
+    else
+      machine_modules = split_modules(params.modules,
+        params.modules.split and params.modules.split[index], machine.module_slots)
+    end
 
     add({
       name = machine.name, dx = col, dy = ROW_MACHINE,
@@ -325,7 +351,7 @@ function layout.build(params)
       -- player picked; `recipe_quality` is the tier this column is pinned to craft at.
       quality = machine.quality,
       recipe = params.recipe.name, recipe_quality = quality,
-      modules = module_slot(machine_module, machine.module_slots),
+      modules = machine_modules,
       -- circuit_role/circuit_tier: structural tags the circuit pass finds entities by
       -- (scripts/circuits.lua). Written unconditionally -- they cost nothing when circuits
       -- are off, and the serialiser reads only the fields it names.

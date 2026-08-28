@@ -11,6 +11,7 @@ local planner = {}
 local layout = require("scripts.layout")
 local poles = require("scripts.poles")
 local circuits = require("scripts.circuits")
+local quality_math = require("scripts.quality_math")
 
 local memo = {}
 
@@ -878,6 +879,21 @@ function planner.unlocked_quality_modules(force)
   return planner.unlocked(force, planner.quality_modules())
 end
 
+-- The productivity family, the quality family's mirror: the split picker's fallback filter
+-- and prune's membership test. Scored by effect like everything else here, so a modded
+-- productivity module slots in unnamed.
+function planner.productivity_modules()
+  return names_of("productivity_modules", module_candidates("productivity"))
+end
+
+function planner.is_productivity_module(name)
+  return module_candidates("productivity")[name] ~= nil
+end
+
+function planner.unlocked_productivity_modules(force)
+  return planner.unlocked(force, planner.productivity_modules())
+end
+
 -- allowed_module_categories is nil when everything is allowed and a name -> true dictionary
 -- otherwise. Machines, recyclers and recipes all carry one, and all of them have to agree
 -- before a module can go in.
@@ -947,16 +963,33 @@ function planner.module_fits(name, holder, recipe)
     and (not recipe or planner.accepts_module(recipe, item))
 end
 
--- The default for the terminal machine: the strongest researched module that actually raises
--- productivity and that the pair accepts -- or **nothing**, which is the common case, since
--- allow_productivity defaults to false and only a handful of vanilla recipes opt in. Never a
--- quality module: at the target tier there is nothing left to roll into.
-function planner.terminal_module(force, machine, recipe)
+-- The strongest researched module that actually raises productivity and that the pair
+-- accepts -- or **nothing**, which is the common case, since allow_productivity defaults to
+-- false and only a handful of vanilla recipes opt in. One rule, two defaults: the terminal
+-- machine's module and the split's productivity half both start here.
+function planner.best_productivity_module(force, machine, recipe)
   return best_by(module_candidates("productivity"), function(name, value)
     if not planner.is_unlocked(force, name) then return nil end
     if not planner.module_fits(name, machine, recipe) then return nil end
     return value
   end)
+end
+
+-- The terminal default keeps its own name -- the pickers are separate decisions, and a
+-- future terminal-only rule must not silently move the split's default with it. Never a
+-- quality module: at the target tier there is nothing left to roll into.
+function planner.terminal_module(force, machine, recipe)
+  return planner.best_productivity_module(force, machine, recipe)
+end
+
+-- Whether ANY productivity module can go in this pair -- the structural half alone, research
+-- aside, which is what decides whether the mix surface exists at all: an unresearched module
+-- is a matter of time, a refusing recipe is a fact about the loop.
+function planner.mix_possible(machine, recipe)
+  for name in pairs(module_candidates("productivity")) do
+    if planner.module_fits(name, machine, recipe) then return true end
+  end
+  return false
 end
 
 -- Efficiency-family candidates for the beacon's default, name -> how much consumption the
@@ -1221,6 +1254,31 @@ local function chosen_terminal_module(force, choices, machine, recipe)
   return planner.terminal_module(force, machine, recipe)
 end
 
+-- Whether the split may mix at all: the stock_buffered idiom, nil meaning ON -- the checkbox
+-- starts ticked, and only an explicit untick forces every lower machine back to quality
+-- modules only. The stored per-tier overrides stay put while unticked, the circuit numbers'
+-- own rule, so re-ticking restores the player's tuning.
+function planner.split_enabled(choices)
+  return choices.split_enabled ~= false
+end
+
+-- The split's productivity module is the belt's shape, not the pole's: there is no "none"
+-- to record, because a tier with zero productivity slots already says it -- so an emptied
+-- picker snaps back to best_productivity_module's default, nil exactly when the recipe or
+-- the machine refuses productivity, which is what forces the split all-quality with no
+-- refusal. A pick the pair refuses falls back too, unlike the terminal module's
+-- refuse-at-validate: the no-refusal promise has to hold on every path, GUI or not.
+-- Exported, unlike its chosen_* siblings: the GUI's resolver delegates here, which is what
+-- keeps the widget and the plan structurally unable to drift.
+function planner.chosen_productivity_module(force, choices, machine, recipe)
+  local name = choices.productivity_module
+  if name and planner.is_productivity_module(name)
+    and planner.module_fits(name, machine, recipe) then
+    return name
+  end
+  return planner.best_productivity_module(force, machine, recipe)
+end
+
 -- Everything the layout needs, gathered in one place. `validate` below checks exactly the same
 -- things, so a validated set of choices always produces a plan -- if the two ever drift apart,
 -- the player gets a Place button that silently does nothing.
@@ -1268,7 +1326,298 @@ local function resources(force, recipe, machine, choices)
     -- below it, so one shared quality would have tied two unrelated decisions together.
     quality_module = planner.with_quality(quality_module, choices.quality_module_quality),
     terminal_module = planner.with_quality(terminal_module, choices.terminal_module_quality),
+    productivity_module = planner.with_quality(
+      planner.chosen_productivity_module(force, choices, machine, recipe),
+      choices.productivity_module_quality),
   }
+end
+
+-- The per-tier module split
+
+-- The engine half of quality_math.solve, gathered here so the pure module never sees a
+-- prototype. Deliberately NO force argument to get_roll_chances: its ceiling truncates the
+-- chain at the unlocked tiers (measured, api.md §30), and planning ahead of research is
+-- legitimate here -- validate's own warn-don't-refuse stance.
+local function roll_chances_for(tier, effect)
+  return prototypes.quality[tier].get_roll_chances(effect)
+end
+
+-- A module pair's per-slot effects at its own quality, engine-scaled -- get_module_effects,
+-- never a hand-applied curve (api.md §30). Both roll axes, so a modded hybrid prices its
+-- cross terms (the vanilla families read zero on the other axis), plus speed, which the
+-- solve ignores and the time estimate pays for.
+local function per_slot_effects(spec)
+  local item = spec and module_items()[spec.name]
+  if not item then return nil end
+  local effects = item.get_module_effects(spec.quality) or {}
+  return {
+    quality = effects.quality or 0,
+    productivity = effects.productivity or 0,
+    speed = effects.speed or 0,
+  }
+end
+
+-- The recyclers' one summed quality effect: base receiver effect, every slot of the
+-- quality module, and whatever the beacon stack transmits (a speed module's quality malus
+-- lands here too, api.md §25), clamped by the recycler's own limits. Their split never
+-- varies -- a recycling recipe refuses productivity by engine rule -- so this is a number,
+-- not a search.
+local function recycler_quality_effect(recycler, quality, module_spec, beacon_quality)
+  local receiver = recycler.effect_receiver
+  local base = receiver and receiver.base_effect
+  local per_slot = per_slot_effects(module_spec)
+  local effect = ((base and base.quality) or 0) + (beacon_quality or 0)
+    + (module_slots(recycler, quality) or 0) * ((per_slot and per_slot.quality) or 0)
+  local limits = receiver and receiver.quality_limits
+  if limits then
+    if effect < limits.low then effect = limits.low end
+    if effect > limits.high then effect = limits.high end
+  end
+  return math.max(effect, 0)
+end
+
+-- What one tier's beacon stack transmits to every machine and recycler beside it, PER
+-- AXIS: count x beacon slots x the module's own effects, scaled by the beacon's
+-- distribution effectivity at its quality and by its profile entry for the stack size --
+-- the engine's transmission arithmetic (api.md §31). All three axes, because a speed
+-- module carries a quality malus: crediting the speed while ignoring the malus would make
+-- the yield and the pace flatter a loop the beacons may in truth have killed (api.md §25).
+local function beacon_transmitted_effects(force, choices)
+  local none = { speed = 0, quality = 0, productivity = 0 }
+  local beacon_name, beacon_quality = chosen_beacon(choices)
+  local beacon = beacon_name and prototypes.entity[beacon_name]
+  if not beacon then return none end
+  local count = chosen_beacon_count(choices,
+    math.max(planner.max_beacon_count(choices, beacon), 1))
+  local module_name = chosen_beacon_module(force, choices, beacon)
+  local item = module_name and prototypes.item[module_name]
+  if not item then return none end
+  local effects = item.get_module_effects(
+    planner.build_quality(choices.beacon_module_quality)) or {}
+  local level = prototypes.quality[beacon_quality].level
+  local effectivity = (beacon.distribution_effectivity or 0)
+    + (beacon.distribution_effectivity_bonus_per_quality_level or 0) * level
+  local profile = beacon.profile
+  local factor = 1
+  if profile and #profile > 0 then factor = profile[math.min(count, #profile)] end
+  local scale = count * (module_slots(beacon, beacon_quality,
+    defines.inventory.beacon_modules) or 0) * effectivity * factor
+  return {
+    speed = (effects.speed or 0) * scale,
+    quality = (effects.quality or 0) * scale,
+    productivity = (effects.productivity or 0) * scale,
+  }
+end
+
+-- How many ingredient-sets recycling ONE product item returns, read off the generated
+-- recycling recipe rather than assumed 25%: the formula moved in 2.1.13 and a modded
+-- recycler may differ (api.md §8). The first crafting ingredient present in both recipes
+-- anchors the ratio; a recipe that never matches falls back to the vanilla constant.
+local function sets_per_recycle(recipe, product_name, products_per_set)
+  local recycling = planner.recycling_recipe(product_name)
+  if recycling then
+    local returned = {}
+    for _, result in pairs(recycling.products) do
+      if result.type == "item" then
+        local amount = (result.amount or ((result.amount_min + result.amount_max) / 2))
+          * (result.probability or 1) + (result.extra_count_fraction or 0)
+        returned[result.name] = amount
+      end
+    end
+    for _, ingredient in pairs(planner.item_ingredients(recipe)) do
+      local amount = returned[ingredient.name]
+      if amount and ingredient.amount > 0 then
+        return amount / ingredient.amount
+      end
+    end
+  end
+  return 0.25 / (products_per_set or 1)
+end
+
+-- One solve is O(tiers x slots) get_roll_chances calls and gui.refresh runs on every pick,
+-- so the last answer is kept -- one slot PER FLAVOUR (defaults and overrides-folded), keyed
+-- by the VALUE of every input, never by a reference. Two slots because a rebuild with the
+-- wizard open runs both flavours back to back, and with overrides stored their keys differ:
+-- one slot would thrash on exactly the path that repeats most. Research needs no event to
+-- invalidate this: a technology changes the resolved module identities or the recipe's
+-- productivity_bonus, and both are in the key. Unlike the prototype memos above this key
+-- carries force state, which is exactly why it cannot live in memo.* with a permanent key.
+-- The cached table is handed out by reference -- plan() and the wizard alias it -- so
+-- callers treat it as read-only, or a mutation poisons every later hit.
+local split_keys, split_values = {}, {}
+
+local function spec_key(spec)
+  return spec and (spec.name .. "@" .. (spec.quality or "normal")) or "-"
+end
+
+-- The optimal split and the loop's expected yield for these choices. `gathered` is
+-- resources()' table when the caller already paid for it; `ignore_overrides` computes the
+-- untouched optimum, which is what the wizard's fields open showing. Returns nil until the
+-- choices name a loop; otherwise { prods = {tier_index -> productivity count}, yield =
+-- { per_set, per_item, and -- when the loop has any output -- machine_sets/recycled, the
+-- expected crafts per target item the pace estimate reads }, slots = machine module slots,
+-- transmitted = the beacon stack's per-axis effects, mixable }.
+function planner.split(force, choices, gathered, ignore_overrides)
+  local recipe = choices.recipe and prototypes.recipe[choices.recipe]
+  local machine = choices.machine and prototypes.entity[choices.machine]
+  local recycler = choices.recycler and prototypes.entity[choices.recycler]
+  if not (recipe and machine and recycler and choices.quality) then return nil end
+  local tiers = planner.tiers_up_to(choices.quality)
+  if not tiers then return nil end
+  -- The vetted product record: exactly one item product with a real amount, the upcyclable
+  -- gate's own accessor -- so the amount needs no re-derivation and no defensive fallback.
+  local product = single_item_product(recipe)
+  if not product then return nil end
+
+  local r = gathered or resources(force, recipe, machine, choices)
+  if not r.quality_module then return nil end
+
+  local machine_quality = planner.build_quality(choices.machine_quality)
+  local recycler_quality = planner.build_quality(choices.recycler_quality)
+
+  -- Unticked, the mix checkbox forces all-quality: the solve prices no productivity module
+  -- at all -- the same path a productivity-refusing recipe takes -- and the stored per-tier
+  -- overrides go inert rather than being cleared, so a re-tick restores them.
+  local mixing = planner.split_enabled(choices)
+  local productivity_module = mixing and r.productivity_module or nil
+
+  local overrides = {}
+  local key_overrides = ""
+  if mixing and not ignore_overrides then
+    for j = 1, #tiers - 1 do
+      local value = choices["split_prod_" .. tiers[j]]
+      if value then
+        overrides[j] = value
+        key_overrides = key_overrides .. j .. ":" .. value .. ";"
+      end
+    end
+  end
+
+  -- The beacon stack's transmitted effects reach every machine and recycler, so the solve
+  -- must see them: a speed beacon's quality malus can lower every roll, or kill the loop
+  -- outright, and pricing only its speed would flatter exactly that configuration.
+  local transmitted = beacon_transmitted_effects(force, choices)
+
+  local flavour = ignore_overrides and "defaults" or "folded"
+  local bonus = force.recipes[recipe.name].productivity_bonus or 0
+  local key = table.concat({
+    force.name, choices.quality, recipe.name,
+    machine.name .. "@" .. machine_quality, recycler.name .. "@" .. recycler_quality,
+    spec_key(r.quality_module), spec_key(productivity_module),
+    spec_key(r.terminal_module), tostring(choices.no_terminal_module or false),
+    -- The flag itself is in the key: with it off the productivity spec above already reads
+    -- "-", but a modset with no productivity module would collide the two states otherwise.
+    tostring(mixing), tostring(bonus), key_overrides,
+    -- The transmitted VALUES rather than the beacon picks that produce them: count, beacon,
+    -- module, both qualities and research all fold into these three numbers.
+    transmitted.speed .. ":" .. transmitted.quality .. ":" .. transmitted.productivity,
+  }, "|")
+  if key == split_keys[flavour] then return split_values[flavour] end
+
+  local slots = module_slots(machine, machine_quality) or 0
+  local receiver = machine.effect_receiver
+  local base = receiver and receiver.base_effect
+  local products_per_set = product.amount * (product.probability or 1)
+
+  local prods, yield = quality_math.solve({
+    tiers = tiers,
+    slots = slots,
+    quality_module = per_slot_effects(r.quality_module),
+    productivity_module = per_slot_effects(productivity_module),
+    terminal = per_slot_effects(r.terminal_module),
+    base = {
+      quality = ((base and base.quality) or 0) + transmitted.quality,
+      productivity = ((base and base.productivity) or 0) + transmitted.productivity,
+    },
+    research_productivity = bonus,
+    max_productivity = recipe.maximum_productivity,
+    limits = receiver and {
+      quality = receiver.quality_limits,
+      productivity = receiver.productivity_limits,
+    } or nil,
+    recycler_effect = recycler_quality_effect(recycler, recycler_quality, r.quality_module,
+      transmitted.quality),
+    products_per_set = products_per_set,
+    sets_per_recycle = sets_per_recycle(recipe, product.name, products_per_set),
+    roll_chances = roll_chances_for,
+  }, overrides)
+
+  split_keys[flavour] = key
+  split_values[flavour] = {
+    prods = prods, yield = yield, slots = slots, transmitted = transmitted,
+    -- Whether a mix is possible at all: nil means the pair refuses productivity (or the
+    -- checkbox is unticked) and the split is forced all-quality -- the wizard says which.
+    mixable = productivity_module ~= nil,
+  }
+  return split_values[flavour]
+end
+
+-- Steady-state seconds per target-quality item. Every station runs in parallel, so the
+-- loop's pace is its single slowest one: the largest expected-crafts x craft-time product
+-- over every machine and recycler, with the expected crafts from the same solve as the
+-- yield and the rates folding in build quality (get_crafting_speed), each tier's own module
+-- speed penalties, and the beacon stack's transmitted speed -- the same split.transmitted
+-- whose quality axis the solve already priced. The engine floors a machine's speed at 20%
+-- of base, so the multiplier does too. nil when the solve reports no flow or a rate is zero.
+local function loop_seconds(recipe, machine, machine_quality, recycler, recycler_quality,
+    product, split, tiers, r)
+  local yield = split and split.yield
+  if not (yield and yield.machine_sets) then return nil end
+  local beacon_effect = split.transmitted.speed
+
+  local recycling = planner.recycling_recipe(product.name)
+  if not recycling then return nil end
+  -- Items one recycler craft eats, read off the recipe like sets_per_recycle reads its
+  -- output: the generated ones take exactly one, a modded one may not.
+  local items_per_craft = 1
+  for _, ingredient in pairs(recycling.ingredients) do
+    if ingredient.type == "item" and ingredient.name == product.name then
+      items_per_craft = ingredient.amount or 1
+      break
+    end
+  end
+
+  local machine_speed = machine.get_crafting_speed(machine_quality)
+  local recycler_speed = recycler.get_crafting_speed(recycler_quality)
+  if not (machine_speed and machine_speed > 0 and recycler_speed and recycler_speed > 0
+    and items_per_craft > 0) then
+    return nil
+  end
+
+  local function base_speed(entity)
+    local receiver = entity.effect_receiver
+    return (receiver and receiver.base_effect and receiver.base_effect.speed) or 0
+  end
+
+  local qm = per_slot_effects(r.quality_module)
+  local pm = per_slot_effects(r.productivity_module)
+  local tm = per_slot_effects(r.terminal_module)
+  local qm_speed = (qm and qm.speed) or 0
+
+  local recycler_mult = math.max(1 + base_speed(recycler)
+    + (module_slots(recycler, recycler_quality) or 0) * qm_speed + beacon_effect, 0.2)
+  local recycler_time = recycling.energy / (recycler_speed * recycler_mult)
+
+  local machine_base = base_speed(machine)
+  local slots = split.slots
+  local worst = 0
+  for j = 1, #tiers do
+    local modules_speed
+    if j == #tiers then
+      modules_speed = slots * ((tm and tm.speed) or 0)
+    else
+      local p = (split.prods and split.prods[j]) or 0
+      modules_speed = (slots - p) * qm_speed + p * ((pm and pm.speed) or 0)
+    end
+    local mult = math.max(1 + machine_base + modules_speed + beacon_effect, 0.2)
+    worst = math.max(worst, yield.machine_sets[j] * recipe.energy / (machine_speed * mult))
+    local recycled = yield.recycled and yield.recycled[j]
+    if recycled then
+      worst = math.max(worst, (recycled / items_per_craft) * recycler_time)
+    end
+  end
+  if worst <= 0 or worst ~= worst or worst == math.huge then return nil end
+  return worst
 end
 
 -- How far a consumer's collision box sits inside its tile rect, taken on the LARGER axis so
@@ -1562,6 +1911,12 @@ function planner.plan(force, choices, gathered)
 
   local product_stack = prototypes.item[product.name].stack_size
 
+  -- The per-tier split, solved on the same gathered resources: which mix of quality and
+  -- productivity modules each lower tier's machine carries, defaulting to the computed
+  -- optimum with the player's split_prod_<tier> overrides folded in. nil when no
+  -- productivity module fits, which is the old flat all-quality rule.
+  local split = planner.split(force, choices, r)
+
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = tiers,
@@ -1592,10 +1947,13 @@ function planner.plan(force, choices, gathered)
       and footprint_of(beacon, beacon_quality, defines.inventory.beacon_modules) or nil,
     beacon_count = beacon_count,
     -- One pair per module, or nil for "leave that machine empty" -- which only ever happens to
-    -- the terminal one, and for "place the beacon empty".
+    -- the terminal one, and for "place the beacon empty". `split` carries each lower tier's
+    -- productivity-slot count; absent, every lower tier is all-quality, the pre-split rule.
     modules = {
       quality_module = r.quality_module,
       terminal_module = r.terminal_module,
+      productivity_module = r.productivity_module,
+      split = split and split.prods or nil,
       beacon_module = beacon and planner.with_quality(
         chosen_beacon_module(force, choices, beacon), choices.beacon_module_quality) or nil,
     },
@@ -1661,6 +2019,15 @@ function planner.plan(force, choices, gathered)
   -- quality, a module quality and a pinned quality per tier -- so this one says which it is.
   plan.product = product.name
   plan.target_quality = choices.quality
+
+  -- The loop's expected yield under exactly the modules this plan carries, for the status
+  -- line: per_item is target-or-above product per tier-one item recycled in, the wiki's own
+  -- "items per legendary" as 1/per_item.
+  plan.yield = split and split.yield or nil
+
+  -- And its pace: steady-state seconds per target item, nil when the loop cannot make one.
+  plan.seconds = loop_seconds(recipe, machine, machine_quality, recycler, recycler_quality,
+    product, split, tiers, r)
 
   return plan
 end
@@ -1891,6 +2258,12 @@ function planner.validate(force, choices)
   }
   if r.terminal_module then
     build_qualities[#build_qualities + 1] = r.terminal_module.quality
+  end
+  -- The split's productivity module ships in the lower tiers' insert plans whenever it
+  -- resolved at all and the mix is on; a refused pick already fell back inside
+  -- chosen_productivity_module, so what arrives here is always something the pair accepts.
+  if r.productivity_module and planner.split_enabled(choices) then
+    build_qualities[#build_qualities + 1] = r.productivity_module.quality
   end
   -- Only when it is actually placed, so a legendary plan is not warned about a chest it does
   -- not build.

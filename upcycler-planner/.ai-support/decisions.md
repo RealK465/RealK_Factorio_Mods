@@ -392,7 +392,9 @@ per-release approval.
   wrong first: `analysis/api.md` §28.
 - **The build options are six captioned concept groups** (owner's call, 2026-08-22,
   superseding the 2026-08-17 six-column grid; Circuits joined 2026-08-26): Transport (belt,
-  inserter, pipe), Chests (the five roles), Modules (quality, final machine), Beacons (beacon,
+  inserter, pipe), Chests (the five roles), Modules (quality, final machine, and since
+  2026-08-28 the Mix checkbox with its Ratios... button — the productivity picker lives
+  inside that wizard), Beacons (beacon,
   its module, the per-tier count drop-down), Power (pole), Circuits (the enable checkbox and
   the Limits button) — each a `semibold_caption_label` over a horizontal flow of
   icon pickers, the trash checkbox below them all. Twelve icon-only pickers in one flat grid
@@ -416,6 +418,7 @@ per-release approval.
   | `provider` role | **Output chest** | `provider` |
   | `overflow` role | **Overflow chest** | `overflow` |
   | the machine at the target tier | **Final machine** — never "top" or "last" | `terminal_module` |
+  | the per-tier module mix | **ratio** — the *Ratios...* wizard, "best ratio" | `split_prod_<quality>` |
 
   Three renames landed at once and all three were free, because 0.6.0 had not shipped: *Item
   chest* was spending the word "Item" that `Item to upcycle` already owned; *Plain chest* was
@@ -463,8 +466,116 @@ per-release approval.
 - **One machine per tier.** The compact "casino" every shared blueprint ships. Honest framing:
   a convenience build, not a throughput build — sustained ratios taper about tenfold per tier.
   If scaling is ever added, repeat *columns per tier* rather than inventing new geometry.
-- **Modules are planned, not merely requested**: quality below the target tier, the player's
-  pick at it, quality in the recyclers.
+- **Modules are planned, not merely requested** — and each lower tier's machine carries the
+  **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
+  the portal ask `6a9147f558087c568146a11d`, superseding the flat all-quality rule: computed
+  default over pacak's opt-in checkbox; a third module picker rather than reusing the final
+  machine's; the expected-output line in the same release; 2.1-only, `legacy/2.0` keeps the
+  flat rule — `get_roll_chances` does not exist there). The optimum is solved exactly, per
+  tier from the target down, on engine data alone: `get_roll_chances` **force-free** (planning
+  ahead of research is validate's own stance), `get_module_effects` at the modules' own
+  qualities, `effect_receiver.base_effect` and `*_limits`, `force.recipes[...].productivity_bonus`,
+  the recipe's `maximum_productivity`, and the recycler ratio read off the generated recycling
+  recipe — so modded machines, modules and quality chains price themselves.
+  `scripts/quality_math.lua` is the solver, pure like `layout.lua` with the roll function
+  injected; greedy top-down is provably global because quality never goes down, O(tiers x
+  slots) — the 254-tier hang lesson respected — and one answer is memoised under a key built
+  from the VALUE of every input, so research invalidates it through the resolved identities
+  and the bonus without any event. Product rolled to or past the target counts as success
+  (the tap); ingredients rolled past it count as loss (nothing crafts them) — the asymmetry
+  is load-bearing and pinned both ways. At normal module quality the integer optimum IS the
+  old rule, so early plans are byte-identical; high-quality modules in strong machines mix
+  (EM plant + legendary Q3: 1q+4p per lower tier, the wiki's own optimum, pinned in specs).
+  **Recyclers never split** — recycling refuses productivity by engine rule — and the
+  terminal machine stays the terminal picker's business. **Beacons are priced as invisible**:
+  the efficiency default costs the model nothing, and a hand-picked speed or quality beacon
+  module makes the recommendation mildly conservative, never the build wrong. Engine facts:
+  `analysis/api.md` §30; the maths and its oracles: `tests/pure/quality_math_spec.lua`.
+- **The mix is a checkbox on its own line under the module pickers, and everything else
+  about it lives in the Ratios... wizard** (2026-08-28, the owner's UI revision the same
+  day: "a checkbox checked by default to allow mixing, and the prod module and count in a
+  sub side menu"; the own-line placement the owner's follow-up — a caption and a button
+  crowd an icon row). The
+  Circuits row's exact shape otherwise: **Mix productivity modules** starts ticked
+  (`split_enabled`, nil-means-on — `planner.split_enabled`, the stock_buffered idiom,
+  normalised in apply_defaults so the widget binds a real boolean) and arms the Ratios...
+  button; unticking forces every lower machine back to quality-only (the solve prices no
+  productivity module — the same path a refusing recipe takes, the flag in the memo key),
+  **parks the per-tier overrides instead of clearing them** (the circuit numbers' rule, so a
+  re-tick restores the tuning), disarms the button and closes an open wizard. The
+  **productivity picker sits inside the wizard**, a labelled row above the counts it feeds —
+  the strip keeps only the choice of whether to mix — and stays visible beside the
+  no-productivity sentence so a refusing recipe shows an honestly empty picker, not a
+  missing one. **The whole line shows only where a mix is structurally possible** (the
+  owner's follow-up, same day): `planner.mix_possible` asks whether ANY productivity module
+  fits the machine-and-recipe pair, research aside — an unresearched module is a matter of
+  time, a refusing recipe a fact about the loop — so the row is hidden before an item is
+  picked and for refusing recipes, with show-all overriding, the pipe's fluid rule. A
+  leftover wizard from a recipe switch still rebuilds with the sentence; its door being
+  gone is the point.
+- **The wizard itself is the fourth side panel, and the picker behind it is belt-shaped**
+  (2026-08-28, same session). The Limits wizard's
+  mechanics with the ingredient panel's **only-on-edit** storage: `split_prod_<quality>` flat
+  keys, floor 0 (no productivity is a legitimate tier), clamped to the machine's slots via
+  the field's own tags, empty-plus-Enter deleting the override back to the live optimum.
+  Nothing is ever backfilled, because the optimum moves with research and with the machine
+  and module picks — a frozen copy would go stale under all of them, exactly the trap the
+  ingredient panel's rule exists for. **Every commit refreshes, keystrokes included** — the
+  one wizard whose number moves the status line, and a player typing through the rows never
+  presses Enter (clicking the next field fires no confirm; Enter-only repaint left the yield
+  sitting still while the plan had already changed — reported and fixed the day the feature
+  landed). Safe because refresh never touches a side panel; costs one memo-missed solve per
+  keystroke, ~0.1 s at the 254-tier ceiling. The productivity
+  picker carries **no clear-flag**: a per-tier 0 already says "no productivity", so an
+  emptied picker snaps back like the belt, and a pick the machine-and-recipe pair refuses
+  self-heals to the default on every path (GUI resolver and planner-side `chosen_*` alike) —
+  which is what keeps the promise that a productivity-refusing recipe forces all-quality
+  with **no refusal**, its picker honestly empty and the wizard saying so in words. The
+  **status line's yield figure** ("About N [item] in for one [target][item] out") is
+  1/per_item from the same solve — the wiki's own items-per-legendary framing, format_number
+  keeping a modded chain's millions glanceable.
+- **The status area is one label per line, not one label** (repo owner's ask, 2026-08-28:
+  "better distinction between layout shape stats, output stats and error/warning messages";
+  structure, icons-on-both and the harmonized panels each picked from previewed options). A
+  vertical flow `gui.refresh` clears and rebuilds whole: stats first and always plain white
+  — the footprint/count line, then the yield line — then a stretched `line` separator and
+  one orange line per warning, each prefixed `[img=utility/warning_icon]` (all three warning
+  sources can stack: validate's single message, unpowered, circuit-unlinked). A refusal is
+  one red `[img=utility/not_available]` line with no stats — no plan, no footprint to claim.
+  The old shape was one label whose whole caption turned orange over any warning, stats
+  included. **"Pick an item to upcycle." is a grey hint, not an error**: it is the state
+  every player opens on, matched by key (`upl-gui.pick-a-recipe`) so the stale-name case
+  lands in the same hint. The wizards' placeholder sentences (`pick-a-recipe`,
+  `split-no-productivity`) wear the same hint grey through a shared `hint()` helper. Both
+  icon paths are pinned by an engine-premise spec (`helpers.is_valid_sprite_path`), because
+  an unknown `[img=...]` renders as literal bracket text, silently. The rebuild keeps the
+  no-op-click guard's observable: a status child label SURVIVING a click proves the second
+  refresh was skipped.
+- **The pace line is steady-state and bottleneck-shaped** (repo owner's ask, 2026-08-28:
+  "add the time expected to the stats"). "About one [target][item] out every N
+  seconds/minutes/hours/days": every station runs in parallel, so the loop's pace is its
+  single slowest one — the largest expected-crafts x craft-time product over every machine
+  and recycler. The expected crafts per target item come from a forward **flow pass** in
+  `quality_math.solve` (`yield.machine_sets` / `yield.recycled`), riding the very
+  distributions the chosen split was priced with — same per-tier self-loop, same
+  denominator, same floor — and conserving output exactly (worked by hand on the two-tier
+  fixture: 2.5 sets, 0.25 terminal sets, 2.0 recycles per item; pure spec). Rates fold in
+  build quality (`get_crafting_speed`), each tier's own module speed penalties (the speed
+  axis `per_slot_effects` now carries), and the beacon stack, floored at the engine's 20%
+  of base. **Beacons are priced on every axis, not just speed** (the reviewer's catch, same
+  day): `beacon_transmitted_effects` computes count x slots x module effects x distribution
+  effectivity at beacon quality x profile entry per axis, the quality and productivity
+  terms feed the SOLVE (machine base and recycler effect, so the yield honestly drops — or
+  dies — under a speed beacon's quality malus, api.md §25) and the speed term feeds the
+  rates; the transmitted values ride the split memo key. Ideal by declaration: it assumes
+  the chests never run dry, full beacon coverage, and ignores circuit pauses — "About"
+  carries that. `plan.seconds` is nil (and the line absent) when the solve reports no flow.
+  Directions, not numbers, are pinned in plan_spec (legendary slower than rare; an
+  efficiency beacon moves nothing; two speed beacons kill a normal-module loop honestly;
+  one against legendary quality modules shortens the pace and worsens the yield; a wizard
+  override moves the pace); the unit words live in the locale, seconds with a
+  plural_for_parameter and the larger units always arriving >= 2.0 by `duration_parts`'
+  rounded thresholds. Engine premises: `analysis/api.md` §31.
 - **The final machine's module is its own picker, defaulting to productivity or to nothing**
   (repo owner's call, 2026-08-17). At the target tier quality has nothing left to roll into, so
   the default is the strongest researched module that actually raises productivity — and
@@ -475,9 +586,10 @@ per-release approval.
   means "leave the final machine empty", the pole's rule, recorded in `no_terminal_module` so an
   explicit clear is not re-defaulted at open. The picker is labelled *Final machine module* —
   the code key stays `terminal_module`; see the player-facing vocabulary bullet below.
-- **The two module pickers own their qualities separately.** One shared module quality was
+- **The three module pickers own their qualities separately.** One shared module quality was
   deliberate while the terminal module was derived from the quality module; once it became a
-  choice of its own, one quality would have tied two unrelated decisions together.
+  choice of its own, one quality would have tied two unrelated decisions together, and the
+  productivity picker (2026-08-28) followed the same rule from birth.
 - **A picker offers only what the machine AND the recipe accept**, which needed a measured rule
   rather than the obvious one: only the effects a module applies **positively** have to be
   allowed (`analysis/api.md` §16). Both halves are re-resolved when either the machine or the
@@ -485,8 +597,8 @@ per-release approval.
   — the machine picker's own pattern. The quality-module picker keeps offering every quality
   module and refusing at validation instead: its own gate (`recipe` and machine must allow the
   quality effect) has already run by then, so there is nothing left for a list to exclude.
-  The optimal split — how much quality against how much productivity — is still the open
-  question, and still better driven by `get_roll_chances()` than by a hardcoded table.
+  The optimal split — how much quality against how much productivity — is **answered** since
+  2026-08-28: computed from `get_roll_chances()` per tier, the module-mix bullet below.
 - **Modded recyclers work by rotation, not by convention.** `vector_to_place_result` is
   per-prototype, so `planner.recycler_orientation()` computes the rotation that lands the throw
   in the machine above. Width is not a constraint — column pitch is `max(Wm, Wr)`. The one hard

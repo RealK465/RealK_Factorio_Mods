@@ -180,6 +180,28 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.circuit_max_gone == nil, "a removed tier's cap survived")
   end)
 
+  test("the split family: overrides prune by their key's tier, the module by its role", function()
+    -- split_prod_<quality> rides the circuit families' structural claim, so a modded tier
+    -- taken out from under an override drops it while live tiers keep theirs whatever the
+    -- current target. The module itself is a belt-shape picker like the quality module, so a
+    -- pick outside the productivity role reads as stale and falls back.
+    local entry = seeded({
+      productivity_module = "speed-module",
+      split_prod_rare = 2,
+      split_prod_gone = 1,
+    })
+    state.prune()
+    local c = entry.choices
+    assert(c.productivity_module == nil, "a speed module survived as the split's productivity pick")
+    assert(c.split_prod_rare == 2, "a live tier's split override was pruned")
+    assert(c.split_prod_gone == nil, "a removed tier's split override survived")
+
+    entry = seeded({ productivity_module = "productivity-module-2" })
+    state.prune()
+    assert(entry.choices.productivity_module == "productivity-module-2",
+      "a real productivity module was pruned")
+  end)
+
   test("ingredient-amount overrides prune by the chosen recipe's own ingredients", function()
     -- request_<item> holds the player's number for one of the CHOSEN recipe's ingredients,
     -- claimed structurally in the key loop like the circuit families. Gears eat iron plates

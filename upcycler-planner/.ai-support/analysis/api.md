@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.16
-verified: 2026-08-27
+verified: 2026-08-28
 ---
 # Verified API reference
 
@@ -1277,3 +1277,93 @@ refusing it outright would have cost more than the guard saves. Hence a warning
 **Not measured, and still open:** whether spoilage actually outruns a tier's dwell time at one
 machine per tier. The warning is deliberately indifferent to that — it reports the property, not
 a predicted outcome.
+
+## 30. The module-split premises: roll chances, scaled effects, mixed insert plans, research productivity
+
+Measured 2026-08-28 (headless, base 2.1.16, SA modset) for the per-tier quality/productivity
+split. Every claim here is pinned by a permanent spec — `planner_spec` → *engine premises for
+the module split* and `blueprint_spec` → *mixed-module premises for the per-tier split* — so a
+game update that moves any of it fails the suite rather than this file going quietly stale.
+
+**`LuaQualityPrototype.get_roll_chances(quality_effect, force?)` takes the plain summed
+fraction and folds the whole chain in.** Called on the *starting* tier; returns a
+name → probability dictionary over that tier and everything above it, summing to 1. With
+effect `0.025` from `normal`, the exact vanilla distribution came back
+`0.975 / 0.0225 / 0.00225 / 0.000225 / 0.000025` — i.e. one-step chance = effect ×
+`next_probability` (1 everywhere in 2.1 vanilla), each further step × `chain_probability`
+(0.1), × 0.9 except into the absorbing top. A 2.0-scale (×10) input would have read stay =
+0.75 and did not. Called on `rare`, only `rare/epic/legendary` come back — it starts where it
+is called. **Never `pairs()`-iterate the result for a decision** — index it by known tier
+name; iteration order is not part of the contract.
+
+**The `force` argument is a hard ceiling, and the split deliberately omits it.** A fresh force
+returns `{normal = 1}` — no roll at all; with only `quality-module` researched the chain stops
+at `rare`, the one-step mass unchanged and the chain remainder collapsing into the highest
+unlocked tier. Omitting `force` frees the whole chain. The split computes force-free because
+planning ahead of research is legitimate here (validate's own warn-don't-refuse stance), and
+because a force-free memo key never has to hash research state.
+
+**`LuaItemPrototype.get_module_effects(quality)` returns exact scaled effects — do not
+hand-scale and do not trust the wiki's rounding.** quality-module-3 reads `0.025` at normal
+and **`0.0625`** at legendary (1 + 0.3 × level, level 5) — the wiki's 6.2% is a display
+rounding, caught by the first run of the premise spec. productivity-module-3 at legendary is
+exactly `0.25`.
+
+**One blueprint entity carries a module mix as one `BlueprintInsertPlan` per identity**, each
+addressing disjoint `in_inventory` stacks. Measured in both directions: the engine's own
+encoder emits exactly that for a hand-mixed machine (3 + 1 across two entries), and a
+hand-written two-plan entity stamps, reads back off the ghost's `insert_plan`, and survives
+`revive({return_item_request_proxy = true})` with both identities intact on the proxy. Stack
+*positions* are the engine's business — per-identity counts are the contract. This clears the
+way for `blueprint.lua`'s `items_of` to emit one plan per module spec; the single-plan shape
+stays valid as-is.
+
+**`force.recipes[name].productivity_bonus` is the research half of per-tier productivity.**
+Force-scoped runtime read; `0` on a fresh force, `0.1` after one level of
+`steel-plate-productivity`. It counts toward `LuaRecipePrototype.maximum_productivity`
+(default `3.0`, confirmed), the same cap machine `base_effect` counts toward.
+(`LuaEntity.productivity_bonus` is the *live entity's* fully-summed figure — the wrong tool
+for a planner that has no entity yet.)
+
+**`EffectReceiver.*_limits` exist on 2.1 and nothing in this modset sets them** (grepped
+`data/{base,core,space-age,quality,recycler,elevated-rails}` — only `changelog.txt` mentions
+the names). Engine defaults apply: `quality_limits {low = 0, high = 1000}`, productivity
+`{low = -0.8, high = 1000}`. The split clamps with nil-coalesced defaults — cheap insurance
+for modded machines, exercised by pure spec only since no real prototype exercises it.
+
+**2.0 note:** `get_roll_chances`/`roll_quality` do not exist on 2.0.77
+(`LuaQualityPrototype` has an empty methods list there); `get_module_effects` **does**. The
+split is therefore 2.1-only; `legacy/2.0` keeps the flat quality-below-target rule
+(`factorio-2.0.md` carries the scale seam if a fallback is ever wanted).
+
+## 31. The pace estimate's premises: crafting speed at quality, beacon transmission, recycling energy
+
+Engine surface `planner.loop_seconds` stands on, checked against the installed
+`runtime-api.json` (2.1.16) and pinned by spec where behaviour matters:
+
+- **`LuaEntityPrototype.get_crafting_speed(quality)`** exists and folds the build quality in
+  — spec-pinned (legendary > normal for the assembler and the recycler, planner_spec's
+  engine premises). Rates are read from here, never `crafting_speed` times a hand curve.
+- **`get_module_effects(quality).speed`** is the third axis the split ignores and the pace
+  pays for; quality-module-3 reads a real negative at normal — spec-pinned.
+- **Beacon transmission fields**, present on `LuaEntityPrototype` per `runtime-api.json`
+  (2.1.16): `distribution_effectivity`, `distribution_effectivity_bonus_per_quality_level`,
+  `profile` (array; the stack's entry is `profile[min(count, #profile)]`), `beacon_counter`.
+  The transmitted effect is count x beacon slots x module effect x effectivity-at-quality x
+  profile entry, applied **per axis** — speed into the pace's rates, quality and
+  productivity into the solve itself (`planner.beacon_transmitted_effects`), because a speed
+  module's quality malus lands on every covered machine and recycler (§25) and crediting
+  the speed alone would flatter a loop the beacons may have killed. The FORMULA is [assumed
+  from the prototype docs], not measured entity-side; its directions are spec-pinned end to
+  end (plan_spec's pace test: an efficiency beacon moves nothing, two speed beacons
+  honestly kill a normal-module loop, one against legendary quality modules shortens the
+  pace and worsens the yield).
+- **Two coverage approximations, both deliberate**: the model assumes every tier's stack
+  fully reaches its machine and recycler (the beacon-out-of-reach warning case makes the
+  estimate optimistic), and ignores the adjacent-tier bleed §25 describes (pessimistic).
+  Both are inside what "About" promises.
+- **The generated recycling recipe** carries its own `energy`, and its `ingredients` list
+  names the item with an amount (the generated ones eat exactly one; a modded one may not —
+  loop_seconds reads the amount rather than assuming it, sets_per_recycle's rule).
+- **The engine floors machine speed at 20% of base** under negative effects — [documented
+  behaviour, not re-measured]; the multiplier clamps to 0.2 to match.

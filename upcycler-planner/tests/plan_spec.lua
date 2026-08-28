@@ -284,6 +284,126 @@ describe("planner.plan", function()
     end)
   end)
 
+  describe("the pace", function()
+    test("reported, slower toward legendary, and beacons price both their sides", function()
+      -- Directions, not pinned numbers: the seconds move with every module retune. The
+      -- beacon cases pin the requirement the first draft got wrong: a beacon transmits its
+      -- module's quality malus as well as its speed (api.md §25), so a speed beacon must
+      -- never flatter a loop it in truth slows or kills.
+      local rare = planner.plan(force(), choices_with())
+      assert(rare.seconds and rare.seconds > 0, "no pace on the vanilla plan")
+      local legendary = planner.plan(force(), choices_with({ quality = "legendary" }))
+      assert(legendary.seconds and legendary.seconds > rare.seconds,
+        "legendary reads no slower than rare: "
+        .. tostring(legendary.seconds) .. " vs " .. tostring(rare.seconds))
+
+      -- The default efficiency beacon transmits nothing the loop's maths care about: the
+      -- pace and the yield hold perfectly still.
+      local eff = planner.plan(force(), choices_with({ beacon = "beacon" }))
+      assert(eff.seconds == rare.seconds and eff.yield.per_item == rare.yield.per_item,
+        "an efficiency beacon moved the numbers: " .. tostring(eff.seconds)
+        .. " vs " .. tostring(rare.seconds))
+
+      -- Two speed-module beacons transmit a quality malus that cancels the normal quality
+      -- modules entirely: the honest answer is a dead loop -- no flow, no pace -- not a
+      -- shorter time.
+      local dead = planner.plan(force(), choices_with({
+        beacon = "beacon", beacon_module = "speed-module-3", beacon_count = 2,
+      }))
+      assert(dead.seconds == nil,
+        "a quality-killing beacon still promises a pace: " .. tostring(dead.seconds))
+      assert(dead.yield and dead.yield.machine_sets == nil, "the dead loop still reports flow")
+
+      -- With legendary quality modules outweighing one beacon's malus the loop lives: the
+      -- speed shows up as a shorter pace, and the malus as an honestly worse yield.
+      local plain = planner.plan(force(), choices_with({ quality_module_quality = "legendary" }))
+      local hasted = planner.plan(force(), choices_with({
+        quality_module_quality = "legendary",
+        beacon = "beacon", beacon_module = "speed-module-3",
+      }))
+      assert(hasted.yield.per_item < plain.yield.per_item,
+        "the beacon's quality malus vanished from the yield")
+      assert(hasted.seconds and plain.seconds and hasted.seconds < plain.seconds,
+        "the beacon's speed never reached the pace: "
+        .. tostring(hasted.seconds) .. " vs " .. tostring(plain.seconds))
+    end)
+  end)
+
+  describe("the per-tier split reaches the plan", function()
+    test("legendary modules mix in every lower tier; recyclers and terminal stay flat", function()
+      local plan = planner.plan(force(), {
+        recipe = "electronic-circuit", quality = "legendary",
+        machine = "electromagnetic-plant", recycler = "recycler",
+        quality_module = "quality-module-3", quality_module_quality = "legendary",
+        productivity_module = "productivity-module-3", productivity_module_quality = "legendary",
+        terminal_module = "productivity-module-3", terminal_module_quality = "legendary",
+      })
+      assert(plan, "EM plan failed")
+      local lower, terminal = {}, nil
+      for _, e in pairs(plan.entities) do
+        if e.name == "electromagnetic-plant" then
+          if e.recipe_quality == "legendary" then terminal = e else lower[#lower + 1] = e end
+        end
+      end
+      assert(terminal and #lower == 4, "machine census wrong")
+      for _, e in pairs(lower) do
+        local m = e.modules
+        assert(m[1] and m[2], "a lower tier is not mixed: " .. serpent.line(m))
+        assert(m[1].name == "quality-module-3" and m[1].quality == "legendary" and m[1].count == 1,
+          "quality half " .. serpent.line(m[1]))
+        assert(m[2].name == "productivity-module-3" and m[2].quality == "legendary"
+          and m[2].count == 4, "productivity half " .. serpent.line(m[2]))
+      end
+      assert(terminal.modules.name == "productivity-module-3" and terminal.modules.count == 5,
+        "terminal " .. serpent.line(terminal.modules))
+      for _, e in pairs(plan.entities) do
+        if e.name == "recycler" then
+          assert(e.modules.name == "quality-module-3", "a recycler consulted the split")
+        end
+      end
+      assert(plan.yield and plan.yield.per_item > 0, "the plan lost its yield")
+    end)
+
+    test("an override reaches its machine; the vanilla default plan stays flat", function()
+      local plan = planner.plan(force(), choices_with({ split_prod_uncommon = 2 }))
+      local uncommon
+      for _, e in pairs(plan.entities) do
+        if e.name == "assembling-machine-3" and e.recipe_quality == "uncommon" then uncommon = e end
+      end
+      assert(uncommon, "no uncommon machine")
+      assert(uncommon.modules[1] and uncommon.modules[1].name == "quality-module-3"
+        and uncommon.modules[1].count == 2
+        and uncommon.modules[2].name == "productivity-module-3" and uncommon.modules[2].count == 2,
+        "override did not land: " .. serpent.line(uncommon.modules))
+
+      -- The untouched vanilla plan must stay the flat single-spec shape at every lower tier:
+      -- the search reproduces the old rule at normal module quality, and the shape with it.
+      local flat = planner.plan(force(), choices_with())
+      for _, e in pairs(flat.entities) do
+        if e.name == "assembling-machine-3" and e.recipe_quality ~= "rare" then
+          assert(e.modules.name == "quality-module-3" and e.modules.count == 4,
+            "the untouched vanilla plan grew an array: " .. serpent.line(e.modules))
+        end
+      end
+      assert(flat.yield, "the flat plan lost its yield")
+
+      -- And the pace rides the folded flavour: the override changes the expected crafts,
+      -- so the wizard's typing genuinely reaches the seconds the status line shows.
+      assert(plan.seconds and flat.seconds and plan.seconds ~= flat.seconds,
+        "the pace ignored the folded override")
+
+      -- Unticking the mix checkbox forces the flat shape even past a stored override.
+      local off = planner.plan(force(),
+        choices_with({ split_enabled = false, split_prod_uncommon = 2 }))
+      for _, e in pairs(off.entities) do
+        if e.name == "assembling-machine-3" and e.recipe_quality ~= "rare" then
+          assert(e.modules.name == "quality-module-3" and e.modules.count == 4,
+            "an unticked mix still split: " .. serpent.line(e.modules))
+        end
+      end
+    end)
+  end)
+
   describe("the picked inserter and chests reach the plan", function()
     test("a pick, at its own quality, replaces the default everywhere it appears", function()
       -- buffer_stock off so the plan carries no buffer chests of its own: this test needs

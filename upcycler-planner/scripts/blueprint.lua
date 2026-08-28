@@ -29,26 +29,40 @@ end
 
 local function items_of(entity)
   local modules = entity.modules
-  -- count can be nil, not just 0: a modded machine without module support reports no
-  -- module_inventory_size at all, and the comparison would be the crash.
-  if not (modules and modules.name and (modules.count or 0) > 0) then return nil end
+  if not modules then return nil end
 
-  -- Stack indices are 0-based. crafter_modules is the module inventory for both the assembling
-  -- machines and the furnace-type recycler; a beacon's is a different constant, which rides in
-  -- on the entity record (tests/beacon_spec.lua measured the round-trip) -- the planner
-  -- resolves it, because layout.lua also runs on the host interpreter where defines.inventory
-  -- does not exist.
+  -- A mixed tier arrives as an ARRAY of specs -- the split's quality half then its
+  -- productivity half -- and every other holder as one flat spec, normalised here so a
+  -- single loop owns the serialisation: one BlueprintInsertPlan per module identity, the
+  -- 0-based stack counter contiguous across them. Measured shape: the engine's own encoder
+  -- emits exactly this for a hand-mixed machine, and it round-trips through ghost and
+  -- item-request proxy alike (api.md §30, pinned in tests/blueprint_spec.lua).
+  --
+  -- crafter_modules is the module inventory for both the assembling machines and the
+  -- furnace-type recycler; a beacon's is a different constant, which rides in on the entity
+  -- record (tests/beacon_spec.lua measured the round-trip) -- the planner resolves it,
+  -- because layout.lua also runs on the host interpreter where defines.inventory does not
+  -- exist. count can be nil, not just 0: a modded machine without module support reports no
+  -- module_inventory_size at all. id.quality nil means normal, which is how the engine
+  -- writes it too.
+  local specs = modules[1] and modules or { modules }
   local inventory = entity.module_inventory or defines.inventory.crafter_modules
-  local positions = {}
-  for stack = 0, modules.count - 1 do
-    positions[#positions + 1] = { inventory = inventory, stack = stack }
+  local plans, stack = {}, 0
+  for _, spec in ipairs(specs) do
+    if spec.name and (spec.count or 0) > 0 then
+      local positions = {}
+      for _ = 1, spec.count do
+        positions[#positions + 1] = { inventory = inventory, stack = stack }
+        stack = stack + 1
+      end
+      plans[#plans + 1] = {
+        id = { name = spec.name, quality = spec.quality },
+        items = { in_inventory = positions },
+      }
+    end
   end
-
-  -- id.quality nil means normal, which is how the engine writes it too.
-  return { {
-    id = { name = modules.name, quality = modules.quality },
-    items = { in_inventory = positions },
-  } }
+  if #plans == 0 then return nil end
+  return plans
 end
 
 -- Every field of a blueprint filter but `index` is optional, and this mod uses all three ways of

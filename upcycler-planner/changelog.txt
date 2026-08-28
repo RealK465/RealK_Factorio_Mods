@@ -1,4 +1,23 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.0
+Date: ????
+  Features:
+    - The planner now fills each machine below your target with the best mix of quality and
+      productivity modules for your setup, instead of quality modules only. With normal
+      modules that mix is still all quality, so early loops look the same as before.
+    - A Mix productivity modules checkbox in Build options turns that off, for quality
+      modules only. It starts on.
+    - The Ratios... button opens a menu with the productivity module to mix in, and how
+      many of them each tier's machine gets.
+    - The planner now shows about how many items the loop will eat for each item it makes.
+    - The planner now shows about how long the loop takes to make each item.
+  Gui:
+    - Warnings and errors under the planner now get their own lines, each with its own
+      colour and icon, so the stats above them stay easy to read.
+    - Before you pick an item, the planner shows a quiet grey hint instead of a red error.
+  Changes:
+    - Releasing for Factorio 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.7
 Date: 2026-08-27
   Changes:

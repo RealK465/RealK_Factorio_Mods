@@ -9,6 +9,149 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - the pace line: the solve learns to count its own crafts
+
+Third ask of the day: "add the time expected to the stats of quality." The yield knew how
+many items a target item costs but not how much WORK, so `quality_math.solve` grew a
+forward flow pass — expected ingredient-sets per machine and items per recycler, per one
+target item out, riding the very distributions the chosen split was priced with (they are
+now kept from the backward pass instead of re-rolled). Same per-tier self-loop, same
+denominator, same 1e-9 floor; the two-tier hand fixture works out to clean numbers (2.5
+sets, 0.25 terminal sets, 2.0 recycles per item) that conserve the output exactly, and a
+dead loop (per_set 0) reports no flow at all, which is what the display keys on.
+
+`planner.loop_seconds` turns crafts into wall-clock: steady-state, every station parallel,
+the pace = the single slowest station's expected-crafts x craft-time. Rates fold in
+`get_crafting_speed(build quality)` — new engine premise, spec-pinned — the module speed
+penalties (`per_slot_effects` now carries the speed axis; q3's penalty is itself pinned so
+the estimate cannot silently flatter), the beacon stack via profile x distribution
+effectivity at beacon quality, and the engine's 20% speed floor. The recycling recipe's own
+`energy` and ingredient amount are read, never assumed. plan_spec pins directions, not
+numbers: legendary slower than rare, a speed beacon faster. The GUI adds one plain stat
+line under the yield — "About one [target][item] out every N <unit>" — with
+`duration_parts` picking seconds/minutes/hours/days so the number stays small and the unit
+words stay in the locale. api.md gained §31. Suite 299 -> 304 on the first full run; static
+clean.
+
+The review then caught the first draft's real flaw: it credited a speed beacon's speed
+while ignoring the quality malus the same modules transmit (§25 had documented the
+mechanic all along), so the exact configuration the new spec blessed — speed beacons on a
+normal-module loop — showed a shorter pace for a loop the beacons had in truth killed.
+Fixed at the root rather than documented around: `beacon_transmitted_effects` is per-axis,
+quality and productivity now feed the solve (machine base, recycler effect, memo key) so
+the YIELD prices beacons too, and the pace spec was rewritten to pin both sides — an
+efficiency beacon moves nothing, two speed beacons report a dead loop, one against
+legendary quality modules is faster and honestly poorer. Plus the review's one-liners:
+beacon module_slots asks the beacon_modules inventory, infinite worst returns nil,
+duration_parts compares rounded amounts (119.7 s promotes to minutes), the split contract
+comment names the arrays. Still 304 -- the pace test grew instead of multiplying; green on
+the first run after the fix.
+
+## 2026-08-28 - the status area: three kinds of line, three looks
+
+Same day as the module mix, the owner's next ask: "improve the way the stats are displayed
+... better distinction between layout shape stats, output stats and error/warning messages."
+Three explorers mapped what existed — one `upl-status` label repainted whole, one flat
+colour for the entire block, so a spoilage warning turned the footprint orange with it, and
+the idle "Pick an item to upcycle." wore error red — and a survey of core's own style.lua
+fixed the verified vocabulary (the orange_label/red_label families, `[img=utility/...]`
+inline icons, `line` separators; no vanilla "warning_label" exists). The owner picked from
+previews: structured rows over rich-text-in-one-label and over a bordered stats box; icons
+on warnings AND errors; the wizard placeholders harmonized too.
+
+The label became a vertical flow gui.refresh clears and rebuilds: stat lines plain white
+(footprint+counts, then yield — moved UP beside its fellow stats, where it used to trail
+the warnings), a separator, then one line per message — orange with the warning triangle,
+or red with `not_available` on a refusal, stats absent since no plan exists. The empty
+state became a grey hint, and `hint()` serves the three wizard placeholder sentences the
+same grey. Both sprite paths pinned as engine premises (`is_valid_sprite_path` — an unknown
+img tag renders as literal text, silently), the no-op-click sentinel moved from
+caption-survives to child-label-survives, and the refusal spec found its item in the faq's
+own example (quantum-processor, fluid alongside item). Three reviewers then tightened it:
+the refresh's own hint branch now calls `hint()` instead of hand-rolling it, the key-match
+half of that branch's condition states its why in place, the ingredients-panel hint assert
+pins the key and not just the name, and a new stacking spec proves two warnings get two
+separate lines — its pole-shortfall driver needed plan_spec's exact machine pinned, because
+the EM plant's geometry lets the big pole cover what the assembler's does not. Suite
+296 -> 299 (298 on the first run); static clean; the changelog gained its first Gui
+section.
+
+## 2026-08-28 - the per-tier module mix: pacak's ask became 0.7.0's open section
+
+Started from portal discussion `6a9147f558087c568146a11d` (pacak: productivity modules in the
+intermediate tiers, proposing a checkbox) and ended with the parked *Optimal module split* and
+*Expected-output display* both shipped into an open 0.7.0 section. The owner made four calls
+up front: computed best ratio as the DEFAULT rather than an opt-in; a third module picker
+rather than reusing the final machine's; the yield display in the same release; 2.1-only,
+legacy untouched. Then approved the risk-first architecture (probes before code, a pure
+solver module, value-keyed memoisation) over the minimal inline variant.
+
+**The probes came first and two of them corrected the plan.** `get_roll_chances` takes the
+plain summed fraction, folds the whole chain in, and its `force` argument truncates at the
+unlocked tiers — measured, so the solve deliberately omits it (plan-ahead-of-research,
+validate's own stance). `get_module_effects("legendary")` returns the exact 0.0625, not the
+wiki's rounded 6.2% — caught by the first spec run. And mixed modules in one blueprint
+entity round-trip perfectly (encoder, decoder, item-request proxy), which retired the
+per-tier-binary fallback unbuilt. All pinned as permanent specs; `analysis/api.md` §30.
+
+**The solver is `scripts/quality_math.lua`** — pure, roll function injected, one closed-form
+2x2 per tier from the target down, greedy provably global because quality never goes down.
+Its wiki oracle missed on the first run: AM3-normal read 643 items per legendary against the
+wiki's 2161, which settled a modelling fact — the wiki tables run ONE module quality
+throughout, recyclers included, not its separately-stated fixed legendary recycler. With the
+fixture corrected, both oracles pass, and the same numbers then came out of the ENGINE'S
+roll chances in planner_spec — the pure stub and get_roll_chances agree to the wiki within
+tolerance.
+
+**The shape work stayed scoped**: `entity.modules` keeps its flat single-spec table
+everywhere except a genuinely mixed tier, which becomes a two-spec array `items_of` fans
+into two insert plans with contiguous stacks — so every pre-split plan is byte-identical
+(the whole 276-test suite passed untouched the moment the wiring landed, because at normal
+module quality the search reproduces the old rule exactly). The GUI grew the belt-shaped
+productivity picker, the Ratios... wizard as the fourth SIDE_PANELS entry (ingredient
+panel's only-on-edit storage — backfilling the optimum would freeze what research should
+keep moving), the yield line on the status caption, and escalations so an open wizard
+rebuilds when the target, the quality module, the terminal module or the productivity
+module moves under it. One test premise broke on the way: `open_with_gears` defaults the
+target to legendary at full research, so "rare has no row" was wrong twice over.
+
+**The owner then revised the surface the same day**: a *Mix productivity modules* checkbox
+(ticked by default, `split_enabled` nil-means-on) on its own line under the module pickers
+as the opt-out, with
+the productivity picker moved off the strip into the Ratios wizard as a labelled row above
+the counts — the Circuits row's checkbox-plus-gated-button shape exactly. Unticking prices
+no productivity module in the solve (the refusing-recipe path, the flag in the memo key),
+parks the overrides for a re-tick, disarms the button and closes an open wizard. Two more
+owner follow-ups landed the same hour: the mix line moved onto its own row under the module
+pickers (a caption and a button crowd an icon row), and it now shows only where a mix is
+structurally possible — `planner.mix_possible`, any productivity module fitting the pair,
+research aside — hidden otherwise with show-all overriding, the pipe's fluid rule. One trip
+on the way: the new handler was first registered above `settled_on`'s local definition and
+captured a nil global — handlers live at the bottom of gui.lua for a reason.
+
+Suite 257 -> 296 across all tiers (pure solver spec runs on host Lua and in-game; the
+254-tier stress solves in ~106 ms in-game with the stub). The owner's first live session
+caught the one gap the specs had not: the yield line repainted only on Enter, and typing
+through the rows -- clicking field to field, which fires no confirm -- left the stats
+sitting still while the plan underneath had already changed. Reproduced by a failing spec
+first, then fixed: every keystroke commit now refreshes (one memo-missed solve each,
+~0.1 s worst case at the modded ceiling). Four review passes ran before
+wrap-up — three focused, one independent full-diff — and their findings landed the same
+session: a stale `split_prod_` override on a productivity-refusing recipe no longer
+outranks the missing module (the yield understated an otherwise-correct plan; regression
+spec added), the productivity-cap arithmetic got one owner (`cap_productivity`), the
+handler snaps back a pick the pair refuses instead of showing a module the plan ignores,
+the productivity picker moved beside the quality module it shares slots with, and the
+no-productivity sentence stopped blaming the recipe for what can also be the machine or
+plain missing research. Static tier clean. 0.7.0 opened
+with `Date: ????` and `info.json` bumped with it — the release itself, when asked for, is
+single-track by design (2.1-only), which per the 0.6.6 lesson is exactly the shape that
+needs the owner's explicit confirmation. For the eventual legacy sync: `layout.lua`,
+`blueprint.lua`, `state.lua`, `control.lua`, `quality_math.lua` and the pure spec are
+shared files and travel with the ordinary cherry-pick (the solver is pure Lua, fine on
+2.0's interpreter); the forked `planner.lua`/`gui.lua` do NOT take the feature, so the 2.0
+build keeps the flat rule with nothing to gate.
+
 ## 2026-08-27 - 0.6.6 / 0.6.7 shipped, and half a pair shipped first
 
 The spoilage warning went out on both tracks: **0.6.6 for Factorio 2.1**, then **0.6.7 for

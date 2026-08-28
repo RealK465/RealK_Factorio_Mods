@@ -12,6 +12,14 @@ To show them anyway — to pick their quality, for example — tick **Show all b
 
 The beacons are hidden too, because they are optional and the loop plans none unless you pick one. Tick **Show all build options** to choose a beacon; once one is chosen, it stays visible. A small drop-down beside it sets how many beacons stack per tier — extra ones add no width.
 
+**Mix productivity modules** and **Ratios...** only appear once you pick an item whose recipe can take productivity modules.
+
+## Why do some machines get productivity modules? (Factorio 2.1)
+
+Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item — more product per craft means more chances to roll a better quality. The planner works out the best mix for the machines and modules you picked; with plain normal modules that mix is still all quality.
+
+Press **Ratios...** next to the module pickers to open the mix menu: pick the productivity module there and set how many each quality gets. Set a field to 0 for quality only at that tier, or empty it and press Enter to go back to the best ratio. Untick **Mix productivity modules** to turn the mix off everywhere. The lines under the planner show roughly how many items the loop will eat per item it makes, and how long each one takes.
+
 ## How do I change how many ingredients the loop requests?
 
 Press **Edit...** beside **Ingredient amounts** in the planner. You get one field per ingredient of the recipe, and each tier's chest requests that many.
