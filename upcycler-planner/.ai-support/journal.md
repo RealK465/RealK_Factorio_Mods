@@ -9,6 +9,35 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - "find a way": the roll shim takes the whole feature set to 2.0
+
+Hours after the partial port below shipped, the owner overruled its central premise: "try to
+somehow port everything we did to 2.0 find a way to do it." The way was already latent in
+two places. The solver never knew the engine existed — `params.roll_chances` is an injected
+function — and the breaking-changes reference states 2.0's roll semantics outright: quality
+effects are stored x10 and the true one-step chance is `effect x next_probability`, vanilla
+np 0.1 on every tier. So the legacy planner's `roll_chances_for` became THE 2.0 ROLL SHIM: a
+chain walk over `prototypes.quality` via `next`/`next_probability`, raw x10 effects in, the
+x0.1 conversion landing exactly once — which makes the whole pipeline scale-coherent with
+zero other changes, since module effects, beacon transmission and the recycler sum all stay
+raw and only ever become chances through that one function.
+
+With the solve alive on 2.0, the fork collapsed instead of growing: legacy `planner.lua` and
+`gui.lua` are now main's files plus the four documented seams (recipe categories, the
+allow_quality bridge, pipe volume, `contains_value`) plus the shim; `gui_spec`, `plan_spec`
+and `blueprint_spec` went back to shared verbatim; `planner_spec` stays forked for the 212
+pin and for premises that pin the shim digit-for-digit against §30's measured engine
+distributions — plus a np=0.1 ground-truth walk, so a modded chain retune fails loudly.
+
+First run: 303/304. The one failure was a measurement, not a bug: legendary q3 reads 0.62 on
+2.0, not the curve's 0.625 — the wiki's "6.2%" was never rounding, it was 2.0's real value,
+and 2.1 is what changed it to the exact 0.0625. Pinned per track; no optimum moved. Second
+run 304/304 — full parity, the EM optimum, the 2161 crosscheck, the beacon kill-and-outweigh
+cases all identical through the shim. Static clean, data stage exit 0 at 0.7.1, and the
+0.7.1 changelog section simplified to the standard pointer: "Version 0.7.0, ported to
+Factorio 2.0." The README and faq lost their 2.1-only scoping the same hour it stopped
+being true.
+
 ## 2026-08-28 - the 0.7.1 port: the status area crosses to 2.0, the mix stays home
 
 The owner's call after committing 0.7.0 (`bd58dc5`, main): port to `legacy/2.0`, keep both

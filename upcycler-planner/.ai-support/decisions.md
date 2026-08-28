@@ -470,11 +470,16 @@ per-release approval.
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
   the portal ask `6a9147f558087c568146a11d`, superseding the flat all-quality rule: computed
   default over pacak's opt-in checkbox; a third module picker rather than reusing the final
-  machine's; the expected-output line in the same release; 2.1-only, `legacy/2.0` keeps the
-  flat rule — `get_roll_chances` does not exist there). The optimum is solved exactly, per
-  tier from the target down, on engine data alone: `get_roll_chances` **force-free** (planning
-  ahead of research is validate's own stance), `get_module_effects` at the modules' own
-  qualities, `effect_receiver.base_effect` and `*_limits`, `force.recipes[...].productivity_bonus`,
+  machine's; the expected-output line in the same release; 2.1-only at first, `legacy/2.0`
+  keeping the flat rule — **reversed by the owner on 2026-08-28** ("port everything, find a
+  way"): the legacy track now computes the same distributions itself from
+  `next`/`next_probability`, THE 2.0 ROLL SHIM in the forked planner, so the whole feature
+  set runs on both tracks — `factorio-2.0.md` carries the shim's model and its one measured
+  surprise, legendary q3 reading 0.62 there where 2.1 says 0.0625). The optimum is solved
+  exactly, per tier from the target down, on engine data alone: `get_roll_chances`
+  **force-free** (planning ahead of research is validate's own stance; the shim is force-free
+  by construction), `get_module_effects` at the modules' own qualities,
+  `effect_receiver.base_effect` and `*_limits`, `force.recipes[...].productivity_bonus`,
   the recipe's `maximum_productivity`, and the recycler ratio read off the generated recycling
   recipe — so modded machines, modules and quality chains price themselves.
   `scripts/quality_math.lua` is the solver, pure like `layout.lua` with the roll function

@@ -23,7 +23,7 @@ The loop contains:
 
 - One column per quality, each with a crafting machine, a recycler, and the chests that feed and drain them.
 - Belts, filtered inserters, chests and electric poles, all placed and set up for you from the options you picked.
-- Quality and productivity modules mixed in every machine, at the best ratio for the machines and modules you picked. Untick **Mix productivity modules** for quality only; the **Ratios...** button opens a menu with the productivity module and the mix per quality; and the planner tells you roughly how many items the loop will eat per item it makes, and how long each one takes. (Factorio 2.1 builds; on 2.0 the machines get quality modules.)
+- Quality and productivity modules mixed in every machine, at the best ratio for the machines and modules you picked. Untick **Mix productivity modules** for quality only; the **Ratios...** button opens a menu with the productivity module and the mix per quality; and the planner tells you roughly how many items the loop will eat per item it makes, and how long each one takes.
 - Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them. Untick **Use buffer chests** in the build options to keep every item in the loop instead.
 - Beacons beside every column, if you want them: pick one under **Show all build options**, then choose how many stack per tier — extra beacons add no width. Their modules default to efficiency, because speed modules also lower the quality odds of everything they reach.
 
