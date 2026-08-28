@@ -9,6 +9,18 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - the optimization delta reaches Factorio 2.0
+
+`git cherry-pick 302fc0f` onto `legacy/2.0` auto-merged all fourteen files, the two forked
+ones it touches included (`scripts/planner.lua` took the held-scan binary search, the cap at
+64 and the `balanced_columns` deletion without disturbing the roll shim or the recipe-shape
+seams; `tests/planner_spec.lua` took the spec swap beside its per-track figures).
+`scripts/poles.lua` is a shared file and carried the whole rewrite as-is. The drift check
+(`git diff main -- .` from the worktree) still lists exactly the declared divergent set.
+Verified on 2.0.77 from the legacy worktree's own skill copies: data stage exit 0 as 1.0.1,
+pure 91/91, in-game suite **331/331** — the same count as `main`. Both branches pushed; the
+open 1.0.0 / 1.0.1 pair can now ship in order whenever the owner calls it.
+
 ## 2026-08-29 - the cap doubles to 64; the balanced hint leaves the columns wizard
 
 Two owner calls the morning after the optimization pass, taken together. **The cap**:

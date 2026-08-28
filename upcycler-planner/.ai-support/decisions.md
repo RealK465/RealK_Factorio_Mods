@@ -512,10 +512,10 @@ per-release approval.
   mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild exists,
   so an open Ratios wizard's displayed defaults stay priced pre-research until any rebuild —
   chosen, not missed, the quality dropdown's own frozen-tags reasoning. **The
-  `legacy/2.0` port landed 2026-08-28** for the columns feature itself (a clean cherry-pick —
-  the delta touches no fork hunk; suite 333 on 2.0.77); the 2026-08-29 delta — the pole-solve
-  optimizations, the cap at 64 and the hint removal — still needs its own cherry-pick before
-  the open 1.0.0 / 1.0.1 pair ships in order: 1.0.0 for
+  `legacy/2.0` port is complete**: the columns feature landed 2026-08-28 and the 2026-08-29
+  delta — the pole-solve optimizations, the cap at 64 and the hint removal — followed the
+  same day (both clean cherry-picks; suite 331 on 2.0.77, matching `main`), so the open
+  1.0.0 / 1.0.1 pair ships in order whenever called: 1.0.0 for
   Factorio 2.1 first, 1.0.1 as its 2.0 port.
 - **Modules are planned, not merely requested** — and each lower tier's machine carries the
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
