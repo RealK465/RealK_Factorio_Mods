@@ -430,6 +430,122 @@ describe("stamping the blueprint", function()
   end)
 end)
 
+-- The engine premise the per-tier module split rests on: one machine's inventory holding TWO
+-- module identities at once. items_of has only ever written one BlueprintInsertPlan per entity
+-- and api.md §21's capture never exercised a mix, so both directions are measured here before
+-- any production code assumes the shape -- what the engine's own encoder emits for a hand-mixed
+-- machine, and what its decoder makes of a hand-written two-plan entity. Per-identity COUNTS
+-- are the contract; which physical stack holds which module is the engine's business, so no
+-- assertion here pins stack positions beyond disjointness.
+describe("mixed-module premises for the per-tier split", function()
+  before_all(function() research.full(force()) end)
+  after_each(function() wipe(nauvis()) end)
+
+  -- Reads an items array into { [item-name] = stack_count } plus a disjointness verdict, so
+  -- both directions below judge the same way whatever entry order the engine picks.
+  local function stacks_by_id(items)
+    local counts, seen, disjoint = {}, {}, true
+    for _, plan in pairs(items or {}) do
+      local name = plan.id.name
+      for _, slot in pairs(plan.items.in_inventory or {}) do
+        counts[name] = (counts[name] or 0) + 1
+        local key = tostring(slot.inventory) .. ":" .. tostring(slot.stack)
+        if seen[key] then disjoint = false end
+        seen[key] = true
+      end
+    end
+    return counts, disjoint
+  end
+
+  test("encoder: blueprinting a hand-mixed machine yields one insert plan per identity", function()
+    local machine = nauvis().create_entity({
+      name = "assembling-machine-3", position = { 4.5, 4.5 }, force = force(),
+    })
+    assert(machine, "test setup failed to place the machine")
+    local modules = machine.get_module_inventory()
+    assert(modules.insert({ name = "quality-module-3", count = 3 }) == 3
+      and modules.insert({ name = "productivity-module-3", count = 1 }) == 1,
+      "test setup failed to insert the mix")
+
+    local inventory = game.create_inventory(1)
+    inventory.insert({ name = "blueprint", count = 1 })
+    local stack = inventory[1]
+    stack.create_blueprint({
+      surface = nauvis(), force = force(),
+      area = { { 2, 2 }, { 7, 7 } },
+    })
+    local entities = stack.get_blueprint_entities()
+    inventory.destroy()
+
+    assert(entities and #entities == 1, "captured " .. tostring(entities and #entities)
+      .. " entities, expected the one machine")
+    local items = entities[1].items
+    assert(items and #items == 2, "the engine encoded the mix as "
+      .. tostring(items and #items) .. " insert plans: " .. serpent.line(items))
+    local counts, disjoint = stacks_by_id(items)
+    assert(counts["quality-module-3"] == 3 and counts["productivity-module-3"] == 1,
+      "per-identity counts came back as " .. serpent.line(counts))
+    assert(disjoint, "the encoder reused a stack index across identities")
+  end)
+
+  test("decoder: a hand-written two-plan entity stamps, reads back, and delivers the mix", function()
+    local inventory = defines.inventory.crafter_modules
+    local ghosts = stamping.place_entities({ {
+      entity_number = 1, name = "assembling-machine-3", position = { x = 1.5, y = 1.5 },
+      recipe = "iron-gear-wheel",
+      items = {
+        { id = { name = "quality-module-3" }, items = { in_inventory = {
+          { inventory = inventory, stack = 0 }, { inventory = inventory, stack = 1 },
+          { inventory = inventory, stack = 2 },
+        } } },
+        { id = { name = "productivity-module-3" }, items = { in_inventory = {
+          { inventory = inventory, stack = 3 },
+        } } },
+      },
+    } }, {
+      surface = nauvis(), force = force(),
+      position = { x = 8, y = 8 }, build_mode = defines.build_mode.forced,
+    })
+    assert(#ghosts == 1, "the two-plan entity stamped " .. #ghosts .. " ghosts")
+
+    local counts, disjoint = stacks_by_id(ghosts[1].insert_plan)
+    assert(counts["quality-module-3"] == 3 and counts["productivity-module-3"] == 1,
+      "the ghost's insert plan reads back as " .. serpent.line(counts))
+    assert(disjoint, "the decoder collapsed two identities onto one stack")
+
+    -- The delivery half: reviving hands the requests to an item-request proxy, the same
+    -- vehicle a bot-built ghost uses, and the mix must survive into it per identity.
+    local _, machine, proxy = ghosts[1].revive({ return_item_request_proxy = true })
+    assert(machine, "the mixed ghost refused to revive")
+    assert(proxy, "no item-request proxy carried the module requests")
+    local requested = stacks_by_id(proxy.insert_plan)
+    assert(requested["quality-module-3"] == 3 and requested["productivity-module-3"] == 1,
+      "the proxy carries " .. serpent.line(requested))
+  end)
+
+  test("a split plan stamps: two insert plans per mixed machine, one on the terminal", function()
+    -- End to end through planner.plan and blueprint.entities: the per-tier overrides force a
+    -- 3q+1p mix on both lower tiers, and the serialiser's fan-out must land on real ghosts.
+    stamp(gear_plan({ split_prod_normal = 1, split_prod_uncommon = 1 }))
+    local mixed = 0
+    for _, ghost in pairs(ghosts_of(nauvis(), "assembling-machine-3")) do
+      local _, quality = ghost.get_recipe()
+      local entries = ghost.insert_plan
+      if quality and quality.name ~= "rare" then
+        assert(#entries == 2, "a mixed machine carries " .. #entries .. " insert plans")
+        local counts, disjoint = stacks_by_id(entries)
+        assert(counts["quality-module-3"] == 3 and counts["productivity-module-3"] == 1,
+          "mixed counts " .. serpent.line(counts))
+        assert(disjoint, "the fan-out reused a stack index")
+        mixed = mixed + 1
+      else
+        assert(#entries == 1, "the terminal machine grew a second insert plan")
+      end
+    end
+    assert(mixed == 2, "expected two mixed machines, found " .. mixed)
+  end)
+end)
+
 -- Rotation and flipping come free with a blueprint, and one of them could break the loop
 -- silently. The recycler throws its output on a vector with a non-zero x offset
 -- (vector_to_place_result = {-0.35, -2.3}), so a mirror that failed to mirror the throw would

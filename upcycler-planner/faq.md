@@ -14,7 +14,7 @@ The beacons are hidden too, because they are optional and the loop plans none un
 
 **Mix productivity modules** and **Ratios...** only appear once you pick an item whose recipe can take productivity modules.
 
-## Why do some machines get productivity modules? (Factorio 2.1)
+## Why do some machines get productivity modules?
 
 Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item — more product per craft means more chances to roll a better quality. The planner works out the best mix for the machines and modules you picked; with plain normal modules that mix is still all quality.
 

@@ -1,6 +1,6 @@
 ---
 verified_against: 2.0.77
-verified: 2026-08-17
+verified: 2026-08-28
 ---
 # Factorio 2.0 — the API surface this mod touches
 
@@ -101,15 +101,42 @@ no `recycler` mod):
   `category = "recycling"`, named `<item>-recycling`, skipping recipes already in the
   category — the same three-bucket scheme `api.md` §8 describes for 2.1.
 
+## The roll shim — this track's answer to `get_roll_chances` (2026-08-28)
+
+The module mix, the yield and the pace all stand on one engine call that is 2.1.13-only, so
+the legacy planner computes the distribution itself (`roll_chances_for`, exported as
+`planner.roll_chances_for` for the premise spec). The model, from the 2.1 changelog's own
+wording plus this file's scale note:
+
+- **The one-step chance is `raw_effect x next_probability` of the FROM tier** — 2.0 stores
+  quality effects x10 (0.25 for a normal q3; both versions display 2.5%) and every vanilla
+  tier carries `next_probability = 0.1`, so the x0.1 conversion happens exactly once, inside
+  the walk. No other code converts scale: raw 2.0 effects flow through `quality_math.solve`,
+  the beacon transmission and the recycler sum untouched, and the coherence holds because
+  the solve only ever turns an effect into a chance through this one function.
+- **Each further transition multiplies by the reached tier's own `next_probability`**, the
+  top absorbing the remainder. For vanilla's uniform 0.1 this reproduces the 2.1 engine's
+  measured distributions digit for digit (0.975 / 0.0225 / 0.00225 / 0.000225 / 0.000025 for
+  one normal q3 — pinned by the forked `planner_spec` premises, same numbers as api.md §30's
+  engine measurements). Per-tier `next_probability` for modded chains is the documented
+  reading of the 2.0 mechanic, [not measured entity-side — no oracle exists here].
+- **A step chance above 1 clamps to certainty**, matching 2.1's "100% effect guarantees an
+  increase"; the top tier rolls nowhere; force-free by construction, matching main's
+  deliberate stance.
+
+**One measured surprise:** `get_module_effects("legendary")` on quality-module-3 reads
+**0.62** here (x10 scale), not a curve's 0.625 — the wiki's "6.2%" was never a rounding, it
+is 2.0's real value, and 2.1 is what changed it to the exact 0.0625. Both premises are
+pinned, one per track. Downstream the 0.5% difference moves no optimum the suite checks:
+the whole 304-test suite — EM 1q+4p, the 2161 items-per-legendary crosscheck, the beacon
+both-sides cases — passes identically on 2.0.77 through the shim.
+
 ## Version-scale differences that deliberately do not matter here
 
-Marked so nobody ports a fix for them: **quality effect values are ×10 on 2.0** (real chance =
-`effect.quality * next_probability`, with `next_probability = 0.1`) — this mod only *ranks*
-modules by effect size and never converts to a chance, so the scale cancels; and the
-`ModulePrototype::*_quality_multiplier` family is 2.1-only — this mod ships no modules, so
-nothing to gate. If an expected-output display ever lands (`../deferred.md`), **that** feature
-must handle the scale seam, ideally via `get_roll_chances()`, which is 2.1.13-only — the
-display would need its own 2.0 answer.
+Marked so nobody ports a fix for them: the `ModulePrototype::*_quality_multiplier` family is
+2.1-only — this mod ships no modules, so nothing to gate. The quality-effect x10 scale DOES
+matter since the mix landed and is owned entirely by the roll shim above; module *ranking*
+(`module_candidates`) stays scale-free as before.
 
 ## Measured identical on 2.0.77 — the fluid feature's engine behaviour
 

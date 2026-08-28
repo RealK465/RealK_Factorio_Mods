@@ -28,13 +28,11 @@ describe("upcyclability -- prototype-level, research-free", function()
   end)
 
   test("the offered item list holds exactly the known 212", function()
-    -- FORKED on legacy/2.0, declared in the repo CLAUDE.md divergent-files list: the 2.0
-    -- track's base list was 187 where 2.1's was 185 (measured 2026-08-16), and the 0.2.0
-    -- fluid support admits 25 single-fluid items on top -- 212, measured on this branch
-    -- (2026-08-17), never derived from the 2.1 number. A drift in either direction still
-    -- means an eligibility rule changed by accident.
+    -- The 2.0 track's own pin (main pins 210): this version offers two more items, measured
+    -- when the fluid port landed (2026-08-17). A drift in either direction means an
+    -- eligibility rule changed by accident.
     local count = #planner.upcyclable_items()
-    assert(count == 212, "upcyclable item count " .. count .. ", expected 212 on the 2.0 track")
+    assert(count == 212, "upcyclable item count " .. count .. ", expected 212")
   end)
 
   test("recipe_for_item derives the canonical recipe", function()
@@ -318,6 +316,228 @@ describe("modules the machine and recipe accept", function()
     assert(not planner.is_module("iron-plate"), "a plate is not a module")
     assert(#planner.modules() == 12,
     "the SA modset ships twelve modules -- four families of three; got " .. #planner.modules())
+  end)
+end)
+
+-- The three engine facts the per-tier module split is built on, measured before any code
+-- assumes them. get_roll_chances had never been called anywhere in this mod; its input scale,
+-- whether the chain maths is folded in, and what the force ceiling does were all unwritten.
+describe("engine premises for the module split", function()
+  before_all(function() research.full(force()) end)
+
+  local function close(a, b)
+    return math.abs((a or math.huge) - b) <= 1e-6
+  end
+
+  -- The 2.0 fork's shim, not an engine call: get_roll_chances is 2.1.13-only, so this track
+  -- computes the distribution from the chain's own prototypes (planner.lua, THE 2.0 ROLL
+  -- SHIM). These premises pin the shim against the exact distributions the 2.1 engine was
+  -- measured to produce, fed the raw x10 effects this version stores.
+  local function roll(tier, effect)
+    return planner.roll_chances_for(tier, effect)
+  end
+
+  local function total(chances)
+    local sum = 0
+    for _, p in pairs(chances) do sum = sum + p end
+    return sum
+  end
+
+  test("get_module_effects scales by the module's own quality, on the 2.0 x10 scale", function()
+    -- The split's per-slot numbers come from here, never hand-scaled. This version stores
+    -- quality effects x10 (0.25 base where 2.1 stores 0.025; both display 2.5%), and the
+    -- roll shim's x next_probability is what lands them back on true chances -- so these
+    -- raw values flow through the solve untouched, and this premise pins the scale the shim
+    -- assumes. Legendary is the measured 0.62, not a curve's 0.625: the wiki's "6.2%" was
+    -- never a rounding, it is 2.0's real value -- 2.1 is what changed it to the exact
+    -- 0.0625 (measured 2.0.77 / 2.1.16, one premise on each track). Productivity was never
+    -- rescaled: legendary prod-3 reads 0.25 on both.
+    local q3 = prototypes.item["quality-module-3"]
+    assert(close(q3.get_module_effects("normal").quality, 0.25),
+      "base quality effect " .. tostring(q3.get_module_effects("normal").quality))
+    assert(math.abs(q3.get_module_effects("legendary").quality - 0.62) < 1e-6,
+      "legendary-scaled effect " .. tostring(q3.get_module_effects("legendary").quality))
+    local p3 = prototypes.item["productivity-module-3"]
+    assert(close(p3.get_module_effects("legendary").productivity, 0.25),
+      "legendary prod-3 effect " .. tostring(p3.get_module_effects("legendary").productivity))
+    -- And the speed axis the pace estimate pays for: quality modules carry a real penalty.
+    assert(q3.get_module_effects("normal").speed < 0,
+      "quality-module-3 reads no speed penalty; the pace estimate would flatter the loop")
+  end)
+
+  test("get_crafting_speed folds the build quality in", function()
+    -- The pace estimate's rates come from here, never from crafting_speed x a hand curve.
+    local machine = prototypes.entity["assembling-machine-3"]
+    assert(machine.get_crafting_speed("legendary") > machine.get_crafting_speed("normal"),
+      "a legendary machine does not craft faster; the pace maths lost its premise")
+    local recycler = prototypes.entity["recycler"]
+    assert(recycler.get_crafting_speed("legendary") > recycler.get_crafting_speed("normal"),
+      "a legendary recycler does not craft faster")
+  end)
+
+  test("the roll shim folds the whole chain in from a raw x10 effect", function()
+    -- One quality-module-3 at normal: raw effect 0.25, x next_probability 0.1 = the true
+    -- 2.5% one-step chance. Expected exact distribution from normal: stay 0.975, then
+    -- 0.025 * 0.9, * 0.1 * 0.9, * 0.01 * 0.9, and 0.025 * 0.001 at the absorbing top --
+    -- digit for digit what the 2.1 engine's get_roll_chances was measured to return for
+    -- the same module (main's counterpart premise). A shim that forgot the x0.1 seam would
+    -- read stay 0.75 and fail here loudly.
+    local chances = roll("normal", 0.25)
+    assert(close(total(chances), 1), "distribution sums to " .. total(chances))
+    assert(close(chances["normal"], 0.975), "stay " .. serpent.line(chances))
+    assert(close(chances["uncommon"], 0.0225), "one step " .. serpent.line(chances))
+    assert(close(chances["rare"], 0.00225), "two steps " .. serpent.line(chances))
+    assert(close(chances["epic"], 0.000225), "three steps " .. serpent.line(chances))
+    assert(close(chances["legendary"], 0.000025), "to the top " .. serpent.line(chances))
+
+    -- Called on a mid-chain tier it starts THERE: rare in, rare/epic/legendary out, the top
+    -- absorbing the chain remainder (0.025 * 0.1, no * 0.9).
+    local from_rare = roll("rare", 0.25)
+    assert(from_rare["normal"] == nil and from_rare["uncommon"] == nil,
+      "a rare roll offered tiers below itself: " .. serpent.line(from_rare))
+    assert(close(from_rare["rare"], 0.975) and close(from_rare["epic"], 0.0225)
+      and close(from_rare["legendary"], 0.0025),
+      "from-rare distribution " .. serpent.line(from_rare))
+
+    -- The top of the chain rolls nowhere, and a huge modded effect caps at certainty.
+    local top = roll("legendary", 0.25)
+    assert(close(top["legendary"], 1), "the top tier rolled: " .. serpent.line(top))
+    local capped = roll("normal", 100)
+    assert(close(capped["normal"], 0), "a certain upgrade still stayed: "
+      .. serpent.line(capped))
+    assert(close(total(capped), 1), "the capped distribution sums to " .. total(capped))
+  end)
+
+  test("the chain parameters the shim reads are what 2.0 ships", function()
+    -- The shim's ground truth: every tier below the top carries next_probability 0.1 (the
+    -- factor that both converts a raw effect to a chance and continues the chain), and the
+    -- top has no next. A modded chain moves these values and the shim follows its
+    -- prototypes; vanilla is pinned so a retune fails loudly instead of skewing every
+    -- optimum silently.
+    local tier = prototypes.quality["normal"]
+    local walked = 0
+    while tier.next do
+      assert(close(tier.next_probability, 0.1),
+        tier.name .. " carries next_probability " .. tostring(tier.next_probability))
+      tier = tier.next
+      walked = walked + 1
+    end
+    assert(walked == 4 and tier.name == "legendary",
+      "the vanilla chain walked " .. walked .. " steps to " .. tier.name)
+  end)
+
+  test("recipe productivity research reads back per force, and the cap is the recipe's", function()
+    -- force.recipes[name].productivity_bonus is the research half of every tier's p; the
+    -- prototype's maximum_productivity is the cap built-ins and research both count toward.
+    research.fresh(force())
+    assert(force().recipes["steel-plate"].productivity_bonus == 0,
+      "a fresh force already carries a productivity bonus")
+
+    research.only(force(), { "steel-plate-productivity" })
+    local bonus = force().recipes["steel-plate"].productivity_bonus
+    assert(close(bonus, 0.1), "one productivity level reads as " .. tostring(bonus))
+
+    assert(close(prototypes.recipe["iron-gear-wheel"].maximum_productivity, 3),
+      "the default productivity cap moved: "
+      .. tostring(prototypes.recipe["iron-gear-wheel"].maximum_productivity))
+
+    research.full(force())
+  end)
+end)
+
+describe("the per-tier module split", function()
+  before_all(function() research.full(force()) end)
+
+  -- The differentiator fixture: high-quality modules in a strong machine, where the wiki's
+  -- own optimizer puts 1 quality + 4 productivity at every lower tier (quality-math.md §2).
+  local function em_choices(overrides)
+    local choices = {
+      recipe = "electronic-circuit", quality = "legendary",
+      machine = "electromagnetic-plant", recycler = "recycler",
+      quality_module = "quality-module-3", quality_module_quality = "legendary",
+      productivity_module = "productivity-module-3", productivity_module_quality = "legendary",
+      terminal_module = "productivity-module-3", terminal_module_quality = "legendary",
+    }
+    for key, value in pairs(overrides or {}) do choices[key] = value end
+    return choices
+  end
+
+  test("normal modules reproduce the flat rule, and the engine agrees with the wiki", function()
+    -- The search, not an accident: at normal module quality the integer optimum IS the old
+    -- all-quality rule, which is what keeps every pre-split plan byte-identical. The yield
+    -- figure doubles as the engine-vs-pure cross-check -- the same number the pure spec pins
+    -- against the wiki with a stubbed roll comes out of get_roll_chances here.
+    local split = planner.split(force(), {
+      recipe = "iron-gear-wheel", quality = "legendary",
+      machine = "assembling-machine-3", recycler = "recycler",
+    })
+    assert(split, "no split for the vanilla gear loop")
+    assert(split.slots == 4, "AM3 slots " .. tostring(split.slots))
+    for j = 1, 4 do
+      assert(split.prods[j] == 0, "tier " .. j .. " took "
+        .. tostring(split.prods[j]) .. " productivity slots at normal modules")
+    end
+    local per_legendary = 1 / split.yield.per_item
+    assert(math.abs(per_legendary - 2161) <= 150,
+      "engine-driven yield reads " .. per_legendary .. " items per legendary, wiki says ~2161")
+  end)
+
+  test("legendary modules in an electromagnetic plant mix 1 quality + 4 productivity", function()
+    local split = planner.split(force(), em_choices())
+    assert(split and split.slots == 5, "EM plant slots " .. tostring(split and split.slots))
+    for j = 1, 4 do
+      assert(split.prods[j] == 4, "tier " .. j .. " split " .. serpent.line(split.prods))
+    end
+    local per_legendary = 1 / split.yield.per_item
+    assert(math.abs(per_legendary - 36.7) <= 3,
+      "EM yield reads " .. per_legendary .. " items per legendary, wiki says ~37")
+  end)
+
+  test("an override pins its tier; ignore_overrides recomputes the optimum", function()
+    local choices = em_choices({ split_prod_uncommon = 1 })
+    local split = planner.split(force(), choices)
+    assert(split.prods[2] == 1, "override not echoed: " .. serpent.line(split.prods))
+    assert(split.prods[1] == 4 and split.prods[3] == 4, "untouched tiers moved")
+    local defaults = planner.split(force(), choices, nil, true)
+    assert(defaults.prods[2] == 4, "ignore_overrides still honoured the override")
+  end)
+
+  test("a recipe that refuses productivity forces all-quality with no refusal", function()
+    local choices = {
+      recipe = "wooden-chest", quality = "rare",
+      machine = "assembling-machine-3", recycler = "recycler",
+    }
+    local split = planner.split(force(), choices)
+    assert(split, "the refused-productivity loop still needs a split answer")
+    for j = 1, 2 do
+      assert(split.prods[j] == 0, "forced tier " .. j .. " took productivity slots")
+    end
+    assert(split.yield.per_item > 0, "the all-quality loop still yields")
+    assert((planner.validate(force(), choices)),
+      "a productivity-refusing recipe must not be refused")
+  end)
+
+  test("unticking the mix forces all-quality and parks the overrides for a re-tick", function()
+    local choices = em_choices({ split_enabled = false, split_prod_uncommon = 1 })
+    local off = planner.split(force(), choices)
+    assert(off and not off.mixable, "unticked must read unmixable")
+    for j = 1, 4 do
+      assert(off.prods[j] == 0, "unticked tier " .. j .. " kept productivity slots")
+    end
+    choices.split_enabled = true
+    local on = planner.split(force(), choices)
+    assert(on.prods[2] == 1, "the parked override did not come back: " .. serpent.line(on.prods))
+    assert(on.prods[1] == 4, "the re-tick lost the computed optimum elsewhere")
+  end)
+
+  test("the answer is cached by value: same inputs share one table, changed inputs do not", function()
+    local choices = em_choices()
+    local first = planner.split(force(), choices)
+    local second = planner.split(force(), choices)
+    assert(rawequal(first, second), "identical inputs re-solved")
+    choices.quality_module_quality = "normal"
+    local third = planner.split(force(), choices)
+    assert(not rawequal(first, third), "a changed module quality reused the stale answer")
   end)
 end)
 

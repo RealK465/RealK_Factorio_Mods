@@ -197,13 +197,12 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
   files are `info.json`, `prototypes/modules/definitions.lua`,
   `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else. For
-  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`,
-  `scripts/gui.lua` and `tests/planner_spec.lua` (the 2.0 track offers 212 upcyclable items
-  where 2.1 offers 210, so the regression pin forks with it), plus — since 0.7.0's per-tier
-  module mix, whose specs exercise 2.1-only planner surface — `tests/gui_spec.lua`,
-  `tests/plan_spec.lua` and `tests/blueprint_spec.lua`, and `data-final-fixes.lua`,
-  which exists **only** on `legacy/2.0` — the 2.0 shims live on that branch alone, never
-  version-gated into `main`.
+  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`
+  (the recipe-shape seams and the 2.0 roll shim), `scripts/gui.lua` and
+  `tests/planner_spec.lua` (the 2.0 track offers 212 upcyclable items where 2.1 offers 210,
+  and its engine premises pin the roll shim where main's pin `get_roll_chances`), plus
+  `data-final-fixes.lua`, which exists **only** on `legacy/2.0` — the 2.0 shims live on that
+  branch alone, never version-gated into `main`.
   `README.md` and `changelog.txt` are **not** on that list — both are kept identical on the two
   branches, for reasons the `factorio-multiversion` skill carries.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set

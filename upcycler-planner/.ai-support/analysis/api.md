@@ -1332,9 +1332,12 @@ the names). Engine defaults apply: `quality_limits {low = 0, high = 1000}`, prod
 for modded machines, exercised by pure spec only since no real prototype exercises it.
 
 **2.0 note:** `get_roll_chances`/`roll_quality` do not exist on 2.0.77
-(`LuaQualityPrototype` has an empty methods list there); `get_module_effects` **does**. The
-split is therefore 2.1-only; `legacy/2.0` keeps the flat quality-below-target rule
-(`factorio-2.0.md` carries the scale seam if a fallback is ever wanted).
+(`LuaQualityPrototype` has an empty methods list there); `get_module_effects` **does**. Since
+2026-08-28 the split runs there anyway: the legacy planner's ROLL SHIM computes the same
+distributions from `next`/`next_probability` (raw x10 effects in, the x0.1 conversion landing
+exactly once inside the walk), pinned digit-for-digit against this section's measured 2.1
+distributions by the forked `planner_spec`. Model, sources and the 0.62-vs-0.0625 legendary
+measurement: `factorio-2.0.md`.
 
 ## 31. The pace estimate's premises: crafting speed at quality, beacon transmission, recycling energy
 

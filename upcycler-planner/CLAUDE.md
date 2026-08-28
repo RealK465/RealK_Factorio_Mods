@@ -35,8 +35,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (304 tests on `main` as of 2026-08-28; the 2.0 track runs the 280 its
-forked specs keep) — planner, layout, poles, circuits, the
+suite under `tests/` (304 tests on each track as of 2026-08-28) — planner, layout, poles, circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -314,7 +313,8 @@ re-opening any of these, and don't restate a reason here.
   the machine refuses productivity — never to a quality module. Clearing it means "leave that
   machine empty".
 - **Each lower tier's machine carries the computed best quality/productivity mix by default**
-  (2.1-only — `legacy/2.0` keeps the flat all-quality rule). A *Mix productivity modules*
+  (both tracks: 2.1 through the engine's `get_roll_chances`, 2.0 through the legacy roll
+  shim — `analysis/factorio-2.0.md`). A *Mix productivity modules*
   checkbox, ticked by default, is the opt-out; unticking forces quality-only and parks the
   per-tier overrides; the whole line shows only when some productivity module fits the
   machine-and-recipe pair (show-all overrides, the pipe's rule). Solved per tier from engine data
