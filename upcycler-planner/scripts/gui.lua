@@ -150,7 +150,12 @@ end
 -- different branches on the same press of E -- a desync.
 function gui.note_gui_event(event)
   local element = event.element
+  -- Only a LEFT click opens a chooser -- a right click clears the button and a middle one
+  -- does nothing -- so any other button must not arm the presumption and cost the next E.
+  -- nil-tolerant (arming) because the engine always names the button; only the specs'
+  -- synthetic events omit it.
   if event.name == defines.events.on_gui_click and element and element.valid
+    and (event.button == nil or event.button == defines.mouse_button_type.left)
     and element.type == "choose-elem-button" and element.tags[dispatch.TAG] then
     state.of(event.player_index).chooser_maybe_open = true
   else
@@ -881,6 +886,11 @@ local function build_split_panel(player, frame)
     local tier = tiers[index]
     local key = "split_prod_" .. tier
     local default = defaults.prods[index] or 0
+    -- Displayed through the solve's own clamp and type guard, the columns wizard's rule: a
+    -- stored count from a bigger machine (or a hand-edited save) must show the number the
+    -- plan actually uses, never a raw one the solve would quietly clamp.
+    local stored = type(choices[key]) == "number"
+      and util.clamp(choices[key], 0, defaults.slots) or nil
     local row = list.add({
       type = "flow", name = "upl-split-row-" .. tier, direction = "horizontal",
     })
@@ -893,7 +903,7 @@ local function build_split_panel(player, frame)
     local field = row.add({
       -- numeric keeps every keystroke a digit, the other wizards' rule.
       type = "textfield", name = "upl-split-count-" .. tier,
-      text = tostring(choices[key] or default),
+      text = tostring(stored or default),
       numeric = true, allow_decimal = false, allow_negative = false,
       lose_focus_on_confirm = true,
       tooltip = { "upl-gui.split-count-tooltip" },
@@ -951,6 +961,11 @@ local function build_columns_panel(player, frame)
   })
   list.style.maximal_height = 400
 
+  -- The displayed counts come from the same read the plan uses, clamp included, so a stored
+  -- value from a wider dev-era cap (250, then 32) can never show one number while the built
+  -- plan uses another.
+  local counts = planner.tier_columns(choices, tiers)
+
   for index = 1, #tiers - 1 do
     local tier = tiers[index]
     local key = "column_count_" .. tier
@@ -966,7 +981,7 @@ local function build_columns_panel(player, frame)
     local field = row.add({
       -- numeric keeps every keystroke a digit, the other wizards' rule.
       type = "textfield", name = "upl-columns-count-" .. tier,
-      text = tostring(choices[key] or 1),
+      text = tostring(counts[tier]),
       numeric = true, allow_decimal = false, allow_negative = false,
       lose_focus_on_confirm = true,
       -- The cap rides into the tooltip so the number and its reason (performance) stay
@@ -1164,7 +1179,11 @@ function gui.open(player)
   end
   label("quality")
   rows.add({
-    type = "drop-down", name = "upl-quality", items = quality_items, selected_index = selected,
+    type = "drop-down", name = "upl-quality", items = quality_items,
+    -- No selection at all when a modset hides every tier above normal and the list is
+    -- empty -- an out-of-range index on an empty drop-down is the engine's to refuse, and
+    -- validation already explains the dead end.
+    selected_index = #quality_items > 0 and selected or nil,
     tags = dispatch.tags("quality", { targets = offered_targets }),
   })
 
@@ -1317,7 +1336,9 @@ function gui.open(player)
     tags = dispatch.tags("split"),
   })
   split_button.style.left_margin = 8
-  split_button.enabled = choices.split_enabled and choices.recipe ~= nil
+  -- Enabled state deliberately not set here: gui.refresh, which every open ends in, is the
+  -- one owner of this button's rule (and the Limits button's below) -- a second copy at
+  -- build time is the pair that drifts when the rule next changes.
 
   -- The whole line exists only where a mix is structurally possible -- some productivity
   -- module must fit the machine-and-recipe pair (research aside: the wizard says "none
@@ -1427,7 +1448,7 @@ function gui.open(player)
     tags = dispatch.tags("circuit-limits"),
   })
   limits_button.style.left_margin = 8
-  limits_button.enabled = choices.circuit_enabled == true
+  -- Enabled state left to gui.refresh, the split button's reason.
 
   -- Always shown like the trash checkbox below it: the tick IS the choice, and the picker it
   -- re-lists sits hidden with the other chests.
@@ -1658,26 +1679,39 @@ end)
 -- back to what actually holds, and then sheds focus -- that is what lose_focus_on_confirm
 -- does, a confirm dropping focus and never the reverse, so a click away from an emptied
 -- field fires nothing and the display can sit stale until Enter or a rebuild. Accepted: the
--- value underneath stays right either way. No refresh on either path: a threshold moves no
--- geometry and no warning, and a rebuild here would destroy the field mid-type.
+-- value underneath stays right either way. A commit that MOVES the value refreshes, the
+-- ratio fields' rule: validate derives the min-too-big warning and the wired set from these
+-- numbers, so an unrefreshed commit left the warning stale (or missing) until some unrelated
+-- pick. Refresh, never rebuild -- the status flow repaints and the field survives its own
+-- commit.
 local INT32_CAP = 2147483647 -- circuit constants and request counts are int32; the engine clamps past it
 
 dispatch.register("circuit-limit", function(event)
   local choices = state.of(event.player_index).choices
   local key = event.element.tags.key
   -- The field's numeric/no-decimal/no-negative flags mean tonumber only ever sees a
-  -- non-negative integer or an emptied field, so the cap is the one live guard.
+  -- non-negative integer or an emptied field, so the cap is the one live guard. The stored
+  -- read is type-guarded like the planner's: a hand-edited save can hold anything.
   local value = tonumber(event.element.text)
+  local stored = type(choices[key]) == "number" and choices[key] or nil
   if event.name == defines.events.on_gui_confirmed then
-    value = math.min(value or choices[key] or 0, INT32_CAP)
+    -- Enter on a field that never held a number commits the 0 fallback on purpose: zero
+    -- means off on both sides, the field then SHOWS the 0 and the tooltip says what it
+    -- means (decisions.md, circuit limits).
+    value = math.min(value or stored or 0, INT32_CAP)
     choices[key] = value
     event.element.text = tostring(value)
+    if value ~= stored then gui.refresh(game.get_player(event.player_index)) end
     return
   end
   -- on_gui_text_changed: a transient state -- an emptied field mid-edit -- leaves the last
   -- value standing, and the text is never rewritten under the player's cursor.
   if value then
-    choices[key] = math.min(value, INT32_CAP)
+    value = math.min(value, INT32_CAP)
+    if value ~= stored then
+      choices[key] = value
+      gui.refresh(game.get_player(event.player_index))
+    end
   end
 end)
 
@@ -1816,7 +1850,9 @@ dispatch.register("recipe", function(event)
 
   -- The ingredient-amount overrides were sized against the OLD recipe, so they reset with it
   -- (the owner's call): the panel re-opens pre-filled with the new recipe's own defaults.
-  -- Clearing a key during next() is legal Lua, so one pass does it.
+  -- Clearing a key during next() is legal Lua, so one pass does it. The circuit cap is
+  -- deliberately NOT reset with them -- a backfilled cap is remembered across an item change
+  -- and re-shown for re-picking (decisions.md, circuit limits).
   for key in pairs(choices) do
     if key:match("^request_") then choices[key] = nil end
   end
@@ -1857,12 +1893,26 @@ end)
 -- Snapshot before the handler resolves and compare AFTER, never before: an emptied picker snaps
 -- back to the value it already held, and a guard placed ahead of that would skip the write that
 -- redraws the button.
+--
+-- Compared NORMALISED, because the stored value and the written one wear different spellings
+-- of "untouched": a build quality is nil until the player picks a tier while the button
+-- always reports one (the machine handler's own measured note), and a no_* clear-flag is nil
+-- until something writes `not value`. Raw compares read both as changes, so the very click
+-- that opens a picker's chooser paid a full re-solve -- or, with a rates-invalidated wizard
+-- open, rebuilt the modal and tore the opening chooser down. A genuine change still differs
+-- after normalising, so nothing real is ever swallowed.
+local function settled_view(key, value)
+  if key:match("_quality$") then return planner.build_quality(value) end
+  if key:match("^no_") then return value == true end
+  return value
+end
+
 local function settled_on(choices, ...)
   local keys, before = { ... }, {}
-  for _, key in pairs(keys) do before[key] = choices[key] end
+  for _, key in pairs(keys) do before[key] = settled_view(key, choices[key]) end
   return function()
     for _, key in pairs(keys) do
-      if choices[key] ~= before[key] then return false end
+      if settled_view(key, choices[key]) ~= before[key] then return false end
     end
     return true
   end
@@ -1941,6 +1991,12 @@ dispatch.register("inserter", function(event)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "inserter", "inserter_quality")
   local value = event.element.elem_value
+  -- The chest handler's guard: an empty candidate list leaves the picker unfiltered, and a
+  -- pick outside the role would sit in the strip while the plan quietly used the default.
+  if value and not planner.is_inserter(value.name) then
+    event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
+    return
+  end
   choices.inserter = value and value.name
   if value then choices.inserter_quality = planner.build_quality(value.quality) end
   -- The belt's rule: emptied means "back to the best I have researched", and shown.
@@ -1959,6 +2015,13 @@ dispatch.register("chest", function(event)
   local role = event.element.tags.role
   local settled = settled_on(choices, role, role .. "_quality")
   local value = event.element.elem_value
+  -- The terminal module's guard, same reason: with no candidate of this role in the modset
+  -- the picker is unfiltered, and a pick outside the role would sit in the strip while
+  -- chosen_chest quietly substituted the default into the plan.
+  if value and not planner.is_chest(value.name, role, planner.stock_buffered(choices)) then
+    event.element.elem_value = with_quality(choices[role], choices[role .. "_quality"])
+    return
+  end
   choices[role] = value and value.name
   if value then
     choices[role .. "_quality"] = planner.build_quality(value.quality)
@@ -1976,6 +2039,13 @@ dispatch.register("quality-module", function(event)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "quality_module", "quality_module_quality")
   local value = event.element.elem_value
+  -- The chest handler's guard: an empty researched list leaves the picker unfiltered, and a
+  -- non-quality-module pick would sit in the strip while the plan quietly used the default.
+  if value and not planner.is_quality_module(value.name) then
+    event.element.elem_value =
+      with_quality(choices.quality_module, choices.quality_module_quality)
+    return
+  end
   choices.quality_module = value and value.name
   if value then choices.quality_module_quality = planner.build_quality(value.quality) end
   -- Same rule as the belt: emptied means "back to the best I have researched", and shown.
@@ -2002,6 +2072,12 @@ dispatch.register("terminal-module", function(event)
       with_quality(choices.terminal_module, choices.terminal_module_quality)
     return
   end
+  -- A click on an ALREADY-EMPTY picker is a browse, not a clear: the click leg of the
+  -- double-fire carries the value the button holds, so only the transition from a shown
+  -- module to none may record "leave the top machine empty" -- without this, the click that
+  -- merely opens the chooser wrote the clear-flag, and the default never followed the
+  -- machine-and-recipe pair again.
+  if not value and not choices.terminal_module then return end
   local settled =
     settled_on(choices, "terminal_module", "terminal_module_quality", "no_terminal_module")
   choices.terminal_module = value and value.name
@@ -2052,7 +2128,15 @@ dispatch.register("pipe", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "pipe")
-  choices.pipe = event.element.elem_value
+  -- The chest handler's guard, for the one picker whose value is a bare name: an empty
+  -- candidate list leaves it unfiltered, and a non-pipe pick would sit in the strip while
+  -- the plan quietly used the default.
+  local value = event.element.elem_value
+  if value and not planner.is_pipe(value) then
+    event.element.elem_value = choices.pipe
+    return
+  end
+  choices.pipe = value
   -- The belt's rule: emptied means "back to the best I have researched", and shown.
   if not choices.pipe then
     choices.pipe = planner.pipe(player.force)
@@ -2112,6 +2196,10 @@ dispatch.register("beacon-module", function(event)
       with_quality(choices.beacon_module, choices.beacon_module_quality)
     return
   end
+  -- The terminal module's browse guard: a click on an already-empty picker must not record
+  -- "place the beacon empty", or the default stops following the beacon before one is even
+  -- picked.
+  if not value and not choices.beacon_module then return end
   local settled =
     settled_on(choices, "beacon_module", "beacon_module_quality", "no_beacon_module")
   choices.beacon_module = value and value.name

@@ -140,14 +140,21 @@ local function recycling_closes_the_loop(recipe, product)
   local wanted_count = table_size(wanted)
   if wanted_count == 0 then return false end
 
-  local matched = 0
+  -- Matched by DISTINCT name, not by entry: a hand-written modded recycling recipe may list
+  -- one ingredient across two product rows (a guaranteed row plus a probability row), and
+  -- that still returns exactly the crafting ingredients -- counting entries read it as a
+  -- mismatch and silently kept the item out of the picker.
+  local matched, matched_count = {}, 0
   for _, result in pairs(recycling.products) do
     if result.type ~= "item" then return false end
     if not wanted[result.name] then return false end
-    matched = matched + 1
+    if not matched[result.name] then
+      matched[result.name] = true
+      matched_count = matched_count + 1
+    end
   end
 
-  return matched == wanted_count
+  return matched_count == wanted_count
 end
 
 local function is_recycling(recipe)
@@ -1342,6 +1349,25 @@ local function roll_chances_for(tier, effect)
   return prototypes.quality[tier].get_roll_chances(effect)
 end
 
+-- Whether any tier in the chain can roll DOWN -- previous_probability (or its chain twin),
+-- zero across vanilla and Space Age. Passed to the solve as a flag rather than always
+-- priced, because the down-roll sweep doubles the mid-tier cost at extreme chain lengths
+-- and the common no-downgrade modset must not pay it. Pure prototype data, memoised.
+local function quality_downgrades()
+  if memo.downgrades == nil then
+    memo.downgrades = false
+    for _, name in pairs(planner.quality_chain()) do
+      local quality = prototypes.quality[name]
+      if (quality.previous_probability or 0) > 0
+        or (quality.previous_chain_probability or 0) > 0 then
+        memo.downgrades = true
+        break
+      end
+    end
+  end
+  return memo.downgrades
+end
+
 -- A module pair's per-slot effects at its own quality, engine-scaled -- get_module_effects,
 -- never a hand-applied curve (api.md §30). Both roll axes, so a modded hybrid prices its
 -- cross terms (the vanilla families read zero on the other axis), plus speed, which the
@@ -1387,8 +1413,12 @@ local function beacon_transmitted_effects(force, choices)
   local beacon_name, beacon_quality = chosen_beacon(choices)
   local beacon = beacon_name and prototypes.entity[beacon_name]
   if not beacon then return none end
-  local count = chosen_beacon_count(choices,
-    math.max(planner.max_beacon_count(choices, beacon), 1))
+  -- A beacon no count of which fits (too tall for the interior) transmits nothing: validate
+  -- refuses that plan, and pricing one beacon anyway would hand the ratio wizard optima for
+  -- a configuration that cannot be built.
+  local max = planner.max_beacon_count(choices, beacon)
+  if max < 1 then return none end
+  local count = chosen_beacon_count(choices, max)
   local module_name = chosen_beacon_module(force, choices, beacon)
   local item = module_name and prototypes.item[module_name]
   if not item then return none end
@@ -1409,29 +1439,49 @@ local function beacon_transmitted_effects(force, choices)
   }
 end
 
+-- Product items one recycling CRAFT eats, read off the recipe: the generated ones take
+-- exactly one, a modded one may not. One owner, because two consumers must agree on it --
+-- the solve's per-item S below and the pace's craft count in station_times.
+local function recycling_items_per_craft(recycling, product_name)
+  for _, ingredient in pairs(recycling.ingredients) do
+    if ingredient.type == "item" and ingredient.name == product_name then
+      return ingredient.amount or 1
+    end
+  end
+  return 1
+end
+
 -- How many ingredient-sets recycling ONE product item returns, read off the generated
 -- recycling recipe rather than assumed 25%: the formula moved in 2.1.13 and a modded
 -- recycler may differ (api.md §8). The first crafting ingredient present in both recipes
--- anchors the ratio; a recipe that never matches falls back to the vanilla constant.
+-- anchors the ratio -- divided by the items one craft eats, since the recipe reports output
+-- PER CRAFT and the solve prices S per recycled ITEM ("recycling one product returns S
+-- ingredient-sets"). A recipe that never matches falls back to the vanilla constant, floored
+-- past a zero-amount modded product that would otherwise divide S to infinity and turn the
+-- yield into NaN (0 is truthy, so `or 1` alone cannot catch it).
 local function sets_per_recycle(recipe, product_name, products_per_set)
   local recycling = planner.recycling_recipe(product_name)
   if recycling then
+    local per_craft = recycling_items_per_craft(recycling, product_name)
     local returned = {}
     for _, result in pairs(recycling.products) do
       if result.type == "item" then
         local amount = (result.amount or ((result.amount_min + result.amount_max) / 2))
           * (result.probability or 1) + (result.extra_count_fraction or 0)
-        returned[result.name] = amount
+        -- Summed, not assigned: the loop gate accepts an ingredient split across two
+        -- product rows, so the ratio has to count both.
+        returned[result.name] = (returned[result.name] or 0) + amount
       end
     end
     for _, ingredient in pairs(planner.item_ingredients(recipe)) do
       local amount = returned[ingredient.name]
-      if amount and ingredient.amount > 0 then
-        return amount / ingredient.amount
+      if amount and ingredient.amount > 0 and per_craft > 0 then
+        return amount / ingredient.amount / per_craft
       end
     end
   end
-  return 0.25 / (products_per_set or 1)
+  if not (products_per_set and products_per_set > 0) then products_per_set = 1 end
+  return 0.25 / products_per_set
 end
 
 -- One solve is O(tiers x slots) get_roll_chances calls and gui.refresh runs on every pick,
@@ -1486,7 +1536,9 @@ function planner.split(force, choices, gathered, ignore_overrides)
   if mixing and not ignore_overrides then
     for j = 1, #tiers - 1 do
       local value = choices["split_prod_" .. tiers[j]]
-      if value then
+      -- Type-guarded like tier_columns and chosen_request: a hand-edited save can hold
+      -- anything, and a non-number here would crash the key concat and the solve's clamp.
+      if type(value) == "number" then
         overrides[j] = value
         key_overrides = key_overrides .. j .. ":" .. value .. ";"
       end
@@ -1540,6 +1592,7 @@ function planner.split(force, choices, gathered, ignore_overrides)
     products_per_set = products_per_set,
     sets_per_recycle = sets_per_recycle(recipe, product.name, products_per_set),
     roll_chances = roll_chances_for,
+    downgrade = quality_downgrades() or nil,
   }, overrides)
 
   split_keys[flavour] = key
@@ -1621,15 +1674,8 @@ local function station_times(recipe, machine, machine_quality, recycler, recycle
 
   local recycling = planner.recycling_recipe(product.name)
   if not recycling then return nil end
-  -- Items one recycler craft eats, read off the recipe like sets_per_recycle reads its
-  -- output: the generated ones take exactly one, a modded one may not.
-  local items_per_craft = 1
-  for _, ingredient in pairs(recycling.ingredients) do
-    if ingredient.type == "item" and ingredient.name == product.name then
-      items_per_craft = ingredient.amount or 1
-      break
-    end
-  end
+  -- The same read sets_per_recycle divides S by, shared so pace and solve cannot disagree.
+  local items_per_craft = recycling_items_per_craft(recycling, product.name)
 
   local machine_speed = machine.get_crafting_speed(machine_quality)
   local recycler_speed = recycler.get_crafting_speed(recycler_quality)
@@ -1765,6 +1811,33 @@ function planner.beacon_reach(beacon, machine, recycler, fluid, count)
   return machine_ok and recycler_ok
 end
 
+-- The layout+pole ladder is the most expensive thing a refresh runs, and most refreshes do
+-- not move it: a module pick, a ratio keystroke or a circuit toggle changes no geometry. So
+-- the winning column gaps and pole placements are kept under a key of every geometric input
+-- (planner.plan builds it), and a hit replays them through ONE layout.build instead of the
+-- ladder's 2..N full solves -- deterministically the same answer, since the ladder itself is
+-- deterministic over the same inputs, which is what the plan determinism specs pin. One
+-- slot, module-local like the split memo: rebuilt on load, identical on every client. The
+-- cached pole entities are never handed out -- append_poles copies them -- so a later wire
+-- rebase or circuit pass cannot poison the cache.
+local pole_memo = {}
+
+-- Appends the solved poles to the plan as FRESH entity tables, wire_to rebased from the pole
+-- solve's own numbering onto plan indices -- the one place that sees both numberings, and
+-- what lets the serialiser wire an entity by index without knowing what a pole is. Copies
+-- rather than aliases, because the memo replays the same solved poles into many plans.
+local function append_poles(plan, placed, unpowered)
+  local base = #plan.entities
+  for i = 1, #placed do
+    local p = placed[i]
+    plan.entities[base + i] = {
+      name = p.name, quality = p.quality, dx = p.dx, dy = p.dy, w = p.w, h = p.h,
+      wire_to = p.wire_to and (base + p.wire_to) or nil,
+    }
+  end
+  if unpowered > 0 then plan.unpowered = unpowered end
+end
+
 -- Poles stand on a FINISHED layout, but where they CAN stand is part of that layout -- so the
 -- two are solved together rather than in sequence, narrowest first. Three attempts at most:
 --
@@ -1772,13 +1845,23 @@ end
 --      (the dead ground beside a recycler narrower than its machine, and the last tier's
 --      empty lower block). On most shapes this covers, and it is as small as a plan gets.
 --   2. all columns -- one sized column before every tier, the 0.2.0 shape.
---   3. shrink -- collapse every column no pole stood in, solve again, repeat. It only ever
---      collapses, so the open set strictly shrinks and this terminates.
+--   3. shrink -- collapse every column no pole stood in, solve again, repeat. Ordinarily it
+--      only collapses, so the open set shrinks -- but a column the LAYOUT floors open (the
+--      beacon's lane) still stands when its gap is requested away, and a pole landing in it
+--      re-grows the gap. The walk is deterministic, so a revisited pattern would repeat
+--      forever: the visited patterns are remembered, and a revisit ends the walk.
 --
 -- Fewest unpowered consumers wins, and the narrower plan takes any tie -- compact is tried
 -- first, so it holds one. Attempt 2 IS the plan the mod used to emit unconditionally, and it
 -- is always in the running, which is what makes the outcome impossible to be worse than it.
-local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
+local function plan_with_poles(layout_params, tier_count, pole_gap, pole, memo_key)
+  if pole_memo.key == memo_key then
+    layout_params.column_gaps = pole_memo.gaps
+    local plan = layout.build(layout_params)
+    append_poles(plan, pole_memo.placed, pole_memo.unpowered)
+    return plan
+  end
+
   local function attempt(gaps)
     layout_params.column_gaps = gaps
     local built = layout.build(layout_params)
@@ -1809,30 +1892,22 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
     local current = attempt(uniform(pole_gap))
     if beats(current, best) then best = current end
 
+    -- The walk's visited gap patterns. A closed column cannot ordinarily regain a pole, but
+    -- a column the layout floors open regardless (the beacon's lane) can -- and the walk is
+    -- deterministic, so revisiting any pattern would repeat the same orbit forever.
+    local seen = { [table.concat(current.gaps, ",")] = true }
     while true do
       -- A column earns its width by holding a pole. Anything else is dead ground, including a
-      -- column the free-tile fallback walked away from. The columns arrive from layout.build
-      -- sorted by x and disjoint, so each pole binary-searches the one column that could hold
-      -- it -- the plain columns-times-poles product grew quadratic with the physical column
-      -- count once tiers repeat.
+      -- column the free-tile fallback walked away from. poles.column_at is the one owner of
+      -- the containment rule, shared with the solve's own column filter so the two passes
+      -- cannot drift -- and it is the binary search that kept this from going quadratic with
+      -- the physical column count once tiers repeat.
       local held = {}
       local columns = current.plan.utility_columns
       if columns then
-        local column_count = #columns
         for _, placed in pairs(current.poles.entities) do
-          local lo, hi, found = 1, column_count, nil
-          while lo <= hi do
-            local mid = math.floor((lo + hi) / 2)
-            if columns[mid].x <= placed.dx then
-              found = columns[mid]
-              lo = mid + 1
-            else
-              hi = mid - 1
-            end
-          end
-          if found and placed.dx + pole.width <= found.x + found.width then
-            held[found.tier] = true
-          end
+          local found = poles.column_at(columns, placed.dx, pole.width)
+          if found then held[found.tier] = true end
         end
       end
 
@@ -1842,6 +1917,9 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
         if gaps[index] ~= current.gaps[index] then collapsed = true end
       end
       if not collapsed then break end
+      local pattern = table.concat(gaps, ",")
+      if seen[pattern] then break end
+      seen[pattern] = true
 
       local shrunk = attempt(gaps)
       -- Coverage is the floor: a narrower plan that leaves one more machine dark is not an
@@ -1853,16 +1931,11 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
   end
 
   local plan = best.plan
-  -- poles.plan numbers wire_to within its OWN result, the only ordering it can know. Rebasing
-  -- those onto plan indices here -- the one place that sees both numberings -- is what lets
-  -- the serialiser wire an entity by index without knowing what a pole is, and it is what a
-  -- wire between two unlike entities would need anyway.
-  local base = #plan.entities
-  for _, entity in ipairs(best.poles.entities) do
-    if entity.wire_to then entity.wire_to = base + entity.wire_to end
-    plan.entities[#plan.entities + 1] = entity
-  end
-  if best.poles.unpowered > 0 then plan.unpowered = best.poles.unpowered end
+  append_poles(plan, best.poles.entities, best.poles.unpowered)
+  pole_memo = {
+    key = memo_key, gaps = best.gaps,
+    placed = best.poles.entities, unpowered = best.poles.unpowered,
+  }
   return plan
 end
 
@@ -1985,10 +2058,16 @@ function planner.plan(force, choices, gathered)
   local beacon = beacon_name and prototypes.entity[beacon_name]
   -- The player's count, floored at one and capped to what the pair leaves standing room for.
   -- validate() computes the same clamp from its own locals; plan() re-derives it because it
-  -- is also called directly, without validate() having run first.
-  local beacon_count = beacon and chosen_beacon_count(choices,
-    math.max(layout.max_beacon_count(machine_footprint.height, orientation.height,
-      beacon.tile_height), 1)) or nil
+  -- is also called directly, without validate() having run first -- which is why a max of
+  -- zero (a beacon taller than the interior, validate's beacon-too-tall refusal) returns nil
+  -- here instead of flooring to one and building the stack across the ring belts.
+  local beacon_count
+  if beacon then
+    local beacon_max = layout.max_beacon_count(machine_footprint.height, orientation.height,
+      beacon.tile_height)
+    if beacon_max == 0 then return nil end
+    beacon_count = chosen_beacon_count(choices, beacon_max)
+  end
   -- The pole's lane is added BESIDE the beacon's width rather than sharing it: a full-height
   -- stack can leave the beacon's column without a single free row, and the sum reserves the
   -- pole ground the stack cannot take. Only ever paid where it buys coverage --
@@ -2064,6 +2143,24 @@ function planner.plan(force, choices, gathered)
   -- geometry is built once.
   local plan
   if pole then
+    -- The pole memo's key: every input the ladder's answer depends on -- the occupied
+    -- geometry (footprints, tier count, pipes, the tap), the consumer set (entity NAMES
+    -- decide electric-or-not and the margins, and a modded chest or belt can carry an
+    -- electric energy source), and the pole itself, whose quality sets both reaches.
+    -- Modules, requests and circuit numbers are absent on purpose: they never move a tile.
+    local memo_key = table.concat({
+      #expanded_tiers, tostring(overflow_tap), #fluids,
+      machine_footprint.name, machine_footprint.width, machine_footprint.height,
+      tostring(machine_footprint.direction),
+      recycler.name, orientation.width, orientation.height, orientation.direction,
+      r.belt, r.inserter.name,
+      r.requester.name, r.stock.name, r.container.name, r.provider.name,
+      r.overflow and r.overflow.name or "-",
+      #fluids == 1 and r.pipe or "-", #fluids == 1 and r.pipe_to_ground or "-",
+      beacon_name or "-", beacon and beacon.tile_width or 0,
+      beacon and beacon.tile_height or 0, beacon_count or 0,
+      pole_name, pole_quality, pole_gap,
+    }, "|")
     plan = plan_with_poles(layout_params, #expanded_tiers, pole_gap, {
       name = pole_name, quality = pole_quality,
       width = pole.tile_width, height = pole.tile_height,
@@ -2071,7 +2168,7 @@ function planner.plan(force, choices, gathered)
       -- the wire reach), so the layout is computed at the quality the poles are placed at.
       supply_distance = pole.get_supply_area_distance(pole_quality),
       wire_distance = pole.get_max_wire_distance(pole_quality),
-    })
+    }, memo_key)
   else
     plan = layout.build(layout_params)
   end
@@ -2088,10 +2185,12 @@ function planner.plan(force, choices, gathered)
     local minimums = {}
     for i = 1, #tiers - 1 do
       local floor = choices["circuit_min_" .. tiers[i]]
-      if floor and floor > 0 then minimums[tiers[i]] = floor end
+      -- Type-guarded like tier_columns: a hand-edited save can hold anything, and a
+      -- non-number would crash the comparison on every refresh.
+      if type(floor) == "number" and floor > 0 then minimums[tiers[i]] = floor end
     end
     local maximum = choices["circuit_max_" .. choices.quality]
-      or planner.default_circuit_max(recipe)
+    if type(maximum) ~= "number" then maximum = planner.default_circuit_max(recipe) end
     if not (maximum and maximum > 0) then maximum = nil end
     local unlinked = circuits.decorate(plan.entities, {
       tiers = expanded_tiers,
@@ -2230,9 +2329,9 @@ function planner.validate(force, choices)
     }
   end
 
-  if not (choices.quality and prototypes.quality[choices.quality]) then
-    return false, { "upl-gui.pick-a-recipe" }
-  end
+  -- One gate for the target: tiers_up_to answers nil for a nil quality, an unknown name and
+  -- a hidden tier alike, so a separate prototype-existence check would only restate this
+  -- refusal.
   if not planner.tiers_up_to(choices.quality) then
     return false, { "upl-gui.pick-a-recipe" }
   end
@@ -2428,9 +2527,17 @@ function planner.validate(force, choices)
       .get_inventory_size(defines.inventory.chest, r.stock.quality) or 0
     local capacity = slots * prototypes.item[product.name].stack_size
     local tiers = planner.tiers_up_to(choices.quality)
+    -- With the cap on, every column's census chest shares the one green network, so a
+    -- repeated tier's floor reads the SUMMED count and can fill up to N chests; uncapped,
+    -- each reserve is an island over its one chest. The warning follows the same cap
+    -- resolution plan() applies, or a multi-column tier warned falsely.
+    local maximum = choices["circuit_max_" .. choices.quality]
+    if type(maximum) ~= "number" then maximum = planner.default_circuit_max(recipe) end
+    local columns = (maximum and maximum > 0) and planner.tier_columns(choices, tiers) or nil
     for i = 1, #tiers - 1 do
       local floor = choices["circuit_min_" .. tiers[i]]
-      if floor and floor > 0 and floor >= capacity then
+      local reachable = capacity * (columns and columns[tiers[i]] or 1)
+      if type(floor) == "number" and floor > 0 and floor >= reachable then
         return true, {
           "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
         }, r

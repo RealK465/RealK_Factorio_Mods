@@ -270,6 +270,13 @@ function layout.build(params)
   local beacon_modules = params.beacon
     and module_slot(params.modules.beacon_module, params.beacon.module_slots)
 
+  -- Quality-invariant, cached for the hoist's reason: repeated columns of one tier -- and the
+  -- pole ladder's repeated builds -- would rebuild identical filter tables per column. Sharing
+  -- is safe because nothing downstream mutates a filters table (the serialiser copies, and one
+  -- column's two inserters already share a reference). The per-column `requests` tables below
+  -- must NOT be shared -- the circuit pass mutates census requests in place.
+  local filters_by_quality = {}
+
   for index, quality in pairs(tiers) do
     local is_terminal = index == #tiers
     local col = offsets[index]
@@ -278,7 +285,11 @@ function layout.build(params)
     local col_buffer = col + 1
     local col_product = col + machine.width - 1
     -- Shared by the harvest inserter (whitelist) and the extract inserter (blacklist).
-    local ingredient_filters = quality_filters(ingredient_names, quality)
+    local ingredient_filters = filters_by_quality[quality]
+    if not ingredient_filters then
+      ingredient_filters = quality_filters(ingredient_names, quality)
+      filters_by_quality[quality] = ingredient_filters
+    end
 
     if gap > 0 then
       -- `tier` is what lets the planner collapse the one column a pole did not stand in

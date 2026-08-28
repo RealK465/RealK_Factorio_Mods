@@ -88,6 +88,42 @@ describe("quality_math.solve -- the recursion", function()
     assert(close(yield.per_item, 0.25 * 0.5 * (0.2 / 0.9)), "per_item " .. yield.per_item)
   end)
 
+  test("down-rolls are priced as lost only under the downgrade flag", function()
+    -- A modded previous_probability puts machine mass on tiers BELOW the one crafting: the
+    -- complement must not read it as target-or-above output. Recyclers hold their tier so
+    -- the arithmetic stays hand-sized: at u the machine rolls 0.2 down to n, 0.5 stay,
+    -- 0.3 to the target; at n it rolls 0.2 up. All-quality (no productivity module), R = 1,
+    -- S = 0.25, so both recycler dists staying put makes r_above = 0 everywhere and
+    --   w2 = c_top / (1 - 0.25 * c_stay),  u2 = 0.25 * w2,  w1 = 0.2 * u2 / (1 - 0.25 * 0.8)
+    local function roll(tier, effect)
+      if effect == 0 then return { [tier] = 1 } end -- the recyclers: no effect, no roll
+      if tier == "u" then return { n = 0.2, u = 0.5, r = 0.3 } end
+      return { n = 0.8, u = 0.2 }
+    end
+    local params = {
+      tiers = { "n", "u", "r" },
+      slots = 4,
+      quality_module = { quality = 0.05 },
+      terminal = { productivity = 0.25 },
+      recycler_effect = 0,
+      products_per_set = 1,
+      sets_per_recycle = 0.25,
+      max_productivity = 3,
+      roll_chances = roll,
+      downgrade = true,
+    }
+    local _, honest = quality_math.solve(params)
+    local u2 = 0.25 * (0.3 / (1 - 0.25 * 0.5))
+    assert(close(honest.per_set, 0.2 * u2 / 0.8),
+      "down-rolls still priced as successes: " .. honest.per_set)
+
+    -- And the flag is the gate: without it the sweep is skipped -- the no-downgrade
+    -- modset's cost rule -- and the complement swallows the down-mass as success again.
+    params.downgrade = nil
+    local _, flattered = quality_math.solve(params)
+    assert(flattered.per_set > honest.per_set, "the downgrade gate no longer gates")
+  end)
+
   test("no productivity module forces every tier to all-quality", function()
     local params = hand_params()
     params.tiers = { "n", "u", "r" }
