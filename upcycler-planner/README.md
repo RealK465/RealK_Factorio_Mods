@@ -12,8 +12,8 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
    You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
-2. After clicking it, pick the item you want to upcycle and the quality you are aiming for. The **Edit...** button beside **Ingredient amounts** lets you set how many of each ingredient the loop requests.
-3. Under **Build options** you can change what the loop is made of: belts, inserters, chests, modules, electric poles and more. Each one defaults to the best you have researched, and each can be built at a quality of your choice. Options with only one choice are hidden, and so are the five chests and the beacons. Click **Settings** in the title bar and tick **Show all build options** to bring them all back.
+2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
+3. Under **Build options** you can change what the loop is made of: belts, inserters, chests, modules, electric poles and more. Each one defaults to the best you have researched, and each can be built at a quality of your choice. The **Edit...** buttons there let you set how many of each ingredient the loop requests, and how many columns each quality builds. Options with only one choice are hidden, and so are the five chests and the beacons. Click **Settings** in the title bar and tick **Show all build options** to bring them all back.
 4. Press **Place**. The loop arrives as a blueprint in your hand, so you can look it over, move it, rotate it and flip it before you commit.
 5. Place it like any other blueprint. Shift-click builds through trees and rocks, and Ctrl+Shift-click clears buildings too. Undo takes the whole loop back in one step, and the blueprint stays in your hand if you want to stamp another.
 
@@ -21,7 +21,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 
 The loop contains:
 
-- One column per quality, each with a crafting machine, a recycler, and the chests that feed and drain them.
+- One column per quality by default — a crafting machine, a recycler, and the chests that feed and drain them. The **Columns per tier** menu lets you build several columns of the lower qualities (up to 32) and shows the balanced counts for your setup.
 - Belts, filtered inserters, chests and electric poles, all placed and set up for you from the options you picked.
 - Quality and productivity modules mixed in every machine, at the best ratio for the machines and modules you picked. Untick **Mix productivity modules** for quality only; the **Ratios...** button opens a menu with the productivity module and the mix per quality; and the planner tells you roughly how many items the loop will eat per item it makes, and how long each one takes.
 - Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them. Untick **Use buffer chests** in the build options to keep every item in the loop instead.

@@ -1002,3 +1002,101 @@ describe("machine candidates", function()
       "the unresearched tiers must drop off the top, in chain order")
   end)
 end)
+
+describe("columns per tier -- the expansion helpers", function()
+  local tiers = { "normal", "uncommon", "rare" }
+
+  test("tier_columns reads only the lower tiers, floored and clamped", function()
+    local counts = planner.tier_columns({}, tiers)
+    assert(counts.normal == 1 and counts.uncommon == 1, "untouched counts must read one")
+    assert(counts.rare == nil, "the target must never gain a count")
+    counts = planner.tier_columns({
+      column_count_normal = 3.9, column_count_uncommon = 0, column_count_rare = 7,
+    }, tiers)
+    assert(counts.normal == 3, "a fraction must floor: " .. counts.normal)
+    assert(counts.uncommon == 1, "a zero must fall back to one")
+    assert(counts.rare == nil, "a stray target key must be structurally ignored")
+    counts = planner.tier_columns({ column_count_normal = 99999 }, tiers)
+    assert(counts.normal == planner.MAX_COLUMNS_PER_TIER,
+      "the ceiling must clamp: " .. counts.normal)
+    counts = planner.tier_columns({ column_count_normal = "junk" }, tiers)
+    assert(counts.normal == 1, "a non-number must fall back to one")
+  end)
+
+  test("expand_columns repeats lower tiers' values in order, the target's once and last", function()
+    local names = planner.expand_columns(tiers, tiers, { normal = 3, uncommon = 2 })
+    assert(#names == 6, "expanded length " .. #names)
+    local expected = { "normal", "normal", "normal", "uncommon", "uncommon", "rare" }
+    for i = 1, #expected do
+      assert(names[i] == expected[i], "column " .. i .. " is " .. tostring(names[i]))
+    end
+  end)
+
+  test("a sparse per-tier array expands in step, its terminal hole surviving", function()
+    -- split.prods carries no terminal entry; the expansion must place the hole at the
+    -- terminal column rather than stalling on it, which is why it counts explicitly.
+    local out = planner.expand_columns({ 4, 2 }, tiers, { normal = 2, uncommon = 1 })
+    assert(out[1] == 4 and out[2] == 4 and out[3] == 2, "lower values did not repeat in step")
+    assert(out[4] == nil, "the terminal column must carry the hole")
+  end)
+
+  test("all-ones expands to the chain itself", function()
+    local names = planner.expand_columns(tiers, tiers, { normal = 1, uncommon = 1 })
+    assert(#names == 3 and names[1] == "normal" and names[2] == "uncommon"
+      and names[3] == "rare", "expansion reshaped")
+  end)
+end)
+
+describe("planner.balanced_columns", function()
+  before_all(function() research.full(force()) end)
+
+  local function choices_with(overrides)
+    local choices = {
+      recipe = "iron-gear-wheel", quality = "rare",
+      machine = "assembling-machine-3", recycler = "recycler",
+    }
+    for key, value in pairs(overrides or {}) do choices[key] = value end
+    return choices
+  end
+
+  test("nil before the choices name a loop", function()
+    assert(planner.balanced_columns(force(), {}) == nil, "empty choices")
+    assert(planner.balanced_columns(force(), { recipe = "iron-gear-wheel" }) == nil,
+      "missing machine")
+  end)
+
+  test("lower tiers get whole counts, the slow end more of them, the target none", function()
+    local balanced = planner.balanced_columns(force(), choices_with())
+    assert(balanced, "no ratio for a working loop")
+    assert(balanced.rare == nil, "the target gained a balanced count")
+    for _, tier in pairs({ "normal", "uncommon" }) do
+      local count = balanced[tier]
+      assert(type(count) == "number" and count >= 1 and count == math.floor(count)
+        and count <= planner.MAX_COLUMNS_PER_TIER, tier .. " count " .. tostring(count))
+    end
+    -- The taper's direction, not its figure: the bottom tier carries the most crafts per
+    -- target item, so it can never need fewer columns than the tier above it.
+    assert(balanced.normal >= balanced.uncommon,
+      "normal " .. balanced.normal .. " below uncommon " .. balanced.uncommon)
+  end)
+
+  test("the balanced counts match what the pace formula would equalise", function()
+    -- Writing the balanced counts back must not leave a lower tier as the bottleneck by
+    -- more than rounding: the paced plan comes out at least as fast as the untouched one.
+    local balanced = planner.balanced_columns(force(), choices_with())
+    local untouched = planner.plan(force(), choices_with())
+    local paced = planner.plan(force(), choices_with({
+      column_count_normal = balanced.normal, column_count_uncommon = balanced.uncommon,
+    }))
+    assert(untouched.seconds and paced.seconds, "a pace went missing")
+    -- Guarded strict improvement, never the <= form -- that one is a tautology (dividing
+    -- station times by counts >= 1 can only shrink the max) and could not fail. The sibling
+    -- test establishes normal as the heavy tier, so whenever the balance asks for more than
+    -- one normal column, writing the counts back must genuinely move the pace.
+    assert(balanced.normal > 1,
+      "test premise: gears' balance should want extra normal columns")
+    assert(paced.seconds < untouched.seconds,
+      "the balanced counts did not move the pace: " .. paced.seconds
+      .. " vs " .. untouched.seconds)
+  end)
+end)

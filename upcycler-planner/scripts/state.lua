@@ -111,7 +111,7 @@ function state.prune()
     end
     for key, quality in pairs(c) do
       local tier = key:match("^circuit_min_(.+)$") or key:match("^circuit_max_(.+)$")
-        or key:match("^split_prod_(.+)$")
+        or key:match("^split_prod_(.+)$") or key:match("^column_count_(.+)$")
       local item = key:match("^request_(.+)$")
       if tier then
         if not planner.is_quality(tier) then c[key] = nil end

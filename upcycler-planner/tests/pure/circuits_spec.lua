@@ -228,3 +228,65 @@ describe("circuits.decorate wiring", function()
     assert(deep_equal(a.entities, b.entities), "two identical decorations differ")
   end)
 end)
+
+describe("circuits.decorate repeated tiers", function()
+  -- The columns feature hands decorate the same expanded array layout built from: one
+  -- entry per physical column, repeats allowed. Every column keys its own map entries
+  -- through its unique circuit_tier; the floors are per QUALITY, so repeats of a tier
+  -- share the constant while each enforces it on its own chest.
+  local repeated = { "normal", "normal", "normal", "uncommon", "rare" }
+
+  local function decorated_repeated()
+    local built = layout.build(params_with({ tiers = repeated }))
+    local unlinked = circuits.decorate(built.entities, {
+      tiers = repeated,
+      minimums = MINIMUMS,
+      maximum = MAXIMUM,
+      product = "iron-gear-wheel",
+      reach = 9,
+    })
+    return built, unlinked
+  end
+
+  test("every column of a repeated tier keeps its own gated, wired reserve", function()
+    local built, unlinked = decorated_repeated()
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    local reserves = by_role(built, "reserve")
+    assert(#reserves == 4, "reserve inserters " .. #reserves)
+    local at_normal = 0
+    for _, r in pairs(reserves) do
+      local condition = r.entity.control_behavior.circuit_condition
+      local tier = repeated[r.entity.circuit_tier]
+      assert(condition.first_signal.quality == tier,
+        "reserve tier " .. r.entity.circuit_tier .. " counts " .. condition.first_signal.quality)
+      assert(condition.constant == MINIMUMS[tier],
+        "reserve tier " .. r.entity.circuit_tier .. " constant " .. condition.constant)
+      assert(r.entity.circuit_wire_to, "a repeated column's reserve went unwired")
+      if tier == "normal" then at_normal = at_normal + 1 end
+    end
+    assert(at_normal == 3, "normal-tier reserves " .. at_normal .. ", expected one per column")
+  end)
+
+  test("the cap gates every column's machine and recycler, and one component spans them", function()
+    local built = decorated_repeated()
+    local gated = 0
+    local start
+    for index, e in pairs(built.entities) do
+      if e.circuit_role == "machine" or e.circuit_role == "recycler" then
+        gated = gated + 1
+        start = start or index
+        assert(e.control_behavior and e.control_behavior.circuit_condition.constant == MAXIMUM,
+          e.circuit_role .. " tier " .. tostring(e.circuit_tier) .. " missed the cap")
+      end
+    end
+    assert(gated == 9, "gated machines+recyclers " .. gated)
+    local reached = component_of(built.entities, start)
+    for index, e in pairs(built.entities) do
+      if e.circuit_role == "machine" or e.circuit_role == "recycler"
+        or e.circuit_role == "census" or e.circuit_role == "reserve" then
+        assert(reached[index], tostring(e.circuit_role) .. " tier "
+          .. tostring(e.circuit_tier) .. " is off the network")
+      end
+    end
+  end)
+end)

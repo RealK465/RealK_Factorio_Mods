@@ -13,13 +13,16 @@ handed over a one-shot selection tool and the mod placed the ghosts itself. **Si
 Confirm hands over an ordinary blueprint instead**, so preview, rotation, flipping, snapping,
 undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
 blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
-recycler, the last two with a quality of their own, plus an Ingredient amounts row whose Edit...
-button opens a third side panel, since 2026-08-27) above a **Build options** block for what it
+recycler, the last two with a quality of their own) above a
+**Build options** block for what it
 is built OUT OF: belt, inserter, ingredient chest, stock chest, relay chest, output chest,
 overflow chest, quality module, the mix checkbox with its Ratios wizard — the productivity
 module and its per-tier counts live inside it (since
 2026-08-28) — final machine module, electric pole, pipe, beacon, beacon module,
-a beacons-per-tier count, the circuit-limits checkbox with its per-tier Limits wizard (since
+a beacons-per-tier count, an Ingredient amounts row whose Edit... button opens the third side
+panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fifth (since
+2026-08-28 — per-tier column counts with a balanced-columns hint; both rows moved down from
+the MAKES block the same day), the circuit-limits checkbox with its per-tier Limits wizard (since
 2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
@@ -35,7 +38,8 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (304 tests on each track as of 2026-08-28) — planner, layout, poles, circuits, the
+suite under `tests/` (333 tests on `main` and 304 on `legacy/2.0` as of 2026-08-28 — the
+columns feature's port is pending) — planner, layout, poles, circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
 skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -327,8 +331,22 @@ re-opening any of these, and don't restate a reason here.
   flow pass plus real rates (build quality, module speed penalties, beacons; api.md §31).
   Recyclers never split. Reasons and mechanics: `.ai-support/decisions.md`, engine facts
   `analysis/api.md` §30.
+- **Each lower tier can repeat its whole column** (2026-08-28): a *Columns per tier* row in
+  Build options opens the fifth side panel — per-tier counts under only-on-edit
+  `column_count_<quality>` keys, floor one, cap `planner.MAX_COLUMNS_PER_TIER` (32, a
+  performance ceiling named in the field tooltip; it opened at 250 and came down the same
+  day after big-layout crashes), the
+  target pinned at one column. The expansion lives in `planner.plan` alone (`tier_columns` /
+  `expand_columns`); layout, circuits, poles, blueprint and quality_math are untouched, and the
+  solve keeps the distinct chain. The wizard shows the balanced column counts from
+  `station_times` — the pace formula's single owner — as a hint to type in; its one-click
+  Apply button was removed the day it landed, for the same crashes ("balanced columns" in
+  every player string; "ratio" stays the module mix's word).
+  The counts and pace follow every keystroke; the yield line never moves with
+  columns. Reasons: `.ai-support/decisions.md`.
 - **The status area is one label per line** (2026-08-28): stats always plain white
-  (footprint and counts, then yield), a separator, then one line per message — orange with a
+  (the machine/recycler counts — the footprint in their tooltip since the owner's same-day
+  call — then yield), a separator, then one line per message — orange with a
   warning icon, red with an error icon on refusals — and a grey hint before an item is
   picked; the wizards' placeholder sentences wear the same grey. Shape and reasons:
   `.ai-support/decisions.md`.

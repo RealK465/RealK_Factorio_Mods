@@ -9,6 +9,104 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - columns per tier, the owner's play-test revisions
+
+The owner played the columns build the same day and revised four things, the third after a
+crash:
+
+- **The footprint left the stats.** The counts line now reads machines/recyclers only and
+  carries `Footprint: W x H tiles` as its tooltip — worth a hover, not a stats row. The line
+  keeps its `upl-stat-layout` name; the keystroke spec pins the machine count moving instead
+  of the caption's old nested pair.
+- **The Ingredient amounts and Columns per tier rows moved into Build options**, directly
+  above the Circuits group whose label-plus-button shape they share ("maybe at top of
+  circuits" — they tune the build, not what the loop makes). One `edit_row` helper builds
+  both strips; the top block is back to the four MAKES picks.
+- **The balanced Apply button is gone.** One click on a big layout wrote several large
+  counts at once and asked the engine for a plan it could not survive — the game crashed.
+  The balanced line stays as a hint (with a tooltip saying what it is), so a count now
+  arrives one capped field at a time; the `columns-balanced` handler, its locale pair and
+  the hint-equals-write spec went with it, the spec replaced by hint-matches-
+  `balanced_columns` plus button-is-absent.
+- **The cap came down 250 → 32** (owner's call, mid-session): a performance ceiling now,
+  not a ratio-clearing one — the AM3 sustained ratio of 208 is deliberately out of reach —
+  and the wizard field's tooltip names the cap and the reason, the number riding in as a
+  locale parameter so it cannot drift from `MAX_COLUMNS_PER_TIER`. Every clamp spec was
+  already symbolic, so none moved.
+
+Same-session register rewrites: decisions.md (columns contract, ingredient-amounts entry
+point, status-area shape), mod CLAUDE.md, README, changelog (all inside the open 1.0.0 —
+the balanced-button sentence never shipped, so it is edited away rather than changelogged),
+deferred.md's pole-ceiling note (254 x 32 now, ~8x smaller worst case). The port-before-
+release coupling stands.
+
+## 2026-08-28 - columns per tier: the deferred scaling entry ships
+
+The deferred entry "Scaling beyond one machine per tier" shipped along its own recorded shape
+— repeat columns, never new geometry — after the owner's four calls from offered options:
+lower tiers only (the target keeps the single output chest the tap, catcher and cap stand
+on), a Columns per tier row in the top block opening a fifth side panel, a balanced-counts
+line with a button that fills it in, and the 250 cap, picked over 20 and 99 with the
+modded-chain solve cost named and accepted.
+
+The architecture surprise: **layout.build needed zero changes.** With the target pinned to
+one column the expansion never repeats the last entry, so `is_terminal = index == #tiers`
+stays true, `machines = #tiers` / `recyclers = #tiers - 1` count themselves right, and the
+whole geometry follows from expanding the tiers array in `planner.plan` — `tier_columns` /
+`expand_columns` (one expander, run over the chain and over the split's counts alike),
+`plan_with_poles` and `circuits.decorate` just receiving the longer array. circuits, poles,
+blueprint and quality_math untouched; the solve keeps the distinct chain, since expanding it
+would corrupt the probability model. The old `loop_seconds` split into `station_times` — the
+one owner both the pace divider and `balanced_columns` read — respecting the "reconciliation
+written twice" complaint from birth.
+
+The wizard is the ratio wizard's mechanics with the ingredient panel's floor: only-on-edit
+`column_count_<quality>` keys, empty-plus-Enter deletes, every keystroke refreshes (footprint,
+counts and pace all follow), and the balanced numbers ride the Apply button's own tags so
+the write cannot drift from the display. Escalations: the target dropdown, the three module
+pickers, and the Mix checkbox — the first checkbox to escalate, since unticking it moves
+every station time. The review pass then caught the beacon module and count handlers still
+refresh-only — stale balanced numbers a click could WRITE, worse than the ratio wizard's
+older display-only version of the same gap — so both escalate now too, the fix pinned inside
+the escalation spec by a rebuild-proving assertion (the old panel reference must die). The
+conventions reviewer caught the wizard's strings saying "Balanced ratio" — the word the
+vocabulary table reserves for the module mix, the Buffer-chest collision class exactly — so
+every player string now says "balanced columns", the table gained the row, and the stale
+"exact array the wizard is keyed by" identity claims in circuits.lua and the circuit
+wizard's header were reworded for the expanded-array reality. README's "one column per
+quality" line was corrected the same hour it became false. A third, template-driven review
+(the owner's /requesting-code-review) returned no Critical findings and "ready": its catches
+— the balance-matches-pace assertion was a <= tautology, strengthened into a guarded strict
+improvement; a beacon-stacks-per-column pin was missing; the balanced comment over-promised
+what round-to-nearest delivers; and research finishing mid-modal is a staleness window now
+acknowledged in decisions.md as chosen (the frozen-tags reasoning), beside the release
+coupling: the shared changelog puts the feature in 1.0.0, so the pair must not ship before
+the legacy port.
+Suite 333/333 with 29 new specs (layout and circuits pin the repeated-
+tier premises pure; plan pins byte-identical defaults via deep_equal, the pace direction and
+the yield's indifference; gui pins the five-panel slot, the keystroke repaint and the
+hint-equals-write rule), static clean, data stage exit 0. The 2.0 port is deliberately
+deferred to the end of the effort, the owner's call.
+
+A four-angle cleanup pass (the owner's /simplify) then reshaped the seams without moving
+behaviour, suite green throughout. The per-handler escalation disjunctions — which all
+three reviewing angles flagged, and which had already leaked once — became declarations:
+`SIDE_PANELS` entries carry `invalidated_by = { tiers, rates }` and one `gui.invalidate`
+decides rebuild-or-repaint. The two solve-priced wizards' fields share one `override_count`
+handler, bounds riding the tags, and a commit that moves nothing no longer re-designs the
+loop (Enter after typing was paying a full plan for a value already committed). Apply
+repaints its fields in place instead of rebuilding the modal — `balanced_columns` reads no
+column key, so the recomputed line was provably identical. `expand_columns` replaced the
+source-map re-key (one expander over the chain and over the split's counts, the terminal
+hole pinned by a spec); `balanced_columns` lost its hand-copied restatement of `split`'s
+preconditions and its dead `gathered` parameter; and the storage family was renamed
+`column_count_<quality>` — the two-token prefix the other tier-keyed families already use,
+so the prune sweep can never claim a future `columns_*` flag. Free only because nothing
+had shipped. Deliberately left: the nine-argument `station_times` signature (a params
+table trades churn for little), the plan/layout spec number overlap (the two-tier split is
+the suite's own design), and a shared spec choices-builder (three pre-existing copies —
+a spec-wide pass, not this one).
+
 ## 2026-08-28 - the open pair re-graded to 1.0.0 / 1.0.1
 
 The owner's call, closing the arc the feature opened under ("the first step for the 1.0.0

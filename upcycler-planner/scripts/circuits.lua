@@ -52,8 +52,11 @@ end
 -- entities: plan.entities, mutated in place. Only entries layout.build tagged (circuit_role +
 -- circuit_tier) are touched; everything else is left alone, which a pure spec pins.
 --
--- opts: tiers -- the plan's quality names, normal first, the exact array the GUI's wizard is
--- keyed by; minimums -- quality name -> reserve floor, SPARSE: the planner normalises "zero
+-- opts: tiers -- the plan's quality names, normal first, one entry per PHYSICAL column with
+-- repeats allowed (the planner's expanded array, parallel to the circuit_tier tags; the
+-- GUI's wizard stays keyed by the distinct chain, and the two agree on the values resolved
+-- per quality name, not on array shape); minimums -- quality name -> reserve floor, SPARSE:
+-- the planner normalises "zero
 -- means off" before calling, so an absent tier simply has no reserve and its inserter stays
 -- out of the network; maximum -- the cap counted in the output chest at the TARGET quality,
 -- gating every machine and recycler, or nil for no cap at all (they then stay ungated and
