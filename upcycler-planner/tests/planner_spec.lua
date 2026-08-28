@@ -1039,7 +1039,7 @@ describe("columns per tier -- the expansion helpers", function()
   end)
 end)
 
-describe("planner.balanced_columns", function()
+describe("column counts move the pace", function()
   before_all(function() research.full(force()) end)
 
   local function choices_with(overrides)
@@ -1051,44 +1051,19 @@ describe("planner.balanced_columns", function()
     return choices
   end
 
-  test("nil before the choices name a loop", function()
-    assert(planner.balanced_columns(force(), {}) == nil, "empty choices")
-    assert(planner.balanced_columns(force(), { recipe = "iron-gear-wheel" }) == nil,
-      "missing machine")
-  end)
-
-  test("lower tiers get whole counts, the slow end more of them, the target none", function()
-    local balanced = planner.balanced_columns(force(), choices_with())
-    assert(balanced, "no ratio for a working loop")
-    assert(balanced.rare == nil, "the target gained a balanced count")
-    for _, tier in pairs({ "normal", "uncommon" }) do
-      local count = balanced[tier]
-      assert(type(count) == "number" and count >= 1 and count == math.floor(count)
-        and count <= planner.MAX_COLUMNS_PER_TIER, tier .. " count " .. tostring(count))
-    end
-    -- The taper's direction, not its figure: the bottom tier carries the most crafts per
-    -- target item, so it can never need fewer columns than the tier above it.
-    assert(balanced.normal >= balanced.uncommon,
-      "normal " .. balanced.normal .. " below uncommon " .. balanced.uncommon)
-  end)
-
-  test("the balanced counts match what the pace formula would equalise", function()
-    -- Writing the balanced counts back must not leave a lower tier as the bottleneck by
-    -- more than rounding: the paced plan comes out at least as fast as the untouched one.
-    local balanced = planner.balanced_columns(force(), choices_with())
+  test("extra lower-tier columns genuinely speed the loop up", function()
+    -- The balanced hint left the wizard (owner's ask, 2026-08-29), but the mechanism it
+    -- described stays load-bearing: dividing the heavy bottom tier's station time across
+    -- more columns must move the bottleneck pace, or the whole feature gates nothing.
+    -- Guarded strict improvement, never the <= form -- that one is a tautology (dividing
+    -- station times by counts >= 1 can only shrink the max) and could not fail.
     local untouched = planner.plan(force(), choices_with())
     local paced = planner.plan(force(), choices_with({
-      column_count_normal = balanced.normal, column_count_uncommon = balanced.uncommon,
+      column_count_normal = 4, column_count_uncommon = 2,
     }))
     assert(untouched.seconds and paced.seconds, "a pace went missing")
-    -- Guarded strict improvement, never the <= form -- that one is a tautology (dividing
-    -- station times by counts >= 1 can only shrink the max) and could not fail. The sibling
-    -- test establishes normal as the heavy tier, so whenever the balance asks for more than
-    -- one normal column, writing the counts back must genuinely move the pace.
-    assert(balanced.normal > 1,
-      "test premise: gears' balance should want extra normal columns")
     assert(paced.seconds < untouched.seconds,
-      "the balanced counts did not move the pace: " .. paced.seconds
+      "extra columns did not move the pace: " .. paced.seconds
       .. " vs " .. untouched.seconds)
   end)
 end)

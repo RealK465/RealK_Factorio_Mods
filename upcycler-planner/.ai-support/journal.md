@@ -9,6 +9,75 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - the cap doubles to 64; the balanced hint leaves the columns wizard
+
+Two owner calls the morning after the optimization pass, taken together. **The cap**:
+"maybe we can now increase max columns to 64?" — measured before applied: with the
+near-linear solve, 64-column plans cost proportionally (host: vanilla 5 tiers x 64 = 257
+columns in 0.05 s; a 35-tier mod at full 64 = 2177 columns in 0.55 s, 1.5 s with a 5-wide
+machine and fluid; even 254 x 64 = 16,193 columns solves in 4.5 s where the old code
+squared toward hours), so `MAX_COLUMNS_PER_TIER` went 32 → 64. In game (2.1.16, one
+refresh's validate + plan): vanilla legendary x 64 is 171 ms, the 35-tier mod at full 64
+(2177 columns, 46k entities) 1.67 s — the exact linear doubling of its x32's 780 ms, on
+the shape whose x32 the old code needed 46.7 s for. Every clamp spec was symbolic and none
+moved; the tooltip takes the cap as a locale parameter and followed by itself.
+
+**The hint**: "and remove the ideal counts of the bottom" — the balanced-columns line (and
+its no-flow placeholder and separator) left the bottom of the Columns wizard, which is now
+rows and nothing else. With it went `planner.balanced_columns` (dead code once nothing
+displayed it; `station_times` keeps one reader, the pace), the three locale keys, and the
+columns panel's `rates` escalation — nothing in the panel is solve-priced any more, so a
+module, mix or beacon change refreshes instead of rebuilding, and the escalation spec now
+pins the panel SURVIVING those changes where it used to pin the rebuild. The
+balanced-line spec became a nothing-below-the-rows / stores-nothing pin, and
+planner_spec's balanced block reduced to the one claim that still gates behaviour: extra
+lower-tier columns genuinely move the pace. README, changelog (open 1.0.0, edited in
+place), mod CLAUDE.md, decisions.md and deferred.md all track both calls; the 1.0.0/1.0.1
+pair now waits on a fresh legacy cherry-pick covering the whole 08-28/08-29 delta.
+
+## 2026-08-28 - the pole solve goes near-linear; the big-layout hang closed by measurement
+
+The owner asked for the layout generation to be optimized without regressions — big column
+counts and long modded quality chains were slow to the point of the game being killed as
+hung. Profiling on the worst legal shapes (254 tiers x `MAX_COLUMNS_PER_TIER` physical
+columns) found every remaining super-linear term in `poles.lua` plus two column-membership
+scans, and all of them were replaced by exact equal-output structures in one pass:
+candidate centres cached at enumeration, the per-placement candidate-array rebuild replaced
+by a dead set over a `dx` bucket index, the greedy cover's per-round rescans replaced by
+exact incrementally-maintained gains under a lazy max-heap ordered (gain, scan position) —
+the same first-in-scan-order tie rule, so no pick moves — `bridge` given memoised in-reach
+pole lists extended one distance check per new pole (plus a round-stamped shared `touched`
+table; the per-candidate table per round was itself a measurable allocation cost),
+`components_of` and `spanning_wires` walked through centre-column buckets with the member
+order and both spanning tie-breaks reproduced exactly, and the `within_columns` /
+`plan_with_poles` dead-column scans turned into binary searches over the sorted disjoint
+column list. `scripts/poles.lua` and one hunk of `scripts/planner.lua` are the whole diff;
+layout, circuits, blueprint and quality_math untouched.
+
+Headline numbers (full tables in `analysis/poles.md` → *Near-linear at physical-column
+scale*, every pair taken back to back in one machine state): host, 2025 columns
+58 s → 1.3 s; the full 8097-column ceiling 754 s → 4.9 s (~150x conservative), and the
+8097-column 5x5 shape the old code never finished (killed past 20 min) now solves in 12 s.
+In game on 2.1.16, timed around one refresh's `validate` + `plan` with a scratch mod adding
+30 quality tiers: 35 tiers x 32 columns **46.7 s → 0.7-1.8 s** — and under the old code
+that shape tripped factorio-test's 15 s stuck-process watchdog, which is the owner's
+big-layout crash reproduced under measurement. Vanilla plans sat at ~10-25 ms before and
+after.
+
+Proven identical the way the 2026-08-20 pass taught: a 4416-config layout-grid parity sweep
+(old file recovered from git) plus 1200 pseudo-random scattered plans for the bridge- and
+tie-heavy shapes, every field of every pole compared, `wire_to` included — zero mismatches —
+with both harnesses falsified first (a dropped spanning second-end tie-break trips 10 grid /
+17 scattered configs; a flipped greedy tie trips everything). The pinned 8-tier wire tree
+matches, pure 91/91, static clean, and the in-game suite 333/333 with zero behavioural
+drift. The in-game timing ran through a temporary `tests/perf_spec.lua` (since removed with
+its control.lua registration — throwaway harness, the 2026-08-20 rule) against a scratch
+`upl-bench-quality` mod in the test data dir. One honest caveat kept in `deferred.md`: what
+remains is the linear work itself, so the extreme ceiling still costs a few in-game seconds
+per refresh — margin now, not a hang. The changelog gained an Optimizations line in the
+open 1.0.0; `MAX_COLUMNS_PER_TIER` stays 32, raising it now being a product call for the
+owner rather than a crash risk.
+
 ## 2026-08-28 - the columns feature reaches Factorio 2.0
 
 The port turned out to be a clean cherry-pick: `git cherry-pick f504c16` onto `legacy/2.0`

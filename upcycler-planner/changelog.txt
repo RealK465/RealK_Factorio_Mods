@@ -18,9 +18,11 @@ Date: ????
     - The planner now shows about how long the loop takes to make each item.
     - You can now set how many columns of machines and recyclers each tier below your target
       builds, from a Columns per tier menu in Build options. One column per tier by default,
-      as before, and up to 32 to keep the planner fast.
-    - That menu also shows the balanced column counts for your setup. The stats follow your
-      counts as you type.
+      as before, and up to 64 to keep the planner fast. The stats follow your counts as you
+      type.
+  Optimizations:
+    - Planning big loops is many times faster. Long modded quality chains and high column
+      counts that used to freeze the game now plan in seconds at worst.
   Gui:
     - Warnings and errors under the planner now get their own lines, each with its own
       colour and icon, so the stats above them stay easy to read.

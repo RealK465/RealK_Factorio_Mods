@@ -1558,9 +1558,11 @@ end
 -- A PERFORMANCE cap, not a ratio: the first cap (250, sized to clear the wiki's 208.5
 -- sustained lower-tier crafters per terminal) let a few maxed tiers ask the engine for a
 -- plan it could not survive -- the owner hit crashes on big layouts the day the feature
--- landed, so the ceiling came down to what stays responsive (owner's call, 2026-08-28).
+-- landed, so the ceiling came down to 32 (owner's call, 2026-08-28), then doubled to 64
+-- once the pole solve went near-linear and 64-column plans measured comfortably inside a
+-- refresh (owner's call, 2026-08-29; the measurements are in .ai-support/analysis/poles.md).
 -- The wizard field's tooltip names the cap and the reason to the player.
-planner.MAX_COLUMNS_PER_TIER = 32
+planner.MAX_COLUMNS_PER_TIER = 64
 
 -- One rule for "a whole number of columns": floored, at least one, at most the ceiling.
 local function clamp_columns(value)
@@ -1609,9 +1611,8 @@ end
 -- beacon stack's transmitted speed -- the same split.transmitted whose quality axis the
 -- solve already priced. The engine floors a machine's speed at 20% of base, so the
 -- multiplier does too. The SINGLE owner of the formula: loop_seconds divides these by the
--- player's column counts and keeps the worst, and planner.balanced_columns ratios them
--- against the target's own, so the pace and the wizard's hint cannot price a station two
--- different ways. nil when the solve reports no flow or a rate is zero.
+-- player's column counts and keeps the worst. nil when the solve reports no flow or a
+-- rate is zero.
 local function station_times(recipe, machine, machine_quality, recycler, recycler_quality,
     product, split, tiers, r)
   local yield = split and split.yield
@@ -1691,43 +1692,6 @@ local function loop_seconds(recipe, machine, machine_quality, recycler, recycler
   end
   if worst <= 0 or worst ~= worst or worst == math.huge then return nil end
   return worst
-end
-
--- What the Columns wizard's balanced line shows: for each lower tier, the column count
--- that brings its station time as close to the target machine's own as whole columns
--- allow -- round-to-nearest, so a marginal ratio may leave a tier a shade over the terminal
--- rather than doubling its columns for it. Computed from the SAME
--- station_times the pace divides, rounded to whole columns, floored at one and clamped to
--- MAX_COLUMNS_PER_TIER -- so the hint names exactly what plan() would honour if typed in.
--- A hint only, never a one-click write; the reason is in the wizard's builder. Keyed by
--- quality name, the column_count_<quality> keys' own shape. nil
--- until the choices name a loop, or when the loop has no flow -- the pace line's absence.
-function planner.balanced_columns(force, choices)
-  local recipe = choices.recipe and prototypes.recipe[choices.recipe]
-  local machine = choices.machine and prototypes.entity[choices.machine]
-  -- resources() is the one call that cannot take a nil pair; every other precondition here
-  -- is split's own, and its nil below stands in for the whole list -- restating them was
-  -- a second copy of one contract, with nothing to fail if the two drifted.
-  if not (recipe and machine) then return nil end
-  local r = resources(force, recipe, machine, choices)
-  local split = planner.split(force, choices, r)
-  if not split then return nil end
-
-  local tiers = planner.tiers_up_to(choices.quality)
-  if not (tiers and #tiers > 1) then return nil end
-  -- Both non-nil whenever split resolved: its own guards already vetted them.
-  local recycler = prototypes.entity[choices.recycler]
-  local product = single_item_product(recipe)
-
-  local times = station_times(recipe, machine, planner.build_quality(choices.machine_quality),
-    recycler, planner.build_quality(choices.recycler_quality), product, split, tiers, r)
-  if not (times and times[#tiers] and times[#tiers] > 0) then return nil end
-
-  local ratios = {}
-  for j = 1, #tiers - 1 do
-    ratios[tiers[j]] = clamp_columns(times[j] / times[#tiers] + 0.5)
-  end
-  return ratios
 end
 
 -- How far a consumer's collision box sits inside its tile rect, taken on the LARGER axis so
@@ -1847,13 +1811,27 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole)
 
     while true do
       -- A column earns its width by holding a pole. Anything else is dead ground, including a
-      -- column the free-tile fallback walked away from.
+      -- column the free-tile fallback walked away from. The columns arrive from layout.build
+      -- sorted by x and disjoint, so each pole binary-searches the one column that could hold
+      -- it -- the plain columns-times-poles product grew quadratic with the physical column
+      -- count once tiers repeat.
       local held = {}
-      for _, column in pairs(current.plan.utility_columns or {}) do
+      local columns = current.plan.utility_columns
+      if columns then
+        local column_count = #columns
         for _, placed in pairs(current.poles.entities) do
-          if placed.dx >= column.x and placed.dx + pole.width <= column.x + column.width then
-            held[column.tier] = true
-            break
+          local lo, hi, found = 1, column_count, nil
+          while lo <= hi do
+            local mid = math.floor((lo + hi) / 2)
+            if columns[mid].x <= placed.dx then
+              found = columns[mid]
+              lo = mid + 1
+            else
+              hi = mid - 1
+            end
+          end
+          if found and placed.dx + pole.width <= found.x + found.width then
+            held[found.tier] = true
           end
         end
       end

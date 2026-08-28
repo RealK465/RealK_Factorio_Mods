@@ -911,14 +911,12 @@ end
 -- The columns wizard: one row per tier below the target -- the target itself is pinned to
 -- one column, the single output chest the tap, the catcher and the circuit cap all stand
 -- on. The ratio wizard's storage rule: nothing is backfilled, an absent
--- column_count_<quality> key means one, and an emptied field returns to it. Below the
--- rows, the balanced counts -- each lower tier's station time against the target's, from
--- the same formula the pace divides -- as a hint to type in, never a one-click write: the
--- Apply button went the day it landed, after one click on a big layout asked the engine
--- for a plan it could not survive (owner's report, 2026-08-28; the cap came down to 32 in
--- the same change, so a count now arrives one field at a time, capped).
--- "Balanced columns" in the locale, never "ratio" -- that word belongs to the module mix
--- (decisions.md, vocabulary).
+-- column_count_<quality> key means one, and an emptied field returns to it. Deliberately
+-- nothing below the rows: the balanced-counts hint that used to close the panel went at
+-- the owner's ask (2026-08-29), its one-click Apply having already gone the day the
+-- feature landed -- one click on a big layout asked the engine for a plan it could not
+-- survive (2026-08-28) -- so a count arrives one capped field at a time and the panel
+-- shows nothing it does not store.
 local function build_columns_panel(player, frame)
   local choices = state.of(player.index).choices
 
@@ -981,30 +979,6 @@ local function build_columns_panel(player, frame)
     })
     field.style.width = 60
   end
-
-  local balanced = planner.balanced_columns(player.force, choices)
-  if not balanced then
-    -- The pace line's own absence: these choices produce no flow, so there are no balanced
-    -- counts to name. The rows above still edit -- a count is a plan fact whatever the pace.
-    hint(content, "columns-no-flow")
-    return
-  end
-
-  local separator = content.add({ type = "line", name = "upl-columns-sep" })
-  separator.style.horizontally_stretchable = true
-  separator.style.top_margin = 8
-
-  local parts = {}
-  for index = 1, #tiers - 1 do
-    parts[#parts + 1] = tostring(balanced[tiers[index]])
-  end
-  parts[#parts + 1] = "1"
-  local line = content.add({
-    type = "label", name = "upl-columns-balanced-line",
-    caption = { "upl-gui.columns-balanced", table.concat(parts, " / ") },
-    tooltip = { "upl-gui.columns-balanced-tooltip" },
-  })
-  line.style.top_margin = 4
 end
 
 local function apply_defaults(player, choices)
@@ -1611,8 +1585,10 @@ SIDE_PANELS = {
   [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = gui.close_ingredients },
   [SPLIT_FRAME] = { build = build_split_panel, close = gui.close_split,
     invalidated_by = { tiers = true, rates = true } },
+  -- No `rates` since the balanced line went (2026-08-29): the rows show nothing a solve
+  -- prices, so a rate change leaves the open wizard standing and just refreshes the modal.
   [COLUMNS_FRAME] = { build = build_columns_panel, close = gui.close_columns,
-    invalidated_by = { tiers = true, rates = true } },
+    invalidated_by = { tiers = true } },
 }
 
 -- The one owner of rebuild-or-repaint: a handler names the KIND of change it made, and the

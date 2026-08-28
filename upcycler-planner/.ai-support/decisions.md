@@ -421,7 +421,7 @@ per-release approval.
   | `overflow` role | **Overflow chest** | `overflow` |
   | the machine at the target tier | **Final machine** — never "top" or "last" | `terminal_module` |
   | the per-tier module mix | **ratio** — the *Ratios...* wizard, "best ratio" | `split_prod_<quality>` |
-  | the per-tier column counts | **columns** — the *Columns per tier* wizard, "balanced columns", never "ratio" | `column_count_<quality>` |
+  | the per-tier column counts | **columns** — the *Columns per tier* wizard, never "ratio" | `column_count_<quality>` |
 
   Three renames landed at once and all three were free, because 0.6.0 had not shipped: *Item
   chest* was spending the word "Item" that `Item to upcycle` already owned; *Plain chest* was
@@ -469,11 +469,13 @@ per-release approval.
 - **One machine per tier by default; each lower tier can repeat its whole column** (2026-08-28,
   closing deferred.md's "Scaling beyond one machine per tier" along its own recorded shape —
   repeat columns, never invent geometry; the owner's calls from offered options: lower tiers
-  only, a row with an Edit... button, the balanced hint, and the cap. Three of those calls were
-  revised by the owner the same day after playing the build: the row lives in **Build options**
-  above the Circuits group rather than the top block, the balanced hint's one-click Apply
-  button is **removed outright** — a click on a big layout crashed the game — and the cap came
-  down from the first pick of 250 to **32**). The compact one-per-tier "casino" stays the default and the
+  only, a row with an Edit... button, and the cap. The owner revised the shape twice after
+  playing it: the row lives in **Build options** above the Circuits group rather than the top
+  block, and the balanced-counts hint the wizard first carried is **gone entirely** — its
+  one-click Apply went the day the feature landed, after a click on a big layout crashed the
+  game, and the hint line itself followed at the owner's ask on 2026-08-29, so the wizard is
+  rows and nothing else and shows nothing it does not store. The compact one-per-tier
+  "casino" stays the default and the
   honest framing — a convenience build, sustained ratios taper about tenfold per tier — and a
   player chasing throughput sets per-tier counts in the **Columns per tier** wizard, the fifth
   side panel. **The target tier is pinned at one column**: the single output chest is what the
@@ -481,36 +483,39 @@ per-release approval.
   terminals (...: 2.9 : 1). Mechanics: `column_count_<quality>` only-on-edit keys — the
   two-token prefix is the tier-keyed families' own shape (`circuit_min_`, `split_prod_`), so
   the prune sweep can never claim a future `columns_*` flag — floor one;
-  `planner.MAX_COLUMNS_PER_TIER` = 32 is a **performance ceiling, not a ratio**: the first cap
+  `planner.MAX_COLUMNS_PER_TIER` = 64 is a **performance ceiling, not a ratio**: the first cap
   (250, sized to clear the wiki's AM3 sustained ratio of 208) let a few maxed tiers ask the
-  engine for a plan it could not survive — the owner's big-layout crashes, 2026-08-28 — so the
-  wizard's field tooltip now names the cap and the reason, and the AM3 sustained ratio is
-  deliberately out of reach. `planner.tier_columns` + `planner.expand_columns` expand the
+  engine for a plan it could not survive — the owner's big-layout crashes, 2026-08-28 — so it
+  came down to 32 that day, and doubled to 64 on 2026-08-29 once the pole solve went
+  near-linear and 64-column plans measured comfortably inside a refresh
+  (`analysis/poles.md`); the wizard's field tooltip names the cap and the reason, and the
+  AM3 sustained ratio stays deliberately out of reach. `planner.tier_columns` +
+  `planner.expand_columns` expand the
   DISTINCT chain into the physical-column lists inside `planner.plan` alone (the same expander
   runs once over the chain and once over the split's per-tier counts, holes surviving), so
   **layout, circuits, poles, blueprint and quality_math are all untouched**: the solve keeps
   the distinct chain (expanding it would corrupt the probability model), and `circuit_tier`
-  stays a unique per-column counter — the silent-overwrite hazard `circuits_spec` now pins. The pace divides each tier's station
-  time by its count through `station_times`, the ONE owner of that formula, which
-  `planner.balanced_columns` reads for the wizard's balanced line — rounded against the
-  terminal's own time, floored at one, clamped to the same cap. The line is a **hint to type
-  in, never a one-click write**: the Apply button went the day it landed (the crash above —
-  a bulk write of several large counts commissioned the plan the cap exists to prevent), so
-  the wizard stores nothing the player did not type, one capped field at a
-  time. Escalations are DECLARED, not hand-checked per handler: each `SIDE_PANELS` entry
+  stays a unique per-column counter — the silent-overwrite hazard `circuits_spec` now pins.
+  The pace divides each tier's station
+  time by its count through `station_times`, the ONE owner of that formula, whose only
+  reader is now the pace itself. Escalations are DECLARED, not hand-checked per handler:
+  each `SIDE_PANELS` entry
   names what invalidates it (`tiers` — the target moved the row list; `rates` — a pick moved
   the solve or the station times) and one `gui.invalidate(player, reason)` decides rebuild
   or repaint. The per-handler disjunctions the first draft carried were replaced the same
   session, because that shape had already leaked once: the beacon pickers shipped a release
   refresh-only while their transmitted effects moved the solve, leaving stale numbers a
   click could write. The target dropdown invalidates `tiers`; the three module pickers, the
-  Mix checkbox and the beacon module and count handlers invalidate `rates`. **Research finishing
+  Mix checkbox and the beacon module and count handlers invalidate `rates` — which since the
+  balanced line went touches only the Ratios wizard: the columns wizard declares `tiers`
+  alone, showing nothing a solve prices. **Research finishing
   mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild exists,
-  so an open wizard's balanced line stays priced pre-research until any rebuild — chosen, not
-  missed, the quality dropdown's own frozen-tags reasoning. The balance rounds to nearest, so a marginal ratio
-  may leave a tier a shade over the terminal rather than doubling its columns. **The
-  `legacy/2.0` port landed 2026-08-28** (a clean cherry-pick — the delta touches no fork
-  hunk; suite 333 on 2.0.77), so the open 1.0.0 / 1.0.1 pair can ship in order: 1.0.0 for
+  so an open Ratios wizard's displayed defaults stay priced pre-research until any rebuild —
+  chosen, not missed, the quality dropdown's own frozen-tags reasoning. **The
+  `legacy/2.0` port landed 2026-08-28** for the columns feature itself (a clean cherry-pick —
+  the delta touches no fork hunk; suite 333 on 2.0.77); the 2026-08-29 delta — the pole-solve
+  optimizations, the cap at 64 and the hint removal — still needs its own cherry-pick before
+  the open 1.0.0 / 1.0.1 pair ships in order: 1.0.0 for
   Factorio 2.1 first, 1.0.1 as its 2.0 port.
 - **Modules are planned, not merely requested** — and each lower tier's machine carries the
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on

@@ -21,7 +21,7 @@ Like Mining Patch Planner designs mining outposts, or P.U.M.P. designs oil outpo
 
 The loop contains:
 
-- One column per quality by default — a crafting machine, a recycler, and the chests that feed and drain them. The **Columns per tier** menu lets you build several columns of the lower qualities (up to 32) and shows the balanced counts for your setup.
+- One column per quality by default — a crafting machine, a recycler, and the chests that feed and drain them. The **Columns per tier** menu lets you build several columns of the lower qualities (up to 64).
 - Belts, filtered inserters, chests and electric poles, all placed and set up for you from the options you picked.
 - Quality and productivity modules mixed in every machine, at the best ratio for the machines and modules you picked. Untick **Mix productivity modules** for quality only; the **Ratios...** button opens a menu with the productivity module and the mix per quality; and the planner tells you roughly how many items the loop will eat per item it makes, and how long each one takes.
 - Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them. Untick **Use buffer chests** in the build options to keep every item in the loop instead.
