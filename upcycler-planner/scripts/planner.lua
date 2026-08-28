@@ -1402,23 +1402,14 @@ end
 -- re-derivation of it. Main's counterpart premise pins the engine call instead.
 planner.roll_chances_for = roll_chances_for
 
--- Whether any tier in the chain can roll DOWN -- previous_probability (or its chain twin),
--- zero across vanilla and Space Age. Passed to the solve as a flag rather than always
--- priced, because the down-roll sweep doubles the mid-tier cost at extreme chain lengths
--- and the common no-downgrade modset must not pay it. Pure prototype data, memoised.
+-- THE 2.0 SEAM: main detects down-rolling quality mods off previous_probability (and its
+-- chain twin) and prices their down-rolls at zero in the solve. Neither attribute exists on
+-- 2.0.77's LuaQualityPrototype -- the read family arrived with 2.1.7, and reading a missing
+-- LuaObject attribute is a hard error, not nil -- and 2.0's quality mechanic has no downward
+-- roll at all, so on this track the answer is a constant: no downgrade, the solve's sweep
+-- never gated on.
 local function quality_downgrades()
-  if memo.downgrades == nil then
-    memo.downgrades = false
-    for _, name in pairs(planner.quality_chain()) do
-      local quality = prototypes.quality[name]
-      if (quality.previous_probability or 0) > 0
-        or (quality.previous_chain_probability or 0) > 0 then
-        memo.downgrades = true
-        break
-      end
-    end
-  end
-  return memo.downgrades
+  return false
 end
 
 -- A module pair's per-slot effects at its own quality, engine-scaled -- get_module_effects,
