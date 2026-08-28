@@ -9,6 +9,18 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - the columns feature reaches Factorio 2.0
+
+The port turned out to be a clean cherry-pick: `git cherry-pick f504c16` onto `legacy/2.0`
+auto-merged all eighteen files, the three forked ones included — the columns delta touches
+none of the fork hunks (the 2.0 roll shim, the recipe-shape seams, planner_spec's per-track
+figures all sit elsewhere), so nothing needed rewriting by hand. The drift check
+(`git diff main -- .` from the worktree) still lists exactly the declared divergent set.
+Verified on 2.0.77 from the legacy worktree's own skill copies: data stage exit 0 as 1.0.1,
+pure 91/91, static clean, in-game suite **333/333** — the same count as `main`, since every
+new spec is in the shared files. The release-coupling warning in `decisions.md` is resolved:
+the pair ships 1.0.0 (2.1) then 1.0.1 (2.0), whenever the owner calls it.
+
 ## 2026-08-28 - columns per tier, the owner's play-test revisions
 
 The owner played the columns build the same day and revised four things, the third after a

@@ -508,9 +508,10 @@ per-release approval.
   mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild exists,
   so an open wizard's balanced line stays priced pre-research until any rebuild — chosen, not
   missed, the quality dropdown's own frozen-tags reasoning. The balance rounds to nearest, so a marginal ratio
-  may leave a tier a shade over the terminal rather than doubling its columns. **Release
-  coupling**: the shared changelog describes the feature inside the open 1.0.0 section, so
-  the 1.0.0 / 1.0.1 pair must not ship before the `legacy/2.0` port lands.
+  may leave a tier a shade over the terminal rather than doubling its columns. **The
+  `legacy/2.0` port landed 2026-08-28** (a clean cherry-pick — the delta touches no fork
+  hunk; suite 333 on 2.0.77), so the open 1.0.0 / 1.0.1 pair can ship in order: 1.0.0 for
+  Factorio 2.1 first, 1.0.1 as its 2.0 port.
 - **Modules are planned, not merely requested** — and each lower tier's machine carries the
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
   the portal ask `6a9147f558087c568146a11d`, superseding the flat all-quality rule: computed
