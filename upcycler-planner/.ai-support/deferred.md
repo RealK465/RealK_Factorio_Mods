@@ -86,6 +86,27 @@ mechanism. What stays parked here: the ring is the eventual ceiling (one belt of
 circulation), and the wild's builds past that point are bot farms — which is what the
 bot-loop toggle above becomes at scale.
 
+### Circuit reserves under repeated columns: summed, or per chest? — needs the owner's call
+**Status:** surfaced by the 2026-08-29 full review; behaviour shipped as-is in the columns
+feature, left standing because either resolution changes decided semantics.
+
+With a cap set, every column's census chest joins the one green network (`decisions.md` →
+circuit limits: reserve → census → recycler → machine, spine across machines), so with N
+repeated columns of a tier each reserve inserter reads the tier's product SUMMED across all N
+chests — the floor holds ~min/N per chest, and one chest can drain to zero while another
+holds the min. Untick the cap and each reserve becomes its own two-entity island reading only
+its own chest — the same wizard number then keeps N×min. The Min tooltip says "in its chest",
+which reads per-chest. With one column per tier (everything shipped before 1.0.0) the two
+readings coincide, so nothing already released behaves differently either way.
+
+Two coherent resolutions, both cheap in `circuits.decorate`: (a) island every lower census
+with its reserve and let only the terminal census (the output chest) join the cap network —
+per-chest floors, identical semantics capped or not, but supersedes the "one green network"
+sentence and the census-connectivity pins in `tests/pure/circuits_spec.lua` (144, 189, 270);
+or (b) keep the summed reading and re-word the Min tooltip to say the floor is per tier, not
+per chest. The review chose neither — (a) rewires a decided topology, (b) re-words the
+owner's text.
+
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short

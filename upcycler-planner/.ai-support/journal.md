@@ -9,6 +9,77 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - a full review of the mod; ten fixes land, one question parked
+
+A ten-angle review of the whole runtime source (owner's ask, performance named the
+priority). The suite stayed green throughout: pure tier 92, in-game 332, static clean.
+
+What it found and this session fixed, all on `main` (the legacy cherry-pick is still owed):
+
+- **`settled_on` compared raw stored values against normalised writes** - a build quality is
+  nil until first picked while the button always reports one, and the `no_*` flags flip
+  nil->false - so the very click that opens a picker's chooser read as a change: a full
+  re-solve per first click, and with a rates-invalidated wizard open a rebuild that tore the
+  opening chooser down (the recycler and productivity-module pickers' visible flash). Fixed
+  centrally: `settled_view` normalises `_quality$` and `^no_` keys on both sides of the
+  compare, the machine handler's own measured rule generalised.
+- **A browse click on an empty terminal-module or beacon-module picker recorded an explicit
+  clear** (`no_*_module = true` from the click leg's nil elem_value), permanently detaching
+  the default from the machine-and-recipe pair. Both handlers now treat nil-value-on-
+  already-empty as a browse and return.
+- **The pole ladder re-ran on every refresh** though most refreshes move no geometry. `plan()`
+  now keys the ladder's geometric inputs (footprints, tier count, consumer names, pole,
+  fluid/tap flags) and a hit replays the won column gaps and pole placements through one
+  `layout.build` - `append_poles` copies on every hand-out, so the cached poles are never
+  aliased. Deterministically the same answer; the plan determinism specs exercise the hit
+  path by construction. `layout.build` also stopped rebuilding identical ingredient-filter
+  tables per physical column (shared per quality; the per-column `requests` stay fresh, the
+  circuit pass mutates those).
+- **`sets_per_recycle` was per recycling CRAFT, not per recycled item** - a modded recycling
+  recipe eating >1 product per craft inflated S by that factor, skewing the split and
+  overstating yield while the pace's own `items_per_craft` read disagreed. One shared
+  `recycling_items_per_craft` now feeds both; a zero-amount modded product no longer divides
+  the fallback into NaN yields.
+- **Down-rolling quality mods (previous_probability) were priced as successes** by the
+  complement in `quality_math.solve`. A `downgrade` flag (planner detects it from the chain,
+  memoised) subtracts the below-tier mass - value 0, the recyclers' own rule - with the
+  sweep gated so no real modset pays it. Pure spec added.
+- **The circuit wizard never refreshed on a commit**, leaving validate's `circuit-min-too-big`
+  and unlinked warnings stale until an unrelated pick; it now refreshes when the value moved,
+  the ratio fields' rule. The stored read is type-guarded, as are the `circuit_min/max_` and
+  `split_prod_` reads in the planner (the request/column families already were) - a
+  hand-edited save can hold anything and used to crash the refresh.
+- Smaller: the chooser presumption arms only on LEFT clicks (a right-click cleared nothing
+  and cost the next E a close); `plan()` refuses a beacon whose `max_beacon_count` is 0
+  instead of flooring to one and building across the ring (validate's own refusal, now on
+  the direct-call path too), and `beacon_transmitted_effects` prices such a beacon as none;
+  the columns and split wizards display through the plan's own clamps (a stale stored count
+  can no longer show one number while the plan builds another); the empty-target-list
+  drop-down no longer sets an out-of-range selected_index; `poles.column_at` is the one
+  owner of the column-containment search (the shrink ladder had a hand copy); the
+  split/limits buttons' enabled state has one owner (gui.refresh); validate's redundant
+  target-existence guard folded into the `tiers_up_to` gate.
+
+The gap sweep after the first pass added four more, all fixed: **the shrink ladder could
+re-solve forever** - a column the layout floors open (the beacon's lane) can regain a pole
+and re-grow its gap, so the "only ever collapses" termination argument fails and a
+deterministic two-pattern orbit froze the game; the walk now remembers visited gap patterns
+and a revisit breaks. **`recycling_closes_the_loop` counted product entries, not distinct
+names**, refusing a hand-written recycling recipe that splits one ingredient across a
+guaranteed and a probability row (and `sets_per_recycle` now SUMS such rows instead of
+overwriting). **The chest and inserter handlers lacked the outside-the-role snap-back guard**
+their sibling pickers carry (an empty candidate list leaves a picker unfiltered); the pipe
+and quality-module handlers took the same guard. And **the min-too-big warning compared one
+chest's capacity** where a capped repeated tier fills N summed chests - it now follows the
+same cap resolution plan() applies.
+
+Two flagged behaviours were left deliberately: the backfilled circuit cap surviving an item
+change and the empty-Enter zero-commit are both recorded owner decisions (`decisions.md`,
+circuit limits) - re-surfaced to the owner with the stack-1 scenario rather than changed.
+The summed-vs-per-chest reserve reading under repeated columns is parked in `deferred.md`
+with both resolutions costed; the machine picker's no-snap-back on clear is pinned by
+gui_spec and stands.
+
 ## 2026-08-29 - the optimization delta reaches Factorio 2.0
 
 `git cherry-pick 302fc0f` onto `legacy/2.0` auto-merged all fourteen files, the two forked

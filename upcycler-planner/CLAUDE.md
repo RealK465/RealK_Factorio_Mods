@@ -39,7 +39,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (331 tests on both tracks as of 2026-08-29) — planner, layout, poles,
+suite under `tests/` (332 tests on both tracks as of 2026-08-29) — planner, layout, poles,
 circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`

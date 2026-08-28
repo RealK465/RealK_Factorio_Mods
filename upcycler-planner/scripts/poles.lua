@@ -111,29 +111,35 @@ local function candidate_positions(occ, width, height, pole)
   return out
 end
 
+-- The one owner of "which utility column wholly contains this footprint". The columns arrive
+-- from layout.build sorted by x and disjoint, so the only column that can contain it is the
+-- last whose x is at or left of it -- a binary search, where the plain footprints-times-columns
+-- scan grew quadratic with the physical column count. Exported for planner's held-column
+-- credit in the shrink ladder, poles.overlap's own reason: a second hand-maintained copy of
+-- the boundary rule is how the two passes would drift.
+function poles.column_at(columns, dx, width)
+  local lo, hi, found = 1, #columns, nil
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    if columns[mid].x <= dx then
+      found = columns[mid]
+      lo = mid + 1
+    else
+      hi = mid - 1
+    end
+  end
+  if found and dx + width <= found.x + found.width then return found end
+  return nil
+end
+
 -- The candidates lying wholly inside a utility column -- the pole's own dedicated ground.
 -- Pipes already sit in those columns as ordinary occupied tiles, so a fluid plan's east edge
 -- excludes itself without this function knowing pipes exist.
---
--- The columns arrive from layout.build sorted by x and disjoint, so the one column that can
--- contain a candidate is the last whose x is at or left of it -- a binary search, where the
--- plain candidates-times-columns scan grew quadratic with the physical column count.
 local function within_columns(candidates, columns, pole)
   local kept = {}
-  local n = #columns
   for index = 1, #candidates do
     local c = candidates[index]
-    local lo, hi, found = 1, n, nil
-    while lo <= hi do
-      local mid = math.floor((lo + hi) / 2)
-      if columns[mid].x <= c.dx then
-        found = columns[mid]
-        lo = mid + 1
-      else
-        hi = mid - 1
-      end
-    end
-    if found and c.dx + pole.width <= found.x + found.width then
+    if poles.column_at(columns, c.dx, pole.width) then
       kept[#kept + 1] = c
     end
   end

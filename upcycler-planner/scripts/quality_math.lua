@@ -14,7 +14,9 @@
 -- ingredients rolled TO the target feed the terminal machine deterministically.
 --
 -- Quality never goes down (no negative quality_limits.low, no previous_probability in this
--- modset), so tiers resolve top-down: at tier j the pair (w_j, u_j) -- value per
+-- modset) -- and when a mod DOES set previous_probability, the planner raises
+-- params.downgrade and every down-roll is priced at value 0 rather than counted into the
+-- target-or-above complement -- so tiers resolve top-down: at tier j the pair (w_j, u_j) -- value per
 -- ingredient-set and per product item -- is two linear equations in two unknowns given the
 -- tiers above, closed form. And the split chosen at tier j moves nothing above j, while every
 -- value below j is monotone in (w_j, u_j) -- so maximising w_j greedily per tier IS the
@@ -83,6 +85,12 @@ end
 --   products_per_set     R: products one craft yields
 --   sets_per_recycle     S: ingredient-sets one recycled product returns (vanilla: 1 / (4R))
 --   roll_chances         function(tier_name, effect) -> { tier_name -> probability }
+--   downgrade            true when some tier can roll DOWN (previous_probability, zero in
+--                        every vanilla modset) -- prices down-rolled products at 0 instead
+--                        of letting the complement count them as target-or-above successes.
+--                        A flag, because the extra sweep doubles the mid-tier cost at
+--                        extreme chain lengths and the common no-downgrade case must not
+--                        pay it.
 --
 -- overrides is a sparse array over tier INDEX (1..#tiers-1): a present entry pins that
 -- tier's productivity count instead of searching, which is how the GUI's per-tier edits and
@@ -165,8 +173,18 @@ function quality_math.solve(params, overrides)
         c_mid_value = c_mid_value + chance * u[k]
       end
       -- Target-and-above as the complement, not a key sweep: the dictionary lists only
-      -- positive entries, and the measured distribution sums to 1.
-      local c_top = 1 - c_stay - c_mid_sum
+      -- positive entries, and the measured distribution sums to 1. Under a downgrade mod
+      -- the complement would also swallow mass rolled BELOW j and price every down-roll as
+      -- a success, so that mass is subtracted out -- value 0, the recyclers' own rule for
+      -- their down-rolls, an under-promise rather than flattery (a down-rolled product does
+      -- re-enter a lower tier's column, but pricing that would break the top-down solve).
+      local c_below = 0
+      if params.downgrade then
+        for k = 1, j - 1 do
+          c_below = c_below + (c_dist[tiers[k]] or 0)
+        end
+      end
+      local c_top = 1 - c_stay - c_mid_sum - c_below
       if c_top < 0 then c_top = 0 end
 
       -- w_j = (1+p)R [c_mid_value + c_top + c_stay * u_j], u_j = S [r_stay * w_j + r_above]:

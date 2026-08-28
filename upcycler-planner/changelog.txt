@@ -23,12 +23,29 @@ Date: ????
   Optimizations:
     - Planning big loops is many times faster. Long modded quality chains and high column
       counts that used to freeze the game now plan in seconds at worst.
+    - Changing modules, ratios or circuit limits no longer re-solves the pole layout: the
+      planner reuses it while the loop's shape has not moved.
   Gui:
     - Warnings and errors under the planner now get their own lines, each with its own
       colour and icon, so the stats above them stay easy to read.
     - Before you pick an item, the planner shows a quiet grey hint instead of a red error.
     - The Ingredient amounts menu moved into Build options, next to the circuit limits.
     - The stats show the machine and recycler counts; hover them to see the footprint.
+  Bugfixes:
+    - Fixed that the first click on a picker could count as a change, redesigning the loop
+      for nothing and making some pickers' choosers flash shut.
+    - Fixed that clicking the empty final machine module or beacon module picker and then
+      choosing nothing counted as clearing it, so it stopped following your other picks.
+    - Fixed that editing circuit limits did not update the planner's warnings until
+      something unrelated changed.
+    - Fixed that right-clicking a picker made the next press of the confirm key close the
+      planner instead of placing the blueprint.
+    - Fixed that planning could freeze the game re-solving poles forever, on a beacon plan
+      whose poles could not cover the loop from its narrowest layout.
+    - Fixed that a pick outside a picker's role - possible in modsets that leave a picker
+      with nothing to offer - stayed on display while the plan quietly used the default.
+    - Fixed that a recycling recipe listing the same ingredient in two rows was refused,
+      hiding its item from the picker.
   Changes:
     - Releasing for Factorio 2.1.
 ---------------------------------------------------------------------------------------------------
