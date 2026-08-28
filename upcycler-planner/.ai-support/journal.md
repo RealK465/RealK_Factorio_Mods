@@ -9,6 +9,16 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-28 - the open pair re-graded to 1.0.0 / 1.0.1
+
+The owner's call, closing the arc the feature opened under ("the first step for the 1.0.0
+version"): the still-open 0.7.0 / 0.7.1 pair becomes **1.0.0 (Factorio 2.1) / 1.0.1
+(Factorio 2.0)**. Both sections were unreleased and untagged, so this is the sanctioned
+open-section re-grade — headers and both info.jsons moved together, the 1.0.1 pointer
+re-aimed at 1.0.0, and deferred.md's live references updated. Not a save-breaking major in
+the semver sense; a milestone number, the owner's to give. Earlier entries below keep the
+0.7.x names they were written under, as history does.
+
 ## 2026-08-28 - "find a way": the roll shim takes the whole feature set to 2.0
 
 Hours after the partial port below shipped, the owner overruled its central premise: "try to

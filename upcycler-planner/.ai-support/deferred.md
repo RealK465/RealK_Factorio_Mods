@@ -105,7 +105,8 @@ in place of a supply area. Revisit if it turns out to be a common ask.
 
 ## Planner intelligence
 
-Two entries used to live here and **shipped together in 0.7.0 (2026-08-28)**: the optimal
+Two entries used to live here and **shipped together in 1.0.0 (2026-08-28; opened as 0.7.0,
+re-graded by the owner)**: the optimal
 module split (computed per tier from `get_roll_chances()`, overridable in the Ratios...
 wizard) and the expected-output display (the status line's yield figure, from the same
 solve). `decisions.md` → the module-mix bullets own what is settled; `analysis/api.md` §30
@@ -154,7 +155,7 @@ idea, while the community's heuristics are settled and public (surveyed 2026-08-
   EM plant and cryo plant (`quality-math.md` §3). The mod already makes that a player choice; it
   just never says which way is up.
 
-**Half of this shipped in 0.7.0** (2026-08-28): the expected-output display now sits on the
+**Half of this shipped in 1.0.0** (2026-08-28): the expected-output display now sits on the
 status line, from `planner.split`'s solve — so the computation this entry needs already
 exists and is memoised. What stays parked is the *ranking* half: a per-item figure in the
 picker's tooltip, which would mean one solve per offered item rather than one per
@@ -210,7 +211,7 @@ offers a 4 that costs 7.5 MW, four modules and a stack's worth of rows for zero 
 is the ordinary case for a stack rather than an exotic one.
 
 Cheapest fix: read `profile` and stop offering counts past the last one that raises transmission.
-Fuller fix: name the multiplier beside each count — which since 0.7.0 has its machinery half
+Fuller fix: name the multiplier beside each count — which since 1.0.0 has its machinery half
 built: the yield display exists, though the split's model deliberately prices beacons as
 invisible (`decisions.md`), so a per-count multiplier stays its own read of `profile`.
 
@@ -287,7 +288,7 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   `resolve_productivity_module` — accepted deliberately to keep the split release's blast
   radius off shipped terminal/beacon behaviour; both delegate their default to
   `planner.terminal_module`, and both check `module_fits`, so this pair at least cannot
-  drift the way the terminal one did. The payoff shape is known (the 0.7.0 architecture
+  drift the way the terminal one did. The payoff shape is known (the 1.0.0 architecture
   review's alternative): delete the `resolve_*` pair, export `chosen_*`, and have the
   widgets compute `elem_value` inline — `resources()` never depended on the pre-write. Still
   parked for the **roboport picker** below or the next one after it.
