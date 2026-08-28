@@ -1552,14 +1552,67 @@ function planner.split(force, choices, gathered, ignore_overrides)
   return split_values[flavour]
 end
 
--- Steady-state seconds per target-quality item. Every station runs in parallel, so the
--- loop's pace is its single slowest one: the largest expected-crafts x craft-time product
--- over every machine and recycler, with the expected crafts from the same solve as the
--- yield and the rates folding in build quality (get_crafting_speed), each tier's own module
--- speed penalties, and the beacon stack's transmitted speed -- the same split.transmitted
--- whose quality axis the solve already priced. The engine floors a machine's speed at 20%
--- of base, so the multiplier does too. nil when the solve reports no flow or a rate is zero.
-local function loop_seconds(recipe, machine, machine_quality, recycler, recycler_quality,
+-- Columns per tier
+
+-- The ceiling every column_count_<quality> value honours, wizard field and stored key alike.
+-- A PERFORMANCE cap, not a ratio: the first cap (250, sized to clear the wiki's 208.5
+-- sustained lower-tier crafters per terminal) let a few maxed tiers ask the engine for a
+-- plan it could not survive -- the owner hit crashes on big layouts the day the feature
+-- landed, so the ceiling came down to what stays responsive (owner's call, 2026-08-28).
+-- The wizard field's tooltip names the cap and the reason to the player.
+planner.MAX_COLUMNS_PER_TIER = 32
+
+-- One rule for "a whole number of columns": floored, at least one, at most the ceiling.
+local function clamp_columns(value)
+  return math.max(1, math.min(math.floor(value), planner.MAX_COLUMNS_PER_TIER))
+end
+
+-- The player's column count per LOWER tier, quality-keyed like the column_count_<quality>
+-- keys themselves, DENSE: every lower tier gets an entry. Clamped defensively whatever the
+-- GUI enforced -- a hand-edited save can hold anything -- and the TARGET tier is never in
+-- the result: it keeps exactly one column, the single output chest the tap, the catcher
+-- and the circuit cap all stand on, so a stray column_count_<target> key is structurally
+-- ignored.
+function planner.tier_columns(choices, tiers)
+  local counts = {}
+  for j = 1, #tiers - 1 do
+    local value = choices["column_count_" .. tiers[j]]
+    counts[tiers[j]] = type(value) == "number" and value >= 1 and clamp_columns(value) or 1
+  end
+  return counts
+end
+
+-- A per-DISTINCT-tier array expanded into one entry per PHYSICAL column: each lower tier's
+-- value repeated by its count, the target's exactly once, last. Called once with the chain
+-- itself (layout, circuits and the pole ladder all walk physical columns) and once with
+-- the split's per-tier counts, which is what keeps layout.build's positional read
+-- untouched. quality_math and planner.split keep the distinct chain, since repeating
+-- entries there would corrupt the probability model; all-ones expands to a copy of the
+-- input, which is what keeps an untouched plan byte-identical. The write goes through an
+-- explicit counter, never #out + 1: values may carry holes (split.prods has no terminal
+-- entry), and #out would stall on one.
+function planner.expand_columns(values, tiers, counts)
+  local out, n = {}, 0
+  for j = 1, #tiers do
+    for _ = 1, j < #tiers and counts[tiers[j]] or 1 do
+      n = n + 1
+      out[n] = values[j]
+    end
+  end
+  return out
+end
+
+-- The per-tier station time for ONE column of each tier: the larger of the tier's expected
+-- machine crafts x craft time and recycler crafts x craft time, seconds per target-quality
+-- item, with the expected crafts from the same solve as the yield and the rates folding in
+-- build quality (get_crafting_speed), each tier's own module speed penalties, and the
+-- beacon stack's transmitted speed -- the same split.transmitted whose quality axis the
+-- solve already priced. The engine floors a machine's speed at 20% of base, so the
+-- multiplier does too. The SINGLE owner of the formula: loop_seconds divides these by the
+-- player's column counts and keeps the worst, and planner.balanced_columns ratios them
+-- against the target's own, so the pace and the wizard's hint cannot price a station two
+-- different ways. nil when the solve reports no flow or a rate is zero.
+local function station_times(recipe, machine, machine_quality, recycler, recycler_quality,
     product, split, tiers, r)
   local yield = split and split.yield
   if not (yield and yield.machine_sets) then return nil end
@@ -1600,7 +1653,7 @@ local function loop_seconds(recipe, machine, machine_quality, recycler, recycler
 
   local machine_base = base_speed(machine)
   local slots = split.slots
-  local worst = 0
+  local times = {}
   for j = 1, #tiers do
     local modules_speed
     if j == #tiers then
@@ -1610,14 +1663,71 @@ local function loop_seconds(recipe, machine, machine_quality, recycler, recycler
       modules_speed = (slots - p) * qm_speed + p * ((pm and pm.speed) or 0)
     end
     local mult = math.max(1 + machine_base + modules_speed + beacon_effect, 0.2)
-    worst = math.max(worst, yield.machine_sets[j] * recipe.energy / (machine_speed * mult))
+    local time = yield.machine_sets[j] * recipe.energy / (machine_speed * mult)
     local recycled = yield.recycled and yield.recycled[j]
     if recycled then
-      worst = math.max(worst, (recycled / items_per_craft) * recycler_time)
+      time = math.max(time, (recycled / items_per_craft) * recycler_time)
     end
+    times[j] = time
+  end
+  return times
+end
+
+-- Steady-state seconds per target-quality item. Every station runs in parallel, so the
+-- loop's pace is its single slowest one -- and a tier the player gave N columns shares its
+-- load N ways, so its station time divides before the worst is taken. `columns` is
+-- tier_columns' quality-keyed counts; a tier absent from it divides by one, which keeps an
+-- untouched plan's pace byte-identical. nil when station_times reports no flow or the
+-- worst degenerates.
+local function loop_seconds(recipe, machine, machine_quality, recycler, recycler_quality,
+    product, split, tiers, r, columns)
+  local times = station_times(recipe, machine, machine_quality, recycler, recycler_quality,
+    product, split, tiers, r)
+  if not times then return nil end
+  local worst = 0
+  for j = 1, #tiers do
+    -- The target is absent from counts by design and divides by one.
+    worst = math.max(worst, times[j] / (columns[tiers[j]] or 1))
   end
   if worst <= 0 or worst ~= worst or worst == math.huge then return nil end
   return worst
+end
+
+-- What the Columns wizard's balanced line shows: for each lower tier, the column count
+-- that brings its station time as close to the target machine's own as whole columns
+-- allow -- round-to-nearest, so a marginal ratio may leave a tier a shade over the terminal
+-- rather than doubling its columns for it. Computed from the SAME
+-- station_times the pace divides, rounded to whole columns, floored at one and clamped to
+-- MAX_COLUMNS_PER_TIER -- so the hint names exactly what plan() would honour if typed in.
+-- A hint only, never a one-click write; the reason is in the wizard's builder. Keyed by
+-- quality name, the column_count_<quality> keys' own shape. nil
+-- until the choices name a loop, or when the loop has no flow -- the pace line's absence.
+function planner.balanced_columns(force, choices)
+  local recipe = choices.recipe and prototypes.recipe[choices.recipe]
+  local machine = choices.machine and prototypes.entity[choices.machine]
+  -- resources() is the one call that cannot take a nil pair; every other precondition here
+  -- is split's own, and its nil below stands in for the whole list -- restating them was
+  -- a second copy of one contract, with nothing to fail if the two drifted.
+  if not (recipe and machine) then return nil end
+  local r = resources(force, recipe, machine, choices)
+  local split = planner.split(force, choices, r)
+  if not split then return nil end
+
+  local tiers = planner.tiers_up_to(choices.quality)
+  if not (tiers and #tiers > 1) then return nil end
+  -- Both non-nil whenever split resolved: its own guards already vetted them.
+  local recycler = prototypes.entity[choices.recycler]
+  local product = single_item_product(recipe)
+
+  local times = station_times(recipe, machine, planner.build_quality(choices.machine_quality),
+    recycler, planner.build_quality(choices.recycler_quality), product, split, tiers, r)
+  if not (times and times[#tiers] and times[#tiers] > 0) then return nil end
+
+  local ratios = {}
+  for j = 1, #tiers - 1 do
+    ratios[tiers[j]] = clamp_columns(times[j] / times[#tiers] + 0.5)
+  end
+  return ratios
 end
 
 -- How far a consumer's collision box sits inside its tile rect, taken on the LARGER axis so
@@ -1917,9 +2027,18 @@ function planner.plan(force, choices, gathered)
   -- productivity module fits, which is the old flat all-quality rule.
   local split = planner.split(force, choices, r)
 
+  -- Per-tier column repeats, expanded ONCE here into the physical-column lists everything
+  -- geometric walks -- layout, the pole ladder, the circuit decoration. The distinct
+  -- `tiers` keeps feeding the solve, the circuit floors and the pace: their model is the
+  -- quality chain, not the machinery count. All-ones keeps every hand-off byte-identical.
+  local columns = planner.tier_columns(choices, tiers)
+  local expanded_tiers = planner.expand_columns(tiers, tiers, columns)
+  local expanded_split = split and split.prods
+    and planner.expand_columns(split.prods, tiers, columns) or nil
+
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
-    tiers = tiers,
+    tiers = expanded_tiers,
     overflow_tap = overflow_tap,
     machine = machine_footprint,
     fluid = #fluids == 1 and { pipe = r.pipe, pipe_to_ground = r.pipe_to_ground } or nil,
@@ -1953,7 +2072,7 @@ function planner.plan(force, choices, gathered)
       quality_module = r.quality_module,
       terminal_module = r.terminal_module,
       productivity_module = r.productivity_module,
-      split = split and split.prods or nil,
+      split = expanded_split,
       beacon_module = beacon and planner.with_quality(
         chosen_beacon_module(force, choices, beacon), choices.beacon_module_quality) or nil,
     },
@@ -1967,7 +2086,7 @@ function planner.plan(force, choices, gathered)
   -- geometry is built once.
   local plan
   if pole then
-    plan = plan_with_poles(layout_params, #tiers, pole_gap, {
+    plan = plan_with_poles(layout_params, #expanded_tiers, pole_gap, {
       name = pole_name, quality = pole_quality,
       width = pole.tile_width, height = pole.tile_height,
       -- Quality genuinely grows a pole's reach (+level to the supply radius, +2*level to
@@ -1997,7 +2116,7 @@ function planner.plan(force, choices, gathered)
       or planner.default_circuit_max(recipe)
     if not (maximum and maximum > 0) then maximum = nil end
     local unlinked = circuits.decorate(plan.entities, {
-      tiers = tiers,
+      tiers = expanded_tiers,
       minimums = minimums,
       maximum = maximum,
       product = product.name,
@@ -2027,7 +2146,7 @@ function planner.plan(force, choices, gathered)
 
   -- And its pace: steady-state seconds per target item, nil when the loop cannot make one.
   plan.seconds = loop_seconds(recipe, machine, machine_quality, recycler, recycler_quality,
-    product, split, tiers, r)
+    product, split, tiers, r, columns)
 
   return plan
 end

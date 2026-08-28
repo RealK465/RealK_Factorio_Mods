@@ -202,6 +202,21 @@ describe("state.prune -- drop what no longer qualifies", function()
       "a real productivity module was pruned")
   end)
 
+  test("column counts prune by their key's tier, the split overrides' rule", function()
+    -- column_count_<quality> joins the tier-keyed families: a live tier keeps its count
+    -- whatever the current target, a tier a mod removed takes its count with it. The
+    -- two-token prefix is deliberate, the families' own shape -- a future columns_* flag
+    -- must not be claimable by this sweep.
+    local entry = seeded({
+      column_count_rare = 5,
+      column_count_gone = 3,
+    })
+    state.prune()
+    local c = entry.choices
+    assert(c.column_count_rare == 5, "a live tier's column count was pruned")
+    assert(c.column_count_gone == nil, "a removed tier's column count survived")
+  end)
+
   test("ingredient-amount overrides prune by the chosen recipe's own ingredients", function()
     -- request_<item> holds the player's number for one of the CHOSEN recipe's ingredients,
     -- claimed structurally in the key loop like the circuit families. Gears eat iron plates

@@ -831,3 +831,105 @@ describe("layout.build determinism", function()
       "two builds from identical params disagreed")
   end)
 end)
+
+describe("layout.build repeated tiers", function()
+  -- The columns feature's premise: tiers may repeat a quality name -- planner.plan expands
+  -- "N columns of this tier" into N consecutive entries -- and this file needs no code of
+  -- its own for it, because everything in the per-column loop is positional. The target is
+  -- pinned to one column by the expansion, so the last entry is always the sole terminal.
+  local repeated = { "normal", "normal", "normal", "uncommon", "rare" }
+
+  test("each repeat is a full column: counts, width and the sole terminal", function()
+    local built = layout.build(params_with({ tiers = repeated }))
+    assert(built.width == 17, "width " .. built.width .. ", expected 2 + 4*3 + 3 = 17")
+    assert(built.height == 15, "height " .. built.height)
+    assert(built.machines == 5, "machines " .. built.machines)
+    assert(built.recyclers == 4, "recyclers " .. built.recyclers)
+    assert(#by_name(built, "requester-chest") == 5, "one feed chest per column")
+    -- One way out and one tap, however many columns feed them: the terminal branch runs
+    -- for the single target entry alone.
+    assert(#by_name(built, "passive-provider-chest") == 1, "output chests")
+    assert(#by_name(built, "active-provider-chest") == 1, "overflow taps")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("columns stay in array order and pinned to their own quality", function()
+    local built = layout.build(params_with({ tiers = repeated }))
+    local machines = by_name(built, "assembling-machine-2")
+    table.sort(machines, function(a, b) return a.dx < b.dx end)
+    for index, m in pairs(machines) do
+      assert(m.recipe_quality == repeated[index],
+        "column " .. index .. " crafts at " .. tostring(m.recipe_quality))
+    end
+  end)
+
+  test("circuit_tier stays unique per column -- the decorator keys maps by it", function()
+    -- circuits.lua builds machines[e.circuit_tier] = index and friends; a repeated value
+    -- would silently drop every earlier column of the tier from the wiring.
+    local built = layout.build(params_with({ tiers = repeated }))
+    local seen = {}
+    for _, e in pairs(built.entities) do
+      if e.circuit_role == "machine" then
+        assert(not seen[e.circuit_tier], "circuit_tier " .. e.circuit_tier .. " repeats")
+        seen[e.circuit_tier] = true
+      end
+    end
+    for index = 1, 5 do
+      assert(seen[index], "no machine tagged circuit_tier " .. index)
+    end
+  end)
+
+  test("repeats of a tier share its module mix; the positional split follows columns", function()
+    -- planner.plan re-keys the per-tier split onto column positions, so layout's read stays
+    -- params.modules.split[index]. Three normal columns at one productivity module each,
+    -- the uncommon column at two (its whole slots), the terminal untouched.
+    local built = layout.build(params_with({
+      tiers = repeated,
+      modules = {
+        quality_module = { name = "quality-module", quality = "normal" },
+        productivity_module = { name = "productivity-module", quality = "normal" },
+        terminal_module = { name = "productivity-module", quality = "normal" },
+        split = { 1, 1, 1, 2 },
+      },
+    }))
+    local machines = by_name(built, "assembling-machine-2")
+    table.sort(machines, function(a, b) return a.dx < b.dx end)
+    assert(deep_equal(machines[1].modules, machines[2].modules)
+      and deep_equal(machines[2].modules, machines[3].modules),
+      "repeats of the normal tier disagree on their module mix")
+    assert(machines[1].modules[1] and machines[1].modules[2],
+      "a mixed lower tier should carry the two-entry insert plan")
+    assert(machines[4].modules.name == "productivity-module",
+      "the uncommon column's whole slots should hold productivity")
+    assert(machines[5].modules.name == "productivity-module",
+      "the terminal keeps its own module")
+  end)
+
+  test("a beacon plan stands a stack per physical column", function()
+    local built = layout.build(params_with({
+      tiers = repeated,
+      beacon = { name = "beacon", quality = "normal", width = 3, height = 3, module_slots = 2 },
+      beacon_count = 2,
+    }))
+    local beacons = #by_name(built, "beacon")
+    assert(beacons == 10, "beacon count " .. beacons .. ", expected two per column")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("a fluid plan opens a run per physical column", function()
+    local built = layout.build(params_with({
+      tiers = repeated,
+      fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" },
+      machine = {
+        name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
+        module_slots = 2, direction = defines.direction.west,
+      },
+    }))
+    local stubs = 0
+    for _, e in pairs(built.entities) do
+      if e.name == "pipe-to-ground" then stubs = stubs + 1 end
+    end
+    assert(stubs == 10, "stub count " .. stubs .. ", expected a pair per column")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+end)

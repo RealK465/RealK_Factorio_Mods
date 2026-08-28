@@ -16,10 +16,17 @@ Date: ????
       many of them each tier's machine gets.
     - The planner now shows about how many items the loop will eat for each item it makes.
     - The planner now shows about how long the loop takes to make each item.
+    - You can now set how many columns of machines and recyclers each tier below your target
+      builds, from a Columns per tier menu in Build options. One column per tier by default,
+      as before, and up to 32 to keep the planner fast.
+    - That menu also shows the balanced column counts for your setup. The stats follow your
+      counts as you type.
   Gui:
     - Warnings and errors under the planner now get their own lines, each with its own
       colour and icon, so the stats above them stay easy to read.
     - Before you pick an item, the planner shows a quiet grey hint instead of a red error.
+    - The Ingredient amounts menu moved into Build options, next to the circuit limits.
+    - The stats show the machine and recycler counts; hover them to see the footprint.
   Changes:
     - Releasing for Factorio 2.1.
 ---------------------------------------------------------------------------------------------------

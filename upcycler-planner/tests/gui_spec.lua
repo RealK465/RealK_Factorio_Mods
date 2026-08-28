@@ -115,11 +115,33 @@ local function split_field(tier)
   return list["upl-split-row-" .. tier]["upl-split-count-" .. tier]
 end
 
--- The status area's yield line, or nil. The line is its own named label in the status flow,
--- so the caption no longer has to be scanned for the key.
-local function yield_entry()
-  local label = widget({ "upl-status" })["upl-stat-yield"]
+-- The columns wizard, reached like the other panels: through the frame, never the screen.
+local function columns_panel()
+  local f = frame()
+  return f and f[gui.COLUMNS_FRAME]
+end
+
+local function columns_field(tier)
+  local panel = columns_panel()
+  assert(panel and panel.valid, "the columns wizard is not open")
+  local list = panel["upl-columns-content"]["upl-columns-list"]
+  return list["upl-columns-row-" .. tier]["upl-columns-count-" .. tier]
+end
+
+-- A status-area line's caption, or nil -- each line is its own named label in the status
+-- flow, so no caption ever has to be scanned for a key. The layout line's caption is the
+-- summary pair, whose [2] is the machine count; the footprint rides its tooltip.
+local function status_entry(name)
+  local label = widget({ "upl-status" })[name]
   return label and label.caption or nil
+end
+
+local function yield_entry()
+  return status_entry("upl-stat-yield")
+end
+
+local function layout_entry()
+  return status_entry("upl-stat-layout")
 end
 
 -- Open the modal and pick gears through the real recipe handler, the way every later test
@@ -163,7 +185,8 @@ describe("the modal", function()
     widget({ "upl-content", "upl-table", "upl-quality" })
     widget({ "upl-content", "upl-table", "upl-machine" })
     widget({ "upl-content", "upl-table", "upl-recycler" })
-    widget({ "upl-content", "upl-table", "upl-requests" })
+    widget({ "upl-options", "upl-requests-strip", "upl-requests" })
+    widget({ "upl-options", "upl-columns-strip", "upl-columns" })
     widget({ "upl-options", "upl-transport-strip", "upl-belt" })
     widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     widget({ "upl-options", "upl-transport-strip", "upl-pipe" })
@@ -1165,12 +1188,12 @@ describe("the modal", function()
 
   test("the Edit button waits for an item, then opens the ingredient-amounts panel", function()
     gui.open(player())
-    local button = widget({ "upl-content", "upl-table", "upl-requests" })
+    local button = widget({ "upl-options", "upl-requests-strip", "upl-requests" })
     assert(button.enabled == false, "Edit must be dead until an item is picked")
 
     -- Picking gears rebuilds the modal, so the button is re-fetched rather than reused.
     open_with_gears()
-    button = widget({ "upl-content", "upl-table", "upl-requests" })
+    button = widget({ "upl-options", "upl-requests-strip", "upl-requests" })
     assert(button.enabled == true, "picking an item did not arm Edit")
 
     fire(button, defines.events.on_gui_click)
@@ -1238,7 +1261,7 @@ describe("the modal", function()
       "the new recipe's field opened as " .. request_field("iron-gear-wheel").text)
   end)
 
-  test("the ingredient panel shares the slot with the other three", function()
+  test("the ingredient panel shares the slot with the other four", function()
     open_with_gears()
     gui.open_ingredients(player())
     gui.open_settings(player())
@@ -1254,6 +1277,10 @@ describe("the modal", function()
     assert(ingredients_panel() == nil, "the ratio wizard did not close the ingredient panel")
     gui.open_ingredients(player())
     assert(split_panel() == nil, "the ingredient panel did not close the ratio wizard")
+    gui.open_columns(player())
+    assert(ingredients_panel() == nil, "the columns wizard did not close the ingredient panel")
+    gui.open_ingredients(player())
+    assert(columns_panel() == nil, "the ingredient panel did not close the columns wizard")
   end)
 
   -- The picker lives inside the wizard since the UI revision, so every look at it opens the
@@ -1474,6 +1501,134 @@ describe("the modal", function()
     assert(sentence and sentence.caption[1] == "upl-gui.pick-a-recipe",
       "the pick-a-recipe hint is missing")
   end)
+
+  test("the Columns button waits for an item, then opens rows defaulting to one", function()
+    gui.open(player())
+    local button = widget({ "upl-options", "upl-columns-strip", "upl-columns" })
+    assert(button.enabled == false, "Columns must be dead until an item is picked")
+
+    open_with_gears()
+    button = widget({ "upl-options", "upl-columns-strip", "upl-columns" })
+    assert(button.enabled == true, "picking an item did not arm Columns")
+
+    fire(button, defines.events.on_gui_click)
+    local panel = columns_panel()
+    assert(panel and panel.valid, "Columns opened nothing")
+    assert(panel.parent == frame(), "the wizard must be a column inside the planner's element")
+    -- At full research the untouched target is the top of the chain, so every lower tier
+    -- has a row at the default one, nothing stored -- the ratio wizard's own rule.
+    assert(choices().quality == "legendary", "test premise: the default target moved")
+    for _, tier in pairs({ "normal", "uncommon", "rare", "epic" }) do
+      assert(columns_field(tier).text == "1", tier .. " opened as " .. columns_field(tier).text)
+      assert(choices()["column_count_" .. tier] == nil,
+        "opening the wizard stored a count for " .. tier)
+    end
+    local list = panel["upl-columns-content"]["upl-columns-list"]
+    assert(list["upl-columns-row-legendary"] == nil, "the target tier grew a columns row")
+  end)
+
+  test("typing a count moves the counts line without waiting for Enter", function()
+    open_with_gears()
+    gui.open_columns(player())
+    local before = layout_entry()
+    assert(before, "a valid plan must carry the counts line")
+
+    local field = columns_field("normal")
+    field.text = "3"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().column_count_normal == 3, "the keystroke did not commit")
+    assert(field.valid, "the keystroke repaint tore down the wizard's own field")
+    local after = layout_entry()
+    assert(after, "the counts line vanished mid-type")
+    assert(after[2] ~= before[2],
+      "three normal columns but the machine count still shows " .. tostring(after[2]))
+  end)
+
+  test("a count clamps at the ceiling and an empty Enter returns to one", function()
+    open_with_gears()
+    gui.open_columns(player())
+    local field = columns_field("normal")
+    field.text = "9999"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().column_count_normal == planner.MAX_COLUMNS_PER_TIER,
+      "an over-ceiling count did not clamp: " .. tostring(choices().column_count_normal))
+    field.text = ""
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().column_count_normal == planner.MAX_COLUMNS_PER_TIER,
+      "an emptied field clobbered the count mid-type")
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices().column_count_normal == nil, "Enter on empty kept the count")
+    assert(columns_field("normal").text == "1", "the display did not return to one")
+  end)
+
+  test("the balanced line names whole counts and no longer offers a one-click write", function()
+    open_with_gears()
+    gui.open_columns(player())
+    local panel = columns_panel()
+    local line = panel["upl-columns-content"]["upl-columns-balanced-line"]
+    assert(line, "the balanced line is missing for a working loop")
+
+    -- The line shows exactly what balanced_columns answers, joined with the pinned-one
+    -- target -- the hint and the plan's own clamp share one formula and one cap.
+    local balanced = planner.balanced_columns(player().force, choices())
+    local tiers = planner.tiers_up_to(choices().quality)
+    local parts = {}
+    for index = 1, #tiers - 1 do
+      parts[#parts + 1] = tostring(balanced[tiers[index]])
+    end
+    parts[#parts + 1] = "1"
+    assert(line.caption[2] == table.concat(parts, " / "),
+      "the line shows " .. tostring(line.caption[2])
+      .. " but balanced_columns answers " .. table.concat(parts, " / "))
+
+    -- The Apply button is gone on purpose: one click on a big layout asked the engine for
+    -- a plan it could not survive (owner's report, 2026-08-28). The hint stays informative
+    -- only, so merely opening the wizard stores nothing.
+    assert(panel["upl-columns-content"]["upl-columns-use-balanced"] == nil,
+      "the one-click balanced write is back")
+    for index = 1, #tiers - 1 do
+      assert(choices()["column_count_" .. tiers[index]] == nil,
+        "the balanced line stored a count for " .. tiers[index])
+    end
+  end)
+
+  test("the columns wizard follows the target and survives a module change", function()
+    open_with_gears()
+    gui.open_columns(player())
+
+    -- A target change reshapes the rows, the circuit wizard's rule.
+    local dropdown = widget({ "upl-content", "upl-table", "upl-quality" })
+    dropdown.selected_index = 1 -- uncommon
+    fire(dropdown, defines.events.on_gui_selection_state_changed)
+    assert(columns_panel() and columns_panel().valid, "the rebuild dropped the wizard")
+    assert(columns_field("normal"), "the wizard lost the tier the new target keeps")
+    assert(columns_panel()["upl-columns-content"]["upl-columns-list"]["upl-columns-row-uncommon"] == nil,
+      "the wizard lists the new target as a lower tier")
+
+    -- A quality-module change moves every station time, so the open wizard rebuilds to a
+    -- fresh balanced line rather than showing a stale one.
+    local module_button = widget({ "upl-options", "upl-modules-strip", "upl-quality-module" })
+    module_button.elem_value = { name = "quality-module-2", quality = "normal" }
+    fire(module_button)
+    assert(columns_panel() and columns_panel().valid, "the module change dropped the wizard")
+
+    -- The mix checkbox moves the station times too; the wizard survives that rebuild.
+    local box = widget({ "upl-options", "upl-mix-strip", "upl-split-enabled" })
+    box.state = false
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(columns_panel() and columns_panel().valid, "the mix untick dropped the wizard")
+
+    -- A beacon change moves the transmitted effects the balanced line is priced with, so it
+    -- REBUILDS the wizard -- the old panel reference dies, which is what proves a rebuild
+    -- rather than a refresh. Caught in review when the wizard still carried a one-click
+    -- write; the declared `rates` invalidation stays for the balanced line itself.
+    local before_panel = columns_panel()
+    local beacon_module = widget({ "upl-options", "upl-beacons-strip", "upl-beacon-module" })
+    beacon_module.elem_value = { name = "efficiency-module", quality = "normal" }
+    fire(beacon_module)
+    assert(not before_panel.valid, "the beacon-module change did not rebuild the wizard")
+    assert(columns_panel() and columns_panel().valid, "the beacon change dropped the wizard")
+  end)
 end)
 
 tags("gui")
@@ -1680,8 +1835,8 @@ describe("the status area", function()
       "the warning line carries no icon: " .. serpent.line(warning.caption))
     -- The stats still show, in their own plain white: a warning ANNOTATES a plan, it neither
     -- replaces it nor repaints it -- the whole-block orange was the old shape's flaw.
-    local layout = line_with("upl-gui.footprint")
-    assert(layout, "the warning ate the footprint line")
+    local layout = line_with("upl-gui.summary")
+    assert(layout, "the warning ate the counts line")
     assert(layout.style.font_color.g > 0.99 and layout.style.font_color.b > 0.99,
       "the warning bled into the stats' colour")
     assert(line_with("upl-gui.yield"), "the warning ate the yield line")
@@ -1725,11 +1880,15 @@ describe("the status area", function()
   test("an ordinary plan is stats only: no separator, no message lines", function()
     research.full(player().force)
     open_with("iron-gear-wheel")
-    local layout = line_with("upl-gui.footprint")
-    assert(layout, "no footprint on a valid plan")
+    local layout = line_with("upl-gui.summary")
+    assert(layout, "no counts line on a valid plan")
     local colour = layout.style.font_color
     assert(colour.g > 0.99 and colour.b > 0.99,
       "an unremarkable plan was coloured " .. serpent.line({ colour.r, colour.g, colour.b }))
+    -- The footprint left the line for its tooltip (owner's call, 2026-08-28) -- still
+    -- reachable on hover, never holding a stats row.
+    assert(type(layout.tooltip) == "table" and layout.tooltip[1] == "upl-gui.footprint",
+      "the footprint is not in the counts line's tooltip: " .. serpent.line(layout.tooltip))
     -- The pace stands with the stats, whatever unit its number picked.
     local pace = status()["upl-stat-time"]
     assert(pace, "no pace line on a valid plan")

@@ -88,9 +88,9 @@ All 2.0-era analyses; mechanics unchanged.
   Recyclers run about one per five machines. (The older community figure of ~10x per step —
   e.g. chemical plant ~332/~39/~11/~3 plus ~90 recyclers — stands as the same order of
   magnitude.) **The compact one-machine-per-tier column is a convenience casino, not a
-  throughput build.** Worth saying honestly in the GUI or docs. If scaling is ever added, scale
-  *columns per tier* — the wild "bulk" variants put 3 machines in a column and keep the same
-  skeleton.
+  throughput build.** Scaling shipped 2026-08-28 exactly this way — the Columns per tier
+  wizard repeats columns per tier, the wild "bulk" variants' own shape, and computes the
+  balanced counts live from `station_times` instead of copying this table.
 - **Recycler timing**: recipe energy `craft_energy / 16 / result_count`, recycler speed 0.5, so
   wall-clock is about `craft_time / 8` — and **multi-output recipes recycle slower** by the
   `result_count` divisor. This is a documented community trap and the scaling changed again in

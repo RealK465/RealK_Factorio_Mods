@@ -9,6 +9,7 @@
 
 local planner = require("scripts.planner")
 local research = require("tests.support.research")
+local deep_equal = require("tests.support.deep_equal")
 
 local function force()
   return game.forces.player
@@ -33,10 +34,12 @@ local function terminal_machine(plan)
   assert(false, "no machine crafting at the target quality -- the fixture moved")
 end
 
-local function count_by_name(plan, name)
+local function count_by_name(plan, name, recipe_quality)
   local n = 0
   for _, e in pairs(plan.entities) do
-    if e.name == name then n = n + 1 end
+    if e.name == name and (recipe_quality == nil or e.recipe_quality == recipe_quality) then
+      n = n + 1
+    end
   end
   return n
 end
@@ -585,6 +588,106 @@ describe("planner.plan", function()
           assert(e.control_behavior, "the reserve must survive a zero cap")
         end
       end
+    end)
+  end)
+
+  describe("columns per tier", function()
+    test("untouched choices and explicit ones build the same plan, field for field", function()
+      -- The feature's determinism promise: a player who never opens the wizard gets exactly
+      -- the plan the mod always built, and a stored 1 means the same as no key at all.
+      assert(deep_equal(planner.plan(force(), choices_with()),
+          planner.plan(force(), choices_with({
+            column_count_normal = 1, column_count_uncommon = 1,
+          }))),
+        "explicit ones diverged from the untouched plan")
+    end)
+
+    test("a repeated lower tier is that many full columns", function()
+      local plan = planner.plan(force(),
+        choices_with({ column_count_normal = 3, no_poles = true }))
+      assert(plan.width == 17, "width " .. plan.width .. ", expected 11 + two more pitches")
+      assert(plan.machines == 5, "machines " .. plan.machines)
+      assert(plan.recyclers == 4, "recyclers " .. plan.recyclers)
+      assert(count_by_name(plan, "assembling-machine-3") == 5, "machine entities")
+      assert(count_by_name(plan, "recycler") == 4, "recycler entities")
+      assert(count_by_name(plan, "requester-chest") == 5, "one feed chest per column")
+      -- One way out however many columns: the target stays a single column.
+      assert(count_by_name(plan, "passive-provider-chest") == 1, "output chests")
+      assert(count_by_name(plan, "assembling-machine-3", "normal") == 3,
+        "normal-tier machines")
+    end)
+
+    test("the pole pass still covers a widened plan", function()
+      local plan = planner.plan(force(), choices_with({
+        column_count_normal = 3, pole = "medium-electric-pole",
+      }))
+      assert(plan, "plan failed")
+      assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
+    end)
+
+    test("a stray count for the target tier is structurally ignored", function()
+      -- The expansion never visits the target's own index, so a column_count_<target> key
+      -- left by an earlier, different target changes nothing at all. Junk and zero values
+      -- fall back the same way -- pinned at the unit level in planner_spec's tier_columns
+      -- coverage, so only the plan-level target contract is re-proven here.
+      assert(deep_equal(planner.plan(force(), choices_with()),
+          planner.plan(force(), choices_with({ column_count_rare = 5 }))),
+        "a target-tier count reached the plan")
+    end)
+
+    test("fractions floor and the ceiling clamps, all the way into the plan", function()
+      local floored = planner.plan(force(),
+        choices_with({ column_count_normal = 2.7, no_poles = true }))
+      assert(floored.machines == 4, "a fractional count did not floor: " .. floored.machines)
+      local clamped = planner.plan(force(),
+        choices_with({ column_count_normal = 9999, no_poles = true }))
+      assert(clamped.machines == planner.MAX_COLUMNS_PER_TIER + 2,
+        "the ceiling did not clamp: " .. clamped.machines)
+    end)
+
+    test("more columns on the slow tier quicken the pace; the yield never moves", function()
+      local one = planner.plan(force(), choices_with())
+      local three = planner.plan(force(), choices_with({ column_count_normal = 3 }))
+      assert(one.seconds and three.seconds, "the pace line went missing")
+      assert(three.seconds < one.seconds,
+        "three normal columns should beat one: " .. three.seconds .. " vs " .. one.seconds)
+      assert(one.yield.per_item == three.yield.per_item,
+        "columns changed the per-item yield, which they must never do")
+    end)
+
+    test("columns on a tier that is not the bottleneck leave the pace alone", function()
+      -- The pace is the slowest station's; gears' normal tier carries the bulk of the
+      -- expected crafts, so repeating uncommon divides a time that was not binding.
+      local one = planner.plan(force(), choices_with())
+      local wide = planner.plan(force(), choices_with({ column_count_uncommon = 3 }))
+      assert(wide.seconds == one.seconds,
+        "a non-bottleneck tier moved the pace: " .. wide.seconds .. " vs " .. one.seconds)
+    end)
+
+    test("circuits gate every repeated column independently", function()
+      local plan = planner.plan(force(), choices_with({
+        column_count_normal = 2, circuit_enabled = true,
+        circuit_max_rare = 100, circuit_min_normal = 10,
+      }))
+      assert(plan.circuit_unlinked == nil,
+        "unlinked " .. tostring(plan.circuit_unlinked))
+      local normal_reserves, seen_tiers = 0, {}
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role then
+          assert(not (e.circuit_role == "machine" and seen_tiers[e.circuit_tier]),
+            "circuit_tier " .. tostring(e.circuit_tier) .. " repeats on machines")
+          if e.circuit_role == "machine" then seen_tiers[e.circuit_tier] = true end
+        end
+        if e.circuit_role == "reserve" then
+          local c = e.control_behavior and e.control_behavior.circuit_condition
+          if c and c.first_signal.quality == "normal" then
+            assert(c.constant == 10, "a normal reserve gates at " .. c.constant)
+            normal_reserves = normal_reserves + 1
+          end
+        end
+      end
+      assert(normal_reserves == 2,
+        "gated normal reserves " .. normal_reserves .. ", expected one per column")
     end)
   end)
 end)

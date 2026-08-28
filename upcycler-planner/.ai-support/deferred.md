@@ -75,24 +75,14 @@ carried until 2026-08-20): the *only* route to target-tier ingredients is a recy
 up, so removing those modules starves the terminal machine outright. The overshoot and the
 mechanism are the same event.
 
-### Scaling beyond one machine per tier
-**Status:** not planned, but the shape is known — numbers verified against the wiki 2026-08-17.
-
-Sustained-throughput ratios taper steeply, so the compact one-per-tier column is a convenience
-build. The wiki's upcycling-math tutorial (page edited 2026-01-22, table fetched 2026-08-17)
-puts the AM3 loop at 208.5 : 30.4 : 9.8 : 2.9 : 1 crafters plus **52.8 recyclers** per
-sustained legendary crafter — about 7x on the first step, about 3x thereafter — and the EM
-plant at 61.9 : 17.4 : 7.5 : 3.2 : 1 plus 16.5 recyclers. So recyclers run about one per five
-machines, never 1:1; at this mod's one-machine-per-tier scale a single recycler keeps up with
-the whole column (kvdveer's thread claims the same — community claim), which makes the
-per-column tangent recycler deliberate over-provision — cheap, and it preserves the
-eject-and-relief mechanism. If a "scale" input is ever added, **repeat columns per tier** —
-the wild "bulk" variants do exactly that and keep the skeleton — rather than inventing new
-geometry. The ring is the eventual ceiling (one belt of shared circulation); the wild's builds
-past that point are bot farms, which is what the bot-loop toggle above becomes at scale.
-Compute the taper from `LuaQualityPrototype.get_roll_chances()` rather than copying the wiki
-table, and read recycle times from the generated recipes — the formula moved again in 2.1.13
-(`analysis/api.md` §8).
+### Scaling beyond one machine per tier — SHIPPED in 1.0.0 (2026-08-28)
+Shipped along this entry's own recorded shape: **repeat columns per tier**, the target pinned
+at one, the balanced ratio computed live from `station_times` rather than copied from the
+wiki table. `decisions.md` → the columns-per-tier bullet owns the contract; the recyclers
+still ride 1:1 per column as deliberate over-provision, preserving the eject-and-relief
+mechanism. What stays parked here: the ring is the eventual ceiling (one belt of shared
+circulation), and the wild's builds past that point are bot farms — which is what the
+bot-loop toggle above becomes at scale.
 
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
@@ -142,6 +132,15 @@ twice. What is left:
   fires at about 5 s, so the next exact wins are worth having: mark dead candidates with a flag
   rather than rebuilding the array each round (~17% of a solve), and cache pole centres (~14%).
   `analysis/poles.md` → *The hang* has the profile and the falsified sweep.
+  **The columns feature raised the input ceiling** (2026-08-28): the solve's column count is
+  now physical columns, up to 254 tiers x `MAX_COLUMNS_PER_TIER` each, and the nested
+  dead-column scan in
+  `plan_with_poles` (`utility_columns` x `poles.entities`) plus `poles.lua`'s candidates x
+  columns pass scale with it. The cap opened at 250 and came down to **32 the same day** —
+  the owner hit crashes on big layouts, so the ceiling is now 254 x 32 and the worst case
+  shrank about eightfold with it. If the hang range ever has to come back down further, the
+  cheapest single lever is bucketing `poles.entities` by `dx` once per pass —
+  O(columns + poles) instead of the product (noted in the 1.0.0 cleanup review, not measured).
 
 ### Which item is worth upcycling — the picker ranks nothing
 The item picker offers every upcyclable item and says nothing about which of them is a good
