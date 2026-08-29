@@ -6,39 +6,23 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 
 ## Why are some build options missing?
 
-A build option with only one choice is hidden. In vanilla that means the recycler and the pipe, which have no alternatives; they come back as soon as a mod adds one. The five chest options are always hidden: the planner uses the biggest chest you have researched.
+A build option with only one choice is hidden.
+Options like recycler and pipe are always hidden since vanilla only adds 1, if mods adds alternatives they will be displayed.
 
-To show them anyway — to pick their quality, for example — tick **Show all build options** in the planner's settings.
-
-The beacons are hidden too, because they are optional and the loop plans none unless you pick one. Tick **Show all build options** to choose a beacon; once one is chosen, it stays visible. A small drop-down beside it sets how many beacons stack per tier — extra ones add no width.
-
-**Mix productivity modules** and **Ratios...** only appear once you pick an item whose recipe can take productivity modules.
+Some options like chests or beacon are always hidden to make UI more concise,
+But you can enable **Show all build options** to see all options, include beaconed options.
 
 ## Why do some machines get productivity modules?
 
-Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item — more product per craft means more chances to roll a better quality. The planner works out the best mix for the machines and modules you picked; with plain normal modules that mix is still all quality.
-
-Press **Ratios...** next to the module pickers to open the mix menu: pick the productivity module there and set how many each quality gets. Set a field to 0 for quality only at that tier, or empty it and press Enter to go back to the best ratio. Untick **Mix productivity modules** to turn the mix off everywhere. The lines under the planner show roughly how many items the loop will eat per item it makes, and how long each one takes.
+Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item, see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math). The planner calculates out the best rations for the machines and modules you picked.
 
 ## How do I change how many ingredients the loop requests?
 
 Press **Edit...** beside **Ingredient amounts** in the planner. You get one field per ingredient of the recipe, and each tier's chest requests that many.
 
-Leave a field alone and the planner picks the amount for you. To go back to that after typing your own, clear the field and press Enter. Choosing a different item resets them all.
-
 ## What is the active provider chest for?
 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.
-
-Loops aiming at the highest quality can't roll past it, so they don't get one.
-
-## Why are bots taking items out of the loop?
-
-Each quality's items wait in buffer chests, so your logistic requests and construction bots can use them — handy when you want a few of a lower quality without visiting the loop. If you'd rather keep every item in, untick **Use buffer chests** in the build options and place the loop again.
-
-## Why did the machines stop working?
-
-If you built the loop with **Circuit limits** on, that's the limits doing their job: the loop pauses once the output chest holds your maximum. Take items out of the chest and it starts again. To change the numbers, reopen the planner and press **Limits...**; to run without limits, untick the checkbox and place the loop again.
 
 ## Why is my fluid recipe refused?
 
