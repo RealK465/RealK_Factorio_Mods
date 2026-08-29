@@ -187,7 +187,26 @@ wrong for every mod in this repo — leaving it published is a licensing error, 
 one. Fix all of it in the same session as the first upload.
 
 `fmtk details` only takes `--readme` and `--faq`. License, category and gallery have no fmtk
-surface at all and need the v2 API:
+surface at all and need the v2 API.
+
+**Three things `details` does that "uploads the README" does not describe** — all silent, all
+read out of its bundled source and confirmed on a live sync (2026-08-29):
+
+- It **strips a leading depth-1 heading** before sending, so a `# Mod Name` at the top of the
+  README never reaches the page. Deliberate (`package.markdown.strip_first_header`, default
+  true) — the portal prints the title itself.
+- The body is **re-serialised through remark**, so `-` bullet markers come back as `*`. Text
+  and line breaks survive intact; a byte-for-byte comparison against the local file will still
+  show these two as differences.
+- A **relative image URL in the markdown is uploaded into the gallery** and rewritten to the
+  asset URL — `package.markdown.images` defaults to `"gallery"`, and only a URL matching
+  `^((https?|data):|#)` passes through untouched. Host README images somewhere else and link
+  them absolutely unless they are genuinely meant to be gallery shots.
+
+It also sends `title`, `homepage` and `summary` from `info.json` every time, and it touches the
+gallery **only** when `info.json#/package/gallery` holds a glob — with no `gallery` key it never
+calls `images/edit`, which is what makes a text-only sync safe to run without disturbing the
+shots.
 
 ```powershell
 # license + category (GPLv3 is `default_gnugplv3`; a mod adding content is `content`)
@@ -229,17 +248,27 @@ believing an id is missing.** (An earlier version of this section said images ar
 content-addressed, so re-uploading everything was the safe fix for a trimmed gallery. It is not,
 and that instruction would now abort partway.)
 
+**An image's id IS the sha1 of the bytes that were uploaded**, so identifying what is live is
+exact arithmetic on the local files — no download, no pixel comparison, no guessing from
+position. Verified 2026-08-29 across six `upcycler-planner` shots, and it is what `fmtk`
+itself does: its `details` command hashes each candidate with sha1 and skips the upload when
+that digest is already in the live list.
+
 So **only upload files the portal does not already have**, and rebuild the rest of the list from
 what is live:
 
 1. `GET /api/mods/<name>/full?cb=<random>` for the current ids — cache-buster mandatory, below.
-2. **Identify each id rather than assuming its position.** Download
-   `https://assets-mod.factorio.com/assets/<id>.png` and match it to the local file by pixel
-   dimensions plus a coarse perceptual signature (a 16x16 greyscale downsample compares fine
-   across the portal's jpg→png recode; exact matches score 0). Ordering is not guaranteed to be
-   what you last set, and a wrong guess reorders or deletes the wrong image.
-3. `images/add` for the genuinely new files only.
+2. `sha1sum` each local file. A digest present in the live list is already up there; a digest
+   missing from it is a new upload. Never infer an image's identity from its position — the
+   order is not guaranteed to be what you last set, and a wrong guess reorders or deletes the
+   wrong image.
+3. `images/add` for the genuinely new files only. **Assert each returned id equals that file's
+   sha1** — it is a free end-to-end check that the right bytes landed.
 4. `images/edit` with the full ordered list.
+
+(An earlier version of this step matched downloaded PNGs by dimensions plus a 16x16 greyscale
+perceptual signature. That works — it agreed with the hashes at distance 0 — but it is slow,
+approximate, and unnecessary now the id is known to be the digest.)
 
 Note that step 3 **already appends** each new image to the live gallery — so between the add and
 the edit the gallery is longer than it should be, and an id you drop in step 4 is the one being
