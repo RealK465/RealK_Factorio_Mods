@@ -7,45 +7,24 @@ Date: ????
 Version: 1.0.0
 Date: ????
   Features:
-    - The planner now fills each machine below your target with the best mix of quality and
-      productivity modules for your setup, instead of quality modules only. With normal
-      modules that mix is still all quality, so early loops look the same as before.
-    - A Mix productivity modules checkbox in Build options turns that off, for quality
-      modules only. It starts on.
-    - The Ratios... button opens a menu with the productivity module to mix in, and how
-      many of them each tier's machine gets.
-    - The planner now shows about how many items the loop will eat for each item it makes.
-    - The planner now shows about how long the loop takes to make each item.
-    - You can now set how many columns of machines and recyclers each tier below your target
-      builds, from a Columns per tier menu in Build options. One column per tier by default,
-      as before, and up to 64 to keep the planner fast. The stats follow your counts as you
-      type.
+    - If the chosen item supports productivity modules, the planner now mixes them
+      with the best ratio to boost output (see: https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
+    - A new sub config frame allows you to configure manually the ratio of productivity modules.
+    - You can now configure the quantity of columns for each quality tiers in a way to boost output.
   Optimizations:
-    - Planning big loops is many times faster. Long modded quality chains and high column
-      counts that used to freeze the game now plan in seconds at worst.
-    - Changing modules, ratios or circuit limits no longer re-solves the pole layout: the
-      planner reuses it while the loop's shape has not moved.
+    - Planning loops with extra modded qualities and high column counts is now much faster
+      (generating loop with 8000 columns was reduced from 750s to 5s).
+    - Changing modules, ratios or circuit limits no longer re-solves the pole layout.
   Gui:
-    - Warnings and errors under the planner now get their own lines, each with its own
-      colour and icon, so the stats above them stay easy to read.
-    - Before you pick an item, the planner shows a quiet grey hint instead of a red error.
-    - The Ingredient amounts menu moved into Build options, next to the circuit limits.
-    - The stats show the machine and recycler counts; hover them to see the footprint.
+    - The planner now show stats of how many common items and how much time are required to produce
+      1 item of the target quality. (works better on 2.1 with dedicated native API functions).
+    - The stats show the machine and recycler counts, hover them to see the footprint.
+    - Warnings and errors under the planner now get their own lines.
   Bugfixes:
-    - Fixed that the first click on a picker could count as a change, redesigning the loop
-      for nothing and making some pickers' choosers flash shut.
-    - Fixed that clicking the empty final machine module or beacon module picker and then
-      choosing nothing counted as clearing it, so it stopped following your other picks.
-    - Fixed that editing circuit limits did not update the planner's warnings until
-      something unrelated changed.
-    - Fixed that right-clicking a picker made the next press of the confirm key close the
-      planner instead of placing the blueprint.
-    - Fixed that planning could freeze the game re-solving poles forever, on a beacon plan
-      whose poles could not cover the loop from its narrowest layout.
-    - Fixed that a pick outside a picker's role - possible in modsets that leave a picker
-      with nothing to offer - stayed on display while the plan quietly used the default.
-    - Fixed that a recycling recipe listing the same ingredient in two rows was refused,
-      hiding its item from the picker.
+    - Fixed that the first click on a picker could trigger a layout re-solve.
+    - Fixed that editing circuit limits did not update the planner's warnings.
+    - Fixed that planning could freeze the game re-solving poles forever on a beaconed plan.
+    - Fixed that a recycling recipe listing the same ingredient in two rows was refused.
   Changes:
     - Releasing for Factorio 2.1.
 ---------------------------------------------------------------------------------------------------
