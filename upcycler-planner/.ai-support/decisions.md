@@ -87,46 +87,71 @@ ships (leading dot).
 
 Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-16 — license
 `default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
-description, the five gallery shots below in filename order (synced with the 0.2.0 / 0.2.1
-pair on 2026-08-17). Every later upload or portal edit still needs the repo owner's
+description, the six gallery shots below in filename order. Reworked wholesale for the 1.0.0
+page on 2026-08-29: new README and FAQ, five of the six shots re-taken, and the description's
+own images re-hosted. Every later upload or portal edit still needs the repo owner's
 per-release approval.
 
-- **`README.md` is the portal description**, uploaded verbatim by `fmtk details --readme`, so it
-  is written for a player skimming the page rather than for a contributor. The portal takes
-  GitHub-flavoured markdown, and images only as URLs to somewhere else.
+- **`README.md` is the portal description**, sent by `fmtk details --readme`. Not quite
+  verbatim, and both departures are silent: fmtk **strips a leading depth-1 heading**
+  (`package.markdown.strip_first_header`, default true — the portal already shows the title),
+  and the body is re-serialised through remark, which rewrites `-` bullets as `*`. Line breaks
+  and everything else survive. Written for a player skimming the page rather than for a
+  contributor.
+- **A relative image URL in the README is uploaded INTO the gallery**, not left alone —
+  fmtk's default `package.markdown.images` is `"gallery"`, and only a URL matching
+  `^((https?|data):|#)` is passed through untouched. That is the real reason every embedded
+  image is an absolute catbox link: it is what keeps demo gifs out of the gallery strip.
 - **`faq.md` is the portal FAQ tab**, synced by `fmtk details --faq` and shipped in the zip
   like `README.md` — deliberately not in `package.ignore`, it is a few hundred bytes of player
-  help. The entries track the question each release generates: the research gate and the
-  setting that lifts it (2026-08-16, the owner's pick), where the hidden pickers went
-  (2026-08-17), what the active provider chest is for, why machines pause under circuit
-  limits (2026-08-26), and why a two-fluid recipe is refused.
+  help. The 1.0.0 set is six questions: where the unresearched machines went, why some build
+  options are missing, why some machines get productivity modules, how to change the requested
+  ingredient amounts, what the active provider chest is for, and why a two-fluid recipe is
+  refused.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
-  window first, then the vanilla loops, then the modded ones. The gallery has no order but upload
-  order — the API's `images/edit` takes an ordered id list — so the number prefix is the only
-  place that intent survives until the release that uses it. Refreshed by the owner on
-  2026-08-17 for the 0.2.0 feature set: the epic-substations shot left, the fluid and
-  extra-quality shots arrived.
-  - `01-planner-menu.jpg` — the modal, legendary target, 5 machines and 4 recyclers. Predates
-    the pipe picker; worth re-shooting before the 0.2.0 gallery sync if the strip should show
-    all four buttons.
-  - `02-legendary-upcycling-assemblers.jpg` — the vanilla loop that menu plans.
-  - `03-legendary-upcycling-big-miners.jpg` — the 0.2.0 headline: the big mining drill's
-    molten-iron loop to legendary in foundries on Vulcanus — pole columns, per-column pipe
-    runs, and the player's underground taps visible beneath the bottom ring.
+  window first, then the vanilla loops, then the modded ones, then the scale shot. The gallery
+  has no order but the id list handed to `images/edit`, so the number prefix is the only place
+  that intent survives until the release that uses it.
+  - `01-planner-menu.jpg` — the modal, legendary target. The one shot that survived the 1.0.0
+    rework unchanged.
+  - `02-legendary-upcycling-poles.jpg` — a vanilla legendary loop, pole columns visible.
+  - `03-legendary-upcycling-big-miners.jpg` — the big mining drill's molten-iron loop to
+    legendary in foundries on Vulcanus — pole columns, per-column pipe runs, and the player's
+    underground taps visible beneath the bottom ring.
   - `04-modded-upcycling.jpg` — the same planner against modded machines and belts.
   - `05-modded-upcycling-extra-quality.jpg` — a modded loop climbing through mod-added
-    quality tiers, seven machine columns wide.
+    quality tiers.
+  - `06-big-upcycling-loop.jpg` — a whole large loop at map scale, for the size of the thing.
+- **A gallery image's id IS the sha1 of the uploaded bytes** — verified 2026-08-29 against all
+  six, and it is what `fmtk` itself keys on to skip an image the portal already holds. So
+  identifying what is live is exact arithmetic on the local files, never a guess from position
+  or a perceptual match: hash the six, compare to `GET /api/mods/<name>/full`, upload only the
+  misses. Re-uploading a file the portal already has is refused outright
+  (`{"error":"InvalidRequest","message":"Image already exists"}`), which is what makes the
+  check load-bearing rather than an optimisation.
+- **`fmtk details` does not touch the gallery here**, because `info.json#/package` carries no
+  `gallery` glob — it calls `images/edit` only when one is set. The gallery is a separate API
+  pass, and that separation is deliberate: it keeps a text-only sync from ever reordering or
+  pruning shots.
 - **Numbering the files costs nothing, because the portal does not show gallery filenames.**
   `GET /api/mods/<name>/full` returns `assets-mod.factorio.com/assets/<sha1>.png` and no name at
   all — checked against `pure-modules-realk` on 2026-08-16. The repo `CLAUDE.md` says the portal
   displays the filename, which holds for the description's own links but not for the gallery.
 - **`images/description/` is not gallery material.** It holds what the README embeds, which the
-  portal can only take as URLs, so each file is mirrored on catbox:
-  `vanilla-upcycling.gif` → https://files.catbox.moe/thkeot.gif,
-  `modded-upcycling.gif` → https://files.catbox.moe/ulihf9.gif,
-  `shortcut-button.jpg` → https://files.catbox.moe/08ae4j.jpg (the shortcut button, shown inline
-  in the how-to-use steps). The local copies are the masters — catbox is not ours and can drop a
-  file, and replacing one is a description edit, so the mapping has to survive.
+  portal can only take as URLs, so each file is mirrored on catbox — the mapping as of the
+  2026-08-29 rework:
+  - `vanilla-upcycling.gif` → https://files.catbox.moe/u1qoct.gif
+  - `modded-upcycling.gif` → https://files.catbox.moe/mlwckl.gif
+  - `shortcut-button.jpg` → https://files.catbox.moe/08ae4j.jpg (shown inline in the
+    how-to-use steps; the one link that survived the rework)
+  - `ratios.jpg` → https://files.catbox.moe/n1yfnh.jpg
+  - `stats.jpg` → https://files.catbox.moe/c48nt7.jpg
+  - `columns.jpg` → https://files.catbox.moe/p60d73.jpg
+  - `beaconed layout.jpg` → https://files.catbox.moe/heq3zl.jpg
+  - `circuit-conditions.jpg` → https://files.catbox.moe/0cddec.jpg
+
+  The local copies are the masters — catbox is not ours and can drop a file, and replacing one
+  is a description edit, so the mapping has to survive.
 - **The whole `images/` tree stays out of the zip** via `package.ignore`'s `images/**`. Tracked
   in git so a shot travels with the build it was taken from.
 
