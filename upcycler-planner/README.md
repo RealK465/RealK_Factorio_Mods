@@ -11,17 +11,17 @@ You can entirely configure the Upcycling Loop elements and let the mod design it
 
 Some configuration options are:
 
-- You can **configure every entity** you want to use (assembling machine, recycler, modules, poles, inserters, chest...)
-- Supports **beaconed layouts (enable "Show All Build Options" setting)** (usefull for modded beacons like Maraxis quality beacon)
+- You can **configure every entity** you want to use (assembling machine, recycler, modules, poles, inserters, chests...)
+- Supports **beaconed layouts (enable "Show All Build Options" setting)** (useful for modded beacons like Maraxis quality beacon)
 - Supports **recipes with fluids**
-- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality tiers to keep in the logistics network.
-- Automatically proposes the **best ratio of modules** (considering modded machines/modules), see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math). 
-- You can **configure the number of columns** for each quality tiers to boost output
+- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network.
+- Automatically proposes the **best ratio of modules** (considering modded machines/modules), see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
+- You can **configure the number of columns** for each quality tier to boost output
 
 ## Works with your mods
 
-This is the main advantage of it, no matter what mods you're using, you don't have to create new blueprints, mod is enterlily configurable,
-You can choose modded machines, recyclers, belts, modules, beacons... they can all be picked, and the layout adapt's itself to whatever you choose.
+This is the main advantage of it, no matter what mods you're using, you don't have to create new blueprints. The mod is entirely configurable.
+You can choose modded machines, recyclers, belts, modules, beacons... they can all be picked, and the layout adapts itself to whatever you choose.
 By default only researched options are offered, but it can be changed in the planner/mod settings.
 
 ![Planning a loop with modded machines and recyclers](https://files.catbox.moe/mlwckl.gif)
@@ -37,9 +37,9 @@ By default only researched options are offered, but it can be changed in the pla
 
 ## Good to know
 
-- Layout processing algoritm is quite demanding in layouts with lot of columns, version 1.0 of the mod benchmarked 5s processing a 8000 column layout (this means like 8000 quality tiers or having 1000+ columns for each quality tiers, it requires crazy mods to reach those numbers). Higher durations can cause game to crash.
-- Recipes with more than 5 ingredients are not supported (limited to the inserter max item filter)
-- Recipes with spoillable items are not supported.
+- Layout processing algorithm is quite demanding in layouts with lots of columns, version 1.0 of the mod benchmarked 5s processing an 8000 column layout (this means like 8000 quality tiers or having 1000+ columns for each quality tier, it requires crazy mods to reach those numbers). Higher durations can cause the game to crash.
+- Recipes with more than 5 ingredients are not supported (limited to the inserter max item filter).
+- Recipes with spoilable items are not supported.
 - Recipes that need two different fluids, or that give back a fluid (like the quantum processor), are not supported.
 - Items that recycle into themselves (like steel) are not supported.
 
@@ -51,13 +51,13 @@ If the recipe you chose supports productivity modules, the mod is able to mix qu
 
 ![Best Ratios](https://files.catbox.moe/n1yfnh.jpg)
 
-You can always take a look at the footer to the expected production stats so it can help you to tweak your settings
+You can always take a look at the footer for the expected production stats so it can help you to tweak your settings.
 
 ![Stats](https://files.catbox.moe/c48nt7.jpg)
 
 ### Quality Tiers Column Count
 
-You can configure the column count per each quality tiers in a way to increase the output of your upcycler at a cost of a bigger blueprint
+You can configure the column count for each quality tier in a way to increase the output of your upcycler at a cost of a bigger blueprint.
 
 ![Columns](https://files.catbox.moe/p60d73.jpg)
 
@@ -69,8 +69,8 @@ The mod fully supports layouts that require usage of pipes and beacons (**enable
 
 ### Circuit Conditions
 
-You can define a minimum amount of the lower quality tiers items to keep as reserve in the logistics network,
-And also a maximum amount for the target quality item that stops the loop after the target amount is reached
+You can define a minimum amount of the lower quality items to keep as reserve in the logistics network,
+and also a maximum amount for the target quality item that stops the loop after the target amount is reached.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 
@@ -78,8 +78,8 @@ And also a maximum amount for the target quality item that stops the loop after 
 
 - Automatic placement of Lightning Collectors at Fulgora
 - Automatic placement of Heating Pipes at Aquilo
-- Possibility of export layout as parametrized blueprint
-- Check possibility of add more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)
+- Possibility of exporting the layout as a parametrized blueprint
+- Check possibility of adding more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)
 - Small improvements
 
 ## Requirements

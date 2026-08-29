@@ -10,15 +10,15 @@ Date: ????
     - If the chosen item supports productivity modules, the planner now mixes them
       with the best ratio to boost output (see: https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
     - A new sub config frame allows you to configure manually the ratio of productivity modules.
-    - You can now configure the quantity of columns for each quality tiers in a way to boost output.
+    - You can now configure the quantity of columns for each quality tier to boost output.
   Optimizations:
     - Planning loops with extra modded qualities and high column counts is now much faster
-      (generating loop with 8000 columns was reduced from 750s to 5s).
+      (generating a loop with 8000 columns was reduced from 750s to 5s).
     - Changing modules, ratios or circuit limits no longer re-solves the pole layout.
   Gui:
-    - The planner now show stats of how many common items and how much time are required to produce
-      1 item of the target quality. (works better on 2.1 with dedicated native API functions).
-    - The stats show the machine and recycler counts, hover them to see the footprint.
+    - The planner now shows stats of how many items and how much time are required to produce
+      1 item of the target quality (works better on 2.1 with dedicated native API functions).
+    - The stats show the machine and recycler counts, hover over them to see the footprint.
     - Warnings and errors under the planner now get their own lines.
   Bugfixes:
     - Fixed that the first click on a picker could trigger a layout re-solve.
