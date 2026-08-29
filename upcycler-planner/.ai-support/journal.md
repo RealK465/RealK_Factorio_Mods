@@ -9,6 +9,27 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - 1.0.0 and 1.0.1 ship: the 1.0 milestone, both tracks
+
+Released on the owner's ask, both tracks in one session: **1.0.0 for Factorio 2.1** from
+`main` and **1.0.1 for Factorio 2.0** from `legacy/2.0`. The 1.0.0 section carries the
+entries -- the module mix with solved ratios, per-tier column counts, the near-linear pole
+solve, the richer stats and four bugfixes -- and 1.0.1 is the one-line port pointer, the
+shape the 0.6.6 / 0.6.7 pair set. `fmtk datestamp` only stamps the section matching its own
+`info.json`, so the 1.0.1 line was stamped by hand on `main` and the finished file copied to
+the worktree; that is what keeps the shared changelog identical across the branches.
+
+The gate ran in full on **both** installs before either upload: data stage exit 0 (2.1.17 and
+2.0.77) with `--check-unused-prototype-data` reporting nothing, static clean, pure 92/92,
+headless 332/332, and a graphics pass through a real client at 332/332 each. Both zips were
+read rather than trusted -- correct `factorio_version`, `expansion_required` present only on
+the 2.1 build, and no `CLAUDE.md`, `tests/`, `images/` or `.ai-support/` inside either.
+
+Nothing that ships changed between building the zips and the commits: the portal's recorded
+sha1 for each release equals the local zip's, so the two `upcycler-planner_1.0.0` /
+`_1.0.1` tags reproduce exactly what players download -- which is the thing Pure Modules
+1.0.0 got wrong and this now has a check for.
+
 ## 2026-08-29 - the 1.0.0 portal page goes live, and image ids turn out to be sha1
 
 The reworked README, FAQ and gallery (written in an earlier session) pushed to the portal at
