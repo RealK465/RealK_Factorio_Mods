@@ -7,14 +7,14 @@ To see everything, tick **Show unresearched items** in the planner's **Settings*
 ## Why are some build options missing?
 
 A build option with only one choice is hidden.
-Options like recycler and pipe are always hidden since vanilla only adds 1, if mods adds alternatives they will be displayed.
+Options like recycler and pipe are always hidden since vanilla only adds one, if a mod adds alternatives they will be displayed.
 
-Some options like chests or beacon are always hidden to make UI more concise,
-But you can enable **Show all build options** to see all options, include beaconed options.
+Some options like chests or beacons are always hidden to make the UI more concise,
+but you can enable **Show all build options** to see all options, including beaconed options.
 
 ## Why do some machines get productivity modules?
 
-Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item, see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math). The planner calculates out the best rations for the machines and modules you picked.
+Mixing a few productivity modules in with the quality modules often makes the loop cheaper per finished item, see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math). The planner calculates out the best ratios for the machines and modules you picked.
 
 ## How do I change how many ingredients the loop requests?
 
