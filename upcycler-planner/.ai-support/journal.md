@@ -9,6 +9,35 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - the 1.0.0 portal page goes live, and image ids turn out to be sha1
+
+The reworked README, FAQ and gallery (written in an earlier session) pushed to the portal at
+the owner's ask -- **text and images only, no release**: no bump, no zip, no upload, nothing
+touching `info.json`'s still-open 1.0.0.
+
+The gallery was the interesting half. Five of the six local shots were new, one was not, and
+the skill's own procedure for telling them apart was a perceptual match on downloaded PNGs --
+expensive and approximate. Reading `fmtk`'s bundled source for what `details` actually does
+turned up something better: it hashes each candidate with **sha1 and looks the digest up as
+an id**, so an image's id simply *is* the sha1 of its bytes. Confirmed both ways -- the live
+first image's id equalled the local `01-planner-menu.jpg` digest exactly (and a pixel compare
+agreed at distance 0), and all five uploads came back with ids equal to their files' digests.
+That makes "what does the portal already have" exact arithmetic, which matters because a
+duplicate upload is refused outright rather than returning the existing id.
+
+So: `fmtk details --readme README.md --faq faq.md` for the text, then five `images/add` calls
+with a per-file sha1 assertion, then one `images/edit` carrying all six ids in filename order
+-- the list *is* the gallery, so that single call also dropped the four stale shots. Verified
+against a cache-busted `full` read: description and FAQ line-for-line identical to the local
+files, gallery six long in the right order.
+
+Two silent `fmtk` behaviours came out of the same source read and are now in `decisions.md`:
+`details` strips a leading `# ` heading before sending, and a *relative* image URL in the
+markdown would be uploaded into the gallery rather than left alone -- which is the actual
+reason the description's demo gifs have to be absolute catbox links, previously recorded as
+merely "the portal takes URLs only". The `factorio-release` skill's perceptual-matching
+instructions were replaced with the sha1 method.
+
 ## 2026-08-29 - the review fixes reach Factorio 2.0, and both tracks gate on every tier
 
 The full-review delta (entry below) cherry-picked onto `legacy/2.0`: both forked files
