@@ -9,6 +9,25 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-29 - the review fixes reach Factorio 2.0, and both tracks gate on every tier
+
+The full-review delta (entry below) cherry-picked onto `legacy/2.0`: both forked files
+auto-merged and were read by hand rather than trusted, which is what caught the one hunk
+that could not cross -- `quality_downgrades()` reads `previous_probability` and its chain
+twin, neither of which exists on 2.0.77's `LuaQualityPrototype` (the read family is
+2.1.7's, and a missing LuaObject attribute is a hard error, not nil). The legacy probe is
+now a constant false with the seam documented in place: 2.0 has no downward roll at all,
+so the solve's downgrade sweep never arms there. Everything else crossed verbatim; the
+drift check lists exactly the declared divergent set.
+
+The owner's ask widened the gate to every tier on BOTH tracks, and all of it is green:
+data stage exit 0 (1.0.0 on 2.1.16, 1.0.1 on 2.0.77 with `data-final-fixes.lua` loading),
+pure 92/92, static clean, headless 332/332, and a graphics pass through a real client on
+each install. Docs rode the same session: the review's changelog Bugfixes block moved
+ahead of Changes to match the file's own order, the `### Roboports` heading the review's
+deferred.md edit had swallowed was restored, and the mod CLAUDE.md's suite count moved to
+332. Both branches committed and pushed.
+
 ## 2026-08-29 - a full review of the mod; ten fixes land, one question parked
 
 A ten-angle review of the whole runtime source (owner's ask, performance named the
