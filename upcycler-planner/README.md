@@ -74,6 +74,14 @@ And also a maximum amount for the target quality item that stops the loop after 
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 
+## Road Map
+
+- Automatic placement of Lightning Collectors at Fulgora
+- Automatic placement of Heating Pipes at Aquilo
+- Possibility of export layout as parametrized blueprint
+- Check possibility of add more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)
+- Small improvements
+
 ## Requirements
 
 Factorio with **Space Age**.
