@@ -285,6 +285,8 @@ re-opening any of these, and don't restate a reason here.
   (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests and
   trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
   own quality except the belt and the pipe, which the engine gives no quality bonus.
+  **Every label-and-button row in Build options shares one `ROW_LABEL_WIDTH`** — a fifth such
+  row uses the same constant rather than a width of its own, or its button leaves the column.
 - Ingredient request amounts are editable in a side panel — an *Edit...* button beside the item
   picker, dead until an item is picked. Only edits are stored (`request_<item>` flat numbers);
   they reset on an item change, and the floor is one. Reasons in `decisions.md`.

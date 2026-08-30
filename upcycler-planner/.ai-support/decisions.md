@@ -432,6 +432,25 @@ per-release approval.
   `analysis/api.md` §19). A group whose every picker is hidden — the chests by default, the
   beacon group until show-all or a pick — hides caption and row together, the rule owned once
   by the group rather than by each button.
+- **Every label-and-button row in Build options shares one label width** (owner's screenshot,
+  2026-08-30: "some buttons are misaligned which is annoying"). The mix line, the two
+  *Edit...* doors and the circuits line are four independent flows, so each button started
+  wherever its own caption happened to end and the four left edges staggered across ~90px.
+  One `ROW_LABEL_WIDTH` (200) on each row's first element — checkbox or label — puts them in
+  a column; the buttons need no width of their own, since all four captions are short enough
+  to sit at `button`'s own 108px minimum. **A fifth such row uses the same constant** — that
+  is the whole point of it being one. This is the side panels' own rule (`minimal_width = 110`
+  on every wizard row label, or the fields stagger with the tier names) applied one level up.
+  A caption that outgrows the width pushes its own button right rather than overlapping, so
+  the worst a long translation can do is bring back the ragged edge. **A `table` would have
+  computed the width instead of naming it**, and was rejected: the Circuits caption sits
+  between the rows and Factorio tables have no column span, so the four rows cannot be
+  contiguous cells without moving a group heading.
+- **The beacon count drop-down is centred, not top-aligned** (same session): the beacons group
+  is the only one mixing control heights, and a flow with no `vertical_align` hung the 28px
+  drop-down off the top edge of the 40px pickers beside it. An 8px left margin goes with it —
+  it is a different kind of control, not a third icon in the row. Keeping it in the strip
+  rather than giving it a labelled row of its own was the owner's pick from the two offered.
 - **The player-facing vocabulary is fixed, and the code keys are not renamed to match it**
   (2026-08-26, owner's clarity pass over every string a player sees). One word per concept,
   used identically in the locale, the README and the FAQ:
