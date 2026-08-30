@@ -19,6 +19,27 @@ PREFIX = "PB_"
 REPO_ROOT = Path(__file__).resolve().parents[4]
 POLYHAVEN_DIR = REPO_ROOT / "assets" / "third-party" / "polyhaven"
 
+# The shared parts library. Deck surveying and greeble scattering used to be
+# written here and now live in factorio_render.parts, so every entity gets
+# them -- see `_assembly()` below.
+sys.path.insert(0, str(REPO_ROOT / ".claude" / "skills" / "factorio-graphics" / "scripts"))
+from factorio_render import parts  # noqa: E402
+
+_ASSEMBLY = {}
+
+
+def _assembly(collection):
+    """One Assembly per collection, reused so scattered names stay unique."""
+    key = collection.name
+    if key not in _ASSEMBLY or _ASSEMBLY[key].collection != collection:
+        _ASSEMBLY[key] = parts.Assembly(PREFIX, _MATS or {}, collection=collection)
+    return _ASSEMBLY[key]
+
+
+# build_materials() result, stashed so the helpers above can reach the palette
+# without every call site threading it through.
+_MATS = None
+
 # Socket centres in tiles, entity-relative; -Y is the camera-facing front.
 SOCKET_POSITIONS = [(-1.5, -2.3), (-0.5, -2.3), (0.5, -2.3), (1.5, -2.3)]
 
@@ -31,6 +52,26 @@ PYLON_CURVES = []
 # One beat of the discharge cycle: charge climbs an electrode from its
 # induction coil to the tip, the tip flashes, then it fires into the core.
 # Both counts are frames of the 64-frame loop.
+# --- how tall the beacon is, and why it is a knob -------------------------
+#
+# At the 45-degree rig, screen row = centre - 64*(y + z), so the sprite's top
+# edge is set by whichever part has the largest y+z -- a part far north raises
+# it exactly as much as a tall one. These four numbers are that part.
+#
+# Measured 2026-08-30: the rear pylon tips sit at y+z = 4.55, which draws the
+# sprite 2.05 tiles above the 5x5 footprint's north edge. Vanilla 5x5s overhang
+# 0.52 (foundry), 0.70 (cryogenic plant), 0.81 (biolab) -- so this was roughly
+# three times the vanilla norm, and a machine placed north of the beacon was
+# overlapped by two tiles of it.
+# Lowered 2026-08-30 from 2.7 / 1.4 / 2.9 / 2.55, which drew the sprite 2.06
+# tiles past the footprint. These land it at 1.14 -- still more overhang than
+# any vanilla 5x5, which is deliberate: this is a beacon and the mast is the
+# design. Anything lower flattens the pylons into deck fittings.
+APEX_Z = 2.05           # rings, crystal, and the centre the crystal bobs about
+PYLON_TIP_XY = 1.15     # each pylon tip's offset from centre on both axes
+PYLON_TIP_Z = 2.15      # and its height
+CORE_Z = 1.95           # arc anchor, just under the crystal
+
 CLIMB_FRAMES = 6
 ARC_FRAMES = 7
 CLIMB_T0 = 0.06        # where on the pylon curve the charge enters
@@ -164,15 +205,35 @@ def smooth(obj, angle=30):
     bpy.ops.object.shade_auto_smooth(angle=math.radians(angle))
 
 
-def bevel(obj, width=0.05, segments=3):
+def bevel(obj, width=0.05, segments=3, subdivide=1):
     mod = obj.modifiers.new("Bevel", "BEVEL")
     mod.width = width
     mod.segments = segments
     mod.limit_method = "ANGLE"
+
+    # Pointiness is a PER-VERTEX quantity interpolated across faces, and a
+    # bevelled primitive has almost no interior vertices -- every vertex sits
+    # on a convex edge, so the high value floods the whole face and
+    # worn_metal()'s edge-wear window (0.53-0.62) selects entire panels
+    # instead of their edges. Measured on a bare cube: 8 verts -> 48.6% of the
+    # sprite marked worn, one subdivision (26 verts) -> 1.8%. Simple, not
+    # Catmull-Clark: it adds interior vertices without moving the surface, so
+    # the silhouette is untouched and only the pointiness field changes.
+    # cube() already adds one for the same reason -- don't stack a second.
+    if subdivide and not any(m.type == "SUBSURF" for m in obj.modifiers):
+        sub = obj.modifiers.new("Subdiv", "SUBSURF")
+        sub.subdivision_type = "SIMPLE"
+        sub.levels = sub.render_levels = subdivide
     return mod
 
 
 def cube(name, scale, location, rotation=(0, 0, 0), material=None):
+    # Note: an unbevelled cube still floods worn_metal()'s edge mask -- see
+    # bevel() for why. Subdividing here as well was measured and moved the
+    # beacon's mask only 29.5% -> 27.1%, because most of what remains is
+    # cylinders and annuli, whose side faces have the same problem. The real
+    # remaining win is a scene-wide pass in build_scene(); it is not applied
+    # because it has not been costed against render time.
     bpy.ops.mesh.primitive_cube_add(size=1)
     obj = bpy.context.object
     obj.name = PREFIX + name
@@ -1278,6 +1339,12 @@ def snow_override(name="frost_overlay", coverage=1.0):
 
 
 def build_materials():
+    global _MATS
+    _MATS = _build_materials()
+    return _MATS
+
+
+def _build_materials():
     return {
         # frost-teal paint, the mod's Aquilo-adjacent identity colour
         "steel": worn_metal("steel_frost", PAINT_A, PAINT_B,
@@ -1898,47 +1965,18 @@ def greeble(base, mats, name, kind, pos, rot, scale):
         link_to(clip, base)
 
 
+# deck_survey() and surface_z() used to live here. They were the better
+# implementation of deck reading in the repo, so they were promoted into
+# factorio_render.parts (Assembly.survey / surface_z) where every entity gets
+# them, and this file now delegates. Behaviour is unchanged -- same thresholds,
+# same per-point keep-out for traced runs.
+
 def deck_survey(base, z_lo=0.86, margin=0.06):
-    # Read the deck straight off the scene rather than restating the layout:
-    # anything tall is an obstacle, anything flat is a surface to stand on.
-    # Sampling the surface matters -- a part placed at a fixed height floats
-    # wherever there is no panel under it, and a 2 px gap is visible in game.
-    obstacles, surfaces = [], []
-    for obj in base.objects:
-        if obj.type not in ("MESH", "CURVE"):
-            continue
-        # A run traced by many points gets a keep-out that follows the cable;
-        # boxing its extents instead covers most of a quadrant and blanks the
-        # scatter around it. Coarse curves (2-4 points) keep the AABB, so the
-        # pylons and the older hoses survey exactly as they always did.
-        if obj.type == "CURVE" and obj.data.bevel_depth:
-            pts = [p for spl in obj.data.splines
-                   for p in (spl.bezier_points if spl.type == "BEZIER" else spl.points)]
-            if len(pts) >= 10:
-                rad = obj.data.bevel_depth + margin
-                for p in pts:
-                    w = obj.matrix_world @ Vector(p.co[:3])
-                    top = w.z + obj.data.bevel_depth
-                    if top >= z_lo:
-                        obstacles.append((w.x - rad, w.y - rad, w.x + rad, w.y + rad))
-                    elif top > 0.76:
-                        surfaces.append((w.x - rad, w.y - rad, w.x + rad, w.y + rad, top))
-                continue
-        corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
-        top = max(c.z for c in corners)
-        xs = [c.x for c in corners]
-        ys = [c.y for c in corners]
-        if top >= z_lo:
-            obstacles.append((min(xs) - margin, min(ys) - margin,
-                              max(xs) + margin, max(ys) + margin))
-        elif top > 0.76:
-            surfaces.append((min(xs), min(ys), max(xs), max(ys), top))
-    return obstacles, surfaces
+    return _assembly(base).survey(base, z_lo=z_lo, margin=margin)
 
 
 def surface_z(x, y, surfaces, default=0.752):
-    tops = [t for x0, y0, x1, y1, t in surfaces if x0 <= x <= x1 and y0 <= y <= y1]
-    return max(tops) if tops else default
+    return parts.Assembly.surface_z(x, y, surfaces, default=default)
 
 
 SCATTER_REGIONS = [
@@ -1957,32 +1995,29 @@ SCATTER_EXCLUDE = [
 
 
 def scatter_greebles(base, mats, count=20, min_dist=0.26, seed=17):
-    # Rejection sampling with a minimum spacing: jittered rotation and scale,
-    # nothing overlapping a prop, nothing dropped on the walkway ring.
-    obstacles, surfaces = deck_survey(base)
-    rng = random.Random(seed)
-    placed = []
-    for attempt in range(count * 80):
-        if len(placed) >= count:
-            break
-        x0, y0, x1, y1 = SCATTER_REGIONS[rng.randrange(len(SCATTER_REGIONS))]
-        x, y = rng.uniform(x0, x1), rng.uniform(y0, y1)
-        r = math.hypot(x, y)
-        if 1.02 < r < 1.70:                      # keep the walkway clear
-            continue
-        if any(ex0 <= x <= ex1 and ey0 <= y <= ey1
-               for ex0, ey0, ex1, ey1 in SCATTER_EXCLUDE):
-            continue
-        if any((x - px) ** 2 + (y - py) ** 2 < min_dist ** 2 for px, py in placed):
-            continue
-        if any(bx0 <= x <= bx1 and by0 <= y <= by1 for bx0, by0, bx1, by1 in obstacles):
-            continue
-        greeble(base, mats, "Greeble%02d" % len(placed), rng.choice(GREEBLE_KINDS),
-                (x, y, surface_z(x, y, surfaces) - 0.004),
-                rng.uniform(0, 2 * math.pi), rng.uniform(0.8, 1.3))
-        placed.append((x, y))
-    print("  [scatter] %d tertiary greebles" % len(placed))
-    return placed
+    """Tertiary detail over the deck, through the shared sampler.
+
+    The rejection sampling, the surface-height lookup and the obstacle test
+    are `factorio_render.parts` now; what stays here is what is genuinely this
+    beacon's -- its four part kinds, its regions, and the walkway ring the
+    scatter has to leave open. `scatter()` takes callables precisely so the
+    local vocabulary survives the move.
+    """
+    a = _assembly(base)
+    obstacles, surfaces = a.survey(base)
+
+    def kind(name_of):
+        def make(name, at, z, size, rot):
+            greeble(base, mats, "Greeble" + name[-2:], name_of,
+                    (at[0], at[1], z), math.radians(rot), size)
+            return []
+        return make
+
+    return a.scatter([kind(k) for k in GREEBLE_KINDS],
+                     area=SCATTER_REGIONS, z=0.752, n=count, seed=seed,
+                     min_dist=min_dist, size=(0.8, 1.3),
+                     obstacles=obstacles, surfaces=surfaces,
+                     exclude=SCATTER_EXCLUDE, keep_clear=(1.02, 1.70))
 
 
 def heat_pipe_run(base, mats, name, x_out, x_in, y, z, segments=3):
@@ -3145,7 +3180,7 @@ def build_pylons(base, mats):
     for i, (sx, sy) in enumerate([(1, 1), (1, -1), (-1, 1), (-1, -1)]):
         # curved swept pipe: rises from the corner drum, bowing inward
         root = Vector((1.85 * sx, 1.85 * sy, 0.95))
-        tip_pos = Vector((1.4 * sx, 1.4 * sy, 2.9))
+        tip_pos = Vector((PYLON_TIP_XY * sx, PYLON_TIP_XY * sy, PYLON_TIP_Z))
         curve = bpy.data.curves.new(PREFIX + "PylonC%d" % i, "CURVE")
         curve.dimensions = "3D"
         curve.bevel_depth = 0.19
@@ -3482,7 +3517,7 @@ def build_amphitheater(base, mats):
 def build_crystal(moving, mats):
     root = bpy.data.objects.new(PREFIX + "Crystal", None)
     root.empty_display_size = 0.2
-    root.location = (0, 0, 2.7)
+    root.location = (0, 0, APEX_Z)
     bpy.context.scene.collection.objects.link(root)
     link_to(root, moving)
 
@@ -3519,7 +3554,7 @@ def build_crystal(moving, mats):
 def ring_with_pods(moving, mats, name, major, minor, tilt, pods, pod_size):
     bpy.ops.mesh.primitive_torus_add(major_radius=major, minor_radius=minor,
                                      major_segments=64, minor_segments=16,
-                                     location=(0, 0, 2.7))
+                                     location=(0, 0, APEX_Z))
     ring = bpy.context.object
     ring.name = PREFIX + name
     ring.data.materials.append(mats["ring"])
@@ -3627,7 +3662,7 @@ def build_scene():
 
 def bob_z(frame, frames=64):
     # one sine cycle per loop; +-3 source px = 3/64 world units
-    return 2.7 + (3.0 / 64.0) * math.sin(2 * math.pi * frame / frames)
+    return APEX_Z + (3.0 / 64.0) * math.sin(2 * math.pi * frame / frames)
 
 
 def animate(objs, frames=64):
@@ -3922,7 +3957,7 @@ def _build_spark_events(frames=64):
     # Depends on TIP_POSITIONS, so it runs after build_pylons.
     global _SPARK_EVENTS, _MOTES
     _SPARK_EVENTS = []
-    core = Vector((0, 0, 2.55))
+    core = Vector((0, 0, CORE_Z))
     for p, start in _beats():
         tip = TIP_POSITIONS[p]
         rng = random.Random(4093 + p * 131 + start)
