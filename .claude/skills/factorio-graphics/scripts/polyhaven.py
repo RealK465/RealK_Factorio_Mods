@@ -97,6 +97,37 @@ def fetch(slug, res="1k", maps=None, out_dir=None):
     return got
 
 
+def fetch_model(slug, res="1k", fmt="blend", out_dir=None):
+    """Download one CC0 *model*, with the textures its .blend points at.
+
+    A model's file tree is shaped differently from a texture's: one entry per
+    format, carrying an `include` dict of paths relative to the main file. Miss
+    those and the .blend opens with every material pink.
+
+    Returns the path to the main file. Verified working for the industrial
+    props category, which is the one worth kitbashing a machine from.
+    """
+    entry = files(slug)[fmt][res][fmt]
+    root = Path(out_dir) if out_dir else DEFAULT_OUT / slug
+    main_path = root / entry["url"].rsplit("/", 1)[-1]
+    _download_to(entry["url"], main_path, entry.get("size"))
+    for rel, inc in entry.get("include", {}).items():
+        _download_to(inc["url"], root / rel, inc.get("size"))
+    return main_path
+
+
+def _download_to(url, dest, size=None):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() and (size is None or dest.stat().st_size == size):
+        print("  [cached] %s" % dest.name)
+        return dest
+    print("  [fetch] %s" % dest.name)
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=180) as r:
+        dest.write_bytes(r.read())
+    return dest
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -115,6 +146,12 @@ def main(argv=None):
     f.add_argument("--maps", help="comma-separated: diff,rough,nor,ao,metal,disp")
     f.add_argument("--out", help=f"target dir (default {DEFAULT_OUT}\\<slug>)")
 
+    m = sub.add_parser("model", help="download a CC0 model and its textures")
+    m.add_argument("slug")
+    m.add_argument("--res", default="1k")
+    m.add_argument("--format", default="blend", choices=["blend", "gltf", "fbx"])
+    m.add_argument("--out")
+
     a = p.parse_args(argv)
     if a.cmd == "search":
         cats = a.categories.split(",") if a.categories else None
@@ -131,6 +168,8 @@ def main(argv=None):
         got = fetch(a.slug, res=a.res, maps=maps, out_dir=a.out)
         print(f"{len(got)} map(s) in {next(iter(got.values())).parent}" if got
               else "nothing downloaded")
+    elif a.cmd == "model":
+        print(fetch_model(a.slug, res=a.res, fmt=a.format, out_dir=a.out))
 
 
 if __name__ == "__main__":

@@ -112,6 +112,12 @@ Aim for **8–15 distinct kinds** of functional detail on a production machine
 (audited range across vanilla), fewer on a utility entity — poles and beacons
 get less, not more. Draw from the audited vanilla set:
 
+Most of the table below is already built: `greeble.py` has the builders and
+`parts.py` places them in one line each, alongside CC0 industrial models — see
+`pipeline.md`. Naming a part that exists is the difference between this band
+being a target and being an afternoon per row, and `Assembly.report()` counts
+the distinct kinds actually placed against it.
+
 | Greeble | Vanilla usage notes |
 |---|---|
 | Pipes with flanged joints | Every joint gets a bolted flange; bends have purpose (elbow, union, valve at the junction). No straight featureless cylinders |
@@ -220,6 +226,40 @@ overlay** (Deadlock989, same thread):
 Implementation (pointiness edge wear, AO rust, grime streaks) is the
 validated stack in `materials.md` — this file decides *where* wear belongs so
 those masks are tuned per design, not left at defaults.
+
+## The detail budget — making the band countable
+
+"8–15 distinct kinds" is only a target if something counts. `Assembly.report()`
+does: it returns the objects placed and the **distinct kinds** among them, and
+the generator template's `audit()` prints both and says so when the count is
+short. Run it before rendering, not after.
+
+Three rules for spending the budget, all of them learned by getting them wrong
+on this repo's own art:
+
+- **Spend on missing flows, not on more of what is there.** A count short of 8
+  is almost never fixed by adding bolts. Ask which of power in / material
+  through / heat out / human service has no visible answer — human service is
+  the one that is missing most often, and it is the one that makes a model read
+  as equipment rather than a prop.
+- **More parts is not more detail past the legibility floor.** At 64 px/tile a
+  feature under ~3 px at gameplay zoom is a smudge; `greeble.legibility()` says
+  which side of that line a size falls on, and `scatter()` warns when its own
+  parts are below it. Detail spent there costs render time and shows nothing.
+- **Density has a ceiling set by the deck, not by ambition.** The beacon asks
+  for 20 tertiary greebles and fits about 10; raising the attempt budget
+  fivefold changed nothing, because minimum spacing plus obstacles plus its
+  walkway annulus leave room for ten. `scatter()` reports the shortfall with a
+  rejection tally — read it, because the fix is a design change (tighter
+  spacing, a narrower keep-out, another region) and never a bigger budget.
+
+**And count against the right thing.** This repo's beacon measures *denser*
+than vanilla's — more parts, more saturation, more contrast — and still read as
+"too simple" to its author, because what differs is shape language, not
+quantity. Vanilla's beacon is low, open and irregular; this one is a closed
+symmetric façade. Put your sprite next to its vanilla counterpart at 1× on
+Nauvis dirt before deciding you need more parts; the answer is often fewer,
+arranged differently.
 
 ## Detail distribution — busy against calm
 

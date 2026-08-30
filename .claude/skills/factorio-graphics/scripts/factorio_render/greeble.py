@@ -12,8 +12,14 @@ Import inside Blender only (`bpy`).
 Four rules every builder here follows, each of them a bug that cost a render:
 
 * **Everything is bevelled.** The wear stack in `materials.md` reads mesh
-  curvature through Geometry > Pointiness; on an unbevelled primitive the mask
-  finds nothing and the edge wear silently does not happen.
+  curvature through Geometry > Pointiness. This used to say an unbevelled
+  primitive makes the mask find *nothing*; it is the opposite, and the
+  correction matters. Pointiness is per-vertex and interpolated across faces,
+  so a cube -- 8 vertices, all convex corners -- floods every face and the
+  mask marks the whole box. Measured: bare cube 48.6% of the silhouette
+  "worn", the same cube with one subdivision 1.8%. A bevel gives the mask a
+  crease to sit on; interior vertices are what stop it covering the face.
+  `gates.wear_mask()` checks it.
 * **Nothing is exactly coplanar.** Two shells sharing an exactly coplanar face
   render OPAQUE BLACK in Cycles -- measured at 64% black over the part, fixed
   by dropping one by 0.004. Builders that stack plates offset them by `EPS`.

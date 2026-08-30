@@ -148,6 +148,61 @@ def shadow(path, max_soft_pct=8.0):
             "soft_pct": round(soft * 100, 1), "pure_black_pct": round(black * 100, 1)}
 
 
+def wear_mask(path, max_bright_pct=20.0, max_survive_pct=35.0, bright=0.5):
+    """The one gate that measures the MODEL rather than the finished sprite.
+
+    Every other gate here reads the output PNG, which is why a broken edge-wear
+    term shipped in this repo undetected: the sprite looked plausible, so all
+    seven passed. `worn_metal()` chips paint where Geometry->Pointiness is
+    high -- but pointiness is a PER-VERTEX quantity interpolated across faces,
+    so a bevelled primitive, whose vertices all sit on convex edges, floods the
+    whole face and the mask selects entire panels. The wear then comes from the
+    noise it is multiplied by, not from the geometry: design-language.md tell
+    #2, "uniform procedural noise instead of physically-placed wear", produced
+    by the code written to avoid it.
+
+    Render the term on its own -- Pointiness -> MapRange(0.53, 0.62) -> Emission
+    through a `material_override` -- and pass the PNG here.
+
+        bright%    share of the silhouette marked worn. Small and thin is what
+                   chipped edges look like.
+        survive%   share of that still standing after a 5x5 erosion. A thin
+                   edge line vanishes; a whole flat face survives.
+
+    Measured, same mask, same rig: a bare cube 48.6% (uniform flat grey, no
+    edge signal at all), the same cube with one subdivision 1.8%, an imported
+    dense mesh with a bevel 3.0%, this repo's beacon before the fix 55.0% and
+    after 29.5%. The bands are a SANITY check, not a vanilla calibration --
+    vanilla ships sprites, not geometry, so there is nothing to measure against.
+    A dense assembly of many small parts legitimately scores higher than one
+    object; treat a failure as "go and look at the mask", not as a verdict.
+    """
+    a = np.asarray(Image.open(path).convert("RGBA")).astype(np.float32) / 255.0
+    vis = a[..., 3] > 0.03
+    if not vis.any():
+        return {"ok": False, "empty": True}
+    lit = (a[..., :3].mean(axis=2) > bright) & vis
+    n = int(lit.sum())
+    if n == 0:
+        return {"ok": False, "bright_pct": 0.0, "note": "no wear at all"}
+    eroded = _erode5(lit)
+    bright_pct = n / float(vis.sum()) * 100
+    survive_pct = float(eroded.sum()) / n * 100
+    return {"ok": bright_pct <= max_bright_pct and survive_pct <= max_survive_pct,
+            "bright_pct": round(bright_pct, 1),
+            "survive_pct": round(survive_pct, 1),
+            "band": (max_bright_pct, max_survive_pct)}
+
+
+def _erode5(mask):
+    """5x5 binary erosion without a scipy dependency."""
+    m = mask
+    for dy in (-2, -1, 0, 1, 2):
+        for dx in (-2, -1, 0, 1, 2):
+            m = m & np.roll(np.roll(mask, dy, axis=0), dx, axis=1)
+    return m
+
+
 def check_all(items):
     """items: list of (label, callable) -> prints a table, returns all-ok."""
     ok = True

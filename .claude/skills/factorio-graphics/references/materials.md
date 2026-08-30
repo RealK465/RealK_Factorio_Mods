@@ -42,8 +42,18 @@ Cautions:
 - **Pointiness and the AO node are Cycles features** — in EEVEE they flatten
   out and the whole stack dies quietly. Entities render in Cycles anyway
   (skill body); don't preview materials in EEVEE and wonder where the wear went.
-- Pointiness reads *mesh* curvature: it needs the bevelled edges to exist in
-  geometry. On an unbevelled primitive the mask finds nothing.
+- **Pointiness is PER-VERTEX, interpolated across faces — and on a primitive
+  that means it finds everything, not nothing.** This file used to say the
+  opposite. A cube has 8 vertices and every one is a convex corner, so the
+  high value floods the whole face and the 0.53–0.62 window selects entire
+  panels; the wear you then see comes from the noise it is multiplied by, not
+  from the geometry. Measured, same mask and rig: bare cube **48.6%** of the
+  silhouette marked worn (a flat grey wash with no edge signal at all), the
+  same cube with one subdivision **1.8%** (black faces, bright edge lines), an
+  imported dense mesh with a bevel **3.0%**. So a bevel is necessary and not
+  sufficient — the faces need interior vertices too. `gates.wear_mask()` is
+  the check, and it is the only gate that measures the model rather than the
+  output PNG, which is why this shipped undetected.
 - The final mixed colour must still match vanilla numerically — sample the
   vanilla PNG, convert sRGB→linear, and drive `color_a`/`color_b` from that
   (see "Measure vanilla, don't eyeball it" in the skill body). The wear stack
@@ -145,7 +155,18 @@ Use the bundled helper:
 python .claude/skills/factorio-graphics/scripts/polyhaven.py search textures --categories metal
 python .claude/skills/factorio-graphics/scripts/polyhaven.py info  rusty_painted_metal
 python .claude/skills/factorio-graphics/scripts/polyhaven.py fetch rusty_painted_metal --res 1k
+python .claude/skills/factorio-graphics/scripts/polyhaven.py search models --categories industrial
+python .claude/skills/factorio-graphics/scripts/polyhaven.py model  drill_press_01
 ```
+
+**Poly Haven ships CC0 *models* as well as textures, and they work in this rig
+— verified 2026-08-30.** A model's file tree is shaped differently from a
+texture's (one entry per format, carrying an `include` dict of texture paths
+that must land beside it, or the `.blend` opens pink), which is what
+`fetch_model` handles. Placing one is `parts.py`'s job, not yours: it applies
+the import recipe an outside mesh needs before the wear stack below will work
+on it. CC0 means the slug in the generator is the tracked source and nothing
+third-party is committed, exactly as for textures.
 
 It is also importable (`import polyhaven; polyhaven.fetch(slug)` returns
 `{map_key: Path}`) from headless generator scripts or `execute_blender_code`.
