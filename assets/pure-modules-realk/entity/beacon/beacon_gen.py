@@ -68,7 +68,7 @@ PYLON_CURVES = []
 # any vanilla 5x5, which is deliberate: this is a beacon and the mast is the
 # design. Anything lower flattens the pylons into deck fittings.
 APEX_Z = 2.05           # rings, crystal, and the centre the crystal bobs about
-PYLON_TIP_XY = 1.15     # each pylon tip's offset from centre on both axes
+PYLON_TIP_XY = 1.4      # each pylon tip's offset from centre on both axes
 PYLON_TIP_Z = 2.15      # and its height
 CORE_Z = 1.95           # arc anchor, just under the crystal
 
@@ -3190,12 +3190,21 @@ def build_pylons(base, mats):
         spl = curve.splines.new("BEZIER")
         spl.bezier_points.add(1)
         p0, p1 = spl.bezier_points
+        # Handles are FRACTIONS of the span, not absolute lengths. They were
+        # absolute (0.75 up, 0.55 down) and tuned against the original 1.95
+        # rise; lowering the tips left them unchanged against a 1.20 rise, so
+        # the up-handle went from 38% of the span to 63% and the pylons bowed
+        # over into limp curls instead of arcing. Proportional handles keep the
+        # curve's SHAPE at any height, which is the whole point of having the
+        # height be a knob.
+        rise = tip_pos.z - root.z
+        run = abs(root.x) - abs(tip_pos.x)      # per AXIS, as the handles are
         p0.co = root
-        p0.handle_left = root + Vector((0.05 * sx, 0.05 * sy, -0.4))
-        p0.handle_right = root + Vector((-0.02 * sx, -0.02 * sy, 0.75))
+        p0.handle_left = root + Vector((0.11 * run * sx, 0.11 * run * sy, -0.205 * rise))
+        p0.handle_right = root + Vector((-0.045 * run * sx, -0.045 * run * sy, 0.385 * rise))
         p1.co = tip_pos
-        p1.handle_left = tip_pos + Vector((0.16 * sx, 0.16 * sy, -0.55))
-        p1.handle_right = tip_pos + Vector((-0.16 * sx, -0.16 * sy, 0.55))
+        p1.handle_left = tip_pos + Vector((0.36 * run * sx, 0.36 * run * sy, -0.282 * rise))
+        p1.handle_right = tip_pos + Vector((-0.36 * run * sx, -0.36 * run * sy, 0.282 * rise))
         pylon = bpy.data.objects.new(PREFIX + "Pylon%d" % i, curve)
         pylon.data.materials.append(mats["steel"])
         bpy.context.scene.collection.objects.link(pylon)

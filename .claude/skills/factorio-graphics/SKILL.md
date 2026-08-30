@@ -160,6 +160,17 @@ Blender saves to wherever it was last pointed, which is almost never here — pa
   faces on intersecting closed shells — which is what a machine assembled from
   overlapping boxes in one mesh is.
 
+- **A swept curve's handles must be fractions of its span, not absolute
+  lengths.** Bezier handles tuned by eye against one height silently deform
+  the shape the moment that height changes — and a height is exactly the kind
+  of thing that becomes a knob later. Measured on the beacon's pylons: handles
+  of 0.75 up and 0.55 down were 38% and 28% of a 1.95-tile rise; lowering the
+  tips to a 1.20 rise left them at 63% and 46%, and four masts curled over
+  into limp tentacles that read as bent tubing. Store the fractions
+  (`0.385 * rise`, `0.36 * run`) and the curve keeps its shape at any size.
+  Note `run` is per **axis** if the handles were written per axis — using the
+  diagonal length instead overshoots by √2.
+
 - Generator scripts should be **idempotent**: delete only your own prefixed objects (`AM4_*`) and rebuild. And make `make_material()` *re-apply* values to an existing datablock rather than early-returning — otherwise palette edits silently do nothing.
 
 ## The one rule that matters most
