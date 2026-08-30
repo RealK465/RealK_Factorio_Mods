@@ -60,7 +60,7 @@ local arc_frames = {
   frame_count = 64, line_length = 8,
   animation_speed = 0.5,
   scale = 0.5,
-  shift = util.by_pixel(0.0, -49.0),
+  shift = util.by_pixel(0.5, -49.0),
 }
 
 local function arcs_layer(extra)
@@ -95,13 +95,13 @@ local set = {
         layers = {
           {
             filename = g .. "beacon-base.png",
-            width = 306, height = 388, scale = 0.5,
-            shift = util.by_pixel(0.0, -20.5),
+            width = 306, height = 400, scale = 0.5,
+            shift = util.by_pixel(0.0, -23.0),
           },
           {
             filename = g .. "beacon-shadow.png",
-            width = 372, height = 324, scale = 0.5,
-            shift = util.by_pixel(16.0, 1.5),
+            width = 378, height = 324, scale = 0.5,
+            shift = util.by_pixel(17.5, 1.5),
             draw_as_shadow = true,
           },
         },
@@ -219,8 +219,8 @@ local set = {
 if feature_flags["freezing"] then
   set.frozen_patch = {
     filename = g .. "beacon-frozen.png",
-    width = 306, height = 386, scale = 0.5,
-    shift = util.by_pixel(0.0, -24.0),
+    width = 306, height = 390, scale = 0.5,
+    shift = util.by_pixel(0.0, -25.0),
   }
   -- The rings and crystal are in the patch too, and the ice on them was
   -- rendered against animation frame 0. Pinning the animation there while
