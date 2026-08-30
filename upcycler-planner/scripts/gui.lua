@@ -1241,6 +1241,13 @@ function gui.open(player)
     return row, group_label
   end
 
+  -- One width for every label-and-button row in this block -- the mix line, the two Edit...
+  -- doors and the circuits line -- or their buttons stagger with the caption lengths, which is
+  -- the side panels' own rule one level up. Wide enough for the longest of the four captions
+  -- with room to spare; a caption that outgrows it pushes its own button right rather than
+  -- overlapping, so the failure is the old ragged edge and never a broken row.
+  local ROW_LABEL_WIDTH = 200
+
   -- How items and fluids move: belt, inserter, and -- for a fluid recipe -- the pipe.
   local transport = group("transport")
 
@@ -1324,12 +1331,13 @@ function gui.open(player)
   -- rebuilds.
   local mix = options.add({ type = "flow", name = "upl-mix-strip", direction = "horizontal" })
   mix.style.vertical_align = "center"
-  mix.add({
+  local mix_box = mix.add({
     type = "checkbox", name = "upl-split-enabled", state = choices.split_enabled,
     caption = { "upl-gui.split-enabled" },
     tooltip = { "upl-gui.split-enabled-tooltip" },
     tags = dispatch.tags("split-enabled"),
   })
+  mix_box.style.minimal_width = ROW_LABEL_WIDTH
   local split_button = mix.add({
     type = "button", name = "upl-split", caption = { "upl-gui.split-edit" },
     tooltip = { "upl-gui.split-edit-tooltip" },
@@ -1355,6 +1363,9 @@ function gui.open(player)
   local beacons, beacons_label = group("beacons")
   beacons_label.visible = beacon_visible(player, choices)
   beacons.visible = beacons_label.visible
+  -- The only group mixing control heights: a drop-down is shorter than the 40px pickers beside
+  -- it, so without this it hangs off their top edge.
+  beacons.style.vertical_align = "center"
 
   local beacon_button = beacons.add({
     type = "choose-elem-button", name = "upl-beacon", elem_type = "entity-with-quality",
@@ -1391,8 +1402,10 @@ function gui.open(player)
     tags = dispatch.tags("beacon-count", { counts = beacon_counts }),
   })
   -- Sized for a numeral, not a name: the default dropdown width would dwarf the icon buttons
-  -- beside it.
+  -- beside it. The margin keeps it off the module picker -- it is a different kind of control,
+  -- not a third icon in the row.
   beacon_count_dropdown.style.width = 60
+  beacon_count_dropdown.style.left_margin = 8
   beacon_count_dropdown.visible = worth_showing(player, beacon_count_items)
 
   local power = group("power")
@@ -1415,10 +1428,11 @@ function gui.open(player)
     })
     strip.style.vertical_align = "center"
     strip.style.top_margin = 8
-    strip.add({
+    local row_label = strip.add({
       type = "label", name = "upl-" .. key .. "-label",
       caption = { "upl-gui." .. key }, tooltip = { "upl-gui." .. key .. "-tooltip" },
     })
+    row_label.style.minimal_width = ROW_LABEL_WIDTH
     local button = strip.add({
       type = "button", name = "upl-" .. key, caption = { "upl-gui." .. key .. "-edit" },
       tooltip = { "upl-gui." .. key .. "-edit-tooltip" },
@@ -1436,12 +1450,13 @@ function gui.open(player)
   -- trash checkbox: the checkbox IS the opt-in, so it has nothing to hide behind.
   local circuits_row = group("circuits")
   circuits_row.style.vertical_align = "center"
-  circuits_row.add({
+  local circuit_box = circuits_row.add({
     type = "checkbox", name = "upl-circuit-enabled", state = choices.circuit_enabled == true,
     caption = { "upl-gui.circuit-enabled" },
     tooltip = { "upl-gui.circuit-enabled-tooltip" },
     tags = dispatch.tags("circuit-enabled"),
   })
+  circuit_box.style.minimal_width = ROW_LABEL_WIDTH
   local limits_button = circuits_row.add({
     type = "button", name = "upl-circuit-limits", caption = { "upl-gui.circuit-limits" },
     tooltip = { "upl-gui.circuit-limits-tooltip" },

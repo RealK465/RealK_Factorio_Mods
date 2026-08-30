@@ -9,6 +9,47 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-08-30 - Build options rows line up, and the beacon count stops floating
+
+The owner's screenshot circled four buttons that did not share an edge: *Ratios...*,
+*Edit...*, *Edit...*, *Limits...*. The cause was structural rather than cosmetic — each row is
+its own horizontal flow, so a button's left edge is wherever its own caption ends, and the
+four captions differ by ~90px. One shared `ROW_LABEL_WIDTH` on each row's first element fixed
+all four at once; the buttons needed nothing, being already at `button`'s 108px minimum. The
+rule and the rejected `table` shape are in `decisions.md`.
+
+The beacon count drop-down was a second, unrelated cause with the same look: the beacons flow
+is the only group mixing control heights and carried no `vertical_align`, so the drop-down
+hung off the top of the 40px pickers. Centred, plus an 8px margin. The owner picked keeping it
+in the icon strip over giving it a labelled row of its own.
+
+**The width was measured, not reasoned.** Nothing reads a rendered size (`analysis/api.md`
+§19), so 200 started as an estimate off the owner's screenshot and was then checked the only
+way there is: a throwaway `tests/shot_spec.lua` opened the modal with show-all on and an item
+picked, took a `show_gui` screenshot in the graphics tier, and was deleted with its
+`control.lua` line once the picture confirmed one column. Worth repeating for any future GUI
+geometry — the same trick left `upl-panel-proof.png` behind on an earlier run. Headless
+332/332 before, graphics 333/333 with the throwaway in.
+
+**The static tier earned its place.** The first cut named the new local `label`, which shadows
+the `label(key)` helper the MAKES block defines one scope up — luacheck W431, invisible to all
+332 in-game tests because the shadowing is harmless at runtime and the specs only read element
+names. Renamed `row_label`. Nothing else in the five-tier gate would have caught it.
+
+Shipped the same day as **1.0.2 for Factorio 2.1 and 1.0.3 for Factorio 2.0**, on the owner's
+ask. 1.0.0 and 1.0.1 were both tagged, so the work could not join an open section, and 1.0.1
+was taken by the 2.0 port — which is also why `fmtk version` was no use here: it only ever
+increments the patch and would have collided. `info.json` and both sections were written by
+hand, 1.0.2 carrying the entry (the owner's own wording) and 1.0.3 the port pointer, both
+stamped before either zip was built so the two branches ship one identical file.
+
+The port went across by hand rather than by cherry-pick, `scripts/gui.lua` being a forked file:
+the six edits re-applied, then proved by diffing the two working copies — the only difference
+left is the three `contains_value` hunks the fork has always had. The
+owner also replaced gallery shot 01 with one taken after the fix, so the portal swap was a
+single image: five of the six live ids already equalled their local files' sha1, and only that
+one had to be uploaded.
+
 ## 2026-08-29 - 1.0.0 and 1.0.1 ship: the 1.0 milestone, both tracks
 
 Released on the owner's ask, both tracks in one session: **1.0.0 for Factorio 2.1** from
