@@ -133,11 +133,25 @@ real numbers and the references; the user has taste and the final call.
 | 8 | State & animation | Active and inactive side by side. Motion reads effortful and mechanical; status glow stays small and local. If it rotates, how direction reads at a glance. |
 
 For stage 4, prefer naming parts the render library already builds — that is cheaper than
-inventing them, and the authoritative list is one command:
+inventing them, and the authoritative list is one call:
 
 ```
-grep -n "^def " ../factorio-graphics/scripts/factorio_render/greeble.py
+python -c "import sys; sys.path.insert(0, '.claude/skills/factorio-graphics/scripts'); \
+           from factorio_render import parts; print(parts.catalogue())"
 ```
+
+It returns both placement verbs' vocabularies — `place()` for parts defined by a centre,
+`run()` for parts defined by a path — plus `polyhaven:<slug>`, any CC0 industrial model,
+which `parts.py` imports and conditions for the material stack automatically. **A component
+named from that list costs one line to build; one invented here costs an afternoon.** That is
+worth knowing while choosing components, which is why it belongs in this stage and not in the
+modelling one.
+
+**It does not lower the bar for what a component must be.** A part still needs a stated
+purpose, and being available is not a justification. Four kitbash iterations on 2026-08-30
+assembled real CC0 machinery with no design behind it and produced, in order, props on a flat
+slab, a scrap pile, and plumbing routed where the camera never sees it. Cheap parts raise the
+ceiling on complexity; only this session raises the floor on coherence.
 
 ## Phase 4 — Write the document and hand off
 

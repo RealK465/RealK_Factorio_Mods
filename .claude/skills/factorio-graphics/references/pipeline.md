@@ -17,14 +17,66 @@ skill, so it travels with a clone.
 |---|---|---|
 | `rig.py` | yes (`bpy`) | camera, sun, colour management, Cycles + device selection, render passes |
 | `greeble.py` | yes | the vanilla parts vocabulary as bmesh builders |
+| `parts.py` | yes | placing them — plus CC0 models — so a machine is a parts list |
 | `imaging.py` | no | alpha-correct resize, crop, sheets, mipmaps, shadows |
 | `post.py` | no | the paint-over pass |
 | `vanilla.py` | no | composite real prototypes, A/B contact sheets, colour sampling |
 | `gates.py` | no | the numeric checks |
 
 Beside them, two fetchers and a harness: `polyhaven.py` and `ambientcg.py`
-(CC0 textures, see `materials.md`) and `screenshot/` (photograph a sprite in
-the running engine, below).
+(CC0 textures *and models*, see `materials.md`) and `screenshot/` (photograph a
+sprite in the running engine, below).
+
+## `parts.py` — why a machine should be a parts list
+
+**The ceiling on sprite complexity in this repo has never been the renderer.**
+It is that every part costs ~50 lines of Python: `pure-modules-realk`'s beacon
+is 4,054 lines for one entity, so "add a fan housing" is an afternoon and
+`design-language.md`'s *8–15 distinct kinds of functional detail* stays
+aspirational. `parts.py` exists to make adding a part one line.
+
+```python
+a = parts.Assembly("PB_", mats)
+a.place("greeble:radiator",               at=(-0.9, -1.2), size=0.6,  mat="iron")
+a.place("polyhaven:exterior_aircon_unit", at=( 1.0, -0.8), size=1.1, mat="gunmetal")
+a.run("greeble:cable", (0.4, -1.2, 0.6), (-0.5, -1.2, 0.7), sag=0.18, mat="cable")
+obstacles, surfaces = a.survey(collection)
+a.scatter(parts.SCATTERABLE, area=REGIONS, z=0.75, n=20,
+          obstacles=obstacles, surfaces=surfaces, keep_clear=(1.02, 1.70))
+print(a.report())          # distinct kinds placed, against the 8-15 band
+```
+
+Two verbs, because a cable and a gauge pod are not the same kind of thing:
+**`place()`** for parts defined by a centre, **`run()`** for parts defined by a
+path. `parts.catalogue()` lists both; the `size` tuple order differs per
+builder and is read from `greeble.py` rather than assumed.
+
+Three things it does that are easy to leave out, each measured:
+
+- **The import recipe is applied for you.** An outside mesh dropped in raw
+  marks 21.8% of the silhouette as worn edge; with a bevel, 3.0%. A *fused*
+  mesh — what an AI generator exports — loses per-object colour jitter entirely
+  (sd 0.185 → 0.002) and gets it back only via `parts.split_loose()`
+  (→ 0.267). Skip any of it and the wear stack quietly stops working.
+- **`survey()` reads the deck off the scene** — what is tall enough to be an
+  obstacle, what can be stood on — and `scatter()` sits each part on the
+  surface actually beneath it. A part placed at a fixed z floats wherever
+  there is no panel under it, and a 2 px gap is visible in game.
+- **A shortfall is reported, with reasons.** The beacon has always asked for
+  20 tertiary greebles and placed 8; nothing said so. It now prints the
+  rejection tally, and raising the attempt budget 5× only reached 10 — the
+  deck is full, which is a design fact worth knowing rather than a number to
+  tune.
+
+`scatter()` also takes callables, so a mod keeps its own part vocabulary and
+still gets the sampler — the beacon's bolt/stub/box/clip are not `greeble.py`
+parts and there is no reason to force them to be.
+
+**What it deliberately does not do is decide where parts go.** Four kitbash
+iterations on 2026-08-30 produced props on a slab, then a scrap pile, then
+plumbing routed behind the mass where the camera never sees it — every failure
+a composition failure, none of them fixed by better parts. Composition is
+`factorio-entity-design`'s job and it happens before this module is imported.
 
 Everything except `rig`/`greeble` is plain Pillow + numpy, so post, comparison
 and gating run in system Python and never wait on Blender.
@@ -118,7 +170,10 @@ source PNGs at 64 px/tile: `beacon-bottom` luminance sd **43.0**,
 **31.6** — flat against every one of them, and that gap is the most reliable
 "this is a render, not a Factorio sprite" signal there is. `contrast_amount
 0.60` lands it at 43.4 with nothing clipped. **Target band for an entity body:
-luminance sd 43-52** (`gates.contrast`).
+luminance sd 43-52**. `gates.contrast` enforces the wider **(43, 56)** — 43-52
+is what vanilla measures, 43-56 is what fails the build. Aim at the first,
+expect the second; they are different numbers on purpose and quoting the
+measured range as the enforced one has produced false alarms here.
 
 ### Luminance sd alone is not enough — check WHERE the contrast is
 
