@@ -82,13 +82,20 @@ then housing, then the four flows, then the tertiary scatter — and an `audit()
 that prints the detail budget and the north overhang before you spend a render
 on either.
 
-Two numbers it enforces, both of which this repo shipped wrong:
+Three numbers it enforces, all of which this repo shipped wrong:
 
 - **distinct kinds ≥ 8** on a production machine (`Assembly.report()`), because
   the band in `design-language.md` is only a target if something counts it.
 - **tallest `y + z` under the footprint's half-depth + 0.8**, because that sum
   sets how far the sprite draws past its own tiles. Vanilla 5×5s overhang
   0.52–0.81; the beacon shipped at 2.06 and covered the machine behind it.
+- **the east and west extremes on parts whose y ranges do not overlap**, which
+  is what stops a scanline crossing the sprite edge to edge. **No vanilla
+  entity has a single full-width row**; the beacon shipped with 88% of its rows
+  full width, because a square deck plate projects to a filled square at this
+  rig and one object then owns the whole outline. `gates.silhouette` is the
+  finished check and `design-language.md` → *Silhouette* has the arithmetic;
+  the template checks it on the geometry, before a render is paid for.
 
 Writing a generator from scratch instead is how the beacon reached 4,054 lines
 for one entity — at which point changing a shape is expensive, and
@@ -170,6 +177,34 @@ Blender saves to wherever it was last pointed, which is almost never here — pa
   (`0.385 * rise`, `0.36 * run`) and the curve keeps its shape at any size.
   Note `run` is per **axis** if the handles were written per axis — using the
   diagonal length instead overshoots by √2.
+
+- **A mast's RADIUS is a fraction of its rise too, and so is every fitting
+  on it.** Same trap, one level up, and it is the one that actually shows.
+  The beacon's electrode tubes were 0.19 thick against a 1.95 rise — a 10:1
+  mast. Lowering them to a 1.20 rise for the overhang left the radius alone,
+  so the identical tube became 3:1 across its own diameter: a stub whose
+  bend read as a kink and whose taper read as a traffic cone. The winding
+  at its foot did not scale either, and on a 48 px pylon that bulb ate 15 px
+  of the 48. **Whenever a dimension becomes a knob, sweep everything that
+  was proportioned against it** — radius, taper, collars, caps, wire gauge —
+  and put them all behind the one constant so they cannot drift apart. The
+  beacon had `PYLON_R0` *and* a hard-coded `bevel_depth` *and* a hard-coded
+  taper, three spellings of one number.
+
+- **An inward-leaning mast is far shorter on screen than it is in the model,
+  and by different amounts at the near and far ends of the machine.** Screen
+  row is `-(y + z)`, so a pylon that rises 1.20 while leaning 0.45 *inward*
+  travels only 0.75 tiles on screen if it leans north (the rise and the run
+  cancel) but 1.65 if it leans south (they add). Measured on the beacon's
+  four identical corner electrodes: **48 px at the back, 106 px at the
+  front.** Nothing is wrong with the geometry and it still reads as "those
+  poles are deformed".
+
+  The painful part: that apparent length **is** the north overhang, one for
+  one. Raising the tips to lengthen the rear masts raises the sprite's top
+  edge by exactly as much, so there is no free version of the fix — the only
+  levers are starting the tube lower inside its base, and not spending the
+  little length there is on fittings.
 
 - Generator scripts should be **idempotent**: delete only your own prefixed objects (`AM4_*`) and rebuild. And make `make_material()` *re-apply* values to an existing datablock rather than early-returning — otherwise palette edits silently do nothing.
 
@@ -666,6 +701,9 @@ Mipmaps are optional but vanilla-standard — they stop icons shimmering when sc
 
 - [ ] **Built the `vanilla.contact_sheet` A/B — your layers and a real vanilla entity's, on Nauvis dirt, at 1× and 3× — and looked at it.** Nothing else on this list matters if this fails.
 - [ ] `gates.check_all` run and green: contrast, clipping, crop waste, shadow, tint masks, and whichever of remnant / frozen apply
+- [ ] **`gates.silhouette` run and green** — zero full-width rows, fill ≤ 0.90, ragged ≥ 1.05.
+      No vanilla entity has one scanline crossing it edge to edge; this repo's beacon had 88%
+      of its rows that way through a published release, past every other gate here
 - [ ] **`gates.wear_mask` run on the edge-wear term** — the only gate that measures the *model*. Every other one reads the output PNG, which is how a wear term that marked 55% of the beacon shipped unnoticed (`references/materials.md`)
 - [ ] Form/grain ratio checked against a vanilla entity of the **same footprint**, and saturation distribution against `references/materials.md`
 - [ ] Object-ID render run — nothing the design depends on is buried inside another object (`references/pipeline.md`)
@@ -673,7 +711,8 @@ Mipmaps are optional but vanilla-standard — they stop icons shimmering when sc
 - [ ] Every resize went through `imaging`, not `Image.resize`
 - [ ] Drawn size against the entity's footprint checked with `area_vs_footprint`, and the **north overhang** measured against vanilla's 0.52–0.81 tiles
 - [ ] Design plan written per `references/design-language.md` and the render reviewed against it
-- [ ] Silhouette broken on at least two sides, asymmetric, front elevation visible (not plan view) — and it still reads clearly at 32 px
+- [ ] Silhouette broken on at least two sides, asymmetric, front elevation visible (not plan view) — and it still reads clearly at 32 px. A square deck plate projects to a
+      filled square at this rig, and four symmetric corner posts undo the cut on their own
 - [ ] At least 8 distinct kinds of functional greeble on a production machine (fewer on a utility entity), each with a visible purpose — power in, material through, heat out, human service
 - [ ] At least 4 material zones; identity paint desaturated and confined to housing; one semantic accent colour
 - [ ] Wear placed by physics — edges chipped clean, crevices grimed, soot at heat exits, rust at feet — never uniform noise

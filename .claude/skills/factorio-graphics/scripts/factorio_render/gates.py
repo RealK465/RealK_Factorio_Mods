@@ -203,6 +203,62 @@ def _erode5(mask):
     return m
 
 
+def silhouette(path, max_full_pct=0.0, max_fill=0.90, min_ragged=1.05, floor=128):
+    """The outline: is the sprite its own bounding box?
+
+    Three numbers off the alpha mask, measured on every machine sprite shipped
+    in 2.1 and Space Age (2026-08-30):
+
+                        fill  ragged  full-width rows
+      vanilla beacon    0.85    1.33        0%
+      radar             0.66    2.19        0%
+      roboport          0.74    1.85        0%
+      nuclear reactor   0.72    1.14        0%
+      foundry           0.58    1.63        0%
+      biolab            0.83    1.37        0%
+      electromag plant  0.88    1.54        0%
+      -- this repo's beacon, as shipped --
+      pure beacon       0.94    0.46       88%
+
+    `full_pct` is the one that matters and it is the reason this exists.
+    **Not one vanilla entity has a single scanline that crosses it from edge
+    to edge**, and it is not an archetype thing -- the flat-topped platforms
+    (beacon, radar, roboport, reactor) obey it exactly as the towers do. The
+    Pure beacon did it on 88% of its rows, because a square deck plate
+    projects to a filled square at the 45-degree rig and that one object then
+    sets the whole outline. Seven other gates and a published release passed
+    over it; nothing that reads colour or contrast can see it.
+
+    The geometry to fix it by, which is not obvious: screen row is set by
+    y + z, so a wall at constant x occupies every row from its minimum y+z to
+    its maximum. A row is full width only when the west extreme and the east
+    extreme both fall in it -- so put those two on parts whose y ranges are
+    disjoint by more than the deck is thick, and the whole class of failure
+    goes away.
+
+    `fill` (silhouette area / bbox area) and `ragged` (alpha perimeter / bbox
+    perimeter) are the softer companions. Defaults sit just outside the
+    vanilla spread rather than at its middle: this is a floor, not a target.
+    """
+    a = np.asarray(Image.open(path).convert("RGBA"))[..., 3]
+    m = a >= floor
+    if not m.any():
+        return {"ok": False, "error": "no opaque pixels"}
+    ys, xs = np.nonzero(m)
+    sub = m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    h, w = sub.shape
+    edge = np.zeros_like(sub)
+    edge[:-1, :] |= sub[:-1, :] ^ sub[1:, :]
+    edge[:, :-1] |= sub[:, :-1] ^ sub[:, 1:]
+    full = float(sub.all(axis=1).mean() * 100)
+    fill = float(sub.mean())
+    ragged = float(edge.sum()) / float(2 * (w + h))
+    return {"ok": full <= max_full_pct and fill <= max_fill and ragged >= min_ragged,
+            "full_width_rows_pct": round(full, 1), "fill": round(fill, 2),
+            "ragged": round(ragged, 2),
+            "bands": (max_full_pct, max_fill, min_ragged)}
+
+
 def check_all(items):
     """items: list of (label, callable) -> prints a table, returns all-ok."""
     ok = True
