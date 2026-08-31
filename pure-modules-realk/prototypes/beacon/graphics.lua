@@ -56,11 +56,11 @@ end
 -- so it covers most of the machine's height, and packing it to the rings'
 -- box would have grown the far larger anim sheet to match.
 local arc_frames = {
-  width = 276, height = 332,
+  width = 276, height = 378,
   frame_count = 64, line_length = 8,
   animation_speed = 0.5,
   scale = 0.5,
-  shift = util.by_pixel(0.5, -49.0),
+  shift = util.by_pixel(0.5, -60.0),
 }
 
 local function arcs_layer(extra)
@@ -95,13 +95,13 @@ local set = {
         layers = {
           {
             filename = g .. "beacon-base.png",
-            width = 306, height = 400, scale = 0.5,
-            shift = util.by_pixel(0.0, -23.0),
+            width = 306, height = 448, scale = 0.5,
+            shift = util.by_pixel(0.0, -35.0),
           },
           {
             filename = g .. "beacon-shadow.png",
-            width = 378, height = 324, scale = 0.5,
-            shift = util.by_pixel(17.5, 1.5),
+            width = 410, height = 324, scale = 0.5,
+            shift = util.by_pixel(25.5, 1.5),
             draw_as_shadow = true,
           },
         },
@@ -144,7 +144,7 @@ local set = {
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 0.5,
-        shift = util.by_pixel(0.0, -65.5),
+        shift = util.by_pixel(0.0, -86.5),
       },
     },
     -- The crystal and the ring seams AS LIGHT. Rendered as an emission-only
@@ -171,7 +171,7 @@ local set = {
         frame_count = 64, line_length = 8,
         animation_speed = 0.5,
         scale = 1.0,
-        shift = util.by_pixel(0.0, -66.0),
+        shift = util.by_pixel(0.0, -87.5),
         draw_as_light = true,
         blend_mode = "additive",
       },
@@ -219,8 +219,8 @@ local set = {
 if feature_flags["freezing"] then
   set.frozen_patch = {
     filename = g .. "beacon-frozen.png",
-    width = 306, height = 390, scale = 0.5,
-    shift = util.by_pixel(0.0, -25.0),
+    width = 306, height = 438, scale = 0.5,
+    shift = util.by_pixel(0.0, -37.0),
   }
   -- The rings and crystal are in the patch too, and the ice on them was
   -- rendered against animation frame 0. Pinning the animation there while

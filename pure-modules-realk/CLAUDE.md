@@ -96,17 +96,6 @@ entries, and that is wrong for Factorio — it caches by the resolved file, veri
 (see the repo `CLAUDE.md`). Keep the dots anyway so `modules/definitions.lua`, required from
 four places, is grep-able as one spelling.
 
-**`beacon_gen.py` delegates its deck reading and greeble scattering to
-`factorio_render.parts`.** `deck_survey` and `surface_z` used to be written
-here and were the best implementation of them in the repo, so they were
-promoted into the shared library where every entity gets them; the local
-functions are now thin wrappers. What stays local is what is genuinely this
-beacon's — its four greeble kinds, its scatter regions, and the walkway
-annulus the scatter must leave open. `parts.scatter()` takes callables so that
-vocabulary survives the move. Its rejection tally is worth reading: this deck
-asks for 20 tertiary greebles and fits about 10, and raising the attempt
-budget five-fold does not change that.
-
 The numbers in `prototypes/beacon/graphics.lua` and `prototypes/beacon/remnants.lua`
 (widths, heights, shifts) are **measured output** of the sheet scripts —
 `sheet_numbers.txt` / `slot_numbers.txt` / `remnant_numbers.txt` in the beacon assets

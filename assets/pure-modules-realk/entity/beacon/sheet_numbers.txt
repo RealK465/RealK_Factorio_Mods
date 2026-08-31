@@ -1,6 +1,6 @@
-base: width=306 height=400 shift=util.by_pixel(0.0, -23.0)
-shadow: width=378 height=324 shift=util.by_pixel(17.5, 1.5)
-anim: width=218 height=222 shift=util.by_pixel(0.0, -65.5) frames=64 line_length=8 sheet=1744x1776
-arcs: width=276 height=332 shift=util.by_pixel(0.5, -49.0) frames=64 line_length=8 sheet=2208x2656
+base: width=306 height=448 shift=util.by_pixel(0.0, -35.0)
+shadow: width=410 height=324 shift=util.by_pixel(25.5, 1.5)
+anim: width=218 height=222 shift=util.by_pixel(0.0, -86.5) frames=64 line_length=8 sheet=1744x1776
+arcs: width=276 height=378 shift=util.by_pixel(0.5, -60.0) frames=64 line_length=8 sheet=2208x3024
 deck: width=176 height=88 shift=util.by_pixel(2.5, -7.5) frames=64 line_length=8 sheet=1408x704
-glow: width=111 height=113 shift=util.by_pixel(0.0, -66.0) frames=64 line_length=8 scale=1.0 sheet=888x904
+glow: width=111 height=113 shift=util.by_pixel(0.0, -87.5) frames=64 line_length=8 scale=1.0 sheet=888x904
