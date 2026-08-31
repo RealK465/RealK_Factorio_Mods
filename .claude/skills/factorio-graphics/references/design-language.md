@@ -80,12 +80,34 @@ Two boundaries keep the story honest:
 ~64–200 px in play, and the silhouette does more identification work than
 every greeble combined.
 
-- **Never ship the bounding box.** Break the outline on at least two sides:
-  at least one tall element (mast, chimney, dish, tower, tank) and at least
-  one low one (pipe stub, skid foot, hopper) past the footprint. Model to the
-  collision box, then let soft details breach the tile modestly — vanilla
-  balances "overlapping the tile to be aesthetically nicer" against
+- **Never ship the bounding box**, and this one has a hard number:
+  **no horizontal scanline may cross the sprite from edge to edge.** Measured
+  across every machine sprite in 2.1 and Space Age — beacon, radar, roboport,
+  nuclear reactor, foundry, biolab, electromagnetic plant — **not one has a
+  single full-width row**. It is not an archetype thing; the flat-topped
+  platforms obey it exactly as the towers do. Break the outline on at least
+  two sides: at least one tall element (mast, chimney, dish, tower, tank) and
+  at least one low one (pipe stub, skid foot, hopper) past the footprint.
+  Model to the collision box, then let soft details breach the tile modestly —
+  vanilla balances "overlapping the tile to be aesthetically nicer" against
   readability (FFF-146).
+
+  Two companion numbers off the same sprites: **fill** (silhouette area over
+  bounding-box area) runs 0.58–0.88, and **ragged** (alpha perimeter over
+  bounding-box perimeter) runs 1.14–2.19. `gates.silhouette` measures all
+  three. This repo's beacon shipped at fill 0.94, ragged 0.46 and **88%
+  full-width rows** — a published release, past seven other gates, because
+  every one of them reads colour or contrast and none of them read shape.
+
+  **The geometry that fixes it is not obvious, so here it is.** Screen row is
+  set by `y + z`, so a wall at constant x occupies every row from its minimum
+  `y + z` to its maximum. A row is full width only when the west extreme and
+  the east extreme both land in it. So give those two extremes to parts whose
+  y ranges are **disjoint by more than the deck is thick** — widest to the east
+  at the front, widest to the west at the back — and the entire failure class
+  disappears. A square deck plate is the usual culprit: at this rig it projects
+  to a filled square and sets the whole outline by itself. Four symmetric
+  corner posts re-create the fault on their own, whatever the hull does.
 - **Vary the roofline.** Vanilla tops are jagged with mechanism (the
   assembler's whole top deck is exposed machinery), not flat lids.
 - **Prefer asymmetry.** No face repeats another; attachments sit off-centre

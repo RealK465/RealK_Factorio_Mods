@@ -118,6 +118,25 @@ def build(mats):
     return a
 
 
+def _world_points():
+    """Every renderable vertex in world space, by object."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    out = []
+    for ob in bpy.context.scene.objects:
+        if ob.type not in ("MESH", "CURVE"):
+            continue
+        try:
+            me = ob.evaluated_get(dg).to_mesh()
+        except Exception:
+            continue
+        if me is None or not me.vertices:
+            continue
+        m = ob.matrix_world
+        out.append((ob.name, [m @ v.co for v in me.vertices]))
+        ob.evaluated_get(dg).to_mesh_clear()
+    return out
+
+
 def audit(a):
     """Spend the detail budget deliberately, and prove the sprite fits."""
     r = a.report()
@@ -128,28 +147,53 @@ def audit(a):
               "machine). Name the missing flow rather than adding more of what "
               "is already there -- uniform density reads as noise.")
 
-    tallest, name = 0.0, "?"
-    dg = bpy.context.evaluated_depsgraph_get()
-    for ob in bpy.context.scene.objects:
-        if ob.type not in ("MESH", "CURVE"):
-            continue
-        try:
-            me = ob.evaluated_get(dg).to_mesh()
-        except Exception:
-            continue
-        if me is None or not me.vertices:
-            continue
-        top = max((ob.matrix_world @ v.co).y + (ob.matrix_world @ v.co).z
-                  for v in me.vertices)
+    pts = _world_points()
+    if not pts:
+        return
+
+    tallest, name = -1e9, "?"
+    for nm, vs in pts:
+        top = max(p.y + p.z for p in vs)
         if top > tallest:
-            tallest, name = top, ob.name
-        ob.evaluated_get(dg).to_mesh_clear()
+            tallest, name = top, nm
     over = tallest - FOOTPRINT[1] / 2
     print("[detail] tallest y+z = %.2f (%s) -> overhang %.2f tiles "
           "(vanilla 5x5: 0.52-0.81)" % (tallest, name, over))
     if tallest > APEX_LIMIT:
         print("[detail] OVER the limit -- this will draw over the machine "
               "placed behind it. Lower it, or move it south.")
+
+    # No scanline may cross the sprite edge to edge. Screen row is set by y+z,
+    # so a row is full width only when the west extreme and the east extreme
+    # both land in it -- give those two to parts whose y ranges are disjoint
+    # by more than the hull is thick and the whole failure class goes away.
+    # Not one vanilla entity has a full-width row; this repo's beacon shipped
+    # with 88% of them. `gates.silhouette` is the same check on the finished
+    # PNG; this one is free and runs before the render.
+    east = max(max(p.x for p in vs) for _, vs in pts)
+    west = min(min(p.x for p in vs) for _, vs in pts)
+
+    def extreme_rows(at_east):
+        lo, hi, who = 1e9, -1e9, set()
+        for nm, vs in pts:
+            for p in vs:
+                if (p.x > east - 0.06) if at_east else (p.x < west + 0.06):
+                    lo, hi = min(lo, p.y + p.z), max(hi, p.y + p.z)
+                    who.add(nm)
+        return lo, hi, sorted(who)
+
+    e_lo, e_hi, e_who = extreme_rows(True)
+    w_lo, w_hi, w_who = extreme_rows(False)
+    print("[silhouette] east %+.2f over rows y+z %.2f..%.2f  %s"
+          % (east, e_lo, e_hi, ", ".join(e_who[:3])))
+    print("[silhouette] west %+.2f over rows y+z %.2f..%.2f  %s"
+          % (west, w_lo, w_hi, ", ".join(w_who[:3])))
+    overlap = min(e_hi, w_hi) - max(e_lo, w_lo)
+    if overlap > 0:
+        print("[silhouette] FAIL: the extremes share %.2f tiles of rows, so every "
+              "row in that band is full width. Move one of them." % overlap)
+    else:
+        print("[silhouette] ok: extremes disjoint by %.2f tiles" % -overlap)
 
 
 def main():
