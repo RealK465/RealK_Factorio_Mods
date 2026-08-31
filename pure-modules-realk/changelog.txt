@@ -1,12 +1,4 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.0.10
-Date: ????
-  Graphics:
-    - Paint wear on the Pure beacon now chips along edges instead of washing
-      across whole panels, so its colours read stronger at normal zoom.
-    - The Pure beacon is shorter, so it no longer draws over the machine
-      placed behind it.
----------------------------------------------------------------------------------------------------
 Version: 1.0.9
 Date: 2026-08-15
   Changes:

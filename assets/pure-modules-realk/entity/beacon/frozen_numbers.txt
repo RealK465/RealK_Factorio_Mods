@@ -1,1 +1,1 @@
-frozen: width=306 height=390 shift=util.by_pixel(0.0, -25.0)
+frozen: width=306 height=438 shift=util.by_pixel(0.0, -37.0)
