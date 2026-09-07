@@ -1018,9 +1018,10 @@ per-release approval.
   per column** (2026-09-07 review): a repeated quality's N reserve inserters read the
   tier's count summed over N chests and all act on one tick's reading, so a threshold of
   `min + hand` let N grabs land `(N-1)*hand` under the floor; the M row carries
-  `min + hand * N` (reasoned from the engine's once-a-tick network value, not measured),
-  each chest's request still grows by one hand, and the min-too-big warning tests the same
-  sum against N chests. `hand` is the chosen inserter's researched hand at planning time
+  `min + hand * N` (measured, `analysis/api.md` §33: two lockstep inserters drop the sum by
+  two hands inside one tick, three by three, and the bare `min + hand` left a floor of 10
+  at 5), each chest's request still grows by one hand, and the min-too-big warning tests the
+  same sum against N chests. `hand` is the chosen inserter's researched hand at planning time
   (`planner.inserter_hand`: 1 + the prototype's own bonus + the force's bulk or plain
   research bonus, quality-blind — 12 for a bulk inserter and 4 for the rest at full
   research), or the wizard's **Hand size** field when the player typed one (`circuit_hand`,
