@@ -111,6 +111,21 @@ supersedes the "one green network" sentence and the census-connectivity pins in
 to say the floor is per tier, not per chest. The review chose neither — (a) rewires a
 decided topology, (b) re-words the owner's text.
 
+### The pinned reserve hand and later capacity research
+**Status:** an accepted trade (2026-09-07, `decisions.md` → *Hand size*), recorded so the
+follow-up is not re-derived.
+
+The reserve inserters are pinned to the hand the plan was made with, so a capacity research
+finished after the stamp leaves them at the old hand — still exact, just no faster — until
+the player retunes the inserter's override and the M row together, or re-stamps. Two shapes
+were offered and passed over, either of which could come back if players ask: defaulting the
+Hand size field to the **max researchable** hand (sum the `inserter-stack-size-bonus` and
+`bulk-inserter-capacity-bonus` effects over the technology tree — leveled and infinite
+technologies need a rule of their own), which keeps full speed forever at the price of
+over-keeping by the unresearched difference; or the surplus-sized hand (`analysis/api.md`
+§33), which needs no number at all but puts each minimum on the combinator as a negative
+item row.
+
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short

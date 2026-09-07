@@ -556,23 +556,27 @@ describe("planner.plan", function()
         end
       end
 
-      -- The named minimum reaches its tier's inserter; the unset one (normal, default 0)
-      -- keeps nothing back and is left ungated and unwired.
+      -- The named minimum reaches its tier's inserter, raised by the hand it is pinned to
+      -- -- 12, the bulk inserter's at full research (api.md S33); the unset one (normal,
+      -- default 0) keeps nothing back and is left ungated, unwired and unpinned.
       for _, e in pairs(plan.entities) do
         if e.circuit_role == "reserve" and e.circuit_tier == 2 then
           local c = e.control_behavior.circuit_condition
-          assert(c.comparator == ">" and c.first_signal.quality == "uncommon"
+          assert(c.comparator == ">=" and c.first_signal.quality == "uncommon"
             and c.second_signal.name == "signal-M" and c.second_signal.quality == "uncommon",
             "the uncommon reserve gates on " .. serpent.line(c))
+          assert(e.override_stack_size == 12,
+            "the uncommon reserve is pinned to " .. tostring(e.override_stack_size))
         end
         if e.circuit_role == "reserve" and e.circuit_tier == 1 then
-          assert(e.control_behavior == nil and e.circuit_wire_to == nil,
-            "a zero-minimum reserve was gated or wired")
+          assert(e.control_behavior == nil and e.circuit_wire_to == nil
+            and e.override_stack_size == nil, "a zero-minimum reserve was gated, wired or pinned")
         end
-        -- The floor rides the census chest's request too, or trash-unrequested bots would
-        -- hold the count below it forever: gears buffer one stack of 100, plus the floor.
+        -- The threshold rides the census chest's request too, or trash-unrequested bots
+        -- would hold the count below it forever: gears buffer one stack of 100, plus the
+        -- floor, plus the hand.
         if e.circuit_role == "census" and e.circuit_tier == 2 then
-          assert(e.requests[1].count == 125,
+          assert(e.requests[1].count == 137,
             "the floored census requests " .. e.requests[1].count)
         end
         if e.circuit_role == "census" and e.circuit_tier == 1 then
@@ -592,9 +596,41 @@ describe("planner.plan", function()
       end
       local rows = stack.limits.control_behavior.sections.sections[1].filters
       assert(#rows == 2 and rows[1].name == "signal-M" and rows[1].quality == "uncommon"
-        and rows[1].count == 25 and rows[2].name == "signal-C" and rows[2].quality == "rare"
+        and rows[1].count == 37 and rows[2].name == "signal-C" and rows[2].quality == "rare"
         and rows[2].count == 123, "the combinator rows read " .. serpent.line(rows))
       assert(stack.limits.control_behavior.is_on == nil, "an unpaused plan switched the combinator off")
+    end)
+
+    test("the hand: the chosen inserter's researched hand by default, the wizard's number when typed", function()
+      local function reserve_and_row(overrides)
+        local choices = choices_with({
+          circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25,
+        })
+        for key, value in pairs(overrides or {}) do choices[key] = value end
+        local plan = planner.plan(force(), choices)
+        local reserve
+        for _, e in pairs(plan.entities) do
+          if e.circuit_role == "reserve" and e.circuit_tier == 2 then reserve = e end
+        end
+        local row = stack_of(plan).limits.control_behavior.sections.sections[1].filters[1]
+        return reserve.override_stack_size, row.count
+      end
+      -- Full research: the planner's own pick is the bulk inserter, 1 + 11 researched; a
+      -- picked fast inserter reads 1 + 3 -- the two research families, told apart by `bulk`.
+      local pin, row = reserve_and_row()
+      assert(pin == 12 and row == 37, "bulk default: pin " .. pin .. ", row " .. row)
+      pin, row = reserve_and_row({ inserter = "fast-inserter" })
+      assert(pin == 4 and row == 29, "fast default: pin " .. pin .. ", row " .. row)
+      -- A typed hand wins, whatever the inserter; junk and zero fall back; the blueprint
+      -- field's uint8 caps a wild one.
+      pin, row = reserve_and_row({ circuit_hand = 3 })
+      assert(pin == 3 and row == 28, "typed 3: pin " .. pin .. ", row " .. row)
+      pin, row = reserve_and_row({ circuit_hand = "x" })
+      assert(pin == 12 and row == 37, "junk hand: pin " .. pin .. ", row " .. row)
+      pin, row = reserve_and_row({ circuit_hand = 0 })
+      assert(pin == 12 and row == 37, "zero hand: pin " .. pin .. ", row " .. row)
+      pin, row = reserve_and_row({ circuit_hand = 900 })
+      assert(pin == 255 and row == 280, "wild hand: pin " .. pin .. ", row " .. row)
     end)
 
     test("a zero cap through the choices means no cap at all, and no indicators", function()

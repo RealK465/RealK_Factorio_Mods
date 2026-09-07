@@ -30,7 +30,7 @@ Look at the constant combinator under the last machine. If it's switched off, th
 
 ## How do I change the limits after building?
 
-Open the same combinator. The **M** rows are the minimum kept of each quality and **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
+Open the same combinator. The **M** rows are the minimum kept of each quality plus the reserve inserter's hand size, so a full hand never dips below your minimum: keep 20 with a 12-item hand and M reads 32. **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
 
 ## Why is my fluid recipe refused?
 

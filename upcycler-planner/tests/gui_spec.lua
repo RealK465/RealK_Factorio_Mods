@@ -1149,6 +1149,48 @@ describe("the modal", function()
     assert(field.text == "25", "Enter left the field showing " .. field.text)
   end)
 
+  test("Hand size: the researched hand by default, armed by a minimum, only an edit stored", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    local function hand_field()
+      return circuits_panel()["upl-circuits-content"]["upl-circuit-hand-row"]["upl-circuit-hand"]
+    end
+    -- Full research and the default pick -- the bulk inserter -- read 12 (api.md S33), and
+    -- nothing is stored for an untouched field: the number follows the pick and the research.
+    assert(hand_field().text == "12", "the hand field opened as " .. hand_field().text)
+    assert(choices().circuit_hand == nil, "opening the wizard stored the default hand")
+    assert(hand_field().enabled == false, "the hand must be dead while no minimum is set")
+
+    -- A minimum arms it in place, through the Min field's own keystroke refresh.
+    local minimum = circuit_field("uncommon")
+    minimum.text = "20"
+    fire(minimum, defines.events.on_gui_text_changed)
+    assert(hand_field().valid and hand_field().enabled == true,
+      "a minimum did not arm the hand field in place")
+
+    -- Typing commits; Enter on an emptied field deletes the override and shows the default.
+    local field = hand_field()
+    field.text = "3"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices().circuit_hand == 3, "the keystroke did not commit")
+    assert(field.valid, "the keystroke rebuilt the modal under the cursor")
+    field.text = ""
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices().circuit_hand == nil, "Enter on an emptied field kept the override")
+    assert(field.text == "12", "Enter left the field showing " .. field.text)
+
+    -- Enter on the untouched default stores nothing -- the focus click's case.
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices().circuit_hand == nil, "Enter on the default froze it as an override")
+
+    -- A different inserter rebuilds the wizard with its own researched hand.
+    local picker = widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
+    picker.elem_value = { name = "fast-inserter", quality = "normal" }
+    fire(picker)
+    assert(hand_field().text == "4", "the fast inserter's hand reads " .. hand_field().text)
+  end)
+
   test("unchecking the checkbox takes the wizard with it", function()
     open_with_gears()
     choices().circuit_enabled = true

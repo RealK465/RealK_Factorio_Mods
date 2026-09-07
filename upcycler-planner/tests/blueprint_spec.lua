@@ -352,38 +352,49 @@ describe("stamping the blueprint", function()
         "recycler condition " .. serpent.line(cb.circuit_condition))
     end
 
-    -- The reserve inserters hold their floors, strictly above, at their own tiers, each
-    -- against signal-M at its own quality. A signal's quality reads back OMITTED when it is
-    -- normal -- the same default omission as a north direction or a whitelist filter_mode
-    -- -- so nil means normal here, on both sides of the comparison.
-    local reserves = 0
+    -- The reserve inserters hold their floors, at or above, at their own tiers, each
+    -- against signal-M at its own quality, and each pinned to the hand the floor was raised
+    -- by -- 12, the bulk inserter's at full research, read back off the ghost as
+    -- inserter_stack_size_override (api.md S33). A signal's quality reads back OMITTED when
+    -- it is normal -- the same default omission as a north direction or a whitelist
+    -- filter_mode -- so nil means normal here, on both sides of the comparison.
+    local reserves, pinned = 0, 0
     for _, ghost in pairs(ghosts_on(nauvis())) do
       if ghost.ghost_prototype.type == "inserter" then
         local cb = ghost.get_control_behavior()
         if cb and cb.circuit_enable_disable then
           local c = cb.circuit_condition
-          assert(c.comparator == ">", "reserve comparator " .. tostring(c.comparator))
+          -- The blueprint wrote ">=" and the ghost reads back the canonical U+2265 "greater
+          -- than or equal" sign: ComparatorString accepts both spellings on write and hands
+          -- back the one-character form (documented, api.md S33) -- the family's fourth
+          -- read-back trap. Spelled as bytes, since Factorio's Lua 5.2 has no \u escape.
+          assert(c.comparator == "\226\137\165", "reserve comparator " .. tostring(c.comparator))
           local tier = c.first_signal.quality or "normal"
           assert(c.second_signal.name == "signal-M"
             and (c.second_signal.quality or "normal") == tier,
             "reserve condition " .. serpent.line(c))
+          assert(ghost.inserter_stack_size_override == 12,
+            "reserve pinned to " .. tostring(ghost.inserter_stack_size_override))
           reserves = reserves + 1
+        elseif ghost.inserter_stack_size_override ~= 0 then
+          pinned = pinned + 1
         end
       end
     end
     assert(reserves == 2, reserves .. " gated inserters, expected one reserve per lower tier")
+    assert(pinned == 0, pinned .. " ungated inserters carry a pin -- only the reserves may")
 
-    -- The numbers themselves, on the combinator ghost: two floors then the cap. Runtime
-    -- names again -- a section's filter is { value = {...}, min = count } here, where the
-    -- blueprint wrote a flat row (api.md S32).
+    -- The numbers themselves, on the combinator ghost: two floors, each plus the hand of
+    -- 12, then the cap. Runtime names again -- a section's filter is { value = {...}, min =
+    -- count } here, where the blueprint wrote a flat row (api.md S32).
     local combinators = ghosts_of(nauvis(), "constant-combinator")
     assert(#combinators == 1, "combinator ghost count " .. #combinators)
     local filters = combinators[1].get_control_behavior().get_section(1).filters
     assert(#filters == 3, "combinator rows " .. #filters)
     assert(filters[1].value.name == "signal-M" and filters[1].value.quality == "normal"
-      and filters[1].min == 5, "row 1 reads " .. serpent.line(filters[1]))
+      and filters[1].min == 17, "row 1 reads " .. serpent.line(filters[1]))
     assert(filters[2].value.name == "signal-M" and filters[2].value.quality == "uncommon"
-      and filters[2].min == 9, "row 2 reads " .. serpent.line(filters[2]))
+      and filters[2].min == 21, "row 2 reads " .. serpent.line(filters[2]))
     assert(filters[3].value.name == "signal-C" and filters[3].value.quality == "rare"
       and filters[3].min == 77, "row 3 reads " .. serpent.line(filters[3]))
     assert(combinators[1].get_control_behavior().enabled == true,

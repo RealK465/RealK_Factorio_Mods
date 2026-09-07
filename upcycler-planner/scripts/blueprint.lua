@@ -142,6 +142,10 @@ function blueprint.entities(plan)
       use_filters = entity.filters and true or nil,
       filter_mode = entity.filter_mode,
       request_filters = request_filters_of(entity, plan.trash_unrequested),
+      -- The reserve inserters' pinned hand, in the blueprint's own uint8 field -- read back
+      -- off a ghost and a revived entity as inserter_stack_size_override (api.md S33). nil
+      -- on every other inserter, which then keeps whatever hand research allows.
+      override_stack_size = entity.override_stack_size,
       -- Written by the circuit pass in blueprint shape already (circuit_enabled plus a
       -- circuit_condition), so it passes through verbatim; nil on everything ungated.
       control_behavior = entity.control_behavior,

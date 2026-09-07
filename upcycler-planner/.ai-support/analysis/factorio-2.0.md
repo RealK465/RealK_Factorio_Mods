@@ -214,6 +214,22 @@ error whichever way round. The mod never reads it (it writes the blueprint `para
 identical on both), so no fork: `tests/blueprint_spec.lua` reads a revived panel back
 through `create_blueprint` instead, the one shape both engines share.
 
+## The hand-size fix ports unchanged — measured 2026-09-07
+
+The raised reserve threshold and the pinned hand (`api.md` §33) reached this track as the
+working-tree diff applied with `git apply --3way` and no conflict — the `planner.lua` and
+`gui.lua` hunks sit clear of the 2.0 seams — and `git diff main` still lists exactly the
+declared set. Every field the fix uses is in the 2.0.77 `runtime-api.json`, read before the
+run: `LuaEntity.inserter_stack_size_override` and `inserter_target_pickup_count`,
+`LuaEntityPrototype.bulk`, `inserter_stack_size_bonus` and `uses_inserter_stack_size_bonus`,
+`LuaForce.inserter_stack_size_bonus` and `bulk_inserter_capacity_bonus`, the inserter
+group's `override_stack_size`, and `ComparatorString`'s same read-back rule (`>=` written,
+the one-character sign returned). Measured on 2.0.77, not inferred: the whole suite (351,
+the same count as `main`) passes from the legacy worktree — the live pinned-and-gated
+inserter leaving exactly the floor, the pin and the raised M rows read back off stamped
+ghosts, and the Hand size field's researched default and commit rules — and the static tier
+is clean against the 2.0.77 typedefs.
+
 ## UNVERIFIED on 2.0
 
 - Whether `set_recipe(recipe, quality)` on a ghost errors or quietly ignores the quality for a

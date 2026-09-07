@@ -9,6 +9,62 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - The reserve floor becomes exact: the hand size joins the minimum
+
+Chatastroph's portal thread (`6a9ab547b795dcac42f8323c`) reported what decisions.md had
+been carrying as an accepted approximation: a Min of 20 against a bulk inserter took 12 the
+moment the chest held enough and left 8. The owner had already asked back "always 1, or a
+configurable inserter stack size?", and Chatastroph wanted both — the minimum raised by the
+hand, and a configurable hand so fast recipes keep their throughput.
+
+**Measured before designing**, through a throwaway `tests/probe_spec.lua` (registered,
+`-Filter probe`, deleted) — now `api.md` §33: the hand-size arithmetic off the prototype and
+the force matches `inserter_target_pickup_count` for every vanilla inserter, fresh and full,
+quality changing nothing; the shipped dip reproduced (8 of 20, 3 of 7); a disabled inserter
+still drops what it holds, even into a furnace too slow to take it; *Set stack size* is
+quality-exact and caps at the researched hand but treats a signal at or below zero as ONE;
+`override_stack_size` and the stack-size behaviour round-trip through ghosts and revive; and
+`>=` comes back off a ghost as the one-character sign, the family's fourth read-back trap
+(Factorio's Lua has no `\u{}` escape either, so the spec spells it in bytes).
+
+**Two designs on the table.** The probe's neat one: the combinator emits the item itself at
+`-min`, the wire then reads `count - min`, and the inserter's own *Set stack size* mode under
+`> 0` takes exactly the surplus — nothing to type, the full hand whenever there is plenty.
+The owner first read it as "add the hand to the minimum", and once the difference was laid
+out as a table chose Chatastroph's shape anyway, "better for high efficient results": the
+minimum on the combinator raised by the hand, the full hand always in play. Two follow-ups
+settled the details — the hand is the chosen inserter's researched hand at planning time
+(the owner asked whether that is readable at runtime; it is, off the force and the
+prototype, no entity needed), pinned by the blueprint's override so the arithmetic holds;
+the max-by-research default was offered and passed over, and sits in `deferred.md`.
+
+**What changed.** `circuits.decorate` takes `hand`: `>=` against `min + hand` on the M row,
+`override_stack_size = hand` on every reserved inserter, the census request raised by the
+whole threshold, and an assert when a minimum arrives without a hand. `planner.inserter_hand`
+and `planner.circuit_hand` own the number; plan() and validate() read it, and the
+min-too-big warning now tests `min + hand`. `blueprint.lua` passes the override through. The
+Limits wizard gained a **Hand size** field under the rows — only-on-edit `circuit_hand`,
+greyed until a minimum is set, rebuilt by the inserter picker through a new `hand`
+invalidation reason. Locale, FAQ and the combinator's description say "plus the hand size".
+Suite 348 → 351 (pure 104): the pure spec pins the raised rows, the pin and the missing-hand
+assert; plan_spec the default, typed, junk and clamped hand; the blueprint spec reads the pin
+off ghosts; loop_spec's floor test runs the shipped shape (a 12-hand pinned to 5 against
+`>= 20`, 30 in, exactly 15 kept); gui_spec drives the field and the picker rebuild. Static
+clean. Changelog: a Bugfixes entry in the open 1.1.0 section. Three reviewers over the diff
+found no defect; their simplifications landed before the commit — the Hand size field rides
+the ratio and column counts' own `override_count` handler instead of a fourth copy of its
+commit rules, the two wizard predicates share one guarded `circuit_limits_of`, and the
+field's default reads `choices.inserter` straight, which `apply_defaults` guarantees before
+any side panel can open.
+
+**Committed, pushed and ported the same day, on the owner's ask.** The 2.0 port is fork-free,
+measured rather than read: the working-tree diff applied onto the legacy worktree with no
+conflict (the planner and gui hunks sit clear of the 2.0 seams; every field the fix uses is
+in the 2.0.77 `runtime-api.json`, `ComparatorString`'s read-back rule included), and the
+2.0.77 install ran the whole suite green before anything was committed — 351/351 headless,
+pure 104, static clean against its own typedefs. Nothing published; 1.1.0 stays open with
+`Date: ????`, and the 2.0 release number waits for a release ask as before.
+
 ## 2026-09-07 - The limits move onto a combinator, and lamps say what the loop is doing
 
 pacak's portal thread asked for three things: an on/off switch so a half-built loop stops
