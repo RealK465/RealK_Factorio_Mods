@@ -9,6 +9,39 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - 1.1.0 and 1.1.1 ship: the combinator release, both tracks
+
+Released on the owner's ask ("release and publish"), both tracks in one session: **1.1.0 for
+Factorio 2.1** from `main` and **1.1.1 for Factorio 2.0** from `legacy/2.0`. The 1.1.0
+section carries the entries -- the limits on a constant combinator, the pause switch and
+Start paused, the two lamps and the display panel, and the exact reserve floor with its Hand
+size field -- and 1.1.1 is the one-line port pointer, the shape of the 1.0.x pairs. Both
+sections were written by hand on `main` (`fmtk datestamp` only stamps its own `info.json`'s
+version, and `fmtk version` on legacy would have produced 1.0.4), then the finished file was
+copied to the worktree, so the two zips carry one byte-identical changelog. The legacy
+`info.json` went 1.0.3 -> 1.1.1 by hand.
+
+The gate ran in full on both installs before either upload: data stage exit 0 (2.1.17 and
+2.0.77, `data-final-fixes.lua` loading on 2.0) with `--check-unused-prototype-data` reporting
+nothing (a hand-staged run mirroring `validate.ps1`, which still has no switch for it), static
+clean, pure 105/105, headless 353/353, and a graphics pass through a real client at 353/353
+on each. **The 2.0 graphics pass crashed once before it passed** -- not the mod: the game died
+at 0.1 s, before any mod loaded, with `SDL_DXGIGetOutputInfo` failing and
+`IDXGIAdapter::EnumAdapters` answering `DXGI_ERROR_NOT_FOUND`, having seen one display where
+the 2.1 run minutes earlier had seen two. The crash dialog held the process ~165 s and the
+runner reported the marker never appeared. A plain retry passed in full with Windows reporting
+both monitors; recorded in the `factorio-testing` skill as a startup flake to retry, not
+diagnose.
+
+Both zips were read rather than trusted: 22 and 23 entries, `expansion_required` only on the
+2.1 build, `data-final-fixes.lua` only on the 2.0 one, no `CLAUDE.md`, `tests/`, `images/` or
+`.ai-support/` in either, and the file list unchanged since 1.0.2. `README.md` and `faq.md`
+differ between the zips only by CRLF in the legacy checkout -- exactly as the 1.0.2 / 1.0.3
+pair shipped, so left alone. The portal's recorded sha1 for each release equals the local
+zip's, and the two tags point at the release commits. `fmtk details --readme --faq` resynced
+the description and FAQ, both of which had gained the combinator text in the review; the
+gallery was not touched (six images, unchanged since 1.0.2), license and category unchanged.
+
 ## 2026-09-07 - The N-grab timing, measured
 
 The one premise the review left reasoned — that N reserve inserters on a repeated quality

@@ -127,6 +127,12 @@ fn)` for behaviour that unfolds over ticks, plain `assert(cond, message)`. Facts
   killing only processes whose path is under the dev install, so no other Factorio instance
   can ever be touched. The verdict comes from the marker, not the CLI's exit code, which
   the kill interrupts. `-KeepOpen` skips the close for interactive debugging.
+- **A crash before any mod loads is a display flake, not a verdict.** Measured 2026-09-07
+  on 2.0.77: the graphics run died at 0.1 s with `SDL_DXGIGetOutputInfo` failing and
+  `IDXGIAdapter::EnumAdapters` answering `DXGI_ERROR_NOT_FOUND`, having enumerated one
+  display where a 2.1.17 run minutes earlier saw two; the crash dialog held the process
+  ~165 s and the runner reported `marker: never appeared`. A plain retry passed 353/353.
+  Read the log head for those lines before suspecting the mod, and retry once.
 
 ## Static tier
 
