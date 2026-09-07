@@ -39,7 +39,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (348 tests on both tracks as of 2026-09-07) — planner, layout, poles,
+suite under `tests/` (351 tests on both tracks as of 2026-09-07) — planner, layout, poles,
 circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
@@ -366,8 +366,11 @@ re-opening any of these, and don't restate a reason here.
 - **Circuit limits are opt-in: reserve and cap, the numbers on one combinator** (2026-08-26,
   revised 2026-09-07). Every machine and recycler stops at one shared cap — the output
   chest's count of the product at the target quality — and each lower tier's
-  buffer-to-recycler inserter holds that tier's floor, never drawing the chest below the
-  player's minimum (0 by default, meaning no reserve, no wire and no row for that tier).
+  buffer-to-recycler inserter holds that tier's floor, running at the minimum plus its hand
+  size and pinned to that hand so a full grab lands exactly on the floor, never drawing the
+  chest below the player's minimum (0 by default, meaning no reserve, no wire, no pin and
+  no row for that tier). The hand is the chosen inserter's researched one, or the wizard's
+  Hand size field (`circuit_hand`, only-on-edit).
   Plain enable conditions on existing entities, each comparing against a `signal-M@tier` /
   `signal-C@target` row on one vanilla `constant-combinator` the layout stands under the
   terminal machine — so the loop is retuned in place, and switching the combinator off
@@ -379,13 +382,14 @@ re-opening any of these, and don't restate a reason here.
   the pole memo keys on circuit presence, never the numbers — typing a threshold re-solves
   nothing. `scripts/circuits.lua` decorates the finished plan (pure, strictly after the pole
   pass); the numbers live in `storage` as flat `circuit_min_<quality>` /
-  `circuit_max_<quality>` values plus the `circuit_paused` boolean, edited in a wizard panel
-  whose rows are labelled Min/Max, following the settings panel's sibling-column mechanics.
+  `circuit_max_<quality>` values plus the `circuit_paused` boolean and the `circuit_hand`
+  number, edited in a wizard panel whose rows are labelled Min/Max, following the settings
+  panel's sibling-column mechanics.
   Out-of-reach wires warn (`circuit_unlinked`), never refuse — an unwired condition gates
   nothing, measured. The combinator's description and the panel's words are blueprint
   strings, English constants in `circuits.lua`. Reasons and the rejected shapes (the
   first-built demand cascade included): `decisions.md`; the verified engine surface:
-  `analysis/api.md` §26 and §32.
+  `analysis/api.md` §26, §32 and §33.
 - Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
   (active provider): it is the loop's one sink that empties itself.

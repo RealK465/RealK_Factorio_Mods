@@ -1434,3 +1434,68 @@ through `create_blueprint` instead.
   lamp has an `energy_source` (5 kW). Unlocks: the lamp by `lamp`, the other two by
   `circuit-network` (`data/base/prototypes/technology.lua:2226,5411,5423`) — not gated by
   the mod, the owner's call.
+
+## 33. The inserter hand: research arithmetic, the pickup-time dip, stack-size control, the pinned override — measured 2026-09-07
+
+Measured on 2.1.17 through a throwaway `tests/probe_spec.lua` (registered, run with
+`-Filter probe`, deleted), then pinned permanently by `tests/loop_spec.lua` ("a pinned, gated
+inserter leaves the floor in the chest"), `tests/blueprint_spec.lua` ("circuit limits survive
+the stamp") and `tests/plan_spec.lua` ("the hand: the chosen inserter's researched hand by
+default..."). The fix that stands on it: `../decisions.md` → *Hand size*.
+
+- **Hand size = 1 + `LuaEntityPrototype.inserter_stack_size_bonus` + the force's researched
+  bonus** — `LuaForce.bulk_inserter_capacity_bonus` when `LuaEntityPrototype.bulk`, else
+  `LuaForce.inserter_stack_size_bonus` (a double: 3.0 at full research) — and neither bonus
+  when `uses_inserter_stack_size_bonus` is false. Verified against
+  `LuaEntity.inserter_target_pickup_count` (*"considers the circuit network, manual override
+  and the inserter stack size limit based on technology"*) for every vanilla inserter, on a
+  fresh force and a fully researched one:
+
+  | prototype | own bonus | fresh | full |
+  |---|---|---|---|
+  | inserter, long-handed, fast | 0 | 1 | 4 |
+  | bulk-inserter (`bulk`) | 0 | 1 | 12 |
+  | stack-inserter (`bulk`) | 4 | 5 | 16 |
+
+  Force bonuses read 0 / 0 fresh and 3 / 11 full. **Quality does not change it**: a legendary
+  entity read the same as a normal one in every row. `inserter_target_pickup_count` reads with
+  no pickup or drop target standing.
+- **The shipped dip, reproduced.** Enable-only `count > 15` on a bulk hand with 20 in the
+  chest: 8 kept, 12 moved. `count > 5` on a 4-hand with 7 in: 3 kept, 4 moved. The condition
+  is checked at pickup and a whole hand is then taken, so a bare `> min` lands up to
+  `hand - 1` below the minimum.
+- **A disabled inserter finishes its drop.** In every run `held_stack` was empty afterwards and
+  the moved count matched — nothing is stranded in the hand when the condition turns false
+  mid-swing. Same against a furnace too slow to take the hand (steel-plate recycling, 2 s a
+  plate): the hand went in as room freed, the chest never dipped below the floor, and the next
+  grab waited on the recycler's own insertion limit rather than the wire.
+- **`>=` against minimum + hand, pinned, is exact** — the shipped shape. A bulk inserter pinned
+  to 5 by `inserter_stack_size_override`, gated `count >= 20`, 30 in: 15 kept, 15 moved in
+  three grabs, and the pin read back as `inserter_target_pickup_count == 5` against a
+  researched 12. The engine caps a hand at what research allows, so an override past the
+  researched hand reads the researched hand (0 clears the override).
+- **`circuit_set_stack_size` reads a quality-exact signal, caps at the researched hand, and
+  treats a value at or below zero as ONE.** Stack control on `gear@normal` with a wired chest
+  of 7 `gear@uncommon` beside it: pickup 5, not 12 — the other quality does not leak in. A
+  wire value of 104: pickup 12, the researched cap. 0 and -21: pickup 1, and the inserter kept
+  moving one item a swing — so a stack-size signal can never stop an inserter by itself; only
+  an enable condition can. With `gear@normal = -15` on a constant combinator (a negative item
+  row is accepted, blueprint `count = -15`) plus an enable condition `gear@normal > 0`, the
+  hand equalled the surplus exactly: 20 in, 15 kept, 5 moved, and +3 in was still 15 kept.
+  That is the surplus-sized-hand design the owner passed over for the raised threshold
+  (`../decisions.md`); recorded so the next probe is not this one again.
+- **Blueprint shapes.** `override_stack_size = 1` at entity level (`BlueprintEntity`'s inserter
+  group, uint8) reads back off the ghost AND the revived entity as
+  `LuaEntity.inserter_stack_size_override` (0 = none), and the revived hand reads
+  `inserter_target_pickup_count == 1`. The stack-size behaviour serialises as
+  `control_behavior = { circuit_set_stack_size = true, stack_control_input_signal = { name,
+  quality } }` — the item `type` omitted on read-back like every item `SignalID` — and reads
+  back on the ghost as `LuaInserterControlBehavior.circuit_set_stack_size` /
+  `circuit_stack_control_signal`. Unused by the mod.
+- **`ComparatorString` canonicalises on read-back** — documented in `runtime-api.json`
+  (ComparatorString: *"it'll always return ≥, ≤ or ≠ respectively when reading them back"*),
+  and it bit: the blueprint writes `">="`, a ghost's `circuit_condition.comparator` reads the
+  one-character U+2265. Factorio's Lua 5.2 has no `\u{}` escape (*"invalid escape sequence
+  near '\u'"* at load), so `blueprint_spec` compares against the byte string
+  `"\226\137\165"`. The family's fourth read-back trap after `circuit_enabled` /
+  `circuit_enable_disable`, `is_on` / `enabled` and `records` / `messages`.

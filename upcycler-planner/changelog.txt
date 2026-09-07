@@ -8,6 +8,10 @@ Date: ????
       Limits window places it switched off, handy while bots are still bringing the modules.
     - Two lamps and a display panel show what the loop is doing: blue while it runs, green when
       the output chest is full, and the panel's icon is visible on the map.
+  Bugfixes:
+    - Fixed that a reserve could drop below its minimum by up to one inserter hand. The
+      minimum on the combinator now includes the hand size, and the reserve inserters are
+      pinned to it. A new "Hand size" field in the Limits window lets you change it.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2026-08-30

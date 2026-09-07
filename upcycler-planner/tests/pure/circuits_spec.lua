@@ -19,6 +19,8 @@ local STACK_ROLES = require("tests.support.circuit_stack").ROLES
 -- tier cannot accidentally carry the right constant, and a cap for the rare target.
 local MINIMUMS = { normal = 50, uncommon = 25 }
 local MAXIMUM = 100
+-- The hand the reserve inserters are pinned to: every M row is its tier's minimum plus it.
+local HAND = 4
 local TIERS = { "normal", "uncommon", "rare" }
 
 local CAP = { type = "virtual", name = "signal-C", quality = "rare" }
@@ -34,13 +36,17 @@ local function stack_for(minimums, maximum)
   }
 end
 
--- opts: reach, minimums, maximum, paused, tiers -- maximum false stands in for "no cap"
--- (the planner passes nil there, which an opts table cannot carry past the fixture default).
+-- opts: reach, minimums, maximum, paused, hand, tiers -- maximum false stands in for "no
+-- cap" and hand false for "no hand" (the planner passes nil there, which an opts table
+-- cannot carry past the fixture default).
 local function decorated(overrides, opts)
   opts = opts or {}
   local maximum = opts.maximum
   if maximum == nil then maximum = MAXIMUM end
   if maximum == false then maximum = nil end
+  local hand = opts.hand
+  if hand == nil then hand = HAND end
+  if hand == false then hand = nil end
   local minimums = opts.minimums or MINIMUMS
   local params = {}
   for key, value in pairs(overrides or {}) do params[key] = value end
@@ -51,6 +57,7 @@ local function decorated(overrides, opts)
     minimums = minimums,
     maximum = maximum,
     paused = opts.paused,
+    hand = hand,
     product = "iron-gear-wheel",
     reach = opts.reach or 9,
   })
@@ -111,14 +118,16 @@ describe("circuits.decorate conditions", function()
     end
   end)
 
-  test("each reserve inserter holds its own tier's floor, strictly above", function()
+  test("each reserve inserter runs at or above its own tier's raised floor, pinned to the hand", function()
+    -- ">=" against minimum + hand, with the hand pinned: a full grab from exactly the
+    -- threshold lands on the floor, and nothing can grab more than the pin allows.
     local built = decorated()
     local reserves = by_role(built, "reserve")
     assert(#reserves == 2, "reserve inserters " .. #reserves)
     for _, r in pairs(reserves) do
       local tier = TIERS[r.entity.circuit_tier]
       local condition = r.entity.control_behavior.circuit_condition
-      assert(condition.comparator == ">",
+      assert(condition.comparator == ">=",
         "reserve tier " .. r.entity.circuit_tier .. " comparator " .. condition.comparator)
       assert(condition.first_signal.quality == tier,
         "reserve tier " .. r.entity.circuit_tier .. " counts " .. condition.first_signal.quality)
@@ -126,16 +135,28 @@ describe("circuits.decorate conditions", function()
       assert(same_signal(condition.second_signal,
           { type = "virtual", name = "signal-M", quality = tier }),
         "reserve tier " .. r.entity.circuit_tier .. " compares against the wrong signal")
+      assert(r.entity.override_stack_size == HAND,
+        "reserve tier " .. r.entity.circuit_tier .. " pinned to "
+        .. tostring(r.entity.override_stack_size))
     end
   end)
 
+  test("a reserve without a hand is a bug, not a degraded plan; a cap alone needs none", function()
+    assert(not pcall(decorated, nil, { hand = false }),
+      "decorate accepted a minimum with no hand to raise it by")
+    local built = decorated(nil, { minimums = {}, hand = false })
+    assert(#rows_of(built) == 1, "a cap-only plan wrote a reserve row")
+  end)
+
   test("the combinator carries one row per threshold, minimums first, then the cap", function()
+    -- The M rows carry the minimum PLUS the hand: the number the inserter really runs at,
+    -- so a player retuning the combinator sees what the wire compares against.
     local built = decorated()
     local rows = rows_of(built)
     assert(#rows == 3, "rows " .. #rows)
     local expected = {
-      { name = "signal-M", quality = "normal", count = 50 },
-      { name = "signal-M", quality = "uncommon", count = 25 },
+      { name = "signal-M", quality = "normal", count = 50 + HAND },
+      { name = "signal-M", quality = "uncommon", count = 25 + HAND },
       { name = "signal-C", quality = "rare", count = 100 },
     }
     for i, want in ipairs(expected) do
@@ -159,13 +180,14 @@ describe("circuits.decorate conditions", function()
   end)
 
   test("a floor raises its census chest's request, so trash-unrequested cannot skim it", function()
-    -- The fixture's buffer request is 50; the floor must sit inside the request or bots
-    -- with trash-unrequested would hold the count below it forever.
+    -- The fixture's buffer request is 50; the whole threshold -- floor plus hand -- must sit
+    -- inside the request or bots with trash-unrequested would hold the count below it
+    -- forever.
     local built = decorated()
     for _, c in pairs(by_role(built, "census")) do
       local tier = ({ "normal", "uncommon" })[c.entity.circuit_tier]
       if tier then
-        assert(c.entity.requests[1].count == 50 + MINIMUMS[tier],
+        assert(c.entity.requests[1].count == 50 + MINIMUMS[tier] + HAND,
           tier .. " census requests " .. c.entity.requests[1].count)
       else
         assert(c.entity.requests == nil, "the output chest grew a request")
@@ -182,6 +204,7 @@ describe("circuits.decorate conditions", function()
       if r.entity.circuit_tier == 1 then
         assert(r.entity.control_behavior == nil, "an absent reserve still grew a gate")
         assert(r.entity.circuit_wire_to == nil, "an absent reserve was still wired")
+        assert(r.entity.override_stack_size == nil, "an absent reserve was still pinned")
       else
         assert(r.entity.control_behavior, "the set reserve lost its gate")
       end
@@ -191,7 +214,7 @@ describe("circuits.decorate conditions", function()
       if c.entity.circuit_tier == 1 then
         assert(c.entity.requests[1].count == 50, "an absent floor still raised the request")
       elseif c.entity.circuit_tier == 2 then
-        assert(c.entity.requests[1].count == 75, "the set floor did not raise the request")
+        assert(c.entity.requests[1].count == 75 + HAND, "the set floor did not raise the request")
       end
     end
     local rows = rows_of(built)

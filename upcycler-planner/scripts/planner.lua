@@ -1948,6 +1948,38 @@ function planner.default_circuit_max(recipe)
   return item and item.stack_size or nil
 end
 
+-- The hand size an inserter has TODAY: one, plus the prototype's own built-in bonus, plus
+-- the force's researched bonus -- the bulk capacity family for a bulk inserter, the plain
+-- stack-size family for the rest -- unless the prototype opts out of research. Quality never
+-- enters it, and this is exactly the number the engine's inserter_target_pickup_count reports
+-- for an entity with neither override nor circuit (measured, api.md S33) -- read here off the
+-- prototype and the force so no entity has to stand.
+function planner.inserter_hand(force, name)
+  local entity = prototypes.entity[name]
+  local hand = 1 + (entity.inserter_stack_size_bonus or 0)
+  if entity.uses_inserter_stack_size_bonus then
+    hand = hand + (entity.bulk and force.bulk_inserter_capacity_bonus
+      or math.floor(force.inserter_stack_size_bonus))
+  end
+  return hand
+end
+
+-- The blueprint's override_stack_size is a uint8, so the hand a plan can pin tops out here.
+planner.MAX_HAND = 255
+
+-- The hand every reserve inserter is pinned to and every minimum is raised by: the wizard's
+-- own number when the player typed one (circuit_hand -- only an edit is stored, the
+-- ingredient amounts' rule, so an untouched field keeps following the pick and the
+-- research), else the chosen inserter's researched hand. Type-guarded like the thresholds:
+-- a hand-edited save can hold anything.
+function planner.circuit_hand(force, choices, inserter_name)
+  local hand = choices.circuit_hand
+  if type(hand) ~= "number" or hand < 1 then
+    hand = planner.inserter_hand(force, inserter_name)
+  end
+  return math.min(math.floor(hand), planner.MAX_HAND)
+end
+
 -- The shortest circuit-wire distance among everything the circuit pass wires. A wire is
 -- refused past the SHORTER end's reach, so one conservative number serves every hop; each
 -- prototype is asked at the quality it is placed at, since quality genuinely grows a pole's
@@ -2139,6 +2171,7 @@ function planner.plan(force, choices, gathered)
       circuit = {
         minimums = minimums, maximum = maximum, capped = maximum ~= nil,
         paused = maximum ~= nil and choices.circuit_paused == true,
+        hand = planner.circuit_hand(force, choices, r.inserter.name),
       }
     end
   end
@@ -2241,6 +2274,7 @@ function planner.plan(force, choices, gathered)
       minimums = circuit.minimums,
       maximum = circuit.maximum,
       paused = circuit.paused,
+      hand = circuit.hand,
       product = product.name,
       reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),
     })
@@ -2561,11 +2595,11 @@ function planner.validate(force, choices)
     return true, { "upl-message.beacon-out-of-reach", beacon.localised_name }, r
   end
 
-  -- A circuit floor the stock chest cannot physically hold could never fill -- the count
-  -- tops out at capacity and the reserve inserter only draws ABOVE the floor -- so that
-  -- tier's recycling would stop silently, the exact failure the request-raising rule in
-  -- circuits.decorate closes for the trash-unrequested case. Capacity is asked at the
-  -- chest's build quality, since quality grows a chest's inventory.
+  -- A circuit threshold the stock chest cannot physically hold could never be reached -- the
+  -- count tops out at capacity and the reserve inserter only draws from the floor PLUS its
+  -- hand upward -- so that tier's recycling would stop silently, the exact failure the
+  -- request-raising rule in circuits.decorate closes for the trash-unrequested case.
+  -- Capacity is asked at the chest's build quality, since quality grows a chest's inventory.
   if choices.circuit_enabled then
     local slots = prototypes.entity[r.stock.name]
       .get_inventory_size(defines.inventory.chest, r.stock.quality) or 0
@@ -2576,10 +2610,12 @@ function planner.validate(force, choices)
     -- resolution plan() applies, or a multi-column tier warned falsely.
     local minimums = planner.circuit_limits(choices, recipe, tiers)
     local columns = next(minimums) ~= nil and planner.tier_columns(choices, tiers) or nil
+    local hand = next(minimums) ~= nil
+      and planner.circuit_hand(force, choices, r.inserter.name) or 0
     for i = 1, #tiers - 1 do
       local floor = minimums[tiers[i]]
       local reachable = capacity * (columns and columns[tiers[i]] or 1)
-      if floor and floor >= reachable then
+      if floor and floor + hand > reachable then
         return true, {
           "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
         }, r

@@ -293,11 +293,15 @@ describe("a circuit limit on a live machine", function()
     end)
   end)
 
-  -- The reserve rule live: an inserter gated "count > floor" on its source chest stops with
-  -- the floor still inside. Hand size forced to one, because a multi-item grab checked at
-  -- swing start could otherwise dip below the floor -- the plan does not force it, so the
-  -- shipped reserve is approximate to the inserter's hand; this pins the mechanism itself.
-  test("a gated inserter leaves the floor in the chest", function()
+  -- The reserve rule live, in the shipped shape: an inserter pinned to a hand and gated
+  -- "count >= floor + hand" on its source chest stops with the floor still inside. The
+  -- inserter checks its condition at pickup and then takes a whole hand, which is why a
+  -- bare "count > floor" dipped by up to a hand (measured: a 12-hand against 20 left 8,
+  -- api.md S33); raising the threshold by the hand puts a full grab exactly on the floor,
+  -- and the pin is what makes that arithmetic hold -- research gives this bulk inserter 12,
+  -- the pin says 5, and 5 is what it takes. 30 in, floor 15, threshold 20: three grabs of
+  -- five, then 15 < 20 holds it with the floor intact.
+  test("a pinned, gated inserter leaves the floor in the chest", function()
     local s, f = nauvis(), force()
     s.create_entity({ name = "electric-energy-interface", position = { 8, 2 }, force = f })
     s.create_entity({ name = "substation", position = { 5, 2 }, force = f })
@@ -307,27 +311,29 @@ describe("a circuit limit on a live machine", function()
     -- Direction is the PICKUP side: south is the source chest, the drop lands north in the
     -- sink -- the tap and relief rigs above follow the same rule.
     local hand = s.create_entity({
-      name = "fast-inserter", position = { 0.5, 1.5 },
+      name = "bulk-inserter", position = { 0.5, 1.5 },
       direction = defines.direction.south, force = f,
     })
-    hand.inserter_stack_size_override = 1
+    hand.inserter_stack_size_override = 5
 
     source.get_inventory(defines.inventory.chest)
-      .insert({ name = "iron-gear-wheel", count = 8, quality = "normal" })
+      .insert({ name = "iron-gear-wheel", count = 30, quality = "normal" })
     hand.get_wire_connector(defines.wire_connector_id.circuit_green, true)
       .connect_to(source.get_wire_connector(defines.wire_connector_id.circuit_green, true))
     local cb = hand.get_or_create_control_behavior()
     cb.circuit_enable_disable = true
     cb.circuit_condition = {
-      comparator = ">", constant = 5,
+      comparator = ">=", constant = 20,
       first_signal = { type = "item", name = "iron-gear-wheel", quality = "normal" },
     }
 
     after_ticks(300, function()
       local kept = source.get_item_count({ name = "iron-gear-wheel", quality = "normal" })
       local moved = sink.get_item_count({ name = "iron-gear-wheel", quality = "normal" })
-      assert(kept == 5, "the reserve held " .. kept .. " gears, expected the floor of 5")
-      assert(moved == 3, "the inserter moved " .. moved .. " gears, expected the 3 surplus")
+      assert(kept == 15, "the reserve held " .. kept .. " gears, expected the floor of 15")
+      assert(moved == 15, "the inserter moved " .. moved .. " gears, expected the 15 surplus")
+      assert(hand.inserter_target_pickup_count == 5,
+        "the pin did not hold: the hand reads " .. hand.inserter_target_pickup_count)
     end)
   end)
 

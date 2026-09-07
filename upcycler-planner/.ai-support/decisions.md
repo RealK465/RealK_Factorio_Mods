@@ -870,11 +870,12 @@ per-release approval.
   demand cascade, the combinator a portal request — the journal has both stories). Two rules. The CAP: every machine and every recycler carries the one
   shared condition `product@target < max`, counted in the output chest — machines run free
   until the cap is met, then the whole loop stops, and it wakes as bots draw the chest down.
-  The RESERVES: each lower tier's reserve inserter (stock chest to recycler) carries `product@tier > min`,
-  so the loop never grinds a tier's chest below the floor the player set — the floor is
+  The RESERVES: each lower tier's reserve inserter (stock chest to recycler) carries
+  `product@tier >= min + hand` and is pinned to `hand` — the *Hand size* bullet below — so
+  the loop never grinds a tier's chest below the floor the player set — the floor is
   enforced on the INSERTER, the only hand that can draw the chest down, while the machines
   stay ungated per tier. A zero minimum (the default) keeps nothing back, and that tier's
-  inserter is left ungated and unwired. The recyclers joining the cap is the one half the
+  inserter is left ungated, unwired and unpinned. The recyclers joining the cap is the one half the
   owner did not spell out: without it a parked loop keeps grinding its surplus — and tier
   0 keeps pulling the player's base production — while nothing consumes the result, which is
   the waste the feature exists to stop; one line to remove if free-running is ever preferred.
@@ -901,9 +902,7 @@ per-release approval.
   at plan time) — the FAQ says so; and the combinator's description and the panel's words
   are blueprint strings no locale key can reach, so they are short English constants in
   `circuits.lua`.
-  Two approximations, both accepted: an inserter's swing checks the condition at pickup, so
-  a bonus-sized hand can dip a few items below the floor (the mechanism is exact at hand
-  size one, measured); and a swing in flight can land one hand past the cap.
+  One approximation, accepted: a swing in flight can land one hand past the cap.
   **A floor raises its census chest's logistic request by the same amount** (owner's catch,
   2026-08-26, option picked from three): the stock chest requests one stack, and with
   trash-unrequested on — the default — bots skim anything above the request, so a floor past
@@ -958,7 +957,8 @@ per-release approval.
   `utility_columns` precedent) and knows nothing about conditions.
   **The wizard is the settings panel's sibling in every mechanic** — a second window-styled
   column in the invisible container, mutual exclusion between the two panels, "panel first" on
-  close, recreated across rebuilds — holding one numeric textfield per tier (the mod's first
+  close, recreated across rebuilds — holding one numeric textfield per tier, and a *Hand
+  size* field under them (its own bullet below) (the mod's first
   textfields: valid keystrokes commit at once so the Confirm key can never outrun an edit,
   Enter snaps the display back to what holds, and `gui.confirm_key` refuses while the wizard
   is open, which also covers E landing in a focused field — the Place button, an unambiguous
@@ -989,6 +989,38 @@ per-release approval.
   because the switch only pauses anything through the cap — an uncapped reserve reads
   `count > 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
   every loop paused (a dead loop for whoever does not open the combinator).
+- **Hand size: every minimum is raised by the reserve inserter's hand, and the inserter is
+  pinned to it** (2026-09-07, the owner's call on Chatastroph's portal report
+  `6a9ab547b795dcac42f8323c` — *"if I configure to keep 20 and I'm using bulk inserters, it
+  will take out 12 once 20 are in the chest which leaves only 8"*; the owner's own words for
+  the shape: "the calculated new minimum will be 32"). An inserter checks its enable
+  condition at pickup and then takes a whole hand, so `count > min` lands up to a hand
+  below the floor (measured, `analysis/api.md` §33). The reserve inserter now runs at
+  `count >= min + hand` — the combinator's M row carries that sum, which is what a player
+  retuning it sees, and the FAQ, the row tooltip and the combinator's description all say
+  so — and is pinned to `hand` through the blueprint's `override_stack_size`, so a full grab
+  from the threshold lands exactly on the floor and the arithmetic holds whatever the player
+  types. `hand` is the chosen inserter's researched hand at planning time
+  (`planner.inserter_hand`: 1 + the prototype's own bonus + the force's bulk or plain
+  research bonus, quality-blind — 12 for a bulk inserter and 4 for the rest at full
+  research), or the wizard's **Hand size** field when the player typed one (`circuit_hand`,
+  only-on-edit through the ratio and column counts' own `override_count` handler, so an
+  untouched field follows the pick and the research and every real change refreshes;
+  floor 1, cap 255 for the uint8; greyed until some minimum is set; the inserter picker
+  invalidates an open wizard as `hand`, since the default moved). The census request
+  and the min-too-big warning follow the raised threshold. What pinning costs, and the
+  owner accepted: a capacity research finished after the stamp does not speed the pinned
+  reserve inserters up — retune the inserter's override and the M row in place, or re-stamp
+  — while a pin past today's research merely over-keeps until that research lands, since
+  the engine caps a hand at what research allows. **Rejected**, each measured before the
+  owner chose (§33): the *surplus-sized hand* — a negative item row on the combinator so the
+  wire reads `count - min`, read by the inserter's own *Set stack size* mode under an
+  enable condition of `> 0` — exact at any hand with nothing to type, passed over for the
+  raised threshold ("better for high efficient results": the full hand always in play, and
+  M readable as the number the wire compares against); *always one* (`override_stack_size
+  = 1`), exact but one item a swing, which starves fast recipes; and defaulting the field to
+  the **max researchable** hand (a technology walk), which over-keeps until the research is
+  done — parked in `deferred.md`.
 - **The status indicators: blue running, green done, a panel that says which** (2026-09-07).
   Two `small-lamp`s with static colours read the cap's own comparison — green on
   `product@target >= C`, blue on `<`, `always_on` so they show in daylight (api.md §32) —
