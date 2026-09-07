@@ -1378,8 +1378,12 @@ entities, `set_blueprint_entities` → `build_blueprint` → `revive` read-back,
 then pinned permanently by `tests/loop_spec.lua` ("a combinator-carried cap pauses, resumes,
 stops when switched off") and `tests/blueprint_spec.lua` ("the circuit stack survives the
 stamp"). The 2.0.77 `runtime-api.json` carries the same blueprint concepts (`LampBlueprintControlBehavior`
-lacks only 2.1's `input_networks`, unused here), so the stack is expected fork-free —
-[schema read, not yet measured on 2.0].
+lacks only 2.1's `input_networks`, unused here), and the whole suite runs green on 2.0.77
+from the legacy worktree — the stack is fork-free (`factorio-2.0.md`). One runtime-only
+rename bit the spec, not the mod: the display panel's row list is
+`LuaDisplayPanelControlBehavior.records` on 2.1 where 2.0 spells it `messages`
+(`factorio-2.0.md`), each a hard error on the other, so the spec reads a revived panel back
+through `create_blueprint` instead.
 
 - **An enable condition's `second_signal` works against a quality-tagged VIRTUAL signal.**
   A machine gated `product@normal < signal-C@rare`, wired to a chest of 5 and a constant

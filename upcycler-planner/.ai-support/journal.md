@@ -73,6 +73,17 @@ the script re-resolved every API and game-data citation against 2.1.17 (53 and 1
 and the 348-test suite re-pinned every behaviour claim on 2.1.17 the same day. The prose was
 not re-read line by line; §32 is the only section written against 2.1.17 first-hand.
 
+**Committed, pushed and ported the same day, on the owner's ask** — `8d1055c` on `main`,
+cherry-picked onto `legacy/2.0` as `644daed` with `info.json` the only conflict (kept at
+1.0.3, the last port's shape: the legacy number moves at release, not at port time). The
+2.0.77 run found the one thing the schema read had missed: the display panel's row list is
+`messages` there and `records` on 2.1, a spec-only read that became a `create_blueprint`
+read-back instead of a forked spec (`analysis/factorio-2.0.md`). Both tracks then green at
+348/348, pure 103, static clean against each install's own typedefs; `git diff main` from
+the worktree still lists exactly the declared divergent set. Nothing published — 1.1.0 stays
+open with `Date: ????`, and the 2.0 release number and its port section wait for a release
+ask.
+
 ## 2026-08-30 - Build options rows line up, and the beacon count stops floating
 
 The owner's screenshot circled four buttons that did not share an edge: *Ratios...*,
