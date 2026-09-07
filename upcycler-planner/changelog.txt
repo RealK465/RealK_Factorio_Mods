@@ -1,6 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.1
+Date: 2026-09-07
+  Changes:
+    - Version 1.1.0, ported to Factorio 2.0.
+---------------------------------------------------------------------------------------------------
 Version: 1.1.0
-Date: ????
+Date: 2026-09-07
   Features:
     - The circuit limits now live on a constant combinator inside the loop, so you can change
       the minimums and the maximum in place without placing a new blueprint. To lift the
