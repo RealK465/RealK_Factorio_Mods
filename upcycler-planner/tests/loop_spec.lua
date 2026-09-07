@@ -330,4 +330,84 @@ describe("a circuit limit on a live machine", function()
       assert(moved == 3, "the inserter moved " .. moved .. " gears, expected the 3 surplus")
     end)
   end)
+
+  -- The combinator-carried cap, live (api.md S32): the machine compares its chest's count
+  -- against the combinator's signal-C row -- a quality-tagged virtual signal -- resumes when
+  -- the row is raised, and stops when the combinator is switched off, since C then reads 0
+  -- and no count is below 0. The lamps' always_on lifts the night-only rule WITHOUT lifting
+  -- the condition: at frozen noon a lit lamp reads "working" and an unlit one
+  -- "disabled_by_control_behavior". Runtime names throughout, the combinator's switch
+  -- included: `enabled` here, `is_on` in the blueprint.
+  test("a combinator-carried cap pauses, resumes, stops when switched off; the lamps follow", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+    s.daytime = 0
+    s.freeze_daytime = true
+
+    local gear = { type = "item", name = "iron-gear-wheel", quality = "normal" }
+    local cap = { type = "virtual", name = "signal-C", quality = "rare" }
+
+    local machine = s.create_entity({
+      name = "assembling-machine-2", position = { 1.5, 1.5 }, force = f,
+    })
+    machine.set_recipe("iron-gear-wheel", "normal")
+    machine.get_inventory(defines.inventory.crafter_input)
+      .insert({ name = "iron-plate", count = 100, quality = "normal" })
+    local mcb = machine.get_or_create_control_behavior()
+    mcb.circuit_enable_disable = true
+    mcb.circuit_condition = { comparator = "<", first_signal = gear, second_signal = cap }
+
+    local chest = s.create_entity({ name = "steel-chest", position = { 4.5, 1.5 }, force = f })
+    chest.get_inventory(defines.inventory.chest)
+      .insert({ name = "iron-gear-wheel", count = 5, quality = "normal" })
+
+    local combinator = s.create_entity({
+      name = "constant-combinator", position = { 4.5, 3.5 }, force = f,
+    })
+    local section = combinator.get_or_create_control_behavior().get_section(1)
+    section.set_slot(1, { value = cap, min = 5 })
+
+    local function lamp(position, comparator)
+      local entity = s.create_entity({ name = "small-lamp", position = position, force = f })
+      entity.always_on = true
+      local cb = entity.get_or_create_control_behavior()
+      cb.circuit_enable_disable = true
+      cb.circuit_condition = { comparator = comparator, first_signal = gear, second_signal = cap }
+      return entity
+    end
+    local done = lamp({ 6.5, 1.5 }, ">=")
+    local running = lamp({ 6.5, 2.5 }, "<")
+
+    local function green(e) return e.get_wire_connector(defines.wire_connector_id.circuit_green, true) end
+    for _, e in pairs({ machine, combinator, done, running }) do
+      green(e).connect_to(green(chest))
+    end
+
+    local working = defines.entity_status.working
+    local gated = defines.entity_status.disabled_by_control_behavior
+    after_ticks(240, function()
+      assert(machine.products_finished == 0, "the machine crafted past a cap the combinator carries")
+      assert(machine.status == gated, "the capped machine reads status " .. tostring(machine.status))
+      assert(done.status == working and running.status == gated,
+        "at the cap the lamps read done " .. tostring(done.status) .. ", running " .. tostring(running.status))
+
+      section.set_slot(1, { value = cap, min = 10 })
+      after_ticks(240, function()
+        assert(machine.products_finished > 0, "the machine never resumed after the row was raised")
+        assert(done.status == gated and running.status == working,
+          "below the cap the lamps read done " .. tostring(done.status) .. ", running " .. tostring(running.status))
+
+        local before = machine.products_finished
+        combinator.get_control_behavior().enabled = false
+        after_ticks(240, function()
+          -- One craft may have been in flight when the signal dropped; no further one starts.
+          assert(machine.products_finished - before <= 1,
+            "the machine crafted " .. (machine.products_finished - before) .. " with the combinator off")
+          assert(machine.status == gated, "switched off, the machine reads " .. tostring(machine.status))
+          assert(done.status == working, "switched off, the done lamp reads " .. tostring(done.status))
+        end)
+      end)
+    end)
+  end)
 end)

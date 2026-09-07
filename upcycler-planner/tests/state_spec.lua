@@ -166,6 +166,7 @@ describe("state.prune -- drop what no longer qualifies", function()
     -- cannot cover them -- the tier a mod removed has to be read out of the key itself.
     local entry = seeded({
       circuit_enabled = true,
+      circuit_paused = true,
       circuit_min_rare = 200,
       circuit_min_gone = 25,
       circuit_max_epic = 50,
@@ -174,6 +175,7 @@ describe("state.prune -- drop what no longer qualifies", function()
     state.prune()
     local c = entry.choices
     assert(c.circuit_enabled == true, "the enable flag was lost -- booleans are not pruned")
+    assert(c.circuit_paused == true, "the pause flag was lost -- booleans are not pruned")
     assert(c.circuit_min_rare == 200, "a live tier's reserve was pruned")
     assert(c.circuit_min_gone == nil, "a removed tier's reserve survived")
     assert(c.circuit_max_epic == 50, "a live tier's cap was pruned")

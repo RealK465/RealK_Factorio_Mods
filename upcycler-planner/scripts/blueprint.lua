@@ -145,6 +145,16 @@ function blueprint.entities(plan)
       -- Written by the circuit pass in blueprint shape already (circuit_enabled plus a
       -- circuit_condition), so it passes through verbatim; nil on everything ungated.
       control_behavior = entity.control_behavior,
+      -- The circuit stack's own fields, blueprint-shaped by the circuit pass like the
+      -- behaviour above: the combinator's description, the lamps' colour and always-on,
+      -- the display panel's words, icon and map flag (api.md S32). nil everywhere else.
+      player_description = entity.player_description,
+      color = entity.color,
+      always_on = entity.always_on,
+      always_show = entity.always_show,
+      show_in_chart = entity.show_in_chart,
+      text = entity.text,
+      icon = entity.icon,
     }
   end
 

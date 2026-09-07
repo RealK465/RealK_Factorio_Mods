@@ -326,7 +326,8 @@ describe("stamping the blueprint", function()
       circuit_min_normal = 5, circuit_min_uncommon = 9,
     }))
 
-    -- Every machine carries the one cap: the target's count against the maximum.
+    -- Every machine carries the one cap: the target's count against the combinator's
+    -- signal-C at the target quality, no constant anywhere.
     local machines = ghosts_of(nauvis(), "assembling-machine-3")
     assert(#machines == 3, "machine ghost count " .. #machines)
     for _, ghost in pairs(machines) do
@@ -334,7 +335,9 @@ describe("stamping the blueprint", function()
       assert(cb and cb.circuit_enable_disable == true, "a machine ghost lost its gate")
       local condition = cb.circuit_condition
       assert(condition.first_signal and condition.first_signal.name == "iron-gear-wheel"
-        and condition.first_signal.quality == "rare" and condition.constant == 77,
+        and condition.first_signal.quality == "rare"
+        and condition.second_signal and condition.second_signal.name == "signal-C"
+        and condition.second_signal.quality == "rare",
         "machine condition came back as " .. serpent.line(condition))
     end
 
@@ -345,13 +348,14 @@ describe("stamping the blueprint", function()
       local cb = ghost.get_control_behavior()
       assert(cb and cb.circuit_enable_disable == true, "a recycler ghost lost its gate")
       assert(cb.circuit_condition.first_signal.quality == "rare"
-        and cb.circuit_condition.constant == 77,
+        and cb.circuit_condition.second_signal.name == "signal-C",
         "recycler condition " .. serpent.line(cb.circuit_condition))
     end
 
-    -- The reserve inserters hold their floors, strictly above, at their own tiers. A signal's
-    -- quality reads back OMITTED when it is normal -- the same default omission as a north
-    -- direction or a whitelist filter_mode -- so nil means normal here.
+    -- The reserve inserters hold their floors, strictly above, at their own tiers, each
+    -- against signal-M at its own quality. A signal's quality reads back OMITTED when it is
+    -- normal -- the same default omission as a north direction or a whitelist filter_mode
+    -- -- so nil means normal here, on both sides of the comparison.
     local reserves = 0
     for _, ghost in pairs(ghosts_on(nauvis())) do
       if ghost.ghost_prototype.type == "inserter" then
@@ -360,8 +364,8 @@ describe("stamping the blueprint", function()
           local c = cb.circuit_condition
           assert(c.comparator == ">", "reserve comparator " .. tostring(c.comparator))
           local tier = c.first_signal.quality or "normal"
-          assert((tier == "normal" and c.constant == 5)
-            or (tier == "uncommon" and c.constant == 9),
+          assert(c.second_signal.name == "signal-M"
+            and (c.second_signal.quality or "normal") == tier,
             "reserve condition " .. serpent.line(c))
           reserves = reserves + 1
         end
@@ -369,13 +373,30 @@ describe("stamping the blueprint", function()
     end
     assert(reserves == 2, reserves .. " gated inserters, expected one reserve per lower tier")
 
-    -- One green component spanning every gated entity and every census chest: 3 machines,
-    -- 2 recyclers, 2 reserve inserters, 2 buffer chests, the output chest.
+    -- The numbers themselves, on the combinator ghost: two floors then the cap. Runtime
+    -- names again -- a section's filter is { value = {...}, min = count } here, where the
+    -- blueprint wrote a flat row (api.md S32).
+    local combinators = ghosts_of(nauvis(), "constant-combinator")
+    assert(#combinators == 1, "combinator ghost count " .. #combinators)
+    local filters = combinators[1].get_control_behavior().get_section(1).filters
+    assert(#filters == 3, "combinator rows " .. #filters)
+    assert(filters[1].value.name == "signal-M" and filters[1].value.quality == "normal"
+      and filters[1].min == 5, "row 1 reads " .. serpent.line(filters[1]))
+    assert(filters[2].value.name == "signal-M" and filters[2].value.quality == "uncommon"
+      and filters[2].min == 9, "row 2 reads " .. serpent.line(filters[2]))
+    assert(filters[3].value.name == "signal-C" and filters[3].value.quality == "rare"
+      and filters[3].min == 77, "row 3 reads " .. serpent.line(filters[3]))
+    assert(combinators[1].get_control_behavior().enabled == true,
+      "an unpaused combinator stamped switched off")
+
+    -- One green component spanning every gated entity, every census chest and the stack:
+    -- 3 machines, 2 recyclers, 2 reserve inserters, 2 buffer chests, the output chest, the
+    -- combinator, the two lamps and the panel.
     local start
     for _, ghost in pairs(ghosts_of(nauvis(), "passive-provider-chest")) do start = ghost end
     assert(start, "no output chest ghost to walk from")
     local reached = reachable(start, defines.wire_connector_id.circuit_green)
-    assert(reached == 10, "the green network spans " .. reached .. " ghosts, expected 10")
+    assert(reached == 14, "the green network spans " .. reached .. " ghosts, expected 14")
 
     -- Direct mode on a vanilla plan: the ring must carry no wires and no behaviour -- a belt
     -- that grew either would gate or read the very path the limits leave alone.
@@ -384,6 +405,57 @@ describe("stamping the blueprint", function()
       local connector = ghost.get_wire_connector(defines.wire_connector_id.circuit_green, false)
       assert(not connector or #connector.connections == 0, "a belt ghost was wired in direct mode")
     end
+  end)
+
+  test("the circuit stack survives the stamp: colours, words, the switch and the description", function()
+    -- Read back off REVIVED entities rather than ghosts: a lamp's colour and a combinator's
+    -- description are entity fields the ghost route was never measured for (api.md S32),
+    -- and a script revive needs no items. Runtime names: is_on is `enabled`,
+    -- player_description is `combinator_description`.
+    stamp(gear_plan({ circuit_enabled = true, circuit_max_rare = 77, circuit_paused = true }))
+    local revived = {}
+    for _, name in pairs({ "constant-combinator", "small-lamp", "display-panel" }) do
+      for _, ghost in pairs(ghosts_of(nauvis(), name)) do
+        local _, entity = ghost.revive()
+        assert(entity, "reviving a " .. name .. " ghost gave nothing back")
+        revived[name] = revived[name] or {}
+        revived[name][#revived[name] + 1] = entity
+      end
+    end
+    assert(#revived["constant-combinator"] == 1 and #revived["small-lamp"] == 2
+      and #revived["display-panel"] == 1, "the stack did not stamp whole")
+
+    local combinator = revived["constant-combinator"][1]
+    assert(combinator.get_control_behavior().enabled == false,
+      "Start paused did not survive the stamp")
+    assert(combinator.combinator_description:find("pause", 1, true),
+      "the description came back as " .. tostring(combinator.combinator_description))
+
+    local green, blue = 0, 0
+    for _, lamp in pairs(revived["small-lamp"]) do
+      local color = lamp.color
+      assert(color, "a status lamp lost its colour")
+      assert(lamp.always_on == true, "a status lamp would only show at night")
+      local c = lamp.get_control_behavior().circuit_condition
+      assert(c.second_signal and c.second_signal.name == "signal-C",
+        "a lamp condition came back as " .. serpent.line(c))
+      if color.g == 1 and color.r == 0 then
+        green = green + 1
+        assert(c.comparator == "≥", "the green lamp compares with " .. c.comparator)
+      elseif color.b == 1 then
+        blue = blue + 1
+        assert(c.comparator == "<", "the blue lamp compares with " .. c.comparator)
+      end
+    end
+    assert(green == 1 and blue == 1, green .. " green and " .. blue .. " blue lamps")
+
+    local records = revived["display-panel"][1].get_control_behavior().records
+    assert(#records == 2, "panel records " .. #records)
+    assert(records[1].icon.name == "signal-deny" and records[1].text == "Paused"
+      and records[1].condition.constant == 0, "panel row 1 is " .. serpent.line(records[1]))
+    assert(records[2].icon.name == "signal-check" and records[2].text == "Done"
+      and records[2].condition.second_signal.name == "signal-C",
+      "panel row 2 is " .. serpent.line(records[2]))
   end)
 
   test("the widest vanilla pitch stays one green network, through the ring relay", function()

@@ -493,6 +493,16 @@ function gui.refresh(player)
   -- button rides the same rule for its own checkbox.
   local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
   limits.enabled = choices.circuit_enabled == true
+  -- Start paused switches the combinator off, which only pauses anything through the cap --
+  -- so it is dead while the wizard holds no maximum, resolved the way plan() resolves it.
+  local paused = main["upl-options"]["upl-circuits-strip"]["upl-circuit-paused"]
+  local capped = false
+  if choices.circuit_enabled and choices.quality then
+    local _, maximum = planner.circuit_limits(choices, chosen_recipe(choices),
+      planner.tiers_up_to(choices.quality) or {})
+    capped = maximum ~= nil
+  end
+  paused.enabled = capped
   local ratios = main["upl-options"]["upl-mix-strip"]["upl-split"]
   ratios.enabled = planner.split_enabled(choices) and choices.recipe ~= nil
 
@@ -1465,6 +1475,17 @@ function gui.open(player)
   limits_button.style.left_margin = 8
   -- Enabled state left to gui.refresh, the split button's reason.
 
+  -- Start paused: the limits combinator ships switched off, so a half-built loop cannot
+  -- burn quality ingredients before its modules arrive. Dead without a maximum, since the
+  -- switch works through the cap -- also gui.refresh's to decide.
+  local paused_box = circuits_row.add({
+    type = "checkbox", name = "upl-circuit-paused", state = choices.circuit_paused == true,
+    caption = { "upl-gui.circuit-paused" },
+    tooltip = { "upl-gui.circuit-paused-tooltip" },
+    tags = dispatch.tags("circuit-paused"),
+  })
+  paused_box.style.left_margin = 8
+
   -- Always shown like the trash checkbox below it: the tick IS the choice, and the picker it
   -- re-lists sits hidden with the other chests.
   local buffer_stock = options.add({
@@ -2273,6 +2294,17 @@ dispatch.register("circuit-enabled", function(event)
   if settled() then return end
   -- Unchecking takes the wizard with it -- limits on a loop that will not be wired are noise.
   if not choices.circuit_enabled then gui.close_circuits(player) end
+  gui.refresh(player)
+end)
+
+dispatch.register("circuit-paused", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  -- No geometry moves on this one -- the combinator's switch is decoration -- so a plain
+  -- refresh, behind the same double-fire guard as every checkbox.
+  local settled = settled_on(choices, "circuit_paused")
+  choices.circuit_paused = event.element.state
+  if settled() then return end
   gui.refresh(player)
 end)
 

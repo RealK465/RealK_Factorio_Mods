@@ -419,6 +419,29 @@ function layout.build(params)
           { { quality = quality, comparator = ">" } }, "whitelist")
         chest(params.overflow, col_feed, r.lower_chest)
       end
+
+      -- The circuit stack: the limits combinator and, when a cap is set, two status lamps
+      -- and a display panel above it. params.circuit is nil unless the planner found a
+      -- threshold to gate, so every other plan stays byte-identical. It stands in the
+      -- product sub-column under the machine -- the missing recycler leaves Hr+3 >= 4 free
+      -- rows there, the band the tap borrows its two tiles from at col_feed -- and in
+      -- col_product rather than the pitch's last tile because the terminal column is only
+      -- machine-wide (`width` above). Placed here, before the pole pass, so the poles see
+      -- the tiles as taken and the lamps as consumers to cover. Bare placements: what each
+      -- one says is the circuit pass's business, as for every other circuit_role.
+      if params.circuit then
+        local stack = {}
+        if params.circuit.capped then
+          stack[#stack + 1] = { name = params.circuit.lamp, circuit_role = "lamp_done" }
+          stack[#stack + 1] = { name = params.circuit.lamp, circuit_role = "lamp_running" }
+          stack[#stack + 1] = { name = params.circuit.panel, circuit_role = "panel" }
+        end
+        stack[#stack + 1] = { name = params.circuit.combinator, circuit_role = "limits" }
+        for offset, e in ipairs(stack) do
+          e.dx, e.dy, e.w, e.h = col_product, r.recycler + offset - 1, 1, 1
+          add(e)
+        end
+      end
     else
       -- Product rides up to the top ring, round, and down to this tier's own recycler.
       belt(col_product, ROW_FEED_CHEST, NORTH)

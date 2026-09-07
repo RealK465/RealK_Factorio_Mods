@@ -202,6 +202,35 @@ describe("poles.plan over a real plan", function()
     assert(wire_count(result) == #result.entities - 1,
       "wires " .. wire_count(result) .. " for " .. #result.entities .. " poles")
   end)
+
+  test("the circuit stack costs no pole: its lamps are covered from the ground the ring keeps", function()
+    -- The stack takes four tiles of the terminal column's lower band -- the "last tier's
+    -- empty lower block" the compact attempt draws on -- and adds two 5 kW lamps to cover.
+    -- Swept across chain lengths rather than pinned on one fixture: the solve must still
+    -- cover everything, and with no more poles than the stack-free plan needed.
+    local STACK = {
+      capped = true,
+      combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
+    }
+    local margins = { ["small-lamp"] = 0.35 }
+    for name, margin in pairs(PLAN_MARGINS) do margins[name] = margin end
+    for _, count in pairs({ 2, 3, 5, 8, 16, 64 }) do
+      local tiers = {}
+      for i = 1, count do tiers[i] = "tier-" .. i end
+      local plain = poles.plan(layout.build(vanilla_params({ tiers = tiers })), MEDIUM, margins)
+      local built = layout.build(vanilla_params({ tiers = tiers, circuit = STACK }))
+      local result = poles.plan(built, MEDIUM, margins)
+      assert(result.unpowered == 0, count .. " tiers: unpowered " .. result.unpowered)
+      assert(#result.entities == #plain.entities, count .. " tiers: " .. #result.entities
+        .. " poles with the stack, " .. #plain.entities .. " without")
+      local occ = {}
+      for _, e in pairs(built.entities) do occ[e.dx .. "," .. e.dy] = e.name end
+      for _, p in pairs(result.entities) do
+        assert(not occ[p.dx .. "," .. p.dy],
+          count .. " tiers: a pole stands on " .. tostring(occ[p.dx .. "," .. p.dy]))
+      end
+    end
+  end)
 end)
 
 describe("poles.plan connectivity", function()

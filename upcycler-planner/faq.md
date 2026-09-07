@@ -24,6 +24,14 @@ Press **Edit...** beside **Ingredient amounts** in the planner. You get one fiel
 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.
 
+## Why isn't my loop running?
+
+Look at the constant combinator under the last machine. If it's switched off, the loop is paused: switch it on. The planner places it switched off when **Start paused** is ticked, so a freshly built loop waits for its modules. The lamps beside it show the state: blue while running, green when done or paused.
+
+## How do I change the limits after building?
+
+Open the same combinator. The **M** rows are the minimum kept of each quality and **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
+
 ## Why is my fluid recipe refused?
 
 Only recipes with one fluid ingredient are supported. Two kinds can't be looped: recipes needing two different fluids (only ammonia rocket fuel in vanilla), and recipes that return a fluid alongside the item (like the quantum processor).

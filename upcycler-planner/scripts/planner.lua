@@ -1958,16 +1958,49 @@ end
 -- unlinked counts -- a warning, never a refusal. The inserter joins the min only when some
 -- reserve is set: it is wired only then, and a wireless modded inserter must not zero the
 -- reach of a plan that never wires one.
-local function circuit_reach(machine, machine_quality, recycler, recycler_quality, r, reserves)
+-- The circuit stack's prototypes: fixed vanilla ones, no picker and no research gate (the
+-- owner's call, 2026-09-07 -- both techs are trivial and early), so plain names here rather
+-- than a resources() field, handed to layout.build which names no prototype of its own.
+local CIRCUIT_COMBINATOR = "constant-combinator"
+local CIRCUIT_LAMP = "small-lamp"
+local CIRCUIT_PANEL = "display-panel"
+
+-- The circuit thresholds, normalised ONCE: minimums sparse (a tier present only when its
+-- floor is above zero), maximum nil when off -- "zero means off" resolved here and nowhere
+-- else, so plan() (which stands the combinator on it), validate() (which warns about an
+-- unreachable floor) and gui.refresh (which greys Start paused) cannot disagree. An unset cap
+-- falls back to default_circuit_max, so plan() stays callable without the GUI's defaults
+-- having run; the cap lives under its own circuit_max_<quality> key, never a re-read
+-- minimum, so a remembered floor cannot become a ceiling when the target moves onto its
+-- tier. Type-guarded like tier_columns: a hand-edited save can hold anything.
+function planner.circuit_limits(choices, recipe, tiers)
+  local minimums = {}
+  for i = 1, #tiers - 1 do
+    local floor = choices["circuit_min_" .. tiers[i]]
+    if type(floor) == "number" and floor > 0 then minimums[tiers[i]] = floor end
+  end
+  local maximum = choices["circuit_max_" .. choices.quality]
+  if type(maximum) ~= "number" then maximum = planner.default_circuit_max(recipe) end
+  if not (maximum and maximum > 0) then maximum = nil end
+  return minimums, maximum
+end
+
+local function circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit)
   local reach = math.min(
     machine.get_max_circuit_wire_distance(machine_quality),
     recycler.get_max_circuit_wire_distance(recycler_quality),
     prototypes.entity[r.stock.name].get_max_circuit_wire_distance(r.stock.quality),
     prototypes.entity[r.provider.name].get_max_circuit_wire_distance(r.provider.quality),
-    prototypes.entity[r.belt].get_max_circuit_wire_distance())
-  if reserves then
+    prototypes.entity[r.belt].get_max_circuit_wire_distance(),
+    prototypes.entity[CIRCUIT_COMBINATOR].get_max_circuit_wire_distance())
+  if next(circuit.minimums) ~= nil then
     reach = math.min(reach,
       prototypes.entity[r.inserter.name].get_max_circuit_wire_distance(r.inserter.quality))
+  end
+  if circuit.capped then
+    reach = math.min(reach,
+      prototypes.entity[CIRCUIT_LAMP].get_max_circuit_wire_distance(),
+      prototypes.entity[CIRCUIT_PANEL].get_max_circuit_wire_distance())
   end
   return reach
 end
@@ -2093,10 +2126,31 @@ function planner.plan(force, choices, gathered)
   local expanded_split = split and split.prods
     and planner.expand_columns(split.prods, tiers, columns) or nil
 
+  -- Circuit limits, resolved BEFORE the layout runs: the combinator is a real entity in the
+  -- terminal column since 2026-09-07, so whether one stands -- and whether the lamps and
+  -- panel join it -- is geometry now, not decoration. nil unless something is actually
+  -- non-zero, which keeps a circuits-off plan byte-identical. layout_params.circuit below
+  -- and the decoration after the poles both read this one table, so the two can never
+  -- disagree about which entities exist.
+  local circuit
+  if choices.circuit_enabled then
+    local minimums, maximum = planner.circuit_limits(choices, recipe, tiers)
+    if maximum or next(minimums) ~= nil then
+      circuit = {
+        minimums = minimums, maximum = maximum, capped = maximum ~= nil,
+        paused = maximum ~= nil and choices.circuit_paused == true,
+      }
+    end
+  end
+
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = expanded_tiers,
     overflow_tap = overflow_tap,
+    circuit = circuit and {
+      capped = circuit.capped,
+      combinator = CIRCUIT_COMBINATOR, lamp = CIRCUIT_LAMP, panel = CIRCUIT_PANEL,
+    } or nil,
     machine = machine_footprint,
     fluid = #fluids == 1 and { pipe = r.pipe, pipe_to_ground = r.pipe_to_ground } or nil,
     -- The recycler's footprint is the ROTATED one: the planner picks the rotation that makes
@@ -2147,9 +2201,13 @@ function planner.plan(force, choices, gathered)
     -- geometry (footprints, tier count, pipes, the tap), the consumer set (entity NAMES
     -- decide electric-or-not and the margins, and a modded chest or belt can carry an
     -- electric energy source), and the pole itself, whose quality sets both reaches.
-    -- Modules, requests and circuit numbers are absent on purpose: they never move a tile.
+    -- Modules, requests and circuit NUMBERS are absent on purpose: they never move a tile.
+    -- Circuit presence is in -- off, reserved, capped -- because the stack it stands is
+    -- occupied ground and the lamps are consumers; typing a threshold still re-solves
+    -- nothing, only crossing zero does.
     local memo_key = table.concat({
       #expanded_tiers, tostring(overflow_tap), #fluids,
+      circuit and (circuit.capped and "capped" or "reserved") or "off",
       machine_footprint.name, machine_footprint.width, machine_footprint.height,
       tostring(machine_footprint.direction),
       recycler.name, orientation.width, orientation.height, orientation.direction,
@@ -2174,31 +2232,17 @@ function planner.plan(force, choices, gathered)
   end
 
   -- Circuit limits, decorated onto the finished plan -- strictly after the pole pass, since
-  -- circuits change no geometry and so have nothing to solve together with it. An unset cap
-  -- falls back to default_circuit_max, so plan() stays callable without the GUI's defaults
-  -- having run; the cap lives under its own circuit_max_<quality> key, never a re-read
-  -- minimum, so a remembered floor cannot become a ceiling when the target moves onto its
-  -- tier. "Zero means off" is normalised HERE, once: decorate sees a sparse minimums table
-  -- and a nil maximum, never a zero -- so the reach below and the decorator's wiring read
-  -- the same tables and cannot disagree about which entities are actually wired.
-  if choices.circuit_enabled then
-    local minimums = {}
-    for i = 1, #tiers - 1 do
-      local floor = choices["circuit_min_" .. tiers[i]]
-      -- Type-guarded like tier_columns: a hand-edited save can hold anything, and a
-      -- non-number would crash the comparison on every refresh.
-      if type(floor) == "number" and floor > 0 then minimums[tiers[i]] = floor end
-    end
-    local maximum = choices["circuit_max_" .. choices.quality]
-    if type(maximum) ~= "number" then maximum = planner.default_circuit_max(recipe) end
-    if not (maximum and maximum > 0) then maximum = nil end
+  -- only the conditions and the wiring are left to do: WHICH entities exist was settled
+  -- above, from the same normalised tables the decorator reads now, so the reach and the
+  -- wiring cannot disagree about what is actually wired.
+  if circuit then
     local unlinked = circuits.decorate(plan.entities, {
       tiers = expanded_tiers,
-      minimums = minimums,
-      maximum = maximum,
+      minimums = circuit.minimums,
+      maximum = circuit.maximum,
+      paused = circuit.paused,
       product = product.name,
-      reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r,
-        next(minimums) ~= nil),
+      reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),
     })
     -- Reported like the pole pass's unpowered: only the built geometry knows it, and the loop
     -- still runs -- an unwired entity just runs without its limit.
@@ -2527,17 +2571,15 @@ function planner.validate(force, choices)
       .get_inventory_size(defines.inventory.chest, r.stock.quality) or 0
     local capacity = slots * prototypes.item[product.name].stack_size
     local tiers = planner.tiers_up_to(choices.quality)
-    -- With the cap on, every column's census chest shares the one green network, so a
-    -- repeated tier's floor reads the SUMMED count and can fill up to N chests; uncapped,
-    -- each reserve is an island over its one chest. The warning follows the same cap
+    -- Every column's census chest shares the one green network, so a repeated tier's floor
+    -- reads the SUMMED count and can fill up to N chests. The warning follows the same
     -- resolution plan() applies, or a multi-column tier warned falsely.
-    local maximum = choices["circuit_max_" .. choices.quality]
-    if type(maximum) ~= "number" then maximum = planner.default_circuit_max(recipe) end
-    local columns = (maximum and maximum > 0) and planner.tier_columns(choices, tiers) or nil
+    local minimums = planner.circuit_limits(choices, recipe, tiers)
+    local columns = next(minimums) ~= nil and planner.tier_columns(choices, tiers) or nil
     for i = 1, #tiers - 1 do
-      local floor = choices["circuit_min_" .. tiers[i]]
+      local floor = minimums[tiers[i]]
       local reachable = capacity * (columns and columns[tiers[i]] or 1)
-      if type(floor) == "number" and floor > 0 and floor >= reachable then
+      if floor and floor >= reachable then
         return true, {
           "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
         }, r
