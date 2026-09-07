@@ -6,6 +6,16 @@ local circuit_stack = {}
 
 circuit_stack.ROLES = { limits = true, lamp_done = true, lamp_running = true, panel = true }
 
+-- What planner.plan hands layout.build as layout_params.circuit: the three fixed vanilla
+-- names, and whether the cap's lamps and panel join the combinator. One owner, so a renamed
+-- prototype or a fourth member is one edit rather than one per spec.
+function circuit_stack.params(capped)
+  return {
+    capped = capped,
+    combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
+  }
+end
+
 -- entities: a plan's or a built layout's entity array. Returns the stack keyed by role,
 -- and how many of the four were found.
 function circuit_stack.of(entities)

@@ -9,6 +9,60 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - Review of the 1.1.0 stack: what the wire does when it cannot hear the combinator
+
+A ten-angle review of the four commits since 1.0.2, verified one candidate at a time, then
+a sweep. Nothing published, nothing committed; the fixes sit in the working tree for the
+owner's read.
+
+**What was wrong.** Moving the thresholds from baked constants onto signals changed what an
+absent signal means, and three things followed that the day's commits had not seen. A
+wired fragment without the combinator reads C and M as 0 — so it stops for good, or loses
+its floor — while the `circuit-unlinked` warning still promised "runs without limits"; a
+verifier ran the pure modules on host Lua and found a 10x10 modded machine (relay taps at
+8.51 against 8.5 usable) shipping every lower column dead on stamp, a 12x12 orphaning the
+whole stack, an 8x12 failing the recycler-to-machine hop. The stack chain hung the
+combinator four hops behind the two lamps and the panel, so a blueprint whose lamps bots
+had not delivered — or a lamp mined as clutter, or a force without `lamp`, which is not in
+`recycling`'s prerequisite chain — left every machine stopped with nothing to say why. And
+the combinator's own description, the changelog, the README and the FAQ all said
+"switch off to pause", where off also drops M to 0 and lifts every reserve — on a
+reserve-only loop, the opposite of a pause; the register had noticed as much on the Start
+paused bullet and stopped there. Beside those: a vanilla crash (fusion reactor equipment,
+six ingredients, no five-slot inserter can filter it — the recipe handler honestly empties
+the pick and the wizard's Hand size default indexed nil), a C row edited to 0 on the
+stamped combinator stopping the loop where the wizard teaches "0 means no limit", N
+same-tick grabs under repeated columns landing `(N-1)*hand` under a floor the changelog
+called exact, `min + hand` past int32 after the wizard's own cap, a NaN slipping the
+hand guard into the decorator's assert, the Hand size field showing a raw stored number,
+its default going stale under research and an inserter quality change rebuilding the whole
+modal, and `gui.refresh` writing `.enabled` on a focused field from that field's own
+keystroke.
+
+**What changed.** `circuits.decorate` now wires first and walks the combinator's component
+before it writes a single condition: anything outside it is left ungated and counted, so
+`circuit_unlinked` names buildings that run without their limit and nothing else. The
+combinator stands first under the terminal machine and the three indicators hang off it as
+leaves. The M row carries one hand per column; the row and the census request clamp at
+int32; the description differs by case (a capped one offers the pause switch and warns
+that C at 0 stops the loop, an uncapped one says off removes every reserve), and the
+changelog, README and FAQ say the same. `planner.inserter_hand` reads an empty pick as one,
+`circuit_hand` catches NaN, the wizard shows the hand the plan pins, and `gui.refresh`
+repaints an untouched Hand size field's text and Enter-default together when the pick or
+the research moved them — so the `hand` invalidation reason went, and the inserter picker
+is back to a refresh. Tooltips came back to one sentence. Test fixtures for the stack live
+in `tests/support/circuit_stack.lua` alone. Suite 351 → 353 (pure 105): the island test,
+the crash regression, the per-column rows, the new link shape. Static clean.
+
+**Reported, not changed** — each an owner's call already on the register: a typed hand
+above research over-keeps silently; the three stack prototypes carry no existence check
+and no research gate; and two of the day's commit subjects run past 72 characters, which a
+history rewrite would fix and the rules forbid unprompted. **Not measured**: the N-grab
+timing is reasoned from the engine's once-a-tick network value, and the reserves feeding a
+disabled recycler's input while paused is engine knowledge, not a probe. **The 2.0 port**
+of this review is not done: `legacy/2.0` carries the day's four commits and now trails
+`main` by this delta, on the same fork-free files plus the gui.lua seam.
+
 ## 2026-09-07 - The reserve floor becomes exact: the hand size joins the minimum
 
 Chatastroph's portal thread (`6a9ab547b795dcac42f8323c`) reported what decisions.md had

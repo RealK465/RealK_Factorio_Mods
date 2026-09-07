@@ -73,8 +73,8 @@ You can define a minimum amount of the lower quality items to keep as reserve in
 and also a maximum amount for the target quality item that stops the loop after the target amount is reached.
 
 The numbers live on a constant combinator inside the loop, so you can change them in place without a new blueprint.
-Switch the combinator off to pause the whole loop, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules.
-Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full, and the panel's icon is visible on the map.
+Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on.
+Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full or the loop is paused, and the panel's icon is visible on the map.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 

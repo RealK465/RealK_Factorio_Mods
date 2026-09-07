@@ -26,11 +26,13 @@ Machines and recyclers sometimes roll an item above the quality you asked for. N
 
 ## Why isn't my loop running?
 
-Look at the constant combinator under the last machine. If it's switched off, the loop is paused: switch it on. The planner places it switched off when **Start paused** is ticked in its Limits window, so a freshly built loop waits for its modules. The lamps beside it show the state: blue while running, green when done or paused.
+Look at the constant combinator under the last machine. If it's switched off, a loop with a maximum is paused: switch it on. The planner places it switched off when **Start paused** is ticked in its Limits window, so a freshly built loop waits for its modules. The lamps below it show the state: blue while running, green when done or paused. A loop with no maximum has nothing to pause: switching its combinator off only removes the reserves, so keep it on.
+
+If the combinator is on and the loop still sits idle, check its **C** row: 0 stops the loop rather than lifting the cap.
 
 ## How do I change the limits after building?
 
-Open the same combinator. The **M** rows are the minimum kept of each quality plus the reserve inserter's hand size, so a full hand never dips below your minimum: keep 20 with a 12-item hand and M reads 32. **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
+Open the same combinator. The **M** rows are the minimum kept of each quality plus the inserter's hand size for every column of that quality, so a full hand never dips below your minimum: keep 20 with a 12-item hand and one column, and M reads 32. **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. To lift the maximum, type a big number: a C at 0 stops the loop. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
 
 ## Why is my fluid recipe refused?
 

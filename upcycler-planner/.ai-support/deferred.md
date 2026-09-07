@@ -98,9 +98,11 @@ two-entity island), so with N repeated columns of a tier each reserve inserter r
 tier's product SUMMED across all N chests — the floor holds ~min/N per chest, and one chest
 can drain to zero while another holds the min. The combinator move removed the second
 reading (an uncapped plan used to keep N×min per chest): the number now means one thing,
-summed, capped or not. The Min tooltip says "in its chest", which reads per-chest. With one
-column per tier (everything shipped before 1.0.0) the two readings coincide, so nothing
-already released behaves differently either way.
+summed, capped or not — and since the 2026-09-07 review the summed floor is at least
+exact, the M row carrying one hand per column so N same-tick grabs cannot land under it
+(`decisions.md` → *Hand size*). The Min tooltip says "in stock", which no longer reads
+per-chest. With one column per tier (everything shipped before 1.0.0) the two readings
+coincide, so nothing already released behaves differently either way.
 
 Two coherent resolutions: (a) per-chest floors — no longer a matter of islanding, since
 every reserve must still hear the combinator; it would take the combinator on the RED wire

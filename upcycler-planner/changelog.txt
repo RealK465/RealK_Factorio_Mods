@@ -3,15 +3,18 @@ Version: 1.1.0
 Date: ????
   Features:
     - The circuit limits now live on a constant combinator inside the loop, so you can change
-      the minimums and the maximum in place without placing a new blueprint.
-    - Switching the combinator off pauses the whole loop. A new "Start paused" option in the
-      Limits window places it switched off, handy while bots are still bringing the modules.
+      the minimums and the maximum in place without placing a new blueprint. To lift the
+      maximum in place, type a big number: a C row at 0 stops the loop.
+    - Switching the combinator off pauses a loop that has a maximum. A new "Start paused" option
+      in the Limits window places it switched off, handy while bots are still bringing the
+      modules. Without a maximum the switch only removes the reserves, so leave it on.
     - Two lamps and a display panel show what the loop is doing: blue while it runs, green when
-      the output chest is full, and the panel's icon is visible on the map.
+      the output chest is full or the loop is paused, and the panel's icon is visible on the map.
   Bugfixes:
     - Fixed that a reserve could drop below its minimum by up to one inserter hand. The
-      minimum on the combinator now includes the hand size, and the reserve inserters are
-      pinned to it. A new "Hand size" field in the Limits window lets you change it.
+      minimum on the combinator now includes one hand size per column of that quality, and
+      the inserters that draw from the reserve are held to that hand. A new "Hand size" field
+      in the Limits window lets you change it.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2026-08-30

@@ -1184,11 +1184,39 @@ describe("the modal", function()
     fire(field, defines.events.on_gui_confirmed)
     assert(choices().circuit_hand == nil, "Enter on the default froze it as an override")
 
-    -- A different inserter rebuilds the wizard with its own researched hand.
+    -- A different inserter moves the untouched field to its own researched hand, in place:
+    -- the text and the default Enter is judged against move together.
     local picker = widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     picker.elem_value = { name = "fast-inserter", quality = "normal" }
     fire(picker)
+    assert(field.valid, "an inserter pick rebuilt the wizard under the cursor")
     assert(hand_field().text == "4", "the fast inserter's hand reads " .. hand_field().text)
+    assert(hand_field().tags.default == 4, "the default in the tags did not follow the pick")
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices().circuit_hand == nil, "Enter on the moved default froze it as an override")
+  end)
+
+  test("a recipe no inserter can filter leaves the wizard standing, not crashed", function()
+    -- Fusion reactor equipment takes six ingredients and every vanilla inserter filters
+    -- five, so the recipe handler honestly re-picks NO inserter. The wizard's Hand size
+    -- default then has no prototype to read and must fall back rather than index nil --
+    -- validate refuses the plan anyway, so the number shown does not matter, the survival
+    -- of the handler does.
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    recipe_button.elem_value = "fusion-reactor-equipment"
+    fire(recipe_button)
+    assert(choices().inserter == nil, "test premise: the pick should have emptied")
+    local panel = circuits_panel()
+    assert(panel and panel.valid, "the wizard did not survive the empty inserter pick")
+    local field = panel["upl-circuits-content"]["upl-circuit-hand-row"]["upl-circuit-hand"]
+    assert(field.text == "1", "the hand field reads " .. field.text .. " with no inserter")
+    -- And the Limits button keeps working from a closed wizard in the same state.
+    gui.close_circuits(player())
+    gui.open_circuits(player())
+    assert(circuits_panel() and circuits_panel().valid, "the wizard cannot be reopened")
   end)
 
   test("unchecking the checkbox takes the wizard with it", function()

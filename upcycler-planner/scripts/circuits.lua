@@ -8,25 +8,37 @@
 -- product count is at or above its minimum PLUS the inserter's hand size, and the inserter is
 -- pinned to that hand, so a full grab lands exactly on the floor and never below it (the
 -- owner's call on a portal report, 2026-09-07: a 12-item bulk hand checked against a bare
--- minimum of 20 left 8 in the chest). The floor is held by the inserter, where the machines
--- run free below the cap. A zero minimum means no reserve, and that tier's inserter is left
--- unwired and unpinned entirely.
+-- minimum of 20 left 8 in the chest). A repeated quality adds one hand PER COLUMN: its N
+-- reserve inserters read the tier's count summed over N chests and can all grab on one
+-- tick's reading, so the threshold has to leave room for N hands. The floor is held by the
+-- inserter, where the machines run free below the cap. A zero minimum means no reserve, and
+-- that tier's inserter is left unwired and unpinned entirely.
 --
 -- The numbers live on ONE constant combinator (2026-09-07, a portal request): a signal-M row
--- per reserved tier at that tier's quality -- the minimum plus the hand -- and a signal-C
--- row at the target's, and every
--- condition compares the product count against the matching signal rather than a baked
--- constant -- so a stamped loop is retuned in the combinator, and switching the combinator
--- off drops C to 0, which stops every gated machine: the loop's pause switch. With a cap,
--- two lamps and a display panel read the same signal -- blue while the loop runs, green once
--- the chest holds the cap, the panel spelling out running / done / paused (a C of 0 can only
--- mean the combinator is off) with an icon the map shows too.
+-- per reserved quality and a signal-C row at the target's, every condition comparing the
+-- product count against the matching signal rather than a baked constant -- so a stamped
+-- loop is retuned in the combinator. Switching it off drops every row to 0. With a cap that
+-- stops every gated machine (no count is below 0): the loop's pause switch. It ALSO lifts
+-- every reserve (every count is at or above 0), which no single comparison can avoid -- a
+-- reserve-only combinator therefore says so in its description instead of promising a
+-- pause, and the capped one accepts a bounded dip while paused (the reserves fill the
+-- stopped recyclers' input and then wait). With a cap, two lamps and a display panel read
+-- the same signal -- blue while the loop runs, green once the chest holds the cap, the
+-- panel spelling out running / done / paused (a C of 0: the combinator off, or a player
+-- who edited C to 0 expecting "no limit" -- it stops the loop, the description says so).
 --
 -- What stays combinator-free is the LOGIC: the layout already separates what the conditions
 -- need -- the stock chests hold exactly one tier's product each, the output chest alone holds
 -- the target's, and a wire signal is distinct per quality -- so every rule is one comparison,
 -- no decider anywhere, and the census needs no reading config at all (a wired chest
 -- broadcasts by default).
+--
+-- WIRES FIRST, CONDITIONS SECOND. A condition is written only onto an entity that can hear
+-- the combinator over the wires actually placed: an entity wired into a fragment WITHOUT the
+-- combinator would read C and M as 0 and stop for good or lose its floor -- the opposite of
+-- the "runs without its limit" the planner warns with. So the links go down, the component
+-- around the combinator is walked, and everything outside it is left ungated and counted --
+-- which is what makes an out-of-reach entity degrade to exactly the uncircuited one.
 --
 -- Pure like layout.lua and poles.lua: plain tables in, plain fields out, nothing from game
 -- state -- the planner resolves wire reach from prototypes and hands it in. The fields written
@@ -44,12 +56,25 @@ local circuits = {}
 local SIGNAL_MIN = "signal-M"
 local SIGNAL_CAP = "signal-C"
 
-local COMBINATOR_DESCRIPTION = "Upcycler limits. M = minimum kept of that quality plus the "
-  .. "inserter hand size, C = maximum in the output chest. Switch off to pause the loop."
+-- A combinator row's count and a logistic request are int32; the wizard caps a typed
+-- minimum at exactly this and the hand goes on top, so the sums are clamped here.
+local INT32_MAX = 2147483647
+
+-- Two descriptions, because the switch means two things -- see the header.
+local DESCRIPTION_CAPPED = "Upcycler limits. C = maximum in the output chest (0 stops the loop; "
+  .. "type a big number for no limit). M = minimum kept of that quality plus one inserter hand "
+  .. "per column (no row = no reserve). Switch off to pause the loop."
+local DESCRIPTION_UNCAPPED = "Upcycler limits. M = minimum kept of that quality plus one "
+  .. "inserter hand per column (no row = no reserve). Keep it switched on: off removes every "
+  .. "reserve."
 local COLOR_DONE = { r = 0, g = 1, b = 0, a = 1 }
 local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
 local ICON_DONE = { type = "virtual", name = "signal-check" }
 local ICON_PAUSED = { type = "virtual", name = "signal-deny" }
+
+-- The stack layout.build stands under the terminal machine, found by role like every other
+-- tagged entity.
+local STACK_ROLES = { limits = true, lamp_done = true, lamp_running = true, panel = true }
 
 local function centre(e)
   return e.dx + e.w / 2, e.dy + e.h / 2
@@ -84,20 +109,22 @@ local function gate(product, quality, comparator, threshold)
 end
 
 -- The combinator's rows, chain order so two identical plans decorate identically: signal-M
--- at each reserved quality -- the minimum plus the hand, the number the reserve inserter
--- really runs at -- then signal-C at the target's. tiers is the expanded per-column
--- array, so a repeated quality is written once. Absence IS "zero means off" -- the planner
--- stripped every zero before this ran, so a tier without a row keeps no reserve, and the
--- player adds one later by adding the row.
+-- at each reserved quality -- the minimum plus one hand per column of that quality, the
+-- number the reserve inserters really run at -- then signal-C at the target's. tiers is
+-- the expanded per-column array, so a repeated quality is written once, counted N times.
 local function rows_of(tiers, minimums, maximum, hand)
-  local rows, seen = {}, {}
+  local columns = {}
+  for k = 1, #tiers - 1 do
+    columns[tiers[k]] = (columns[tiers[k]] or 0) + 1
+  end
+  local rows, written = {}, {}
   for k = 1, #tiers - 1 do
     local quality = tiers[k]
-    if minimums[quality] and not seen[quality] then
-      seen[quality] = true
+    if minimums[quality] and not written[quality] then
+      written[quality] = true
       rows[#rows + 1] = {
         index = #rows + 1, type = "virtual", name = SIGNAL_MIN, quality = quality,
-        comparator = "=", count = minimums[quality] + hand,
+        comparator = "=", count = math.min(minimums[quality] + hand * columns[quality], INT32_MAX),
       }
     end
   end
@@ -123,32 +150,28 @@ end
 -- output chest at the TARGET quality, gating every machine and recycler, or nil for no cap
 -- at all (they then stay ungated, and the layout stood no lamps or panel); paused -- ship
 -- the combinator switched off; product -- the item the conditions count; hand -- items per
--- swing of the reserve inserters: every M row is the minimum plus it and every reserved
--- inserter is pinned to it, required whenever a minimum is set (api.md S33); reach -- tiles,
--- the shortest circuit wire distance among the wired prototypes, since a wire is refused
--- past its shorter end.
+-- swing of the reserve inserters: every M row is the minimum plus it per column and every
+-- reserved inserter is pinned to it, required whenever a minimum is set (api.md S33);
+-- reach -- tiles, the shortest circuit wire distance among the wired prototypes, since a
+-- wire is refused past its shorter end.
 --
--- Returns how many tagged entities no wire could reach: 0 normally, more on extreme modded
--- footprints. An unwired entity simply runs without its limit -- an enable condition with no
--- connected network gates nothing -- so the planner reports the count as a warning, never a
--- refusal.
+-- Returns how many entities that should be gated cannot hear the combinator: 0 normally,
+-- more on extreme modded footprints. Each is left without its condition, so it simply runs
+-- without its limit, and the planner reports the count as a warning, never a refusal.
 function circuits.decorate(entities, opts)
   local tiers, minimums = opts.tiers, opts.minimums
   local target = tiers[#tiers]
 
-  local machines, recyclers, censuses, reserves, ring = {}, {}, {}, {}, {}
-  local limits, lamp_done, lamp_running, panel
+  local machines, recyclers, censuses, reserves, ring, stack = {}, {}, {}, {}, {}, {}
   for index, e in ipairs(entities) do
     local role = e.circuit_role
-    if role == "machine" then machines[e.circuit_tier] = index end
-    if role == "recycler" then recyclers[e.circuit_tier] = index end
-    if role == "census" then censuses[e.circuit_tier] = index end
-    if role == "reserve" then reserves[e.circuit_tier] = index end
-    if role == "ring" then ring[#ring + 1] = index end
-    if role == "limits" then limits = index end
-    if role == "lamp_done" then lamp_done = index end
-    if role == "lamp_running" then lamp_running = index end
-    if role == "panel" then panel = index end
+    if role == "machine" then machines[e.circuit_tier] = index
+    elseif role == "recycler" then recyclers[e.circuit_tier] = index
+    elseif role == "census" then censuses[e.circuit_tier] = index
+    elseif role == "reserve" then reserves[e.circuit_tier] = index
+    elseif role == "ring" then ring[#ring + 1] = index
+    elseif STACK_ROLES[role] then stack[role] = index
+    end
   end
 
   -- Off is ABSENCE, on both sides: a tier missing from minimums keeps no reserve, a nil
@@ -170,23 +193,146 @@ function circuits.decorate(entities, opts)
   -- decoration whose combinator is missing would ship conditions against a signal nothing
   -- emits -- every machine stopped for good -- so the mismatch is a bug, never a degraded
   -- plan, and it fails here rather than in a stamped loop.
-  assert(limits and (not capped or (lamp_done and lamp_running and panel)),
+  assert(stack.limits and (not capped or (stack.lamp_done and stack.lamp_running and stack.panel)),
     "circuits.decorate: the layout stood no circuit stack for these limits")
 
-  -- Conditions first, independent of the wiring: harmless on an entity a wire never reaches,
-  -- since an unconnected enable condition leaves the entity running normally. Machines and
-  -- recyclers all stop at the one cap; each reserve inserter holds its own tier's floor.
+  -- One outgoing link per entity, wire_to's own shape: the network is a tree, so a parent
+  -- index each is enough, and blueprint.lua writes both ends exactly as it does for copper.
+  --
+  -- Half a tile of margin against the reach, because WHERE the engine measures a wire is
+  -- unrecorded: the reach itself is measured (api.md S26), but whether it spans entity
+  -- centres or the off-centre connector points is not, and the widest vanilla pitch (a
+  -- substation, beacon and pipe column) puts a spine hop at exactly 9.0 centre-to-centre.
+  -- The margin turns an exact-boundary hop into a relay or an honest unlinked count, where
+  -- guessing wrong would drop the wire silently at build and split the network unwarned.
+  local usable = opts.reach - 0.5
+  local function link(from, to)
+    if from and to and span(entities[from], entities[to]) <= usable then
+      entities[from].circuit_wire_to = to
+    end
+  end
+
+  -- Each tier's own stack, wired child-to-parent up the column: reserve inserter -> census
+  -- chest -> recycler -> machine, the terminal census landing straight on its machine --
+  -- link() ignoring a nil endpoint IS the terminal case, where no recycler stands. Bounded
+  -- by the machine+recycler band alone, never by pitch. The whole loop joins one network
+  -- whatever is gated: a reserve-only plan still has to hear the combinator, so its
+  -- machines carry the wire ungated, as the relay belts do.
+  for k = 1, #tiers do
+    link(reserve_at(k), censuses[k])
+    link(censuses[k], recyclers[k] or machines[k])
+    link(recyclers[k], machines[k])
+  end
+
+  -- The cross-tier spine rides the machine row: every machine shares its rows, so these hops
+  -- are purely horizontal and stay inside vanilla wire reach whatever the band height -- the
+  -- chest row cannot say the same, its hop to the output chest spanning the whole band. When
+  -- a hop would exceed reach (a wide modded pitch, a fat utility column), the spine falls
+  -- back to relaying along the top ring belts instead: hops of one tile whatever the width,
+  -- each machine tapping the belt above it. A wired belt with no control_behavior neither
+  -- reads nor gates -- it just carries the network.
+  local worst = 0
+  for k = 1, #tiers - 1 do
+    if machines[k] and machines[k + 1] then
+      worst = math.max(worst, span(entities[machines[k]], entities[machines[k + 1]]))
+    end
+  end
+
+  if worst <= usable then
+    for k = 1, #tiers - 1 do
+      link(machines[k], machines[k + 1])
+    end
+  else
+    -- The top row of the ring, found by geometry rather than a row constant this file has
+    -- no business knowing, chained left to right.
+    local top_y = math.huge
+    for _, i in ipairs(ring) do top_y = math.min(top_y, entities[i].dy) end
+    local top = {}
+    for _, i in ipairs(ring) do
+      if entities[i].dy == top_y then top[#top + 1] = i end
+    end
+    table.sort(top, function(a, b) return entities[a].dx < entities[b].dx end)
+    for j = 1, #top - 1 do
+      entities[top[j]].circuit_wire_to = top[j + 1]
+    end
+
+    -- The tap is the machine's one outgoing link -- in relay mode it never links to the
+    -- next machine, so the slot is free for the belt above its own centre. Machines and
+    -- the sorted top row both run left to right, so one advancing pointer finds every
+    -- nearest belt in a single pass -- a rescan per machine went quadratic at exactly the
+    -- long-chain scale this branch exists for. Advancing only while STRICTLY closer keeps
+    -- the leftmost of an equidistant pair, the rescan's own tie-break.
+    local j = 1
+    for k = 1, #tiers do
+      local m = machines[k]
+      if m then
+        local mx = centre(entities[m])
+        while j < #top
+          and math.abs(entities[top[j + 1]].dx + 0.5 - mx)
+            < math.abs(entities[top[j]].dx + 0.5 - mx) do
+          j = j + 1
+        end
+        link(m, top[j])
+      end
+    end
+  end
+
+  -- The stack: the combinator stands directly under the terminal machine and links to it
+  -- alone -- its own link, never the spine's, since the terminal machine still owns its
+  -- outgoing slot up there -- and each indicator hangs straight off the combinator, one to
+  -- three tiles below it. Never the other way round: a lamp a bot has not delivered yet, or
+  -- one the player mines as clutter, costs an indicator and never the loop.
+  link(stack.limits, machines[#tiers])
+  if capped then
+    link(stack.lamp_done, stack.limits)
+    link(stack.lamp_running, stack.limits)
+    link(stack.panel, stack.limits)
+  end
+
+  -- Who can hear the combinator: the component around it, walked over both ends of every
+  -- link placed above. Anything outside it gets no condition, whatever its role.
+  local adjacent = {}
+  for index, e in ipairs(entities) do
+    local to = e.circuit_wire_to
+    if to then
+      adjacent[index] = adjacent[index] or {}
+      adjacent[to] = adjacent[to] or {}
+      adjacent[index][#adjacent[index] + 1] = to
+      adjacent[to][#adjacent[to] + 1] = index
+    end
+  end
+  local heard, queue, head = { [stack.limits] = true }, { stack.limits }, 1
+  while head <= #queue do
+    local at = queue[head]
+    head = head + 1
+    for _, index in ipairs(adjacent[at] or {}) do
+      if not heard[index] then
+        heard[index] = true
+        queue[#queue + 1] = index
+      end
+    end
+  end
+
+  -- Conditions, on what is heard. Machines and recyclers all stop at the one cap; each
+  -- reserve inserter holds its own tier's floor.
+  local unlinked = 0
   local cap = capped and threshold_signal(SIGNAL_CAP, target) or nil
   if capped then
     for _, set in pairs({ machines, recyclers }) do
       for _, index in pairs(set) do
-        entities[index].control_behavior = gate(opts.product, target, "<", cap)
+        if heard[index] then
+          entities[index].control_behavior = gate(opts.product, target, "<", cap)
+        else
+          unlinked = unlinked + 1
+        end
       end
     end
   end
   for k = 1, #tiers do
     local reserve = reserve_at(k)
-    if reserve then
+    if reserve and not heard[reserve] then
+      unlinked = unlinked + 1
+    elseif reserve then
       -- ">=" against minimum + hand: the inserter checks its condition at pickup and then
       -- takes a whole hand, so the threshold is where a full grab lands exactly on the
       -- floor. Pinning the hand is what makes that arithmetic hold -- the engine caps a
@@ -200,149 +346,57 @@ function circuits.decorate(entities, opts)
       -- could never be reached and the tier would silently stop recycling. Raising the
       -- request by it keeps the working-stock band on top of what the player keeps -- and
       -- on the first tier it makes the bots actively deliver toward the floor, which is what
-      -- "keep this many in the chest" asks for.
+      -- "keep this many in the chest" asks for. Per chest, one hand each: N chests then
+      -- request N hands between them, which is what the summed threshold needs.
       local census = censuses[k] and entities[censuses[k]]
       if census and census.requests and census.requests[1] then
-        census.requests[1].count = census.requests[1].count + minimums[tiers[k]] + hand
+        census.requests[1].count =
+          math.min(census.requests[1].count + minimums[tiers[k]] + hand, INT32_MAX)
       end
     end
   end
 
-  -- The combinator carries the numbers every condition above compares against. Written as
-  -- an explicit branch: `paused and false or nil` would read nil either way, false being
-  -- falsy -- the same idiom trap layout.lua's terminal module already notes.
-  local combinator = entities[limits]
+  -- The combinator carries the numbers every condition above compares against. is_on is
+  -- written only to pause: absent is the blueprint's own "on".
+  local combinator = entities[stack.limits]
   combinator.control_behavior = {
     sections = { sections = { { index = 1, filters = rows_of(tiers, minimums, opts.maximum, hand) } } },
   }
   if opts.paused then combinator.control_behavior.is_on = false end
-  combinator.player_description = COMBINATOR_DESCRIPTION
+  combinator.player_description = capped and DESCRIPTION_CAPPED or DESCRIPTION_UNCAPPED
 
   -- The indicators, capped plans only: the lamps split on the one comparison the machines
   -- make, and the panel asks "paused" first because a C of 0 would read as done for any
   -- chest -- the panel shows the first row whose condition holds, its own icon and words
   -- otherwise. always_on lifts the lamps' night-only rule; the condition still gates them
-  -- (measured, tests/loop_spec.lua).
+  -- (measured, tests/loop_spec.lua). An indicator out of the combinator's reach is left a
+  -- plain lamp or panel, like any other unheard entity.
   if capped then
-    local done, running, board = entities[lamp_done], entities[lamp_running], entities[panel]
-    done.color = COLOR_DONE
-    done.always_on = true
-    done.control_behavior = gate(opts.product, target, ">=", cap)
-    running.color = COLOR_RUNNING
-    running.always_on = true
-    running.control_behavior = gate(opts.product, target, "<", cap)
-    board.icon = product_signal(opts.product, target)
-    board.text = "Running"
-    board.always_show = true
-    board.show_in_chart = true
-    board.control_behavior = { parameters = {
-      { condition = { comparator = "=", first_signal = cap, constant = 0 },
-        icon = ICON_PAUSED, text = "Paused" },
-      { condition = { comparator = ">=", first_signal = product_signal(opts.product, target),
-          second_signal = cap },
-        icon = ICON_DONE, text = "Done" },
-    } }
-  end
-
-  -- One outgoing link per entity, wire_to's own shape: the network is a tree, so a parent
-  -- index each is enough, and blueprint.lua writes both ends exactly as it does for copper.
-  --
-  -- Half a tile of margin against the reach, because WHERE the engine measures a wire is
-  -- unrecorded: the reach itself is measured (api.md S26), but whether it spans entity
-  -- centres or the off-centre connector points is not, and the widest vanilla pitch (a
-  -- substation, beacon and pipe column) puts a spine hop at exactly 9.0 centre-to-centre.
-  -- The margin turns an exact-boundary hop into a relay or an honest unlinked count, where
-  -- guessing wrong would drop the wire silently at build and split the network unwarned.
-  local usable = opts.reach - 0.5
-  local unlinked = 0
-  local function link(from, to)
-    if not (from and to) then return end
-    if span(entities[from], entities[to]) <= usable then
-      entities[from].circuit_wire_to = to
-    else
-      unlinked = unlinked + 1
+    local done, running, board =
+      entities[stack.lamp_done], entities[stack.lamp_running], entities[stack.panel]
+    if heard[stack.lamp_done] then
+      done.color = COLOR_DONE
+      done.always_on = true
+      done.control_behavior = gate(opts.product, target, ">=", cap)
     end
-  end
-
-  -- Each tier's own stack, wired child-to-parent up the column: reserve inserter -> census
-  -- chest -> recycler -> machine, the terminal census landing straight on its machine --
-  -- link() ignoring a nil endpoint IS the terminal case, where no recycler stands. Bounded
-  -- by the machine+recycler band alone, never by pitch. The whole loop joins one network
-  -- whenever anything is gated: a reserve-only plan still has to hear the combinator, so
-  -- its machines carry the wire ungated, as the relay belts do.
-  local active = capped or next(minimums) ~= nil
-  for k = 1, #tiers do
-    link(reserve_at(k), censuses[k])
-    if active then
-      link(censuses[k], recyclers[k] or machines[k])
-      link(recyclers[k], machines[k])
+    if heard[stack.lamp_running] then
+      running.color = COLOR_RUNNING
+      running.always_on = true
+      running.control_behavior = gate(opts.product, target, "<", cap)
     end
-  end
-
-  -- The cross-tier spine rides the machine row: every machine shares its rows, so these hops
-  -- are purely horizontal and stay inside vanilla wire reach whatever the band height -- the
-  -- chest row cannot say the same, its hop to the output chest spanning the whole band. When
-  -- a hop would exceed reach (a wide modded pitch, a fat utility column), the spine falls
-  -- back to relaying along the top ring belts instead: hops of one tile whatever the width,
-  -- each machine tapping the belt above it. A wired belt with no control_behavior neither
-  -- reads nor gates -- it just carries the network.
-  if active then
-    local worst = 0
-    for k = 1, #tiers - 1 do
-      if machines[k] and machines[k + 1] then
-        worst = math.max(worst, span(entities[machines[k]], entities[machines[k + 1]]))
-      end
+    if heard[stack.panel] then
+      board.icon = product_signal(opts.product, target)
+      board.text = "Running"
+      board.always_show = true
+      board.show_in_chart = true
+      board.control_behavior = { parameters = {
+        { condition = { comparator = "=", first_signal = cap, constant = 0 },
+          icon = ICON_PAUSED, text = "Paused" },
+        { condition = { comparator = ">=", first_signal = product_signal(opts.product, target),
+            second_signal = cap },
+          icon = ICON_DONE, text = "Done" },
+      } }
     end
-
-    if worst <= usable then
-      for k = 1, #tiers - 1 do
-        link(machines[k], machines[k + 1])
-      end
-    else
-      -- The top row of the ring, found by geometry rather than a row constant this file has
-      -- no business knowing, chained left to right.
-      local top_y = math.huge
-      for _, i in ipairs(ring) do top_y = math.min(top_y, entities[i].dy) end
-      local top = {}
-      for _, i in ipairs(ring) do
-        if entities[i].dy == top_y then top[#top + 1] = i end
-      end
-      table.sort(top, function(a, b) return entities[a].dx < entities[b].dx end)
-      for j = 1, #top - 1 do
-        entities[top[j]].circuit_wire_to = top[j + 1]
-      end
-
-      -- The tap is the machine's one outgoing link -- in relay mode it never links to the
-      -- next machine, so the slot is free for the belt above its own centre. Machines and
-      -- the sorted top row both run left to right, so one advancing pointer finds every
-      -- nearest belt in a single pass -- a rescan per machine went quadratic at exactly the
-      -- long-chain scale this branch exists for. Advancing only while STRICTLY closer keeps
-      -- the leftmost of an equidistant pair, the rescan's own tie-break.
-      local j = 1
-      for k = 1, #tiers do
-        local m = machines[k]
-        if m then
-          local mx = centre(entities[m])
-          while j < #top
-            and math.abs(entities[top[j + 1]].dx + 0.5 - mx)
-              < math.abs(entities[top[j]].dx + 0.5 - mx) do
-            j = j + 1
-          end
-          link(m, top[j])
-        end
-      end
-    end
-  end
-
-  -- The stack hangs off the terminal machine a tile a hop -- lamps, panel, combinator in
-  -- the order the layout stood them -- so no pitch or machine size can put the combinator
-  -- out of reach. Its own link, never the spine's: the terminal machine still owns its
-  -- outgoing slot up there.
-  local chain = capped and { lamp_done, lamp_running, panel, limits } or { limits }
-  local from = machines[#tiers]
-  for _, index in ipairs(chain) do
-    link(index, from)
-    from = index
   end
 
   return unlinked

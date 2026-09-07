@@ -938,12 +938,7 @@ end)
 describe("layout.build circuit stack", function()
   -- What planner.plan hands over as layout_params.circuit: fixed vanilla names, and whether
   -- the cap's lamps and panel join the combinator.
-  local function stack(capped)
-    return {
-      capped = capped,
-      combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
-    }
-  end
+  local stack = circuit_stack.params
 
   local function stack_of(built)
     return circuit_stack.of(built.entities)
@@ -951,7 +946,8 @@ describe("layout.build circuit stack", function()
 
   test("a capped stack stands under the terminal machine, in its product sub-column, footprint unchanged", function()
     -- Vanilla: the terminal column starts at 7, so col_product is 9, and the band below the
-    -- machine starts at r.recycler = 7 -- four rows, lamps first, the combinator last.
+    -- machine starts at r.recycler = 7 -- four rows, the combinator first (its hop to the
+    -- machine is the one every condition depends on), the indicators under it.
     local plain = layout.build(params_with())
     local built = layout.build(params_with({ circuit = stack(true) }))
     assert(built.width == plain.width and built.height == plain.height,
@@ -960,10 +956,10 @@ describe("layout.build circuit stack", function()
     assert(count == 4 and #built.entities == #plain.entities + 4,
       "stack entities " .. count .. ", plan grew by " .. (#built.entities - #plain.entities))
     local order = {
+      { role = "limits", name = "constant-combinator" },
       { role = "lamp_done", name = "small-lamp" },
       { role = "lamp_running", name = "small-lamp" },
       { role = "panel", name = "display-panel" },
-      { role = "limits", name = "constant-combinator" },
     }
     for i, want in ipairs(order) do
       local e = found[want.role]
@@ -975,7 +971,7 @@ describe("layout.build circuit stack", function()
     assert_no_overlap_and_in_bounds(built)
   end)
 
-  test("an uncapped stack is the combinator alone, at the top of the band", function()
+  test("an uncapped stack is the combinator alone, in the same place", function()
     local plain = layout.build(params_with())
     local built = layout.build(params_with({ circuit = stack(false) }))
     local found, count = stack_of(built)

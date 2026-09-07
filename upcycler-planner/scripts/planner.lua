@@ -1999,7 +1999,11 @@ end
 -- for an entity with neither override nor circuit (measured, api.md S33) -- read here off the
 -- prototype and the force so no entity has to stand.
 function planner.inserter_hand(force, name)
-  local entity = prototypes.entity[name]
+  -- No inserter at all -- a recipe no researched inserter can filter leaves the pick empty
+  -- while validate refuses the plan -- reads as the engine's floor of one, so the wizard can
+  -- still stand and show something rather than index nil.
+  local entity = name and prototypes.entity[name]
+  if not entity then return 1 end
   local hand = 1 + (entity.inserter_stack_size_bonus or 0)
   if entity.uses_inserter_stack_size_bonus then
     hand = hand + (entity.bulk and force.bulk_inserter_capacity_bonus
@@ -2018,7 +2022,9 @@ planner.MAX_HAND = 255
 -- a hand-edited save can hold anything.
 function planner.circuit_hand(force, choices, inserter_name)
   local hand = choices.circuit_hand
-  if type(hand) ~= "number" or hand < 1 then
+  -- A NaN is a number that fails `< 1`, and it must fall back rather than reach the
+  -- decorator's assert; `hand ~= hand` is the one test that catches it.
+  if type(hand) ~= "number" or hand ~= hand or hand < 1 then
     hand = planner.inserter_hand(force, inserter_name)
   end
   return math.min(math.floor(hand), planner.MAX_HAND)
@@ -2650,19 +2656,20 @@ function planner.validate(force, choices)
     local capacity = slots * prototypes.item[product.name].stack_size
     local tiers = planner.tiers_up_to(choices.quality)
     -- Every column's census chest shares the one green network, so a repeated tier's floor
-    -- reads the SUMMED count and can fill up to N chests. The warning follows the same
-    -- resolution plan() applies, or a multi-column tier warned falsely.
+    -- reads the SUMMED count and can fill up to N chests -- and its threshold carries one
+    -- hand per column (circuits.lua). The warning follows the same resolution plan()
+    -- applies, or a multi-column tier warned falsely.
     local minimums = planner.circuit_limits(choices, recipe, tiers)
-    local columns = next(minimums) ~= nil and planner.tier_columns(choices, tiers) or nil
-    local hand = next(minimums) ~= nil
-      and planner.circuit_hand(force, choices, r.inserter.name) or 0
-    for i = 1, #tiers - 1 do
-      local floor = minimums[tiers[i]]
-      local reachable = capacity * (columns and columns[tiers[i]] or 1)
-      if floor and floor + hand > reachable then
-        return true, {
-          "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
-        }, r
+    if next(minimums) ~= nil then
+      local columns = planner.tier_columns(choices, tiers)
+      local hand = planner.circuit_hand(force, choices, r.inserter.name)
+      for i = 1, #tiers - 1 do
+        local floor, n = minimums[tiers[i]], columns[tiers[i]] or 1
+        if floor and floor + hand * n > capacity * n then
+          return true, {
+            "upl-message.circuit-min-too-big", prototypes.quality[tiers[i]].localised_name,
+          }, r
+        end
       end
     end
   end
