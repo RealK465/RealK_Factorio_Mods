@@ -178,6 +178,16 @@ local function chosen_recipe(choices)
   return choices.recipe and prototypes.recipe[choices.recipe]
 end
 
+-- Whether the wizard's numbers build a cap -- resolved the way plan() resolves it, through
+-- planner.circuit_limits, so the Start paused checkbox greys exactly when the switch would
+-- pause nothing. Up here because gui.refresh reads it as well as the wizard's builder.
+local function circuit_capped(choices)
+  if not (choices.circuit_enabled and choices.quality) then return false end
+  local _, maximum = planner.circuit_limits(choices, chosen_recipe(choices),
+    planner.tiers_up_to(choices.quality) or {})
+  return maximum ~= nil
+end
+
 -- Machines are offered per recipe, so the list has to be rebuilt whenever the item changes.
 -- An empty name list is not a legal filter, so an unusable recipe drops the filter entirely
 -- and leaves validation to explain why nothing works.
@@ -493,16 +503,12 @@ function gui.refresh(player)
   -- button rides the same rule for its own checkbox.
   local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
   limits.enabled = choices.circuit_enabled == true
-  -- Start paused switches the combinator off, which only pauses anything through the cap --
-  -- so it is dead while the wizard holds no maximum, resolved the way plan() resolves it.
-  local paused = main["upl-options"]["upl-circuits-strip"]["upl-circuit-paused"]
-  local capped = false
-  if choices.circuit_enabled and choices.quality then
-    local _, maximum = planner.circuit_limits(choices, chosen_recipe(choices),
-      planner.tiers_up_to(choices.quality) or {})
-    capped = maximum ~= nil
+  -- Start paused, at the foot of the wizard when it is open: the switch only pauses anything
+  -- through the cap, so the box follows the Max field, which refreshes on every keystroke.
+  local wizard = panel_frame_of(player, CIRCUITS_FRAME)
+  if wizard then
+    wizard["upl-circuits-content"]["upl-circuit-paused"].enabled = circuit_capped(choices)
   end
-  paused.enabled = capped
   local ratios = main["upl-options"]["upl-mix-strip"]["upl-split"]
   ratios.enabled = planner.split_enabled(choices) and choices.recipe ~= nil
 
@@ -750,6 +756,20 @@ local function build_circuits_panel(player, frame)
     })
     field.style.width = 60
   end
+
+  -- Start paused, at the foot of the rows -- the owner's placement (2026-09-07): it is one
+  -- of the limits, not a build option. The combinator ships switched off, so a half-built
+  -- loop cannot burn quality ingredients before its modules arrive. Dead without a maximum,
+  -- since the switch only pauses anything through the cap; set here because open_side_panel
+  -- builds without a refresh, and kept current by gui.refresh as the Max field changes.
+  local paused_box = content.add({
+    type = "checkbox", name = "upl-circuit-paused", state = choices.circuit_paused == true,
+    caption = { "upl-gui.circuit-paused" },
+    tooltip = { "upl-gui.circuit-paused-tooltip" },
+    tags = dispatch.tags("circuit-paused"),
+  })
+  paused_box.style.top_margin = 8
+  paused_box.enabled = circuit_capped(choices)
 end
 
 -- The ingredient-amounts panel: one numeric field per item ingredient of the chosen recipe,
@@ -1474,17 +1494,6 @@ function gui.open(player)
   })
   limits_button.style.left_margin = 8
   -- Enabled state left to gui.refresh, the split button's reason.
-
-  -- Start paused: the limits combinator ships switched off, so a half-built loop cannot
-  -- burn quality ingredients before its modules arrive. Dead without a maximum, since the
-  -- switch works through the cap -- also gui.refresh's to decide.
-  local paused_box = circuits_row.add({
-    type = "checkbox", name = "upl-circuit-paused", state = choices.circuit_paused == true,
-    caption = { "upl-gui.circuit-paused" },
-    tooltip = { "upl-gui.circuit-paused-tooltip" },
-    tags = dispatch.tags("circuit-paused"),
-  })
-  paused_box.style.left_margin = 8
 
   -- Always shown like the trash checkbox below it: the tick IS the choice, and the picker it
   -- re-lists sits hidden with the other chests.

@@ -982,8 +982,10 @@ per-release approval.
   threshold still re-solves nothing).
 - **Start paused: the combinator ships switched off** (2026-09-07, the owner's call on the
   same request — a half-built loop burns quality ingredients until bots bring the modules,
-  and a paused loop waits). A plain checkbox beside Limits..., `choices.circuit_paused`, off
-  by default so nothing changes for anyone who never ticks it; greyed unless a cap is set,
+  and a paused loop waits). A checkbox at the foot of the Limits wizard, under the Min/Max
+  rows — the owner's placement, moved off the Circuits row the same day: it is one of the
+  limits, not a build option — `choices.circuit_paused`, off by default so nothing changes
+  for anyone who never ticks it; greyed unless a cap is set,
   because the switch only pauses anything through the cap — an uncapped reserve reads
   `count > 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
   every loop paused (a dead loop for whoever does not open the combinator).

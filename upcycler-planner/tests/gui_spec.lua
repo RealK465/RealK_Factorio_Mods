@@ -1092,31 +1092,42 @@ describe("the modal", function()
       "the target row is not labelled Max")
   end)
 
-  test("Start paused: dead until a cap arms it, stored on the tick, dead again under a zero cap", function()
+  test("Start paused lives in the wizard: armed by the cap, stored on the tick, dead under a zero cap", function()
     open_with_gears()
-    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
-    local paused = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-paused" })
-    assert(paused.state == false and paused.enabled == false,
-      "Start paused must start off and dead")
-
-    -- Ticking the limits on arms it at once: the backfilled cap is one stack of gears.
-    box.state = true
-    fire(box, defines.events.on_gui_checked_state_changed)
-    assert(paused.valid and paused.enabled == true, "Start paused did not arm with the cap")
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    local panel = circuits_panel()
+    assert(panel and panel.valid, "the circuit wizard is not open")
+    local paused = panel["upl-circuits-content"]["upl-circuit-paused"]
+    assert(paused, "Start paused is not at the foot of the wizard")
+    -- The backfilled cap (one stack of gears) arms it from the first open.
+    assert(paused.state == false and paused.enabled == true,
+      "Start paused must open unticked and armed by the backfilled cap")
 
     paused.state = true
     fire(paused, defines.events.on_gui_checked_state_changed)
     assert(choices().circuit_paused == true, "the tick did not reach the choices")
-    assert(paused.valid, "the tick rebuilt the modal under the cursor")
+    assert(paused.valid, "the tick rebuilt the wizard under the cursor")
 
-    -- No cap, nothing the switch could pause through: zeroing the Max greys it again.
-    gui.open_circuits(player())
+    -- No cap, nothing the switch could pause through: zeroing the Max greys it in place,
+    -- and a cap typed back arms it again.
     local field = circuit_field("legendary")
     field.text = "0"
     fire(field, defines.events.on_gui_text_changed)
-    paused = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-paused" })
-    assert(paused.enabled == false, "Start paused stayed armed under a zero cap")
+    assert(paused.valid and paused.enabled == false, "Start paused stayed armed under a zero cap")
     assert(choices().circuit_paused == true, "greying the box must not forget the choice")
+    field.text = "20"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(paused.enabled == true, "Start paused did not re-arm with the cap")
+
+    -- It is one of the limits, not a build option: nothing of it on the Circuits row, and
+    -- unticking the limits takes the wizard, box included, with it.
+    assert(widget({ "upl-options", "upl-circuits-strip" })["upl-circuit-paused"] == nil,
+      "Start paused is still on the Circuits row")
+    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
+    box.state = false
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(circuits_panel() == nil, "unticking the limits left the wizard open")
   end)
 
   test("typing commits without a rebuild; Enter snaps the text to what holds", function()
