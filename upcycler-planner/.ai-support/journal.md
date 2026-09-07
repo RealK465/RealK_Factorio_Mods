@@ -9,6 +9,19 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - The N-grab timing, measured
+
+The one premise the review left reasoned — that N reserve inserters on a repeated quality
+act on the same tick's summed reading, which is why the M row carries one hand per column —
+went under a throwaway probe (`tests/probe_spec.lua`, registered, run with `-Filter probe`,
+removed; the file sits in the session scratchpad). It holds, exactly: two lockstep bulk
+inserters pinned to 5 dropped the summed count by ten inside one tick, three by fifteen, and
+the shipped threshold landed both rigs exactly on their floor (10 of 10, 15 of 15). The
+counter-factual — the same two columns at the minimum plus ONE hand — left 5 of a floor of
+10, one chest empty: the per-column hand closes a real breach, not a theoretical one.
+Recorded in `analysis/api.md` §33; the register's *Hand size* bullet now says measured. Not
+pinned in the suite: the owner's call whether the probe's two cases join `loop_spec`.
+
 ## 2026-09-07 - The review fixes reach Factorio 2.0
 
 The review delta (`8f05bd9` on `main`) went to `legacy/2.0` as a plain cherry-pick

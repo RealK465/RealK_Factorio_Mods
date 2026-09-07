@@ -1499,3 +1499,16 @@ default..."). The fix that stands on it: `../decisions.md` → *Hand size*.
   near '\u'"* at load), so `blueprint_spec` compares against the byte string
   `"\226\137\165"`. The family's fourth read-back trap after `circuit_enabled` /
   `circuit_enable_disable`, `is_on` / `enabled` and `records` / `messages`.
+- **N reserve inserters on one summed reading act on the SAME tick's value** — measured later
+  the same day through a second throwaway `tests/probe_spec.lua` (registered, run with
+  `-Filter probe`, removed; the file sits in the session scratchpad): N source chests on one
+  green network, each with its own bulk inserter pinned to 5 and gated `gear >= threshold`
+  on the summed count, the sum sampled every tick. Two lockstep inserters drop the sum by
+  TWO hands inside one tick — 40 → 30 → 20 → 10 at ticks 3, 27 and 51 — and three by three
+  hands (45 → 30 → 15). So the shipped `min + hand * N` is exact: two columns at a minimum
+  of 10 with threshold 20 kept exactly 10, three at 15 with threshold 30 kept exactly 15.
+  The counter-factual pins the mechanism: the same two columns at threshold 15 — the
+  minimum plus ONE hand — both acted on the reading of 15 and left 5, a full hand under the
+  floor (one chest at 5, the other empty). The per-column hand closes a real breach, not a
+  theoretical one. What it does NOT hold is a per-chest floor: the reading is the sum, so
+  one chest can empty while another carries the whole minimum (`../deferred.md`).
