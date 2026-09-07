@@ -449,10 +449,32 @@ describe("stamping the blueprint", function()
     end
     assert(green == 1 and blue == 1, green .. " green and " .. blue .. " blue lamps")
 
-    local records = revived["display-panel"][1].get_control_behavior().records
+    -- The panel's rows come back through the engine's own encoder rather than its control
+    -- behaviour: 2.0.77 spells that class's list `messages` and 2.1 `records`, each a hard
+    -- error on the other track (analysis/factorio-2.0.md), where the blueprint shape is one
+    -- and the same. A one-tile area, so the lamp above and the combinator below stay out.
+    local panel = revived["display-panel"][1]
+    local inventory = game.create_inventory(1)
+    inventory.insert({ name = "blueprint", count = 1 })
+    inventory[1].create_blueprint({
+      surface = nauvis(), force = force(),
+      area = { { panel.position.x - 0.4, panel.position.y - 0.4 },
+        { panel.position.x + 0.4, panel.position.y + 0.4 } },
+    })
+    local encoded
+    for _, e in pairs(inventory[1].get_blueprint_entities() or {}) do
+      if e.name == "display-panel" then encoded = e end
+    end
+    inventory.destroy()
+    assert(encoded, "the revived panel did not encode into a blueprint")
+    assert(encoded.show_in_chart == true and encoded.always_show == true,
+      "the panel lost its map or always-show flag: " .. serpent.line(encoded))
+    local records = encoded.control_behavior.parameters
     assert(#records == 2, "panel records " .. #records)
     assert(records[1].icon.name == "signal-deny" and records[1].text == "Paused"
-      and records[1].condition.constant == 0, "panel row 1 is " .. serpent.line(records[1]))
+      and (records[1].condition.constant or 0) == 0 and records[1].condition.second_signal == nil
+      and records[1].condition.first_signal.name == "signal-C",
+      "panel row 1 is " .. serpent.line(records[1]))
     assert(records[2].icon.name == "signal-check" and records[2].text == "Done"
       and records[2].condition.second_signal.name == "signal-C",
       "panel row 2 is " .. serpent.line(records[2]))

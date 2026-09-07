@@ -194,6 +194,26 @@ raises `on_runtime_mod_setting_changed`, that `location` reads 0,0 until a frame
 and that a hidden child takes no cell in a table. The suite covers the first and third on whichever
 track it runs, so pointing it at the 2.0 worktree settles them.
 
+## The circuit stack ports unchanged — measured 2026-09-07
+
+The 1.1.0 combinator, lamps and display panel (`api.md` §32) reached this track as a plain
+cherry-pick: only `info.json` conflicted, `planner.lua` and `gui.lua` took their hunks onto
+the forked copies without a touch, and `git diff main` still lists exactly the declared set.
+Measured on 2.0.77, not inferred: the whole suite (348, the same count as `main`) passes
+from the legacy worktree, which covers the live combinator-carried cap pausing, resuming
+and stopping when switched off, the lamps' `always_on` gating at noon, and the stamped
+stack's `is_on`, `color`, `combinator_description` and panel rows surviving a revive. The
+static tier is clean against the 2.0.77 typedefs, so `LuaEntity.always_on`,
+`combinator_description` and `LuaConstantCombinatorControlBehavior.enabled` all exist here.
+
+**One runtime rename, spec-side only:** the display panel's row list is
+`LuaDisplayPanelControlBehavior.messages` (with `get_message`/`set_message`) on 2.0.77 and
+`.records` (with `get_record`, `add_record`, `set_record`, `move_record`, `remove_record`)
+on 2.1.17 — read out of both installs' `runtime-api.json`, and a hard "doesn't contain key"
+error whichever way round. The mod never reads it (it writes the blueprint `parameters`,
+identical on both), so no fork: `tests/blueprint_spec.lua` reads a revived panel back
+through `create_blueprint` instead, the one shape both engines share.
+
 ## UNVERIFIED on 2.0
 
 - Whether `set_recipe(recipe, quality)` on a ghost errors or quietly ignores the quality for a
