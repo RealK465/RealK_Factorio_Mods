@@ -9,6 +9,70 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - The limits move onto a combinator, and lamps say what the loop is doing
+
+pacak's portal thread asked for three things: an on/off switch so a half-built loop stops
+burning quality ingredients before its modules arrive, red/green lamps for completion, and
+thresholds that can be changed without re-stamping. The owner brought it in with two calls up
+front — a lamp for the status, constant combinators for the conditions — and settled the rest
+in one round: replace the baked constants outright (no second code path), keep "0 means no
+circuitry" exactly as it was rather than encode "no cap" on the wire, a Start paused checkbox,
+a lamp pair with **blue** for running, a display panel on top, no research gate, 1.1.0 / 1.1.1.
+
+**Measured before designing.** A throwaway `tests/probe_spec.lua` (registered, run with
+`-Filter probe`, deleted) settled the engine questions in one headless pass, now `api.md`
+§32: a quality-tagged virtual signal works as an enable condition's `second_signal`; a
+quality-typed signal is refused in a combinator slot, so it is `signal-M`/`signal-C` with a
+quality badge; switching the combinator off drops its rows to 0 and stops every capped
+machine, which is the pause switch for free; and the combinator, lamp `color` and display
+panel `parameters` all round-trip through `set_blueprint_entities` and survive a revive. The
+same probe found the third rename trap of the family: `is_on` in the blueprint is `enabled`
+on the live control behaviour, `player_description` is `combinator_description`.
+
+**The design that fell out.** The planner normalises the thresholds once, BEFORE the layout
+runs — `planner.circuit_limits`, shared with validate() and gui.refresh — because the
+combinator is a real entity now and "is there a cap" decides what the layout stands: the
+combinator whenever any threshold is set, two lamps and the panel above it under a cap, in the
+terminal column's product sub-column under the machine, the band the overflow tap already
+borrows two tiles from. Placed by `layout.build` so the pole ladder sees the tiles as taken
+and the lamps as consumers; the pole memo key gained one presence token (off / reserved /
+capped) and nothing else, so typing a number still re-solves nothing — the owner's one
+instruction for the session was to keep the performance where it is. `circuits.decorate`
+writes everything semantic: `second_signal` conditions, the combinator's rows and its
+description, `is_on = false` for Start paused, the lamp colours, the panel's three rows, and a
+one-tile-a-hop chain off the terminal machine. One real behaviour change rode along: the
+spine is wired whenever anything is gated, since a reserve-only plan has to hear the
+combinator — the machines carry the wire ungated, as the relay belts do. `blueprint.lua`
+passes six new fields through verbatim.
+
+**What broke, and what did not.** The pure circuits spec was rewritten against the new
+shapes (the reach-1 unlinked count went from 10 to the predicted 14); plan_spec's
+repeated-columns test still read `.constant` and was the one headless failure on the first
+run. The footprint pin held untouched — the stack changed neither width nor height, and a
+pure pole sweep added after the review (2 to 64 tiers, stack on against stack off) shows
+the compact solve still covers everything, lamps included, with not one pole more. Suite:
+pure 103, headless 348/348 (332 before), static clean. The 2.0 port waits for a release ask;
+the 2.0.77 API JSON carries the same blueprint concepts, so it looks fork-free, but that is a
+schema read, not a measurement.
+
+**Seen as well as measured.** Whether a conditioned lamp is VISIBLY lit at noon was first
+inferred from `status == working` with `always_on` set; a second throwaway
+(`tests/shot_spec.lua`, the 2026-08-30 `show_gui` trick pointed at the world with
+`take_screenshot{daytime = 0}`) then showed it: green at the cap, blue below it, a plain
+control lamp dark beside them. Deleted with its `control.lua` line once the picture was
+read; the graphics tier ran the whole suite green on the way. What stays open: the
+summed-versus-per-chest reserve question under repeated columns (`deferred.md`), unchanged
+by the move — though the move did remove its second reading, since an uncapped plan no
+longer islands its reserves. Changelog opened 1.1.0 with `Date: ????`, `info.json` bumped
+to match.
+
+**The analysis front matter moved to 2.1.17.** `check-ai-support.ps1` had flagged all seven
+2.1 evidence files as stamped 2.1.16, a version no pinned install carries since the
+2026-08-30 move. Re-stamped on the owner's "docs up to date" ask, on this basis and no more:
+the script re-resolved every API and game-data citation against 2.1.17 (53 and 18 of them),
+and the 348-test suite re-pinned every behaviour claim on 2.1.17 the same day. The prose was
+not re-read line by line; §32 is the only section written against 2.1.17 first-hand.
+
 ## 2026-08-30 - Build options rows line up, and the beacon count stops floating
 
 The owner's screenshot circled four buttons that did not share an edge: *Ratios...*,

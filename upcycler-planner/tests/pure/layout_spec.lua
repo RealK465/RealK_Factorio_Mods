@@ -10,6 +10,7 @@ local layout = require("scripts.layout")
 
 local params_with = require("tests.support.layout_params").vanilla
 local deep_equal = require("tests.support.deep_equal")
+local circuit_stack = require("tests.support.circuit_stack")
 
 local function by_name(built, name)
   local out = {}
@@ -931,5 +932,91 @@ describe("layout.build repeated tiers", function()
     end
     assert(stubs == 10, "stub count " .. stubs .. ", expected a pair per column")
     assert_no_overlap_and_in_bounds(built)
+  end)
+end)
+
+describe("layout.build circuit stack", function()
+  -- What planner.plan hands over as layout_params.circuit: fixed vanilla names, and whether
+  -- the cap's lamps and panel join the combinator.
+  local function stack(capped)
+    return {
+      capped = capped,
+      combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
+    }
+  end
+
+  local function stack_of(built)
+    return circuit_stack.of(built.entities)
+  end
+
+  test("a capped stack stands under the terminal machine, in its product sub-column, footprint unchanged", function()
+    -- Vanilla: the terminal column starts at 7, so col_product is 9, and the band below the
+    -- machine starts at r.recycler = 7 -- four rows, lamps first, the combinator last.
+    local plain = layout.build(params_with())
+    local built = layout.build(params_with({ circuit = stack(true) }))
+    assert(built.width == plain.width and built.height == plain.height,
+      "the stack changed the footprint: " .. built.width .. "x" .. built.height)
+    local found, count = stack_of(built)
+    assert(count == 4 and #built.entities == #plain.entities + 4,
+      "stack entities " .. count .. ", plan grew by " .. (#built.entities - #plain.entities))
+    local order = {
+      { role = "lamp_done", name = "small-lamp" },
+      { role = "lamp_running", name = "small-lamp" },
+      { role = "panel", name = "display-panel" },
+      { role = "limits", name = "constant-combinator" },
+    }
+    for i, want in ipairs(order) do
+      local e = found[want.role]
+      assert(e, want.role .. " was not placed")
+      assert(e.name == want.name, want.role .. " is a " .. e.name)
+      assert(e.dx == 9 and e.dy == 6 + i and e.w == 1 and e.h == 1,
+        want.role .. " stands at " .. e.dx .. "," .. e.dy)
+    end
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("an uncapped stack is the combinator alone, at the top of the band", function()
+    local plain = layout.build(params_with())
+    local built = layout.build(params_with({ circuit = stack(false) }))
+    local found, count = stack_of(built)
+    assert(count == 1 and found.limits, "an uncapped plan stood " .. count .. " stack entities")
+    assert(found.limits.dx == 9 and found.limits.dy == 7,
+      "the lone combinator stands at " .. found.limits.dx .. "," .. found.limits.dy)
+    assert(#built.entities == #plain.entities + 1, "the plan grew by more than the combinator")
+    assert_no_overlap_and_in_bounds(built)
+  end)
+
+  test("no circuit param: the plan is byte-identical to the one it always was", function()
+    local plain = layout.build(params_with())
+    local _, count = stack_of(plain)
+    assert(count == 0, "a plan without circuits stood " .. count .. " stack entities")
+    assert(deep_equal(plain.entities, layout.build(params_with({ circuit = nil })).entities),
+      "an explicit nil differs from an absent circuit param")
+  end)
+
+  test("the stack fits the tightest shapes: a 1-tall recycler, and one wider than its machine", function()
+    -- Hr + 3 rows is the band; at Hr = 1 the four entities take all of it, two columns over
+    -- from the tap. A recycler wider than its machine widens the pitch but not the
+    -- terminal column, so col_product is what keeps the stack inside the ring.
+    local narrow = layout.build(params_with({
+      recycler = {
+        name = "flat-recycler", quality = "normal", width = 2, height = 1, module_slots = 1,
+        direction = defines.direction.north,
+      },
+      circuit = stack(true),
+    }))
+    local _, count = stack_of(narrow)
+    assert(count == 4, "the narrow shape lost stack entities: " .. count)
+    assert_no_overlap_and_in_bounds(narrow)
+
+    local wide = layout.build(params_with({
+      recycler = {
+        name = "aop-salvager", quality = "normal", width = 4, height = 4, module_slots = 2,
+        direction = defines.direction.west,
+      },
+      circuit = stack(true),
+    }))
+    assert(wide.width == 13, "width " .. wide.width .. ", the stack must not widen the plan")
+    assert_no_overlap_and_in_bounds(wide)
   end)
 end)

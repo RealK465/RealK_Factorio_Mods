@@ -1092,6 +1092,33 @@ describe("the modal", function()
       "the target row is not labelled Max")
   end)
 
+  test("Start paused: dead until a cap arms it, stored on the tick, dead again under a zero cap", function()
+    open_with_gears()
+    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
+    local paused = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-paused" })
+    assert(paused.state == false and paused.enabled == false,
+      "Start paused must start off and dead")
+
+    -- Ticking the limits on arms it at once: the backfilled cap is one stack of gears.
+    box.state = true
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(paused.valid and paused.enabled == true, "Start paused did not arm with the cap")
+
+    paused.state = true
+    fire(paused, defines.events.on_gui_checked_state_changed)
+    assert(choices().circuit_paused == true, "the tick did not reach the choices")
+    assert(paused.valid, "the tick rebuilt the modal under the cursor")
+
+    -- No cap, nothing the switch could pause through: zeroing the Max greys it again.
+    gui.open_circuits(player())
+    local field = circuit_field("legendary")
+    field.text = "0"
+    fire(field, defines.events.on_gui_text_changed)
+    paused = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-paused" })
+    assert(paused.enabled == false, "Start paused stayed armed under a zero cap")
+    assert(choices().circuit_paused == true, "greying the box must not forget the choice")
+  end)
+
   test("typing commits without a rebuild; Enter snaps the text to what holds", function()
     open_with_gears()
     choices().circuit_enabled = true

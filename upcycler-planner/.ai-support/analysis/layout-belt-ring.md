@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.16
-verified: 2026-08-26
+verified_against: 2.1.17
+verified: 2026-09-07
 ---
 # The belt-ring layout, generalised
 
@@ -15,9 +15,11 @@ idea.
 
 ## Departures from the reference design
 
-1. **No circuits and no wires.** The reference throttles the loop with `< 20` belt gates,
-   `>= 20` skim inserters and logistic conditions. The loop runs without them; they are parked
-   in `../deferred.md`.
+1. **No belt gates.** The reference throttles the loop with `< 20` belt gates, `>= 20` skim
+   inserters and logistic conditions. The loop runs without any of them; what the mod offers
+   instead, opt-in since 2026-08-26, is enable conditions on the machines, recyclers and
+   reserve inserters against one limits combinator (`../decisions.md` → circuit limits) —
+   the ring itself carries no gate, and a wired belt appears only as a relay.
 2. **A buffer chest in front of each recycler**, which the reference does not have — it feeds
    its recyclers straight off the ring. The chest decouples the recycler from ring traffic, and
    it is the only thing a chest can usefully do here without circuit control (a buffer on the
@@ -136,6 +138,7 @@ Terminal column `t` has no recycler, no product belt and no lower stacks. Instea
 | Catcher inserter | `(xp, 1)` dir **N** | top ring -> provider; whitelist **one** filter, `{P, q_t, ">="}` — the target quality and every one above it, collecting product lower tiers rolled by luck. It was a list of one filter per tier above, nearest first and clamped to the inserter's five slots, until the comparator was measured (`api.md` §24); one entry is exact and cannot be outrun by a longer modded chain |
 | **Overflow inserter** | `(xf, 6+Hm+Hr)` dir **S** | bottom ring -> overflow chest; whitelist **one** filter, `{q_t, ">"}` — **naming a quality and no item at all**, so it takes anything above the target whatever the recipe. Only placed when the quality chain has a tier above `q_t` |
 | **Overflow chest** (`active-provider-chest`) | `(xf, 5+Hm+Hr)` | where everything above the target leaves the loop. Active on purpose: bots empty it, where a plain chest would fill and the ring would silt up again a few hours later |
+| **Circuit stack** (`small-lamp` x2, `display-panel`, `constant-combinator`) | `(xp, 4+Hm)` .. `(xp, 7+Hm)` | only with circuit limits on and a threshold set (since 2026-09-07): the done lamp (green, `P@q_t >= C`), the running lamp (blue, `<`), the panel (paused / done / running, its icon on the map too), then the limits combinator carrying the `M`/`C` rows every condition compares against. A reserve-only plan stands the combinator alone at `(xp, 4+Hm)`. Wired a tile a hop off the terminal machine; the band's `Hr+3 >= 4` rows always fit the four, and `xp` keeps it inside the machine-wide terminal column whatever the pitch (`api.md` §32) |
 
 **The overflow tap is the terminal column's answer to overshoot, and it is free in footprint.**
 The terminal column has no recycler, so the extract stack's two tiles stand empty — the tap is

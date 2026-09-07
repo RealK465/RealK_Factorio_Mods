@@ -9,21 +9,43 @@
 -- player asked to keep -- a floor held by the inserter, where the machines run free below the
 -- cap. A zero minimum means no reserve, and that tier's inserter is left unwired entirely.
 --
--- Combinator-free because the layout already separates what the conditions need: the stock
--- chests hold exactly one tier's product each, the output chest alone holds the target's,
--- and a wire signal is distinct per quality -- so every rule above is a single comparison,
--- and the census needs no reading config at all (a wired chest broadcasts by default).
+-- The numbers live on ONE constant combinator (2026-09-07, a portal request): a signal-M row
+-- per reserved tier at that tier's quality and a signal-C row at the target's, and every
+-- condition compares the product count against the matching signal rather than a baked
+-- constant -- so a stamped loop is retuned in the combinator, and switching the combinator
+-- off drops C to 0, which stops every gated machine: the loop's pause switch. With a cap,
+-- two lamps and a display panel read the same signal -- blue while the loop runs, green once
+-- the chest holds the cap, the panel spelling out running / done / paused (a C of 0 can only
+-- mean the combinator is off) with an icon the map shows too.
+--
+-- What stays combinator-free is the LOGIC: the layout already separates what the conditions
+-- need -- the stock chests hold exactly one tier's product each, the output chest alone holds
+-- the target's, and a wire signal is distinct per quality -- so every rule is one comparison,
+-- no decider anywhere, and the census needs no reading config at all (a wired chest
+-- broadcasts by default).
 --
 -- Pure like layout.lua and poles.lua: plain tables in, plain fields out, nothing from game
 -- state -- the planner resolves wire reach from prototypes and hands it in. The fields written
--- are blueprint-shaped already (control_behavior passes through the serialiser verbatim;
--- circuit_wire_to is a plan index beside wire_to), so this file needs no defines:
--- blueprint.lua owns the connector id.
+-- are blueprint-shaped already (control_behavior, color, the panel's words pass through the
+-- serialiser verbatim; circuit_wire_to is a plan index beside wire_to), so this file needs no
+-- defines: blueprint.lua owns the connector id. The combinator's description and the panel's
+-- words are blueprint strings, which no locale key can reach -- English, kept short.
 --
--- Strictly AFTER the pole pass, never solved with it: circuits change no geometry -- no width,
--- no height, no entity -- which is what lets this be a true decorator where poles could not be.
+-- Strictly AFTER the pole pass, never solved with it: every entity this touches was stood by
+-- layout.build, so nothing here moves a tile -- which is what lets this be a true decorator
+-- where poles could not be.
 
 local circuits = {}
+
+local SIGNAL_MIN = "signal-M"
+local SIGNAL_CAP = "signal-C"
+
+local COMBINATOR_DESCRIPTION = "Upcycler limits. M = minimum kept of that quality, "
+  .. "C = maximum in the output chest. Switch off to pause the loop."
+local COLOR_DONE = { r = 0, g = 1, b = 0, a = 1 }
+local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
+local ICON_DONE = { type = "virtual", name = "signal-check" }
+local ICON_PAUSED = { type = "virtual", name = "signal-deny" }
 
 local function centre(e)
   return e.dx + e.w / 2, e.dy + e.h / 2
@@ -35,34 +57,69 @@ local function span(a, b)
   return math.sqrt((ax - bx) ^ 2 + (ay - by) ^ 2)
 end
 
+local function product_signal(product, quality)
+  return { type = "item", name = product, quality = quality }
+end
+
+local function threshold_signal(name, quality)
+  return { type = "virtual", name = name, quality = quality }
+end
+
 -- Blueprint shape, not runtime shape: the field is circuit_enabled here where a live entity
 -- calls it circuit_enable_disable -- the same rename trap as the belt's read mode
 -- (analysis/api.md S21), so a spec reading a ghost back must use the runtime name.
-local function gate(product, quality, comparator, count)
+local function gate(product, quality, comparator, threshold)
   return {
     circuit_enabled = true,
     circuit_condition = {
       comparator = comparator,
-      constant = count,
-      first_signal = { type = "item", name = product, quality = quality },
+      first_signal = product_signal(product, quality),
+      second_signal = threshold,
     },
   }
 end
 
--- entities: plan.entities, mutated in place. Only entries layout.build tagged (circuit_role +
--- circuit_tier) are touched; everything else is left alone, which a pure spec pins.
+-- The combinator's rows, chain order so two identical plans decorate identically: signal-M
+-- at each reserved quality, then signal-C at the target's. tiers is the expanded per-column
+-- array, so a repeated quality is written once. Absence IS "zero means off" -- the planner
+-- stripped every zero before this ran, so a tier without a row keeps no reserve, and the
+-- player adds one later by adding the row.
+local function rows_of(tiers, minimums, maximum)
+  local rows, seen = {}, {}
+  for k = 1, #tiers - 1 do
+    local quality = tiers[k]
+    if minimums[quality] and not seen[quality] then
+      seen[quality] = true
+      rows[#rows + 1] = {
+        index = #rows + 1, type = "virtual", name = SIGNAL_MIN, quality = quality,
+        comparator = "=", count = minimums[quality],
+      }
+    end
+  end
+  if maximum then
+    rows[#rows + 1] = {
+      index = #rows + 1, type = "virtual", name = SIGNAL_CAP, quality = tiers[#tiers],
+      comparator = "=", count = maximum,
+    }
+  end
+  return rows
+end
+
+-- entities: plan.entities, mutated in place. Only entries layout.build tagged (circuit_role,
+-- plus circuit_tier on the per-column ones) are touched; everything else is left alone,
+-- which a pure spec pins.
 --
 -- opts: tiers -- the plan's quality names, normal first, one entry per PHYSICAL column with
 -- repeats allowed (the planner's expanded array, parallel to the circuit_tier tags; the
 -- GUI's wizard stays keyed by the distinct chain, and the two agree on the values resolved
 -- per quality name, not on array shape); minimums -- quality name -> reserve floor, SPARSE:
--- the planner normalises "zero
--- means off" before calling, so an absent tier simply has no reserve and its inserter stays
--- out of the network; maximum -- the cap counted in the output chest at the TARGET quality,
--- gating every machine and recycler, or nil for no cap at all (they then stay ungated and
--- unwired, and each reserve is its own two-entity island reading only its own chest);
--- product -- the item the conditions count; reach -- tiles, the shortest circuit wire
--- distance among the wired prototypes, since a wire is refused past its shorter end.
+-- the planner normalises "zero means off" before calling, so an absent tier simply has no
+-- reserve and its inserter stays out of the network; maximum -- the cap counted in the
+-- output chest at the TARGET quality, gating every machine and recycler, or nil for no cap
+-- at all (they then stay ungated, and the layout stood no lamps or panel); paused -- ship
+-- the combinator switched off; product -- the item the conditions count; reach -- tiles,
+-- the shortest circuit wire distance among the wired prototypes, since a wire is refused
+-- past its shorter end.
 --
 -- Returns how many tagged entities no wire could reach: 0 normally, more on extreme modded
 -- footprints. An unwired entity simply runs without its limit -- an enable condition with no
@@ -73,12 +130,18 @@ function circuits.decorate(entities, opts)
   local target = tiers[#tiers]
 
   local machines, recyclers, censuses, reserves, ring = {}, {}, {}, {}, {}
+  local limits, lamp_done, lamp_running, panel
   for index, e in ipairs(entities) do
-    if e.circuit_role == "machine" then machines[e.circuit_tier] = index end
-    if e.circuit_role == "recycler" then recyclers[e.circuit_tier] = index end
-    if e.circuit_role == "census" then censuses[e.circuit_tier] = index end
-    if e.circuit_role == "reserve" then reserves[e.circuit_tier] = index end
-    if e.circuit_role == "ring" then ring[#ring + 1] = index end
+    local role = e.circuit_role
+    if role == "machine" then machines[e.circuit_tier] = index end
+    if role == "recycler" then recyclers[e.circuit_tier] = index end
+    if role == "census" then censuses[e.circuit_tier] = index end
+    if role == "reserve" then reserves[e.circuit_tier] = index end
+    if role == "ring" then ring[#ring + 1] = index end
+    if role == "limits" then limits = index end
+    if role == "lamp_done" then lamp_done = index end
+    if role == "lamp_running" then lamp_running = index end
+    if role == "panel" then panel = index end
   end
 
   -- Off is ABSENCE, on both sides: a tier missing from minimums keeps no reserve, a nil
@@ -90,13 +153,21 @@ function circuits.decorate(entities, opts)
     return minimums[tiers[k]] and reserves[k] or nil
   end
 
+  -- The layout stands the stack from the same tables the planner built these opts from. A
+  -- decoration whose combinator is missing would ship conditions against a signal nothing
+  -- emits -- every machine stopped for good -- so the mismatch is a bug, never a degraded
+  -- plan, and it fails here rather than in a stamped loop.
+  assert(limits and (not capped or (lamp_done and lamp_running and panel)),
+    "circuits.decorate: the layout stood no circuit stack for these limits")
+
   -- Conditions first, independent of the wiring: harmless on an entity a wire never reaches,
   -- since an unconnected enable condition leaves the entity running normally. Machines and
   -- recyclers all stop at the one cap; each reserve inserter holds its own tier's floor.
+  local cap = capped and threshold_signal(SIGNAL_CAP, target) or nil
   if capped then
     for _, set in pairs({ machines, recyclers }) do
       for _, index in pairs(set) do
-        entities[index].control_behavior = gate(opts.product, target, "<", opts.maximum)
+        entities[index].control_behavior = gate(opts.product, target, "<", cap)
       end
     end
   end
@@ -104,7 +175,7 @@ function circuits.decorate(entities, opts)
     local reserve = reserve_at(k)
     if reserve then
       entities[reserve].control_behavior =
-        gate(opts.product, tiers[k], ">", minimums[tiers[k]])
+        gate(opts.product, tiers[k], ">", threshold_signal(SIGNAL_MIN, tiers[k]))
       -- The floor must sit INSIDE the chest's logistic request: with trash-unrequested on,
       -- bots skim anything above the requested amount, so a floor past the request could
       -- never fill and the tier would silently stop recycling. Raising the request by the
@@ -116,6 +187,42 @@ function circuits.decorate(entities, opts)
         census.requests[1].count = census.requests[1].count + minimums[tiers[k]]
       end
     end
+  end
+
+  -- The combinator carries the numbers every condition above compares against. Written as
+  -- an explicit branch: `paused and false or nil` would read nil either way, false being
+  -- falsy -- the same idiom trap layout.lua's terminal module already notes.
+  local combinator = entities[limits]
+  combinator.control_behavior = {
+    sections = { sections = { { index = 1, filters = rows_of(tiers, minimums, opts.maximum) } } },
+  }
+  if opts.paused then combinator.control_behavior.is_on = false end
+  combinator.player_description = COMBINATOR_DESCRIPTION
+
+  -- The indicators, capped plans only: the lamps split on the one comparison the machines
+  -- make, and the panel asks "paused" first because a C of 0 would read as done for any
+  -- chest -- the panel shows the first row whose condition holds, its own icon and words
+  -- otherwise. always_on lifts the lamps' night-only rule; the condition still gates them
+  -- (measured, tests/loop_spec.lua).
+  if capped then
+    local done, running, board = entities[lamp_done], entities[lamp_running], entities[panel]
+    done.color = COLOR_DONE
+    done.always_on = true
+    done.control_behavior = gate(opts.product, target, ">=", cap)
+    running.color = COLOR_RUNNING
+    running.always_on = true
+    running.control_behavior = gate(opts.product, target, "<", cap)
+    board.icon = product_signal(opts.product, target)
+    board.text = "Running"
+    board.always_show = true
+    board.show_in_chart = true
+    board.control_behavior = { parameters = {
+      { condition = { comparator = "=", first_signal = cap, constant = 0 },
+        icon = ICON_PAUSED, text = "Paused" },
+      { condition = { comparator = ">=", first_signal = product_signal(opts.product, target),
+          second_signal = cap },
+        icon = ICON_DONE, text = "Done" },
+    } }
   end
 
   -- One outgoing link per entity, wire_to's own shape: the network is a tree, so a parent
@@ -141,11 +248,13 @@ function circuits.decorate(entities, opts)
   -- Each tier's own stack, wired child-to-parent up the column: reserve inserter -> census
   -- chest -> recycler -> machine, the terminal census landing straight on its machine --
   -- link() ignoring a nil endpoint IS the terminal case, where no recycler stands. Bounded
-  -- by the machine+recycler band alone, never by pitch. With no cap only the reserves need
-  -- wires at all.
+  -- by the machine+recycler band alone, never by pitch. The whole loop joins one network
+  -- whenever anything is gated: a reserve-only plan still has to hear the combinator, so
+  -- its machines carry the wire ungated, as the relay belts do.
+  local active = capped or next(minimums) ~= nil
   for k = 1, #tiers do
     link(reserve_at(k), censuses[k])
-    if capped then
+    if active then
       link(censuses[k], recyclers[k] or machines[k])
       link(recyclers[k], machines[k])
     end
@@ -158,7 +267,7 @@ function circuits.decorate(entities, opts)
   -- back to relaying along the top ring belts instead: hops of one tile whatever the width,
   -- each machine tapping the belt above it. A wired belt with no control_behavior neither
   -- reads nor gates -- it just carries the network.
-  if capped then
+  if active then
     local worst = 0
     for k = 1, #tiers - 1 do
       if machines[k] and machines[k + 1] then
@@ -204,6 +313,17 @@ function circuits.decorate(entities, opts)
         end
       end
     end
+  end
+
+  -- The stack hangs off the terminal machine a tile a hop -- lamps, panel, combinator in
+  -- the order the layout stood them -- so no pitch or machine size can put the combinator
+  -- out of reach. Its own link, never the spine's: the terminal machine still owns its
+  -- outgoing slot up there.
+  local chain = capped and { lamp_done, lamp_running, panel, limits } or { limits }
+  local from = machines[#tiers]
+  for _, index in ipairs(chain) do
+    link(index, from)
+    from = index
   end
 
   return unlinked

@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.16
-verified: 2026-08-28
+verified_against: 2.1.17
+verified: 2026-09-07
 ---
 # Pole placement — the coverage pass
 

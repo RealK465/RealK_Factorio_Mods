@@ -24,7 +24,7 @@ panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fift
 2026-08-28 — per-tier column counts; both rows moved down from
 the MAKES block the same day, and the balanced-columns hint the panel first carried was
 removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
-2026-08-26), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
+2026-08-26) and its Start paused checkbox (since 2026-09-07), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
 (until show-all or an actual pick), and the five chests, so a vanilla game
@@ -39,7 +39,8 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (332 tests on both tracks as of 2026-08-29) — planner, layout, poles,
+suite under `tests/` (348 tests on `main` as of 2026-09-07; `legacy/2.0` holds 332 until
+the circuit stack is ported) — planner, layout, poles,
 circuits, the
 quality maths, blueprint,
 state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
@@ -160,8 +161,9 @@ scripts/                            one file per runtime concern, required by co
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
   poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
-  circuits.lua the opt-in circuit-limit conditions and green wires, decorating a finished
-               plan -- pure like layout.lua, and strictly after the pole pass
+  circuits.lua the opt-in circuit-limit conditions, the limits combinator's rows, the status
+               lamps and panel, and the green wires, decorating a finished plan -- pure like
+               layout.lua, and strictly after the pole pass (layout.lua stands the entities)
   quality_math.lua the per-tier quality/productivity mix and the loop's expected yield --
                pure like layout.lua, the engine's roll chances injected by planner.lua
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
@@ -362,18 +364,28 @@ re-opening any of these, and don't restate a reason here.
   with **no item name**, so one slot covers any recipe. Footprint unchanged; it costs one extra
   pole. The terminal catcher is a single `">="` for the same reason. Why each part is as it is:
   `decisions.md`; the measurements: `analysis/api.md` §24.
-- **Circuit limits are opt-in and combinator-free: reserve and cap** (2026-08-26). Every
-  machine and recycler stops at one shared cap — the output chest's count of the product at
-  the target quality — and each lower tier's buffer-to-recycler inserter holds that tier's
-  floor, never drawing the chest below the player's minimum (0 by default, meaning no
-  reserve and no wire for that tier). Plain enable conditions on existing entities, one
-  green network, no new entities, no footprint change. `scripts/circuits.lua` decorates the
-  finished plan (pure, strictly after the pole pass); the numbers live in `storage` as flat
-  `circuit_min_<quality>` / `circuit_max_<quality>` values, edited in a wizard panel whose
-  rows are labelled Min/Max, following the settings panel's sibling-column mechanics.
+- **Circuit limits are opt-in: reserve and cap, the numbers on one combinator** (2026-08-26,
+  revised 2026-09-07). Every machine and recycler stops at one shared cap — the output
+  chest's count of the product at the target quality — and each lower tier's
+  buffer-to-recycler inserter holds that tier's floor, never drawing the chest below the
+  player's minimum (0 by default, meaning no reserve, no wire and no row for that tier).
+  Plain enable conditions on existing entities, each comparing against a `signal-M@tier` /
+  `signal-C@target` row on one vanilla `constant-combinator` the layout stands under the
+  terminal machine — so the loop is retuned in place, and switching the combinator off
+  pauses it; a *Start paused* checkbox ships it switched off. A cap also stands two lamps
+  (blue running, green done) and a display panel (paused / done / running, on the map too)
+  above it. Fixed prototypes, no research gate, one green network, footprint unchanged. The
+  planner normalises the thresholds once (`planner.circuit_limits`) BEFORE the layout, and
+  the pole memo keys on circuit presence, never the numbers — typing a threshold re-solves
+  nothing. `scripts/circuits.lua` decorates the finished plan (pure, strictly after the pole
+  pass); the numbers live in `storage` as flat `circuit_min_<quality>` /
+  `circuit_max_<quality>` values plus the `circuit_paused` boolean, edited in a wizard panel
+  whose rows are labelled Min/Max, following the settings panel's sibling-column mechanics.
   Out-of-reach wires warn (`circuit_unlinked`), never refuse — an unwired condition gates
-  nothing, measured. Reasons and the rejected shapes (the first-built demand cascade
-  included): `decisions.md`; the verified engine surface: `analysis/api.md` §26.
+  nothing, measured. The combinator's description and the panel's words are blueprint
+  strings, English constants in `circuits.lua`. Reasons and the rejected shapes (the
+  first-built demand cascade included): `decisions.md`; the verified engine surface:
+  `analysis/api.md` §26 and §32.
 - Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
   (active provider): it is the loop's one sink that empties itself.

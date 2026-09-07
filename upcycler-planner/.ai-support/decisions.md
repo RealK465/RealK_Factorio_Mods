@@ -865,9 +865,9 @@ per-release approval.
   And the catcher's filter list — target quality plus one entry per tier above it, nearest first,
   **clamped to the inserter's five slots** — collapsed into that single `">="`, which is both
   exact and immune to a modded quality chain longer than five tiers.
-- **Circuit limits: reserve and cap, opt-in and combinator-free** (owner's calls, 2026-08-26;
-  the semantics are the owner's correction of the first-built demand cascade, same day — the
-  journal has the story). Two rules. The CAP: every machine and every recycler carries the one
+- **Circuit limits: reserve and cap, opt-in, the numbers on one combinator** (owner's calls,
+  2026-08-26 and 2026-09-07; the semantics are the owner's correction of the first-built
+  demand cascade, the combinator a portal request — the journal has both stories). Two rules. The CAP: every machine and every recycler carries the one
   shared condition `product@target < max`, counted in the output chest — machines run free
   until the cap is met, then the whole loop stops, and it wakes as bots draw the chest down.
   The RESERVES: each lower tier's reserve inserter (stock chest to recycler) carries `product@tier > min`,
@@ -878,11 +878,29 @@ per-release approval.
   owner did not spell out: without it a parked loop keeps grinding its surplus — and tier
   0 keeps pulling the player's base production — while nothing consumes the result, which is
   the waste the feature exists to stop; one line to remove if free-running is ever preferred.
-  Combinator-free because the layout already separates what each condition needs: stock
-  chests hold one tier's product each, the output chest alone holds the target's, and a wire
-  signal is distinct per quality (`SignalID.quality`, api.md §26) — every rule is a single
-  comparison on an entity that inherits on/off behaviour (machines, the furnace recycler,
-  inserters alike), and the census chests broadcast by default with no configuration.
+  The LOGIC is combinator-free because the layout already separates what each condition
+  needs: stock chests hold one tier's product each, the output chest alone holds the
+  target's, and a wire signal is distinct per quality (`SignalID.quality`, api.md §26) —
+  every rule is a single comparison on an entity that inherits on/off behaviour (machines,
+  the furnace recycler, inserters alike), no decider anywhere, and the census chests
+  broadcast by default with no configuration.
+  **The NUMBERS live on one vanilla constant combinator** (2026-09-07, the owner's call on
+  pacak's portal request — retune a stamped loop without re-stamping it): a `signal-M` row
+  per reserved tier at that tier's quality and a `signal-C` row at the target's, every
+  condition comparing the count against the matching signal (`second_signal`, measured
+  api.md §32) instead of a baked constant. The combinator is a fixed prototype with no picker
+  and no research gate — the owner's call: `circuit-network` and `lamp` are trivial early
+  techs — and it stands in the terminal column's product sub-column under the machine, the
+  band the overflow tap borrows two tiles from, so the footprint still does not change. It
+  is also the loop's pause switch for free: switched off, C reads 0 and every capped machine
+  stops. **A zero threshold writes no row and wires nothing, exactly as before** — the owner
+  kept "0 means no circuitry" over encoding "no cap" as INT32_MAX on the wire, so a tier
+  left at 0 is retuned by adding its row, and a plan with every threshold at 0 stands no
+  combinator at all. Accepted with it: a minimum raised in the combinator past what the
+  stock chest requests stops that tier under trash-unrequested (the request is raised only
+  at plan time) — the FAQ says so; and the combinator's description and the panel's words
+  are blueprint strings no locale key can reach, so they are short English constants in
+  `circuits.lua`.
   Two approximations, both accepted: an inserter's swing checks the condition at pickup, so
   a bonus-sized hand can dip a few items below the floor (the mechanism is exact at hand
   size one, measured); and a swing in flight can land one hand past the cap.
@@ -901,14 +919,24 @@ per-release approval.
   above — built first, replaced the same day: the owner wants machines running whenever the
   cap allows, and MIN to read as a hard keep, not a stock target); and hard floors via
   compound conditions on the recycler (`> min AND < cap` needs a decider per tier — gating
-  the inserter says the same thing in one comparison).
+  the inserter says the same thing in one comparison). Rejected with the combinator
+  (2026-09-07): quality-TYPED signals as the threshold rows (the engine refuses them in a
+  combinator slot, api.md §32); a separate "use a combinator" option beside the baked
+  constants (two code paths for one feature — the owner chose replace); a research gate on
+  the stack's three prototypes; and a decider to give the lamps a third, paused state (the
+  panel says it instead, one row, no logic entity).
   **The wiring is a tree beside the pole tree**: a scalar `circuit_wire_to` plan index per
   entity, `wire_to`'s own shape, resolved to `circuit_green` by the serialiser's now
   connector-parameterised `connect()`. Generalising `wire_to` into a typed list was rejected:
   it touches poles.lua's output shape, which carries the falsified-parity-sweep obligation,
   for no functional gain — a tree needs one parent pointer. Each column chains reserve
   inserter → census chest → recycler → machine (the terminal's output chest straight to its
-  machine); the cross-tier spine rides the MACHINE row, not the chest row: machines share
+  machine), and the whole loop joins one network whenever ANY threshold is set — since the
+  combinator moved in, a reserve-only plan has to hear it too, so its machines carry the
+  wire ungated the way relay belts do (before 2026-09-07 an uncapped reserve was a
+  two-entity island); the stack itself hangs off the terminal machine a tile a hop, lamps
+  and panel between it and the combinator, so no machine width can push the combinator out
+  of reach. The cross-tier spine rides the MACHINE row, not the chest row: machines share
   rows, so spine hops are pure horizontal pitch (3–9 vanilla — the substation+beacon+pipe
   column reaches exactly the 9-tile wire reach), where the chest row's last hop to the
   output chest spans the whole machine+recycler band (3+Hm+Hr = 10 vanilla) and would have
@@ -942,12 +970,33 @@ per-release approval.
   moving, and split so a remembered floor can never become a ceiling when the target lands on
   its tier; both pruned by the quality in the key. Defaults: reserves 0, cap one stack of
   the product (the stock chest's own sizing rule). **Zero means off on both sides**: a zero
-  reserve keeps nothing and stays unwired, and a zero cap means no cap — machines and
-  recyclers ungated and unwired, each remaining reserve its own two-entity island — so a cap
-  committed empty before any item was picked disables nothing silently, and the Max tooltip
-  says "0 means no limit". A cap backfilled from one product's stack is remembered across an
-  item change like every other choice — the number was defaulted, not chosen, and the
-  wizard shows it for re-picking.
+  reserve keeps nothing, stays unwired and gets no combinator row, and a zero cap means no
+  cap — machines and recyclers ungated and unwired, no lamps, no panel — so a cap committed
+  empty before any item was picked disables nothing silently, and the Max tooltip says "0
+  means no limit". A cap backfilled from one product's stack is remembered across an item
+  change like every other choice — the number was defaulted, not chosen, and the wizard
+  shows it for re-picking. `planner.circuit_limits` is the one owner of that normalisation,
+  read by plan(), validate() and gui.refresh alike, because the combinator made "is there a
+  cap" a geometry question the layout has to be told before the pole ladder runs — it is
+  the one circuit fact in the pole memo's key (presence, never the numbers, so typing a
+  threshold still re-solves nothing).
+- **Start paused: the combinator ships switched off** (2026-09-07, the owner's call on the
+  same request — a half-built loop burns quality ingredients until bots bring the modules,
+  and a paused loop waits). A plain checkbox beside Limits..., `choices.circuit_paused`, off
+  by default so nothing changes for anyone who never ticks it; greyed unless a cap is set,
+  because the switch only pauses anything through the cap — an uncapped reserve reads
+  `count > 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
+  every loop paused (a dead loop for whoever does not open the combinator).
+- **The status indicators: blue running, green done, a panel that says which** (2026-09-07).
+  Two `small-lamp`s with static colours read the cap's own comparison — green on
+  `product@target >= C`, blue on `<`, `always_on` so they show in daylight (api.md §32) —
+  and a `display-panel` shows paused / done / running with an icon the map draws too
+  (`show_in_chart`), asking "paused" first because C reads 0 only while the combinator is
+  off and 0 would pass "done" for any chest. Blue rather than red for running was the
+  owner's pick. Placed only under a cap (nothing to show otherwise), stacked above the
+  combinator in the same free band. What it costs: two 5 kW consumers the pole solve now
+  covers, and the paused state reading green on the lamps — the panel disambiguates, and a
+  third lamp state needs a decider, which stays out.
 - **Nothing is ever built outside the ring — poles included.** The repo owner's call,
   2026-08-17, replacing the first-built external pipe header the same day: the ring rectangle
   is the plan's entire footprint, so the ground the player reserves is exactly what they see,

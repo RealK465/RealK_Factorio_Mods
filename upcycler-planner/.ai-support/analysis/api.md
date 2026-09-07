@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.16
-verified: 2026-08-28
+verified_against: 2.1.17
+verified: 2026-09-07
 ---
 # Verified API reference
 
@@ -1370,3 +1370,63 @@ Engine surface `planner.loop_seconds` stands on, checked against the installed
   loop_seconds reads the amount rather than assuming it, sets_per_recycle's rule).
 - **The engine floors machine speed at 20% of base** under negative effects — [documented
   behaviour, not re-measured]; the multiplier clamps to 0.2 to match.
+
+## 32. The circuit stack: a combinator-carried threshold, lamp colour, the display panel — measured 2026-09-07
+
+Measured on 2.1.17 through a throwaway probe spec (`create_blueprint` read-back of hand-built
+entities, `set_blueprint_entities` → `build_blueprint` → `revive` read-back, and a live rig),
+then pinned permanently by `tests/loop_spec.lua` ("a combinator-carried cap pauses, resumes,
+stops when switched off") and `tests/blueprint_spec.lua` ("the circuit stack survives the
+stamp"). The 2.0.77 `runtime-api.json` carries the same blueprint concepts (`LampBlueprintControlBehavior`
+lacks only 2.1's `input_networks`, unused here), so the stack is expected fork-free —
+[schema read, not yet measured on 2.0].
+
+- **An enable condition's `second_signal` works against a quality-tagged VIRTUAL signal.**
+  A machine gated `product@normal < signal-C@rare`, wired to a chest of 5 and a constant
+  combinator emitting `signal-C@rare = 5`, reads `disabled_by_control_behavior` and crafts
+  nothing; raising the row to 10 resumes it. Same on a lamp and in a display panel row.
+- **A quality-TYPED signal is refused as a threshold.** `set_slot(i, { value = { type =
+  "quality", name = "rare" }, min = 60 })` errors *"Can't specify non zero request with non
+  trivial item filter condition."* — so thresholds ride letters with a quality badge, never
+  the quality icons themselves.
+- **Switching the combinator off drops its rows to 0** (`enabled = false` at runtime, `is_on
+  = false` in a blueprint): `count < 0` never holds, so every capped machine stops, and
+  `count >= 0` always does, so the done lamp lights. A craft already in progress finishes
+  (measured: at most one product after the switch).
+- **The constant combinator's blueprint shape** — round-trips through `set_blueprint_entities`
+  and survives build + revive: `control_behavior = { is_on = false, sections = { sections =
+  { { index = 1, filters = { { index = 1, type = "virtual", name = "signal-M", quality =
+  "rare", comparator = "=", count = 50 }, ... } } } } }`, plus `player_description = "..."`
+  at entity level. `is_on` is OMITTED on read-back when true (the engine default). **Third
+  rename trap**: the runtime switch is `LuaConstantCombinatorControlBehavior.enabled`, the
+  description `LuaEntity.combinator_description`, and a section's filters read back as
+  `{ value = { type, name, quality, comparator }, min = count }` — the runtime logistic
+  shape, not the flat blueprint row (§21's chest lesson again). A fresh combinator starts
+  with one section (`sections_count == 1`).
+- **The lamp's blueprint shape**: `color = { r, g, b, a }` and `always_on = true` at entity
+  level (runtime `LuaEntity.color`, `LuaEntity.always_on`), `control_behavior = {
+  circuit_enabled = true, circuit_condition = { comparator, first_signal, second_signal } }`.
+  Read-back adds the four default colour signals (`red_signal` … `rgb_signal`) — not needed
+  on write. `LuaLampControlBehavior.color` reads nil for a static colour: it is the
+  circuit-driven colour only.
+- **A conditioned lamp reports `working` at frozen noon** (`surface.daytime = 0`,
+  `freeze_daytime`) while its condition holds and `disabled_by_control_behavior` while it
+  does not, with `always_on = true` set — so always-on lifts the night-only rule without
+  lifting the condition. **Seen, not just read**: a graphics-tier `take_screenshot` at
+  `daytime = 0` (throwaway `tests/shot_spec.lua`, deleted) shows the `>=` lamp glowing green
+  and the `<` lamp dark at the cap, the reverse with the cap raised, and a plain lamp with
+  neither wire nor always_on dark beside them — a static `color` renders as the glow's
+  colour in daylight.
+- **The display panel's blueprint shape**: `control_behavior = { parameters = { { condition
+  = CircuitCondition, icon = SignalID, text = "Paused" }, ... } }` plus top-level
+  `show_in_chart`, `always_show`, `text`, `icon`; runtime `LuaDisplayPanelControlBehavior.records`
+  (a `LuaEntity` has no `text` key for a panel). The panel shows the first row whose
+  condition holds, its own icon and words otherwise — [documented, wiki; the row order is
+  what the paused-before-done rule relies on, not re-measured visually]. `text` is a plain
+  string, so no locale key can reach it.
+- **Reach and power**: `small-lamp`, `constant-combinator` and `display-panel` all carry
+  `circuit_wire_max_distance = 9` (`data/base/prototypes/entity/entities.lua:2911`,
+  `circuit-network.lua`, via `core/lualib/circuit-connector-sprites.lua:106,211`); only the
+  lamp has an `energy_source` (5 kW). Unlocks: the lamp by `lamp`, the other two by
+  `circuit-network` (`data/base/prototypes/technology.lua:2226,5411,5423`) — not gated by
+  the mod, the owner's call.

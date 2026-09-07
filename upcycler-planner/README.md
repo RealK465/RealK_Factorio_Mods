@@ -14,7 +14,7 @@ Some configuration options are:
 - You can **configure every entity** you want to use (assembling machine, recycler, modules, poles, inserters, chests...)
 - Supports **beaconed layouts (enable "Show All Build Options" setting)** (useful for modded beacons like Maraxis quality beacon)
 - Supports **recipes with fluids**
-- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network.
+- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network. The limits sit on a **constant combinator** you can edit in place, and **lamps** show when the loop is done.
 - Automatically proposes the **best ratio of modules** (considering modded machines/modules), see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
 - You can **configure the number of columns** for each quality tier to boost output
 
@@ -71,6 +71,10 @@ The mod fully supports layouts that require usage of pipes and beacons (**enable
 
 You can define a minimum amount of the lower quality items to keep as reserve in the logistics network,
 and also a maximum amount for the target quality item that stops the loop after the target amount is reached.
+
+The numbers live on a constant combinator inside the loop, so you can change them in place without a new blueprint.
+Switch the combinator off to pause the whole loop, or tick **Start paused** to place it switched off while your bots are still bringing the modules.
+Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full, and the panel's icon is visible on the map.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 

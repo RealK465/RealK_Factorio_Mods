@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.16
-verified: 2026-08-26
+verified_against: 2.1.17
+verified: 2026-09-07
 ---
 # Reference mods — what to copy, what to avoid
 

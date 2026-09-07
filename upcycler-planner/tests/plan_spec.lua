@@ -10,6 +10,7 @@
 local planner = require("scripts.planner")
 local research = require("tests.support.research")
 local deep_equal = require("tests.support.deep_equal")
+local circuit_stack = require("tests.support.circuit_stack")
 
 local function force()
   return game.forces.player
@@ -518,6 +519,10 @@ describe("planner.plan", function()
   end)
 
   describe("circuit limits", function()
+    local function stack_of(plan)
+      return (circuit_stack.of(plan.entities))
+    end
+
     test("off by default: no condition, no circuit wire, anywhere", function()
       local plan = planner.plan(force(), choices_with())
       for _, e in pairs(plan.entities) do
@@ -538,13 +543,15 @@ describe("planner.plan", function()
         "unlinked " .. tostring(plan.circuit_unlinked) .. " on a vanilla plan")
 
       -- Every machine and recycler carries the SAME stop: the output chest's count of the
-      -- product at the target quality against the cap.
+      -- product at the target quality against the cap -- read off the combinator's
+      -- signal-C, never a baked number.
       for _, e in pairs(plan.entities) do
         if e.circuit_role == "machine" or e.circuit_role == "recycler" then
           local c = e.control_behavior and e.control_behavior.circuit_condition
           assert(c, e.circuit_role .. " tier " .. e.circuit_tier .. " carries no gate")
           assert(c.first_signal.name == "iron-gear-wheel"
-            and c.first_signal.quality == "rare" and c.constant == 123,
+            and c.first_signal.quality == "rare" and c.constant == nil
+            and c.second_signal.name == "signal-C" and c.second_signal.quality == "rare",
             e.circuit_role .. " gates on " .. serpent.line(c))
         end
       end
@@ -555,7 +562,8 @@ describe("planner.plan", function()
         if e.circuit_role == "reserve" and e.circuit_tier == 2 then
           local c = e.control_behavior.circuit_condition
           assert(c.comparator == ">" and c.first_signal.quality == "uncommon"
-            and c.constant == 25, "the uncommon reserve gates on " .. serpent.line(c))
+            and c.second_signal.name == "signal-M" and c.second_signal.quality == "uncommon",
+            "the uncommon reserve gates on " .. serpent.line(c))
         end
         if e.circuit_role == "reserve" and e.circuit_tier == 1 then
           assert(e.control_behavior == nil and e.circuit_wire_to == nil,
@@ -572,11 +580,27 @@ describe("planner.plan", function()
             "the unfloored census requests " .. e.requests[1].count)
         end
       end
+
+      -- The stack the numbers live on: one combinator carrying exactly the two thresholds
+      -- set, its lamps and panel beside it, every one of them on the wire, and switched on
+      -- since nothing asked for a pause.
+      local stack = stack_of(plan)
+      assert(stack.limits and stack.lamp_done and stack.lamp_running and stack.panel,
+        "the plan is missing part of its circuit stack")
+      for role, e in pairs(stack) do
+        assert(e.circuit_wire_to, role .. " is not on the wire")
+      end
+      local rows = stack.limits.control_behavior.sections.sections[1].filters
+      assert(#rows == 2 and rows[1].name == "signal-M" and rows[1].quality == "uncommon"
+        and rows[1].count == 25 and rows[2].name == "signal-C" and rows[2].quality == "rare"
+        and rows[2].count == 123, "the combinator rows read " .. serpent.line(rows))
+      assert(stack.limits.control_behavior.is_on == nil, "an unpaused plan switched the combinator off")
     end)
 
-    test("a zero cap through the choices means no cap at all", function()
+    test("a zero cap through the choices means no cap at all, and no indicators", function()
       -- The planner is the one owner of "zero means off": decorate never sees the zero,
-      -- only the absence it becomes.
+      -- only the absence it becomes. A reserve alone still needs the combinator; the lamps
+      -- and the panel would have no cap to read, so they are not stood at all.
       local plan = planner.plan(force(), choices_with({
         circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25,
       }))
@@ -588,6 +612,37 @@ describe("planner.plan", function()
           assert(e.control_behavior, "the reserve must survive a zero cap")
         end
       end
+      local stack = stack_of(plan)
+      assert(stack.limits and not (stack.lamp_done or stack.lamp_running or stack.panel),
+        "a zero cap stood the wrong stack: " .. serpent.line(stack))
+      local rows = stack.limits.control_behavior.sections.sections[1].filters
+      assert(#rows == 1 and rows[1].name == "signal-M", "an uncapped combinator wrote a cap row")
+    end)
+
+    test("every threshold zero stands no combinator: the plan is the circuits-off one", function()
+      local plan = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 0,
+      }))
+      assert(next(stack_of(plan)) == nil, "an all-zero plan stood a circuit stack")
+      for _, e in pairs(plan.entities) do
+        assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+          e.name .. " carries circuitry with every threshold at zero")
+      end
+    end)
+
+    test("Start paused ships the combinator switched off, and only through the cap", function()
+      local paused = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 50, circuit_paused = true,
+      }))
+      assert(stack_of(paused).limits.control_behavior.is_on == false,
+        "Start paused left the combinator on")
+      -- No cap, nothing the switch could pause: the flag is inert rather than half-honoured.
+      local uncapped = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25,
+        circuit_paused = true,
+      }))
+      assert(stack_of(uncapped).limits.control_behavior.is_on == nil,
+        "Start paused switched off a combinator that carries no cap")
     end)
   end)
 
@@ -681,7 +736,8 @@ describe("planner.plan", function()
         if e.circuit_role == "reserve" then
           local c = e.control_behavior and e.control_behavior.circuit_condition
           if c and c.first_signal.quality == "normal" then
-            assert(c.constant == 10, "a normal reserve gates at " .. c.constant)
+            assert(c.second_signal.name == "signal-M" and c.second_signal.quality == "normal",
+              "a normal reserve gates on " .. serpent.line(c.second_signal))
             normal_reserves = normal_reserves + 1
           end
         end
