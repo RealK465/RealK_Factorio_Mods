@@ -39,12 +39,10 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (353 tests on `main` as of 2026-09-07; `legacy/2.0` trails by the
-review delta) — planner, layout, poles,
-circuits, the
-quality maths, blueprint,
-state, the eject loop, the fluid mechanisms, the beacons and the GUI — run via the repo's `factorio-testing`
-skill (headless, graphics, pure host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
+suite under `tests/` (353 tests on both tracks as of 2026-09-07) — planner, layout, poles,
+circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
+beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
+host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
 long played session, where rolls arrive by probability rather than scripted seeding.
