@@ -199,7 +199,7 @@ track it runs, so pointing it at the 2.0 worktree settles them.
 The 1.1.0 combinator, lamps and display panel (`api.md` §32) reached this track as a plain
 cherry-pick: only `info.json` conflicted, `planner.lua` and `gui.lua` took their hunks onto
 the forked copies without a touch, and `git diff main` still lists exactly the declared set.
-Measured on 2.0.77, not inferred: the whole suite (348, the same count as `main`) passes
+Measured on 2.0.77, not inferred: the whole suite (the same count as `main`) passes
 from the legacy worktree, which covers the live combinator-carried cap pausing, resuming
 and stopping when switched off, the lamps' `always_on` gating at noon, and the stamped
 stack's `is_on`, `color`, `combinator_description` and panel rows surviving a revive. The
@@ -224,8 +224,8 @@ run: `LuaEntity.inserter_stack_size_override` and `inserter_target_pickup_count`
 `LuaEntityPrototype.bulk`, `inserter_stack_size_bonus` and `uses_inserter_stack_size_bonus`,
 `LuaForce.inserter_stack_size_bonus` and `bulk_inserter_capacity_bonus`, the inserter
 group's `override_stack_size`, and `ComparatorString`'s same read-back rule (`>=` written,
-the one-character sign returned). Measured on 2.0.77, not inferred: the whole suite (351,
-the same count as `main`) passes from the legacy worktree — the live pinned-and-gated
+the one-character sign returned). Measured on 2.0.77, not inferred: the whole suite (the
+same count as `main`) passes from the legacy worktree — the live pinned-and-gated
 inserter leaving exactly the floor, the pin and the raised M rows read back off stamped
 ghosts, and the Hand size field's researched default and commit rules — and the static tier
 is clean against the 2.0.77 typedefs.

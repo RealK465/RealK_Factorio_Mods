@@ -780,6 +780,11 @@ describe("planner.plan", function()
       end
       assert(normal_reserves == 2,
         "gated normal reserves " .. normal_reserves .. ", expected one per column")
+      -- Both read one summed count and can grab on the same reading, so the one M row
+      -- carries the minimum plus a bulk hand (12 at full research) per column.
+      local rows = circuit_stack.of(plan.entities).limits.control_behavior.sections.sections[1].filters
+      assert(rows[1].name == "signal-M" and rows[1].quality == "normal" and rows[1].count == 10 + 2 * 12,
+        "the two-column normal row reads " .. serpent.line(rows[1]))
     end)
   end)
 end)

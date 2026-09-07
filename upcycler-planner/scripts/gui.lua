@@ -178,33 +178,16 @@ local function chosen_recipe(choices)
   return choices.recipe and prototypes.recipe[choices.recipe]
 end
 
--- Whether the wizard's numbers build a cap -- resolved the way plan() resolves it, through
--- planner.circuit_limits, so the Start paused checkbox greys exactly when the switch would
--- pause nothing. Up here because gui.refresh reads it as well as the wizard's builder.
--- The guard is load-bearing: circuit_limits indexes choices by the target quality, so a
--- modal with no target yet would throw rather than read "no limits".
+-- The wizard's numbers as plan() resolves them, through planner.circuit_limits: a non-nil
+-- maximum arms Start paused (the switch pauses nothing without a cap), a non-empty minimums
+-- table arms Hand size (the hand only ever raises a minimum). Up here because gui.refresh
+-- reads it as well as the wizard's builder. The guard is load-bearing: circuit_limits
+-- indexes choices by the target quality, so a modal with no target yet would throw rather
+-- than read "no limits".
 local function circuit_limits_of(choices)
   if not (choices.circuit_enabled and choices.quality) then return {}, nil end
   return planner.circuit_limits(choices, chosen_recipe(choices),
     planner.tiers_up_to(choices.quality) or {})
-end
-
-local function circuit_capped(choices)
-  local _, maximum = circuit_limits_of(choices)
-  return maximum ~= nil
-end
-
--- Whether they keep any reserve, the same way: the Hand size field greys when no minimum is
--- set, since the hand only ever raises a minimum.
-local function circuit_reserved(choices)
-  return next((circuit_limits_of(choices))) ~= nil
-end
-
--- The Hand size field's default: the researched hand of the inserter the plan will stand.
--- apply_defaults runs before any side panel can open and the picker re-defaults a cleared
--- pick on the spot, so choices.inserter is never empty here.
-local function hand_default(player, choices)
-  return planner.inserter_hand(player.force, choices.inserter)
 end
 
 -- Machines are offered per recipe, so the list has to be rebuilt whenever the item changes.
@@ -522,14 +505,31 @@ function gui.refresh(player)
   -- button rides the same rule for its own checkbox.
   local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
   limits.enabled = choices.circuit_enabled == true
-  -- Start paused, at the foot of the wizard when it is open: the switch only pauses anything
-  -- through the cap, so the box follows the Max field, which refreshes on every keystroke.
+  -- The wizard's two dependent widgets, when it is open. Start paused follows the Max field
+  -- (the switch only pauses anything through the cap) and Hand size the Min fields (the
+  -- hand only ever raises one), both of which refresh on every keystroke -- so the writes
+  -- are guarded on a real change, since one of those keystrokes is the Hand size field's
+  -- own and a same-value write on a focused field is a thing not to gamble on.
   local wizard = panel_frame_of(player, CIRCUITS_FRAME)
   if wizard then
+    local minimums, maximum = circuit_limits_of(choices)
     local content = wizard["upl-circuits-content"]
-    content["upl-circuit-paused"].enabled = circuit_capped(choices)
-    -- And Hand size follows the Min fields the same way: dead until some minimum is set.
-    content["upl-circuit-hand-row"]["upl-circuit-hand"].enabled = circuit_reserved(choices)
+    local paused = content["upl-circuit-paused"]
+    if paused.enabled ~= (maximum ~= nil) then paused.enabled = maximum ~= nil end
+    local hand = content["upl-circuit-hand-row"]["upl-circuit-hand"]
+    if hand.enabled ~= (next(minimums) ~= nil) then hand.enabled = next(minimums) ~= nil end
+    -- An untouched Hand size keeps following the inserter pick and the research, which plan()
+    -- already reads live: the text and the default in the tags move together, or Enter on
+    -- the shown number would freeze it as an override (override_count's rule).
+    if choices.circuit_hand == nil then
+      local default = planner.inserter_hand(player.force, choices.inserter)
+      if hand.tags.default ~= default then
+        local tags = hand.tags
+        tags.default = default
+        hand.tags = tags
+        hand.text = tostring(default)
+      end
+    end
   end
   local ratios = main["upl-options"]["upl-mix-strip"]["upl-split"]
   ratios.enabled = planner.split_enabled(choices) and choices.recipe ~= nil
@@ -784,9 +784,11 @@ local function build_circuits_panel(player, frame)
   -- pinned to (decisions.md, circuit limits). Only an edit is stored -- override_count's
   -- rule, with the researched hand as the default the tags carry and the blueprint field's
   -- uint8 as the ceiling -- so an untouched field follows the inserter pick and the
-  -- research. Dead without a minimum, since the hand only ever raises one; kept current by
-  -- gui.refresh like the box below.
-  local default = hand_default(player, choices)
+  -- research, which gui.refresh keeps current. Shown through planner.circuit_hand, so the
+  -- number here is the number the plan pins, whatever a hand-edited save holds. Dead
+  -- without a minimum, since the hand only ever raises one.
+  local minimums, maximum = circuit_limits_of(choices)
+  local default = planner.inserter_hand(player.force, choices.inserter)
   local hand_row = content.add({
     type = "flow", name = "upl-circuit-hand-row", direction = "horizontal",
   })
@@ -798,7 +800,7 @@ local function build_circuits_panel(player, frame)
   hand_label.style.minimal_width = 146
   local hand_field = hand_row.add({
     type = "textfield", name = "upl-circuit-hand",
-    text = tostring(type(choices.circuit_hand) == "number" and choices.circuit_hand or default),
+    text = tostring(planner.circuit_hand(player.force, choices, choices.inserter)),
     numeric = true, allow_decimal = false, allow_negative = false,
     lose_focus_on_confirm = true,
     tooltip = { "upl-gui.circuit-hand-tooltip" },
@@ -806,7 +808,7 @@ local function build_circuits_panel(player, frame)
       { key = "circuit_hand", default = default, min = 1, max = planner.MAX_HAND }),
   })
   hand_field.style.width = 60
-  hand_field.enabled = circuit_reserved(choices)
+  hand_field.enabled = next(minimums) ~= nil
 
   -- Start paused, at the foot of the rows -- the owner's placement (2026-09-07): it is one
   -- of the limits, not a build option. The combinator ships switched off, so a half-built
@@ -820,7 +822,7 @@ local function build_circuits_panel(player, frame)
     tags = dispatch.tags("circuit-paused"),
   })
   paused_box.style.top_margin = 8
-  paused_box.enabled = circuit_capped(choices)
+  paused_box.enabled = maximum ~= nil
 end
 
 -- The ingredient-amounts panel: one numeric field per item ingredient of the chosen recipe,
@@ -1692,14 +1694,14 @@ end
 -- closers it names exist; a third panel is one entry. `invalidated_by` names which kinds
 -- of change force the open panel to REBUILD rather than repaint -- "tiers" when the target
 -- moved the tier list its rows are built from, "rates" when a pick moved the solve or the
--- station times its displayed numbers are priced with, "hand" when the inserter pick moved
--- the researched hand the Limits wizard shows as its Hand size default. Declared here
--- rather than tested per handler, because the per-handler disjunctions leaked once: the
--- beacon pickers shipped a release refresh-only while their effects moved the solve.
+-- station times its displayed numbers are priced with. Declared here rather than tested
+-- per handler, because the per-handler disjunctions leaked once: the beacon pickers
+-- shipped a release refresh-only while their effects moved the solve. The Limits wizard's
+-- Hand size default is NOT a rebuild reason: gui.refresh repaints it in place.
 SIDE_PANELS = {
   [SETTINGS_FRAME] = { build = build_settings_panel, close = gui.close_settings },
   [CIRCUITS_FRAME] = { build = build_circuits_panel, close = gui.close_circuits,
-    invalidated_by = { tiers = true, hand = true } },
+    invalidated_by = { tiers = true } },
   [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = gui.close_ingredients },
   [SPLIT_FRAME] = { build = build_split_panel, close = gui.close_split,
     invalidated_by = { tiers = true, rates = true } },
@@ -1820,9 +1822,10 @@ end)
 -- number and a player typing through the rows never presses Enter -- clicking the next
 -- field fires no confirm, so an Enter-only repaint left the stats sitting still while the
 -- plan underneath had already changed (reported the day the feature landed). Safe because
--- gui.refresh never touches a side panel, so the field survives its own commit; the cost is
--- one memo-missed solve per keystroke, sub-millisecond in vanilla and ~0.1 s at the
--- 254-tier modded ceiling.
+-- gui.refresh never rebuilds a side panel -- it repaints two of the Limits wizard's widgets,
+-- guarded on a real change -- so the field survives its own commit; the cost is one
+-- memo-missed solve per keystroke, sub-millisecond in vanilla and ~0.1 s at the 254-tier
+-- modded ceiling.
 local function override_count(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
@@ -2105,9 +2108,9 @@ dispatch.register("inserter", function(event)
     event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   end
   if settled() then return end
-  -- A different inserter has a different researched hand, which an open Limits wizard shows
-  -- as its Hand size default: "hand" rebuilds that one panel and refreshes everything else.
-  gui.invalidate(player, "hand")
+  -- A different inserter has a different researched hand; an open Limits wizard's untouched
+  -- Hand size field follows it through the refresh, no rebuild needed.
+  gui.refresh(player)
 end)
 
 -- Every chest, told apart by the role their button carries.

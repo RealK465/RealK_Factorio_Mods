@@ -4,8 +4,9 @@
 --
 -- The wiring assertions are connectivity, not wire_to values -- the pole suite's own stated
 -- discipline: a rewired tree that still connects everything is a valid answer, and pinning
--- edges would fail it for no defect. The one exception is the circuit stack's chain, whose
--- one-tile hops ARE the design (a wide machine must never put the combinator out of reach).
+-- edges would fail it for no defect. The one exception is the circuit stack's links, whose
+-- shape IS the design: the combinator hangs off the machine and the indicators off the
+-- combinator, so no machine size and no missing lamp can put the combinator out of reach.
 
 local layout = require("scripts.layout")
 local circuits = require("scripts.circuits")
@@ -13,7 +14,8 @@ local circuits = require("scripts.circuits")
 local params_with = require("tests.support.layout_params").vanilla
 local deep_equal = require("tests.support.deep_equal")
 local component = require("tests.support.component")
-local STACK_ROLES = require("tests.support.circuit_stack").ROLES
+local circuit_stack = require("tests.support.circuit_stack")
+local STACK_ROLES = circuit_stack.ROLES
 
 -- The fixture's numbers: distinct reserves per lower tier, so a condition naming the wrong
 -- tier cannot accidentally carry the right constant, and a cap for the rare target.
@@ -30,10 +32,7 @@ local CAP = { type = "virtual", name = "signal-C", quality = "rare" }
 -- only under a cap, nothing at all when every threshold is off.
 local function stack_for(minimums, maximum)
   if maximum == nil and next(minimums) == nil then return nil end
-  return {
-    capped = maximum ~= nil,
-    combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
-  }
+  return circuit_stack.params(maximum ~= nil)
 end
 
 -- opts: reach, minimums, maximum, paused, hand, tiers -- maximum false stands in for "no
@@ -82,9 +81,8 @@ local function rows_of(built)
   return one(built, "limits").entity.control_behavior.sections.sections[1].filters
 end
 
-local function same_signal(a, b)
-  return a and b and a.type == b.type and a.name == b.name and a.quality == b.quality
-end
+-- A signal is a three-field table, so structural equality is the whole test.
+local same_signal = deep_equal
 
 -- Every index reachable over circuit_wire_to, walked undirected by the shared support
 -- walker -- the links are parent pointers, but a wire joins both ends.
@@ -169,8 +167,16 @@ describe("circuits.decorate conditions", function()
     end
     local combinator = one(built, "limits").entity
     assert(combinator.control_behavior.is_on == nil, "an unpaused combinator wrote is_on")
+    -- The description promises a pause only where the switch delivers one: off drops C to 0
+    -- and stops every capped machine, but it drops M to 0 too and lifts every reserve.
     assert(type(combinator.player_description) == "string"
-      and #combinator.player_description > 0, "the combinator carries no description")
+      and combinator.player_description:find("pause", 1, true),
+      "a capped combinator's description does not offer the pause switch")
+    local uncapped = one(decorated(nil, { maximum = false }), "limits").entity
+    assert(not uncapped.player_description:find("pause", 1, true)
+      and uncapped.player_description:find("reserve", 1, true),
+      "an uncapped combinator's description promises a pause it cannot deliver: "
+      .. uncapped.player_description)
   end)
 
   test("paused ships the combinator switched off", function()
@@ -316,26 +322,67 @@ describe("circuits.decorate wiring", function()
     end
   end)
 
-  test("the stack chains off the terminal machine a tile a hop", function()
-    -- Pinned as edges, unlike the rest of the tree: the one-tile hops are the point, so a
-    -- modded machine of any width keeps the combinator in reach.
+  test("the combinator hangs off the terminal machine, and every indicator off the combinator", function()
+    -- Pinned as edges, unlike the rest of the tree: the shape is the point. The combinator
+    -- stands directly under the machine, so no machine width can push it out of reach, and
+    -- the indicators are leaves -- a lamp that is never built or gets mined costs itself,
+    -- never the combinator every condition depends on.
     local built = decorated()
     local terminal
     for _, m in pairs(by_role(built, "machine")) do
       if m.entity.circuit_tier == #TIERS then terminal = m.index end
     end
-    local chain = { "lamp_done", "lamp_running", "panel", "limits" }
-    local parent = terminal
-    for _, role in ipairs(chain) do
+    local limits = one(built, "limits")
+    assert(limits.entity.circuit_wire_to == terminal,
+      "the combinator links to " .. tostring(limits.entity.circuit_wire_to) .. ", not the machine")
+    local machine = built.entities[terminal]
+    assert(limits.entity.dy == machine.dy + machine.h,
+      "the combinator does not stand directly under the machine")
+    for offset, role in ipairs({ "lamp_done", "lamp_running", "panel" }) do
       local entry = one(built, role)
-      assert(entry.entity.circuit_wire_to == parent,
-        role .. " links to " .. tostring(entry.entity.circuit_wire_to) .. ", not its neighbour")
-      if parent ~= terminal then
-        local above = built.entities[parent]
-        assert(entry.entity.dx == above.dx and entry.entity.dy == above.dy + 1,
-          role .. " does not stand directly under its neighbour")
+      assert(entry.entity.circuit_wire_to == limits.index,
+        role .. " links to " .. tostring(entry.entity.circuit_wire_to) .. ", not the combinator")
+      assert(entry.entity.dx == limits.entity.dx and entry.entity.dy == limits.entity.dy + offset,
+        role .. " does not stand " .. offset .. " under the combinator")
+    end
+    for index, e in pairs(built.entities) do
+      assert(not (STACK_ROLES[e.circuit_role] and e.circuit_wire_to == index),
+        "a stack entity links to itself")
+      assert(e.circuit_role == "limits" or not STACK_ROLES[e.circuit_role]
+        or built.entities[e.circuit_wire_to].circuit_role == "limits",
+        "an indicator carries the wire for something else")
+    end
+  end)
+
+  test("a loop that cannot hear the combinator is left ungated, and counted", function()
+    -- Utility columns of 4 stretch the machine-row hops to 7 and reach 5 (usable 4.5) forces
+    -- the relay -- whose belt taps span 5 from a 3x3 machine's centre and fail too. Every
+    -- lower column is then a wired island without the combinator: with a condition it would
+    -- read C and M as 0, stop for good and lose its floor, so it gets none, and the count
+    -- says how many gated buildings run without their limit. The terminal column still
+    -- hears the combinator (2.2 tiles) and keeps its gate.
+    local built, unlinked = decorated({ column_gaps = { 0, 4, 4 } }, { reach = 5 })
+    assert(unlinked == 6, "unlinked " .. unlinked .. ", expected 2 machines, 2 recyclers, 2 reserves")
+    local heard = component_of(built.entities, one(built, "limits").index)
+    for _, role in pairs({ "machine", "recycler", "reserve" }) do
+      for _, entry in pairs(by_role(built, role)) do
+        if heard[entry.index] then
+          assert(entry.entity.control_behavior, role .. " tier " .. entry.entity.circuit_tier
+            .. " hears the combinator but lost its condition")
+        else
+          assert(entry.entity.control_behavior == nil and entry.entity.override_stack_size == nil,
+            role .. " tier " .. entry.entity.circuit_tier .. " is gated on a signal it cannot hear")
+        end
       end
-      parent = entry.index
+    end
+    local terminal = by_role(built, "machine")[#TIERS]
+    assert(terminal.entity.circuit_tier == #TIERS and terminal.entity.control_behavior,
+      "the terminal machine, one hop from the combinator, lost its cap")
+    -- An unheard reserve raises no request either: the floor it would guard is not held.
+    for _, c in pairs(by_role(built, "census")) do
+      if c.entity.circuit_tier < #TIERS then
+        assert(c.entity.requests[1].count == 50, "an unheard reserve still raised its request")
+      end
     end
   end)
 
@@ -365,16 +412,25 @@ describe("circuits.decorate wiring", function()
     assert(reached[one(built, "limits").index], "the combinator is off the relayed network")
   end)
 
-  test("a reach too short for anything counts unlinked instead of erroring", function()
+  test("a reach too short for anything counts every gated building instead of erroring", function()
     -- At reach 1 the half-tile safety margin leaves 0.5 usable, under even the one-tile
-    -- reserve hops: every link fails -- two reserves, the census, recycler and terminal
-    -- hops, the three belt taps and the stack's four -- but the plan still decorates, the
-    -- conditions still land, and the count says what the wire could not do.
+    -- hops: no link lands, nothing hears the combinator, so nothing is gated -- the loop is
+    -- the uncircuited one plus an idle combinator -- and the count names every building that
+    -- should have been: three machines, two recyclers, two reserves.
     local built, unlinked = decorated(nil, { reach = 1 })
-    assert(unlinked == 14, "unlinked " .. unlinked .. ", expected all 14 out-of-reach links")
-    for _, m in pairs(by_role(built, "machine")) do
-      assert(m.entity.control_behavior, "an unwired machine lost its condition too")
+    assert(unlinked == 7, "unlinked " .. unlinked .. ", expected all 7 gated buildings")
+    for _, e in pairs(built.entities) do
+      if e.circuit_role ~= "limits" then
+        assert(e.control_behavior == nil,
+          (e.circuit_role or e.name) .. " is gated with nothing in reach")
+      end
+      -- The relay chains the top ring by construction, reach or not; everything else needs
+      -- a hop that fits, and none does.
+      if e.circuit_role ~= "limits" and e.circuit_role ~= "ring" then
+        assert(e.circuit_wire_to == nil, (e.circuit_role or e.name) .. " is wired past reach")
+      end
     end
+    assert(#rows_of(built) == 3, "the combinator still carries its rows for a later wire")
   end)
 
   test("no cap: the reserves are gated, and one network still carries the combinator to them", function()
@@ -430,12 +486,27 @@ describe("circuits.decorate repeated tiers", function()
     assert(at_normal == 3, "normal-tier reserves " .. at_normal .. ", expected one per column")
   end)
 
-  test("a repeated quality is written once: the combinator still holds one row per threshold", function()
+  test("a repeated quality is written once, raised by one hand per column", function()
+    -- Three normal columns read one summed count and can all grab on the same tick's
+    -- reading, so the threshold leaves room for three hands; the single uncommon column
+    -- keeps its one.
     local built = decorated_repeated()
     local rows = rows_of(built)
     assert(#rows == 3, "rows " .. #rows)
     assert(rows[1].quality == "normal" and rows[2].quality == "uncommon"
       and rows[3].name == "signal-C", "the rows repeat or reorder with the columns")
+    assert(rows[1].count == MINIMUMS.normal + 3 * HAND,
+      "the three-column normal row reads " .. rows[1].count)
+    assert(rows[2].count == MINIMUMS.uncommon + HAND,
+      "the one-column uncommon row reads " .. rows[2].count)
+    -- Each chest still requests one hand of its own: three chests between them cover the
+    -- three hands the summed threshold needs.
+    for _, c in pairs(by_role(built, "census")) do
+      if repeated[c.entity.circuit_tier] == "normal" then
+        assert(c.entity.requests[1].count == 50 + MINIMUMS.normal + HAND,
+          "a normal census requests " .. c.entity.requests[1].count)
+      end
+    end
   end)
 
   test("the cap gates every column's machine and recycler, and one component spans them", function()

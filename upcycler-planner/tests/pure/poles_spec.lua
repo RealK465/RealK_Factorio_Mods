@@ -12,6 +12,7 @@ local layout = require("scripts.layout")
 local poles = require("scripts.poles")
 -- Top level, never inside a test body: in-game, require only works while control.lua parses.
 local deep_equal = require("tests.support.deep_equal")
+local circuit_stack = require("tests.support.circuit_stack")
 
 -- A 1x1 pole shaped like vanilla's small pole.
 local SMALL = { name = "test-pole", quality = "normal", width = 1, height = 1,
@@ -208,10 +209,7 @@ describe("poles.plan over a real plan", function()
     -- empty lower block" the compact attempt draws on -- and adds two 5 kW lamps to cover.
     -- Swept across chain lengths rather than pinned on one fixture: the solve must still
     -- cover everything, and with no more poles than the stack-free plan needed.
-    local STACK = {
-      capped = true,
-      combinator = "constant-combinator", lamp = "small-lamp", panel = "display-panel",
-    }
+    local STACK = circuit_stack.params(true)
     local margins = { ["small-lamp"] = 0.35 }
     for name, margin in pairs(PLAN_MARGINS) do margins[name] = margin end
     for _, count in pairs({ 2, 3, 5, 8, 16, 64 }) do

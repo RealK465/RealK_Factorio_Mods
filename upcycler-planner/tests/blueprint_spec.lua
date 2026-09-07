@@ -452,7 +452,7 @@ describe("stamping the blueprint", function()
         "a lamp condition came back as " .. serpent.line(c))
       if color.g == 1 and color.r == 0 then
         green = green + 1
-        assert(c.comparator == "≥", "the green lamp compares with " .. c.comparator)
+        assert(c.comparator == "\226\137\165", "the green lamp compares with " .. c.comparator)
       elseif color.b == 1 then
         blue = blue + 1
         assert(c.comparator == "<", "the blue lamp compares with " .. c.comparator)

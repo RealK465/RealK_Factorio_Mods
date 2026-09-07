@@ -894,10 +894,18 @@ per-release approval.
   techs — and it stands in the terminal column's product sub-column under the machine, the
   band the overflow tap borrows two tiles from, so the footprint still does not change. It
   is also the loop's pause switch for free: switched off, C reads 0 and every capped machine
-  stops. **A zero threshold writes no row and wires nothing, exactly as before** — the owner
+  stops. **The same switch lifts every reserve** (2026-09-07 review): off drops M to 0 too,
+  and `count >= 0` holds at any count — no single comparison against a signal that reads 0
+  can fail closed, and a decider stays out — so a reserve-only combinator's description
+  says "keep it switched on: off removes every reserve" instead of promising a pause, only
+  a capped plan is ever called pausable (the Start paused box greys without a cap), and a
+  capped plan accepts a bounded dip while paused: the reserves fill the stopped recyclers'
+  input and then wait. **A zero threshold writes no row and wires nothing, exactly as before** — the owner
   kept "0 means no circuitry" over encoding "no cap" as INT32_MAX on the wire, so a tier
   left at 0 is retuned by adding its row, and a plan with every threshold at 0 stands no
-  combinator at all. Accepted with it: a minimum raised in the combinator past what the
+  combinator at all. In place the wire has no "no cap": a C row edited to 0 stops the loop
+  (`count < 0` never holds), so the description, the FAQ and the changelog say to type a
+  large number instead. Accepted with it: a minimum raised in the combinator past what the
   stock chest requests stops that tier under trash-unrequested (the request is raised only
   at plan time) — the FAQ says so; and the combinator's description and the panel's words
   are blueprint strings no locale key can reach, so they are short English constants in
@@ -932,10 +940,12 @@ per-release approval.
   inserter → census chest → recycler → machine (the terminal's output chest straight to its
   machine), and the whole loop joins one network whenever ANY threshold is set — since the
   combinator moved in, a reserve-only plan has to hear it too, so its machines carry the
-  wire ungated the way relay belts do (before 2026-09-07 an uncapped reserve was a
-  two-entity island); the stack itself hangs off the terminal machine a tile a hop, lamps
-  and panel between it and the combinator, so no machine width can push the combinator out
-  of reach. The cross-tier spine rides the MACHINE row, not the chest row: machines share
+  wire ungated the way relay belts do; the combinator stands first under the terminal
+  machine and links to it alone, and each indicator links straight to the combinator —
+  never the reverse (2026-09-07 review: with the lamps and panel as relays between the
+  two, a lamp a bot had not delivered yet, or one the player mined, left the combinator
+  disconnected and every machine stopped, and `lamp` is not even in `recycling`'s
+  prerequisite chain). The cross-tier spine rides the MACHINE row, not the chest row: machines share
   rows, so spine hops are pure horizontal pitch (3–9 vanilla — the substation+beacon+pipe
   column reaches exactly the 9-tile wire reach), where the chest row's last hop to the
   output chest spans the whole machine+recycler band (3+Hm+Hr = 10 vanilla) and would have
@@ -947,9 +957,14 @@ per-release approval.
   hop exceeds the margined reach — that pitch, or fat modded columns — the spine falls back
   to relaying along the top ring belts (1-tile hops, any width; a wired belt with no
   control_behavior stays neutral, §26), each machine tapping the belt above it.
-  An entity even that cannot reach is counted in `plan.circuit_unlinked` and warned about,
-  never refused: an unconnected enable condition gates nothing (measured, §26), so the loop
-  degrades to exactly the uncircuited one.
+  **Wires first, conditions second** (2026-09-07 review): a condition is written only onto
+  an entity in the combinator's own wire component, walked after every link is placed.
+  Anything cut off — an island wired to its own census but not to the combinator would
+  read C and M as 0, stopping for good or losing its floor — is left ungated and counted in
+  `plan.circuit_unlinked`, warned about, never refused, so the loop degrades to exactly the
+  uncircuited one and the warning's "runs without limits" is literally what happens. Before
+  the walk the count was failed hops and a 10x10 modded machine (relay taps at 8.51 against
+  8.5 usable) shipped every lower column dead on stamp.
   **Off by default costs nothing, provably** — plan_spec pins a circuits-off plan carrying no
   condition and no circuit wire anywhere. `scripts/circuits.lua` is a pure decorator run
   strictly after the pole pass (circuits change no geometry, so there is nothing to solve
@@ -987,7 +1002,7 @@ per-release approval.
   limits, not a build option — `choices.circuit_paused`, off by default so nothing changes
   for anyone who never ticks it; greyed unless a cap is set,
   because the switch only pauses anything through the cap — an uncapped reserve reads
-  `count > 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
+  `count >= 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
   every loop paused (a dead loop for whoever does not open the combinator).
 - **Hand size: every minimum is raised by the reserve inserter's hand, and the inserter is
   pinned to it** (2026-09-07, the owner's call on Chatastroph's portal report
@@ -997,17 +1012,26 @@ per-release approval.
   condition at pickup and then takes a whole hand, so `count > min` lands up to a hand
   below the floor (measured, `analysis/api.md` §33). The reserve inserter now runs at
   `count >= min + hand` — the combinator's M row carries that sum, which is what a player
-  retuning it sees, and the FAQ, the row tooltip and the combinator's description all say
-  so — and is pinned to `hand` through the blueprint's `override_stack_size`, so a full grab
-  from the threshold lands exactly on the floor and the arithmetic holds whatever the player
-  types. `hand` is the chosen inserter's researched hand at planning time
+  retuning it sees, and the FAQ and the combinator's description say so — and is pinned to
+  `hand` through the blueprint's `override_stack_size`, so a full grab from the threshold
+  lands exactly on the floor and the arithmetic holds whatever the player types. **One hand
+  per column** (2026-09-07 review): a repeated quality's N reserve inserters read the
+  tier's count summed over N chests and all act on one tick's reading, so a threshold of
+  `min + hand` let N grabs land `(N-1)*hand` under the floor; the M row carries
+  `min + hand * N` (reasoned from the engine's once-a-tick network value, not measured),
+  each chest's request still grows by one hand, and the min-too-big warning tests the same
+  sum against N chests. `hand` is the chosen inserter's researched hand at planning time
   (`planner.inserter_hand`: 1 + the prototype's own bonus + the force's bulk or plain
   research bonus, quality-blind — 12 for a bulk inserter and 4 for the rest at full
   research), or the wizard's **Hand size** field when the player typed one (`circuit_hand`,
   only-on-edit through the ratio and column counts' own `override_count` handler, so an
   untouched field follows the pick and the research and every real change refreshes;
-  floor 1, cap 255 for the uint8; greyed until some minimum is set; the inserter picker
-  invalidates an open wizard as `hand`, since the default moved). The census request
+  floor 1, cap 255 for the uint8; greyed until some minimum is set; shown through
+  `planner.circuit_hand` so the field reads the number the plan pins; `gui.refresh` moves an
+  untouched field's text and its Enter-default together whenever the pick or the research
+  moved the researched hand, so the inserter picker needs no rebuild — an empty pick reads
+  a hand of one, because a recipe no inserter can filter used to leave the wizard indexing
+  nil, 2026-09-07 review). The census request
   and the min-too-big warning follow the raised threshold. What pinning costs, and the
   owner accepted: a capacity research finished after the stamp does not speed the pinned
   reserve inserters up — retune the inserter's override and the M row in place, or re-stamp
@@ -1026,9 +1050,11 @@ per-release approval.
   `product@target >= C`, blue on `<`, `always_on` so they show in daylight (api.md §32) —
   and a `display-panel` shows paused / done / running with an icon the map draws too
   (`show_in_chart`), asking "paused" first because C reads 0 only while the combinator is
-  off and 0 would pass "done" for any chest. Blue rather than red for running was the
-  owner's pick. Placed only under a cap (nothing to show otherwise), stacked above the
-  combinator in the same free band. What it costs: two 5 kW consumers the pole solve now
+  off — or edited to 0, which the description warns stops the loop — and 0 would pass
+  "done" for any chest. Blue rather than red for running was the
+  owner's pick. Placed only under a cap (nothing to show otherwise), stacked below the
+  combinator in the same free band, each a leaf on its own wire (the wiring bullet above);
+  an indicator out of the combinator's reach is left a plain lamp or panel. What it costs: two 5 kW consumers the pole solve now
   covers, and the paused state reading green on the lamps — the panel disambiguates, and a
   third lamp state needs a decider, which stays out.
 - **Nothing is ever built outside the ring — poles included.** The repo owner's call,
