@@ -9,6 +9,20 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-07 - The review fixes reach Factorio 2.0
+
+The review delta (`8f05bd9` on `main`) went to `legacy/2.0` as a plain cherry-pick
+(`869c004`): no conflict, the `gui.lua` and `planner.lua` hunks landing clear of the 2.0
+seams — the `contains_value` local, the recipe-shape helpers, the pipe volume read and the
+roll shim — and `git diff main` from the worktree still lists exactly the declared set. The
+change touches no prototype, so a silent property drop cannot arise; the data stage still
+loads clean on 2.0.77 (`validate.ps1` from the worktree, exit 0 with the checksum line).
+Measured, not inferred: the whole suite passes from the legacy worktree, 353/353 on base
+2.0.77 — the same count as `main` — with the pure tier at 105 and the static tier clean
+against the 2.0.77 typedefs. The island left ungated, the leaf-wired indicators, the
+per-column M rows and the empty-pick hand all read back the same on both engines. Both
+branches were pushed in the same session; the 2.0 track is level with `main` again.
+
 ## 2026-09-07 - Review of the 1.1.0 stack: what the wire does when it cannot hear the combinator
 
 A ten-angle review of the four commits since 1.0.2, verified one candidate at a time, then

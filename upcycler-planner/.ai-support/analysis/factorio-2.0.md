@@ -230,6 +230,22 @@ inserter leaving exactly the floor, the pin and the raised M rows read back off 
 ghosts, and the Hand size field's researched default and commit rules — and the static tier
 is clean against the 2.0.77 typedefs.
 
+## The review fixes port unchanged — measured 2026-09-07
+
+The review delta — the wire-component walk before any condition is written, the combinator
+first under the machine with the lamps and panel as leaves, the per-column M row, the int32
+clamp, the NaN guard on the hand, the empty-pick hand of one and the in-place Hand size
+repaint — reached this track as a plain cherry-pick with no conflict: the `planner.lua` and
+`gui.lua` hunks sit clear of the 2.0 seams, and `git diff main` still lists exactly the
+declared set. Nothing in it reaches past LuaGuiElement basics (`tags`, `text`, `enabled`)
+and the attributes the two sections above already verified here — the static tier against
+the 2.0.77 typedefs is the check — and the wire walk, the per-case descriptions and the row
+arithmetic are pure Lua on blueprint tables. Measured on 2.0.77, not inferred: the data
+stage loads clean (exit 0, checksum line), and the whole suite (the same count as `main`)
+passes from the legacy worktree — the island left ungated and counted, the stack's link
+shape, the raised rows per column and the empty-pick regression — with the pure tier green
+and the static tier clean against the 2.0.77 typedefs.
+
 ## UNVERIFIED on 2.0
 
 - Whether `set_recipe(recipe, quality)` on a ghost errors or quietly ignores the quality for a
