@@ -4,8 +4,8 @@ Date: ????
   Features:
     - The circuit limits now live on a constant combinator inside the loop, so you can change
       the minimums and the maximum in place without placing a new blueprint.
-    - Switching the combinator off pauses the whole loop. A new "Start paused" option places
-      it switched off, handy while bots are still bringing the modules.
+    - Switching the combinator off pauses the whole loop. A new "Start paused" option in the
+      Limits window places it switched off, handy while bots are still bringing the modules.
     - Two lamps and a display panel show what the loop is doing: blue while it runs, green when
       the output chest is full, and the panel's icon is visible on the map.
 ---------------------------------------------------------------------------------------------------

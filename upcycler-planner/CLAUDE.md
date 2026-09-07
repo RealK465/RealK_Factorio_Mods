@@ -24,7 +24,7 @@ panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fift
 2026-08-28 — per-tier column counts; both rows moved down from
 the MAKES block the same day, and the balanced-columns hint the panel first carried was
 removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
-2026-08-26) and its Start paused checkbox (since 2026-09-07), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
+2026-08-26, a Start paused checkbox at its foot since 2026-09-07), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
 (until show-all or an actual pick), and the five chests, so a vanilla game
@@ -371,7 +371,8 @@ re-opening any of these, and don't restate a reason here.
   Plain enable conditions on existing entities, each comparing against a `signal-M@tier` /
   `signal-C@target` row on one vanilla `constant-combinator` the layout stands under the
   terminal machine — so the loop is retuned in place, and switching the combinator off
-  pauses it; a *Start paused* checkbox ships it switched off. A cap also stands two lamps
+  pauses it; a *Start paused* checkbox at the foot of the Limits wizard ships it switched
+  off. A cap also stands two lamps
   (blue running, green done) and a display panel (paused / done / running, on the map too)
   above it. Fixed prototypes, no research gate, one green network, footprint unchanged. The
   planner normalises the thresholds once (`planner.circuit_limits`) BEFORE the layout, and

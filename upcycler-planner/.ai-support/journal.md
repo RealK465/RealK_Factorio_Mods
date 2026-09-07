@@ -84,6 +84,12 @@ the worktree still lists exactly the declared divergent set. Nothing published â
 open with `Date: ????`, and the 2.0 release number and its port section wait for a release
 ask.
 
+**Start paused moved into the wizard** â€” the owner's call on seeing it on the Circuits row:
+it is one of the limits, so it now sits at the foot of the Min/Max rows, greyed without a
+cap as before. Two mechanics worth knowing: `open_side_panel` builds a panel without a
+refresh, so the build sets the box's state itself, and the Max field's keystroke handler
+already refreshes, which is what keeps the box following the number in place.
+
 ## 2026-08-30 - Build options rows line up, and the beacon count stops floating
 
 The owner's screenshot circled four buttons that did not share an edge: *Ratios...*,

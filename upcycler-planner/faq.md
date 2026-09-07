@@ -26,7 +26,7 @@ Machines and recyclers sometimes roll an item above the quality you asked for. N
 
 ## Why isn't my loop running?
 
-Look at the constant combinator under the last machine. If it's switched off, the loop is paused: switch it on. The planner places it switched off when **Start paused** is ticked, so a freshly built loop waits for its modules. The lamps beside it show the state: blue while running, green when done or paused.
+Look at the constant combinator under the last machine. If it's switched off, the loop is paused: switch it on. The planner places it switched off when **Start paused** is ticked in its Limits window, so a freshly built loop waits for its modules. The lamps beside it show the state: blue while running, green when done or paused.
 
 ## How do I change the limits after building?
 
