@@ -39,7 +39,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (363 tests on both tracks as of 2026-09-09) — planner, layout, poles,
+suite under `tests/` (370 tests on both tracks as of 2026-09-09) — planner, layout, poles,
 circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
 beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -294,8 +294,12 @@ re-opening any of these, and don't restate a reason here.
   **Every label-and-button row in Build options shares one `ROW_LABEL_WIDTH`** — a fifth such
   row uses the same constant rather than a width of its own, or its button leaves the column.
 - Ingredient request amounts are editable in a side panel — an *Edit...* button beside the item
-  picker, dead until an item is picked. Only edits are stored (`request_<item>` flat numbers);
-  they reset on an item change, and the floor is one. Reasons in `decisions.md`.
+  picker, dead until an item is picked. A **Minutes** field at its top sizes every amount
+  (two minutes of crafting by default, 1–100, stored only on edit as the flat `feed_minutes`,
+  never a `request_` key; a change replaces every per-ingredient override and survives an
+  item change). Per-ingredient edits are stored as `request_<item>` flat numbers; they reset
+  on an item change, and the floor is one. No stack cap: a plan whose amounts outgrow the feed
+  chest carries `request_overflow`, a status-line warning. Reasons in `decisions.md`.
 - A build material with a quality travels as a `{ name, quality }` pair from `resources()`
   through the layout params to the ghost; a bare string means it has no quality dimension at
   all. That is the *plan* pipeline — `storage` still holds the two halves as flat strings, per

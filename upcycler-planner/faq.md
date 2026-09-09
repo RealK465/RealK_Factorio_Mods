@@ -18,7 +18,7 @@ Mixing a few productivity modules in with the quality modules often makes the lo
 
 ## How do I change how many ingredients the loop requests?
 
-Press **Edit...** beside **Ingredient amounts** in the planner. You get one field per ingredient of the recipe, and each tier's chest requests that many.
+Press **Edit...** beside **Ingredient amounts** in the planner. The **Minutes** field at the top sizes every amount at once: each ingredient is requested for that many minutes of crafting, two by default. Below it you get one field per ingredient of the recipe, and each tier's chest requests that many. If the amounts need more slots than the ingredient chest has, the planner warns you.
 
 ## What is the active provider chest for?
 

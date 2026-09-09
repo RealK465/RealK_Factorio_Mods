@@ -113,7 +113,7 @@ Every tier:
 |---|---|---|
 | Machine `k` | cols `x0 .. x0+Wm-1`, rows `4 .. 3+Hm` | dir N; `set_recipe(R, q_k)`; `insert_plan` = `Sm` x (`k<t` -> Qmod, `k=t` -> Pmod) |
 | Harvest inserter | `(xf, 1)` dir **N** | top ring -> feed chest; `use_filters`, whitelist `ING @ q_k` |
-| Feed chest (`requester-chest`) | `(xf, 2)` | a slot per ingredient at `q_k`, about a minute of crafting capped at a stack; `request_from_buffers`; trash per the modal checkbox |
+| Feed chest (`requester-chest`) | `(xf, 2)` | a slot per ingredient at `q_k`, the Minutes field's crafting minutes (2 by default) with no stack cap since 1.2.2 -- an ask past the chest warns (`request_overflow`) instead of clipping; `request_from_buffers`; trash per the modal checkbox |
 | Feed inserter | `(xf, 3)` dir **N** | feed chest -> machine |
 | **Second feed stack** — only when the recipe has more ingredients than the chosen inserter has filter slots | `(x0+1, 1)`, `(x0+1, 2)`, `(x0+1, 3)` | the same three again in the buffer sub-column, empty above the machine on every tier: harvest dir **N** whitelisting its half, feed chest requesting its half, feed inserter dir **N**. The list splits into balanced halves (6 → 3+3, 7 → 4+3); never a third stack, since `xp` carries the product, so `layout.MAX_FEED_STACKS = 2` caps a loop at ten ingredients with the engine's five slots. No footprint cost — but these were the only upper-band tiles a medium pole covered the harvest row from, so the pole ladder opens a column about every two tiers on such plans (`poles.md`); a substation opens none |
 | Out inserter | `(xp, 3)` dir **S** | machine -> `(xp, 2)`: the product belt on non-terminal tiers, the provider on the terminal one; unfiltered, so a lucky above-tier roll leaves too |

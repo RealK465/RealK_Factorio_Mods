@@ -485,37 +485,107 @@ describe("planner.plan", function()
     end)
   end)
 
-  test("feed requests are a minute of crafting, capped at a stack", function()
-    -- Gears: 2 plates per 0.5s craft is 240/min, capped at the plate's stack of 100.
-    local plan = planner.plan(force(), choices_with())
-    local seen
+  local function plate_request(plan)
     for _, e in pairs(plan.entities) do
       if e.name == "requester-chest" and e.requests and e.requests[1]
         and e.requests[1].name == "iron-plate" then
-        seen = e.requests[1].count
-        break
+        return e.requests[1].count
       end
     end
-    assert(seen == 100, "iron-plate request " .. tostring(seen) .. ", expected 100")
+  end
+
+  test("feed requests are two minutes of crafting, uncapped", function()
+    -- Gears: 2 plates per 0.5 s craft is 240 a minute, 480 for the default two -- past
+    -- the plate's stack of 100, which capped the old formula.
+    local plan = planner.plan(force(), choices_with())
+    local seen = plate_request(plan)
+    assert(seen == 480, "iron-plate request " .. tostring(seen) .. ", expected 480")
+  end)
+
+  test("the minutes choice sizes every request; junk minutes fall back to two", function()
+    assert(plate_request(planner.plan(force(), choices_with({ feed_minutes = 1 }))) == 240,
+      "one minute did not reach the feed chest")
+    assert(plate_request(planner.plan(force(), choices_with({ feed_minutes = "junk" }))) == 480,
+      "junk minutes did not fall back")
+    assert(plate_request(planner.plan(force(), choices_with({ feed_minutes = 1e9 }))) == 24000,
+      "the minutes did not clamp at " .. planner.MAX_FEED_MINUTES)
   end)
 
   test("an ingredient-amount override replaces the formula; junk falls back", function()
-    local function plate_request(plan)
-      for _, e in pairs(plan.entities) do
-        if e.name == "requester-chest" and e.requests and e.requests[1]
-          and e.requests[1].name == "iron-plate" then
-          return e.requests[1].count
-        end
-      end
-    end
     local plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = 42 }))
     assert(plate_request(plan) == 42, "the override did not reach the feed chest")
+    -- An override outranks the minutes too: it is the number the player typed.
+    plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = 42, feed_minutes = 1 }))
+    assert(plate_request(plan) == 42, "the minutes overrode the override")
     -- A zero or a non-number cannot come from the panel -- only from a stale save -- and
     -- either reads as "no override" rather than as a request of nothing.
     plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = 0 }))
-    assert(plate_request(plan) == 100, "a zero override did not fall back to the formula")
+    assert(plate_request(plan) == 480, "a zero override did not fall back to the formula")
     plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = "junk" }))
-    assert(plate_request(plan) == 100, "a non-number override did not fall back to the formula")
+    assert(plate_request(plan) == 480, "a non-number override did not fall back to the formula")
+  end)
+
+  test("a request past the feed chest's slots is warned on the plan, never refused", function()
+    local chest = prototypes.entity["requester-chest"]
+    local slots = chest.get_inventory_size(defines.inventory.chest)
+    assert(slots and slots > 8, "premise: the requester chest holds " .. tostring(slots))
+    -- Two minutes of plates for gears is 480, five slots: nothing to warn about.
+    local plan = planner.plan(force(), choices_with())
+    assert(plan.request_overflow == nil,
+      "the default warned: " .. serpent.line(plan.request_overflow))
+    -- Exactly full is not an overflow; one plate over is, by one slot.
+    plan = planner.plan(force(), choices_with({ ["request_iron-plate"] = slots * 100 }))
+    assert(plan.request_overflow == nil, "a chest filled to the slot warned")
+    local over = choices_with({ ["request_iron-plate"] = slots * 100 + 1 })
+    plan = planner.plan(force(), over)
+    assert(plan.request_overflow and plan.request_overflow.needed == slots + 1
+      and plan.request_overflow.slots == slots,
+      "one plate over did not warn: " .. serpent.line(plan.request_overflow))
+    -- A warning, never a refusal: validate does not read the amounts at all.
+    local ok, message = planner.validate(force(), over)
+    assert(ok == true and message == nil,
+      "the overflow refused or warned through validate: " .. serpent.line(message))
+    -- Quality grows a chest's inventory, so the same ask fits a better chest.
+    local grown = chest.get_inventory_size(defines.inventory.chest, "legendary")
+    assert(grown > slots, "premise: quality did not grow the chest")
+    over.requester_quality = "legendary"
+    plan = planner.plan(force(), over)
+    assert(plan.request_overflow == nil,
+      "a legendary chest still warned: " .. serpent.line(plan.request_overflow))
+  end)
+
+  test("with two feed stacks the fuller stack is measured, never the pair's total", function()
+    -- Fusion reactor equipment's six ingredients split across two chests per machine, each
+    -- requesting its own half -- so an ask that overfills ONE chest must be measured
+    -- against that chest's share alone, not summed with the other's.
+    local picked = choices_with({
+      recipe = "fusion-reactor-equipment", inserter = "fast-inserter",
+    })
+    local plan = planner.plan(force(), picked)
+    assert(plan and plan.request_overflow == nil,
+      "premise: six ingredients at two minutes warned already")
+    local slots = prototypes.entity["requester-chest"].get_inventory_size(defines.inventory.chest)
+    local first = planner.item_ingredients(prototypes.recipe["fusion-reactor-equipment"])[1].name
+    picked["request_" .. first] = prototypes.item[first].stack_size * slots
+    plan = planner.plan(force(), picked)
+    -- The expected figure, read off the plan's own chests -- every tier's pair is the same
+    -- pair: the slots the stack holding `first` needs, and the other stack's, whose sum is
+    -- what the warning must NOT report.
+    local own, other
+    for _, e in pairs(plan.entities) do
+      if e.name == "requester-chest" and e.requests then
+        local used, holds_first = 0, false
+        for _, request in pairs(e.requests) do
+          used = used + math.ceil(request.count / prototypes.item[request.name].stack_size)
+          if request.name == first then holds_first = true end
+        end
+        if holds_first then own = used else other = used end
+      end
+    end
+    assert(own and other and own > slots, "premise: the first stack did not overflow alone")
+    assert(plan.request_overflow and plan.request_overflow.needed == own,
+      "overflow " .. serpent.line(plan.request_overflow) .. ", expected " .. own
+      .. ", never the pair's " .. (own + other))
   end)
 
   describe("circuit limits", function()

@@ -93,8 +93,9 @@ function state.prune()
     -- its KEY (circuit_min_<quality> / circuit_max_<quality> hold numbers), and only what
     -- neither family claims falls through to the value test -- so a modded tier whose own
     -- name ends in _quality cannot trip the wrong sweep. circuit_enabled, circuit_paused and
-    -- split_enabled are plain booleans and circuit_hand a plain number, like no_poles nothing
-    -- to prune; the target `quality` has no underscore and keeps its own test above.
+    -- split_enabled are plain booleans and circuit_hand and feed_minutes plain numbers, like
+    -- no_poles nothing to prune; the target `quality` has no underscore and keeps its own
+    -- test above.
     -- The ingredient-amount overrides belong to the chosen recipe: request_<item> holds the
     -- player's number for one of ITS ingredients, so an override whose item left the recipe --
     -- or whose recipe was itself pruned above -- goes with it. The formula default needs no

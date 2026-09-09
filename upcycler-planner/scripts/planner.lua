@@ -1172,24 +1172,72 @@ end
 
 -- Throughput
 
--- How many of an ingredient to keep in the feed chest: about a minute of crafting, capped at a
--- stack. The reference blueprints express the same thing as a parameter formula because they
--- cannot see the real recipe; we can.
-function planner.request_count(ingredient, recipe)
-  local per_minute = math.ceil(ingredient.amount / recipe.energy * 60)
-  local stack = prototypes.item[ingredient.name].stack_size
-  return math.max(1, math.min(stack, per_minute))
+-- How many minutes of crafting every feed chest keeps of each ingredient, the one number the
+-- Ingredient amounts panel sizes every row from: the player's own when they typed one
+-- (feed_minutes -- only an edit is stored, so nil means the default), else two, the
+-- owner's call of 2026-09-09 (it opened at one minute, capped at a stack). Type-guarded like
+-- circuit_hand: a hand-edited save can hold anything. NOT a request_<...> key on purpose:
+-- that prefix is the per-item override family, which state.prune sweeps by the recipe's
+-- ingredients and the item handler clears on a pick -- and this number is a preference
+-- that outlives both, not a size fitted to one recipe.
+planner.DEFAULT_FEED_MINUTES = 2
+planner.MAX_FEED_MINUTES = 100
+
+function planner.feed_minutes(choices)
+  local minutes = choices and choices.feed_minutes
+  if type(minutes) ~= "number" or minutes ~= minutes or minutes < 1 then
+    return planner.DEFAULT_FEED_MINUTES
+  end
+  return math.min(math.floor(minutes), planner.MAX_FEED_MINUTES)
+end
+
+-- Blueprint request counts are int32; the engine clamps past it, this just keeps the
+-- number the panel shows the number the chest gets.
+local INT32_MAX = 2147483647
+
+-- How many of an ingredient to keep in the feed chest: `minutes` of crafting at the recipe's
+-- own pace, whole items, at least one. No stack cap since 1.2.2: the amount is the player's
+-- to size, and plan() warns when the chest cannot hold it (request_overflow) rather than
+-- clipping it in silence. The reference blueprints express the same thing as a parameter
+-- formula because they cannot see the real recipe; we can. Integer numerator, one division:
+-- amount / energy * 60 can land a hair under a whole number and ceil it up one.
+function planner.request_count(ingredient, recipe, minutes)
+  local wanted = math.ceil(ingredient.amount * 60 * minutes / recipe.energy)
+  return math.max(1, math.min(wanted, INT32_MAX))
 end
 
 -- The player's own amount for one ingredient, or the formula. The Ingredient amounts panel
 -- stores an edit as a flat number under request_<item>, and an untouched ingredient has no
--- key at all -- so the formula stays live and a recipe retune moves the default instead of
--- freezing a number the player never chose. Anything invalid -- a zero, a stray non-number
--- from an old save -- falls back the same way.
-local function chosen_request(choices, ingredient, recipe)
+-- key at all -- so the formula stays live and a recipe retune, or a new minutes figure,
+-- moves the default instead of freezing a number the player never chose. Anything invalid --
+-- a zero, a stray non-number from an old save -- falls back the same way.
+local function chosen_request(choices, ingredient, recipe, minutes)
   local override = choices["request_" .. ingredient.name]
   if type(override) == "number" and override >= 1 then return math.floor(override) end
-  return planner.request_count(ingredient, recipe)
+  return planner.request_count(ingredient, recipe, minutes)
+end
+
+-- Whether the feed chests can hold what they are asked for: the slots each stack's share of
+-- the ingredients needs, ceil(count / stack) apiece, against the requester's own slot count
+-- at the quality it is placed at (quality grows a chest's inventory; api.md S15). Divided
+-- exactly as layout.build divides them, so the halves compared are the halves stood, and
+-- the fuller half is what gets reported -- both stacks are the same chest. A warning on the
+-- plan, never a refusal: bots fill what fits and the loop runs on a shallower buffer.
+local function feed_overflow(requests, ingredients, requester, feed_stacks)
+  local slots = prototypes.entity[requester.name]
+    .get_inventory_size(defines.inventory.chest, requester.quality) or 0
+  local names = {}
+  for _, ingredient in pairs(ingredients) do names[#names + 1] = ingredient.name end
+  local needed = 0
+  for _, share in pairs(layout.split_ingredients(names, feed_stacks)) do
+    local used = 0
+    for _, name in pairs(share) do
+      used = used + math.ceil(requests[name] / prototypes.item[name].stack_size)
+    end
+    needed = math.max(needed, used)
+  end
+  if needed > slots then return { needed = needed, slots = slots } end
+  return nil
 end
 
 -- Building a plan
@@ -2169,9 +2217,10 @@ function planner.plan(force, choices, gathered)
   local product = single_item_product(recipe)
   if not product then return nil end
 
+  local minutes = planner.feed_minutes(choices)
   local requests = {}
   for _, ingredient in pairs(ingredients) do
-    requests[ingredient.name] = chosen_request(choices, ingredient, recipe)
+    requests[ingredient.name] = chosen_request(choices, ingredient, recipe, minutes)
   end
 
   local r = gathered or resources(force, recipe, machine, choices)
@@ -2385,6 +2434,12 @@ function planner.plan(force, choices, gathered)
   -- their surplus is trashed is the player's call at Confirm. `~= false` keeps a stored choices
   -- table from before the checkbox existed reading as checked.
   plan.trash_unrequested = choices.trash_unrequested ~= false
+
+  -- A feed request past what the chest holds, reported like unpowered and circuit_unlinked
+  -- rather than as validate's warning -- validate shows ONE warning, first come, so a
+  -- spoiling recipe would never surface this one -- and a line of its own on the status
+  -- area. Nothing geometric: it follows the amounts and the chest pick alone.
+  plan.request_overflow = feed_overflow(requests, ingredients, r.requester, r.feed_stacks)
 
   -- What the loop MAKES, alongside the counts and the shortfall the plan already carries. A
   -- bare `quality` would be ambiguous here -- the plan holds a machine quality, a recycler
