@@ -9,6 +9,30 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-09 - 1.2.2 and 1.2.3 ship: the Minutes release, both tracks, on a timer
+
+Released on the owner's ask -- "prepare the release but do not publish it right now,
+publish it only at 18:45" -- so the chain was staged at 17:30 and fired from a session
+cron at 18:45: **1.2.2 for Factorio 2.1** from `main`, then **1.2.3 for Factorio 2.0** from
+`legacy/2.0`, the 1.2.x shape with the 2.1 section carrying the entries and the 2.0 one the
+port pointer. `fmtk datestamp` stamped 1.2.2 (it keys on `info.json`), the 1.2.3 pointer
+was dated by hand, and the identical file went to the worktree before packaging.
+
+Staged ahead of time: both zips built from the datestamped trees and read (22 and 23
+files, nothing from `CLAUDE.md`, `tests/`, `images/` or `.ai-support/`, no `????` left),
+the release commit and tag messages written to files, and the gate already green on the
+committed code -- static clean, pure 113/113, headless 370/370 and a graphics pass 370/370
+on both 2.1.17 and 2.0.77; no prototype changed, so the data stage was not re-run. The
+timer's preflight re-checked the trees (only `changelog.txt` modified), the zip hashes,
+the absence of the two tags and the portal's newest release (1.2.1) before uploading.
+
+Uploads at 18:45:29 and 18:45:38 local, each followed by its release commit and annotated
+tag; one push carried both branches and both tags. The portal's recorded sha1 of each
+release equals the local zip's (`d676294363ab...` for 1.2.2, `f1637af1aee0...` for 1.2.3),
+and a cache-busted read lists 1.2.3 as newest. `fmtk details` was **not** run: the FAQ
+gained a paragraph this session, but a portal-text resync was outside what the owner
+approved, so the portal's FAQ tab still predates the Minutes field until asked.
+
 ## 2026-09-09 - a Minutes field on the Ingredient amounts panel; the stack cap goes (1.2.2 / 1.2.3 opened)
 
 The owner asked for a master input on the Ingredient amounts panel -- one multiplier that
