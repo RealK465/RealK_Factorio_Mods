@@ -42,4 +42,23 @@ function layout_params.vanilla(overrides)
   return params
 end
 
+-- The same loop over a synthetic recipe of `n` item ingredients, "ing-1" .. "ing-n" -- the
+-- i-th taking i per craft and requesting 10 * i -- asked for two feed stacks, as the planner
+-- hands over once a recipe outgrows one inserter's filter slots. Shared for vanilla()'s
+-- reason: the layout and pole specs each need this shape and must not drift apart on it.
+function layout_params.big(n, overrides)
+  local ingredients, requests = {}, {}
+  for i = 1, n do
+    ingredients[i] = { name = "ing-" .. i, amount = i, type = "item" }
+    requests["ing-" .. i] = 10 * i
+  end
+  local params = layout_params.vanilla({
+    recipe = { name = "big", product = "big-product", ingredients = ingredients },
+    requests = requests,
+    feed_stacks = 2,
+  })
+  for key, value in pairs(overrides or {}) do params[key] = value end
+  return params
+end
+
 return layout_params

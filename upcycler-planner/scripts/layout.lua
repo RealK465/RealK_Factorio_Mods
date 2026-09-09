@@ -32,10 +32,20 @@
 -- Put a gap between them and the loop silently stops working.
 --
 -- The machine is pinned to one quality tier and quality ingredients match EXACTLY, so an
--- ingredient the recycler rolled up a tier would jam the eject. The extract inserter carries a
--- BLACKLIST of this tier's ingredients for that reason: it drains everything the eject cannot
--- deliver, and nothing else. A whitelist there would race the eject for the items it is
--- supposed to be passing through.
+-- ingredient the recycler rolled up a tier would jam the eject. The extract inserter carries
+-- ONE nameless "quality > this tier" whitelist for that reason: the recycler only ever holds
+-- this tier's ingredients at this quality or a rolled-up one above it, so "anything above"
+-- drains exactly what the eject cannot deliver and leaves the rest to it -- at one filter
+-- slot whatever the recipe, where the per-ingredient blacklist it replaced cost one per
+-- ingredient (the overflow tap's own shape, analysis/api.md §24). A whitelist NAMING the
+-- ingredients would race the eject for the items it is supposed to be passing through.
+--
+-- A recipe with more ingredients than one inserter can filter feeds each machine from TWO
+-- stacks: the second harvest inserter, feed chest and feed inserter stand in the buffer
+-- sub-column above the machine, which is empty on every tier, the terminal one included.
+-- The ingredients split into balanced halves, each stack whitelisting and requesting only its
+-- own. Never a third stack -- the product sub-column carries the rising product -- so
+-- MAX_FEED_STACKS below is what caps a recipe, and the planner refuses past it.
 --
 -- The pipe run must stay on the utility column's EAST edge, touching the machine's west face.
 -- The planner rotates each machine so a fluid input connection points west (measured rule,
@@ -58,6 +68,11 @@ local layout = {}
 -- (recycler width 2). Reshuffling the columns means re-deriving both.
 layout.MIN_MACHINE_WIDTH = 3
 layout.MIN_RECYCLER_WIDTH = 2
+-- How many feed stacks a tier column can stand above its machine: the feed sub-column's own
+-- and the buffer sub-column's, the only upper-band ground every machine of MIN_MACHINE_WIDTH
+-- has free. A recipe's ingredients divide across at most this many inserters, and the planner
+-- derives its filter-slot gate from this same number so the two cannot disagree.
+layout.MAX_FEED_STACKS = 2
 
 local ROW_TOP_RING = 0
 local ROW_HARVEST = 1
@@ -131,6 +146,26 @@ local function quality_filters(names, quality)
     filters[#filters + 1] = { name = name, quality = quality }
   end
   return filters
+end
+
+-- The ingredient names divided across `stacks` feed stacks, balanced with the larger halves
+-- first: 6 over two is 3 and 3, 7 is 4 and 3. One stack hands the list back AS IS -- the same
+-- table, not a copy -- which is what keeps every plan that fits one inserter byte-identical to
+-- what it always was. Pure list arithmetic, exported so a spec can pin the split without a
+-- plan around it.
+function layout.split_ingredients(names, stacks)
+  -- Never more stacks than names: an empty stack would stand a chest requesting nothing.
+  stacks = math.min(stacks or 1, #names)
+  if stacks <= 1 then return { names } end
+  local chunks, start = {}, 1
+  for i = 1, stacks do
+    local size = math.ceil((#names - start + 1) / (stacks - i + 1))
+    local chunk = {}
+    for j = start, start + size - 1 do chunk[#chunk + 1] = names[j] end
+    chunks[i] = chunk
+    start = start + size
+  end
+  return chunks
 end
 
 function layout.build(params)
@@ -258,6 +293,11 @@ function layout.build(params)
   for _, ingredient in pairs(params.recipe.ingredients) do
     ingredient_names[#ingredient_names + 1] = ingredient.name
   end
+  -- Tier-invariant like the name list: which tier a stack's filters read varies, how the
+  -- list divides does not. The planner sends 1 or MAX_FEED_STACKS, never more -- it refuses a
+  -- recipe before a third stack could be asked for -- and a caller that sends nothing gets
+  -- the one stack every plan used to have.
+  local stacks = layout.split_ingredients(ingredient_names, params.feed_stacks)
 
   -- The utility columns that actually opened, reported so the pole pass can prefer them
   -- without re-deriving the column arithmetic. A tier whose gap is zero contributes nothing,
@@ -272,9 +312,9 @@ function layout.build(params)
 
   -- Quality-invariant, cached for the hoist's reason: repeated columns of one tier -- and the
   -- pole ladder's repeated builds -- would rebuild identical filter tables per column. Sharing
-  -- is safe because nothing downstream mutates a filters table (the serialiser copies, and one
-  -- column's two inserters already share a reference). The per-column `requests` tables below
-  -- must NOT be shared -- the circuit pass mutates census requests in place.
+  -- is safe because nothing downstream mutates a filters table (the serialiser copies). The
+  -- per-column `requests` tables below must NOT be shared -- the circuit pass mutates census
+  -- requests in place.
   local filters_by_quality = {}
 
   for index, quality in pairs(tiers) do
@@ -284,11 +324,15 @@ function layout.build(params)
     local col_feed = col
     local col_buffer = col + 1
     local col_product = col + machine.width - 1
-    -- Shared by the harvest inserter (whitelist) and the extract inserter (blacklist).
-    local ingredient_filters = filters_by_quality[quality]
-    if not ingredient_filters then
-      ingredient_filters = quality_filters(ingredient_names, quality)
-      filters_by_quality[quality] = ingredient_filters
+    -- One whitelist per feed stack for the harvest inserters, and the extract inserter's
+    -- nameless "above this tier" filter.
+    local tier_filters = filters_by_quality[quality]
+    if not tier_filters then
+      tier_filters = { harvest = {}, extract = { { quality = quality, comparator = ">" } } }
+      for i, names in pairs(stacks) do
+        tier_filters.harvest[i] = quality_filters(names, quality)
+      end
+      filters_by_quality[quality] = tier_filters
     end
 
     if gap > 0 then
@@ -372,17 +416,21 @@ function layout.build(params)
     -- Ingredients at this tier come off the ring into the feed chest, then into the machine.
     -- The chest also carries a logistic request, which is what seeds the loop from the
     -- player's own base; on the upper tiers it is a top-up that will usually go unfilled.
-    inserter(col_feed, ROW_HARVEST, NORTH, ingredient_filters, "whitelist")
+    -- One stack in the feed sub-column, and a second in the buffer sub-column only when the
+    -- recipe outgrew a single inserter's filter slots -- each harvesting and requesting its
+    -- own half, so a plan that fits one inserter stands exactly what it always did.
+    local stack_columns = { col_feed, col_buffer }
+    for i, names in pairs(stacks) do
+      inserter(stack_columns[i], ROW_HARVEST, NORTH, tier_filters.harvest[i], "whitelist")
 
-    local requests = {}
-    for _, ingredient in pairs(params.recipe.ingredients) do
-      requests[#requests + 1] = {
-        name = ingredient.name, quality = quality, count = params.requests[ingredient.name],
-      }
+      local requests = {}
+      for _, name in pairs(names) do
+        requests[#requests + 1] = { name = name, quality = quality, count = params.requests[name] }
+      end
+      chest(params.requester, stack_columns[i], ROW_FEED_CHEST, requests)
+
+      inserter(stack_columns[i], ROW_INSERTERS, NORTH)
     end
-    chest(params.requester, col_feed, ROW_FEED_CHEST, requests)
-
-    inserter(col_feed, ROW_INSERTERS, NORTH)
 
     -- Everything the machine makes leaves unfiltered: this tier's product and any lucky roll
     -- above it.
@@ -485,8 +533,10 @@ function layout.build(params)
 
       -- Ingredients the recycler rolled ABOVE this tier: the machine above would reject them
       -- and stall the eject, so they are pulled out and put back on the ring for a higher
-      -- tier to harvest. Blacklisting this tier's ingredients is what leaves the eject alone.
-      inserter(col_feed, r.lower_inserter, NORTH, ingredient_filters, "blacklist")
+      -- tier to harvest. One nameless "> this tier" filter takes exactly those and leaves the
+      -- eject its own -- one slot whatever the recipe, where naming the ingredients cost one
+      -- slot each (header comment).
+      inserter(col_feed, r.lower_inserter, NORTH, tier_filters.extract, "whitelist")
       chest(params.container, col_feed, r.lower_chest)
       inserter(col_feed, r.unload_inserter, NORTH)
     end

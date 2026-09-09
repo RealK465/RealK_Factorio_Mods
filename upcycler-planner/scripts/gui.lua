@@ -1117,7 +1117,7 @@ local function apply_defaults(player, choices)
   -- should show what would actually be placed. Neither can be cleared to nothing -- there is no
   -- loop without them -- so the handlers snap an emptied picker straight back.
   if not choices.inserter then
-    choices.inserter = planner.inserter(player.force, planner.filters_needed(chosen_recipe(choices)))
+    choices.inserter = planner.inserter_for(player.force, planner.filters_needed(chosen_recipe(choices)))
   end
   -- The stock chests' kind: buffer chests unless the player unticked it, normalised before
   -- the chest loop so the stock default is drawn from the right list and the checkbox has a
@@ -1978,13 +1978,14 @@ dispatch.register("recipe", function(event)
     choices.machine = planner.best_machine(player.force, recipe)
   end
 
-  -- Filter slots are needed one per ingredient, so a recipe with more of them can outgrow the
-  -- chosen inserter. Re-picked for the machine's reason: a choice left behind to fail validation
-  -- reads as a bug in the modal rather than as the refusal it is.
+  -- A harvest inserter needs a filter slot per ingredient of its stack, so a recipe past two
+  -- stacks' worth can outgrow the chosen inserter. Re-picked for the machine's reason: a
+  -- choice left behind to fail validation reads as a bug in the modal rather than as the
+  -- refusal it is.
   local needed = planner.filters_needed(chosen_recipe(choices))
   local slots = planner.inserter_filter_count(choices.inserter)
-  if slots and slots < needed then
-    choices.inserter = planner.inserter(player.force, needed)
+  if slots and slots < planner.min_filter_slots(needed) then
+    choices.inserter = planner.inserter_for(player.force, needed)
   end
 
   -- Rebuilt rather than repainted by hand. The recipe decides the machine picker's filter, the
@@ -2114,7 +2115,7 @@ dispatch.register("inserter", function(event)
   if value then choices.inserter_quality = planner.build_quality(value.quality) end
   -- The belt's rule: emptied means "back to the best I have researched", and shown.
   if not choices.inserter then
-    choices.inserter = planner.inserter(player.force, planner.filters_needed(chosen_recipe(choices)))
+    choices.inserter = planner.inserter_for(player.force, planner.filters_needed(chosen_recipe(choices)))
     event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   end
   if settled() then return end

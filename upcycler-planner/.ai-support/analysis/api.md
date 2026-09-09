@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.17
-verified: 2026-09-07
+verified: 2026-09-09
 ---
 # Verified API reference
 
@@ -308,15 +308,27 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    validation.** The runtime attribute is `LuaEntityPrototype.filter_count` (nil on
    non-filtering kinds); `planner.inserter(force, filters_needed)` requires it, and validate
    answers `too-many-ingredients` when no researched inserter has enough slots.
+   **Re-resolved 2026-09-09: the engine caps the slots at five** (§15), so a recipe past five
+   feeds each machine from two stacks (`layout.MAX_FEED_STACKS`), the requirement an inserter
+   is held to is the larger half (`planner.min_filter_slots`), and validate refuses past ten
+   naming the ceiling (`planner.max_ingredients`).
 6. ~~The recycler eject's runtime stall-and-resume semantics when the target machine rejects
    the front item.~~ **Resolved 2026-08-16, measured by the permanent suite**
    (`tests/loop_spec.lua`: real revived machine + tangent recycler, powered, 40 gears, 900
    ticks). Worse than the polite stall that was assumed: an above-tier item in the recycler's
    **output wedges the recycler entirely** — furnace output semantics, the next result cannot
    merge with the differently-qualitied stack, so no craft ever starts (`products_finished`
-   stayed 0 on both buildings) and the eject never gets a chance to bypass it. **The blacklist
-   relief inserter is therefore load-bearing, not a safety net**: with it present the stuck
+   stayed 0 on both buildings) and the eject never gets a chance to bypass it. **The relief
+   inserter is therefore load-bearing, not a safety net**: with it present the stuck
    item drained to the chest, the recycler processed all 40 gears and the machine crafted on.
+   **Re-measured 2026-09-09 (2.1.17) with the nameless `{quality = tier, comparator = ">"}`
+   whitelist that replaced the per-ingredient blacklist** — the overflow tap's filter shape
+   (§24), set through `set_filter` on the relief position: the rolled-up plate drains to the
+   chest, a normal plate seeded into the output beside it never reaches the chest (the eject's
+   own item, left alone), and the machine crafts on (9 crafts, all 40 gears recycled). The two
+   filters select the same items because the recycler only ever holds this tier's ingredients
+   at this quality or rolled-up ones above it. Confidence: verified by the suite on a real
+   recycler, on 2.1.17 and on 2.0.77 alike (the whole suite passes from the legacy worktree).
    In both arrangements nothing was lost and nothing wrong-quality reached the pinned machine.
    Deterministic seeding for the suite: a script `insert` into
    `defines.inventory.crafter_output` works on a recycler (2.1.14) and stands in for a lucky
@@ -520,17 +532,28 @@ method takes an optional quality; the `rotation_speed` *attribute* is for cars a
 reads nil on an inserter). **Confidence: verified that the API is quality-aware and that
 inserters are not on the exception list; the per-tier multiplier was not measured.**
 
-**Filter slots do not scale with quality.** `filter_count` is a plain `InserterPrototype`
-property, default 0, and **every one of the six vanilla inserters sets it to 5** (base
-`entities.lua`, space-age `transport-belts.lua`). So the loop's one-slot-per-ingredient
-requirement can only be outrun by a recipe, never fixed by a better quality.
+**Filter slots do not scale with quality, and the engine caps them at five.** `filter_count`
+is a plain `InserterPrototype` property, default 0, **every one of the six vanilla inserters
+sets it to 5** (base `entities.lua`, space-age `transport-belts.lua`), and the property's own
+doc says *"Maximum count of filtered items in inserter is 5"* — in 2.1.17's and 2.0.77's
+`prototype-api.json` alike (`InserterPrototype::filter_count`; the same sentence sits on
+`LoaderPrototype` and `MiningDrillPrototype`). So no inserter, modded or not, can filter more
+than five, and a better quality changes nothing: a recipe past five is served by a second feed
+stack, never by a bigger inserter. **Confidence: verified against both docs; a modded
+`filter_count = 10` was not tried in game.**
 
-**Exactly one vanilla upcyclable recipe needs more than five filter slots.** Counted over the
-whole `data-raw-dump.json`: recipes with ≥ 6 *item* ingredients, a single fixed item product, and
-a `<product>-recycling` recipe whose products are exactly that ingredient set — one hit,
-`fusion-reactor-equipment` (6: fission reactor equipment, fusion power cell, tungsten plate,
-carbon fiber, supercapacitor, quantum processor). **Confidence: verified against the dump**, and
-it is what `planner_spec` uses to reach the filter-slot refusal without a fixture mod.
+**Exactly one vanilla upcyclable recipe has more than five item ingredients, and none has
+more than six.** Counted over the whole `data-raw-dump.json` (re-counted 2026-09-09 on 2.1.17:
+219 recipes with a single fixed item product, at most one fluid, and a `<product>-recycling`
+recipe whose products are exactly the item ingredients — 24 / 65 / 82 / 38 / 9 at one to five
+ingredients, and one at six, `fusion-reactor-equipment`: fission reactor equipment, fusion
+power cell, tungsten plate, carbon fiber, supercapacitor, quantum processor). Krastorio 2
+2.1.2 with Space Age, dumped the same way from `exemples/` with a stub for its
+menu-simulations dependency: 417 such recipes, ten at six and one at seven
+(`kr-gps-satellite`), none higher — so the two-stack cap of ten covers both. **Confidence:
+verified against the dumps.** `fusion-reactor-equipment` is what `planner_spec`, `gui_spec`
+and `blueprint_spec` use to reach the two-stack path without a fixture mod; nothing vanilla
+reaches the eleven that would refuse, so that branch is pinned through its arithmetic.
 
 **Base ships 1x1 containers no item can place.** `red-chest`, `blue-chest`, `crash-site-chest-1`
 and `crash-site-chest-2` are `type = "container"` with a 0.7x0.7 collision box and **no
