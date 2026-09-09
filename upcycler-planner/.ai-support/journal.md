@@ -9,6 +9,43 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-09 - 1.2.0 and 1.2.1 ship: the ten-ingredient release, both tracks
+
+Released on the owner's ask ("release and publish"), both tracks in one session: **1.2.0 for
+Factorio 2.1** from `main` and **1.2.1 for Factorio 2.0** from `legacy/2.0`, the shape of the
+1.1.x pair. The 1.2.0 section carries the entries; 1.2.1 is the one-line port pointer, written
+by hand on `main` above the section `fmtk datestamp` stamped, then the finished file copied to
+the worktree. The legacy `info.json` went 1.1.1 -> 1.2.1 by hand. Mid-release the owner asked
+for the README roadmap item about the five-ingredient limit to come back struck through
+rather than deleted, since the feature landed; done on both trees before packaging.
+
+The gate ran in full on both installs before either upload: data stage exit 0 (2.1.17 and
+2.0.77, `data-final-fixes.lua` loading on 2.0), static clean, pure 113/113, headless 363/363,
+and a graphics pass at 363/363 on each. The unused-prototype-data check was not re-run: no
+prototype file changed since 1.1.0. **The 2.1 graphics pass failed twice before it passed**,
+both times at 0.1 s before any mod loaded, with the `SDL_DXGIGetOutputInfo` /
+`DXGI_ERROR_NOT_FOUND` pair the 09-07 entry recorded as a flake. This time the cause
+surfaced: Windows reported a lone `WinDisc` virtual display with the Radeon's outputs
+offline, because the owner had unplugged the screen. With it back both passes went through
+first time; the `factorio-testing` skill now says to count screens before retrying.
+
+Both zips were read: 22 and 23 entries, file lists unchanged since 1.0.2, `expansion_required`
+only on the 2.1 build, `data-final-fixes.lua` only on the 2.0 one, nothing from `CLAUDE.md`,
+`tests/`, `images/` or `.ai-support/`. For the first time every shared file is byte-identical
+across the pair, README and FAQ included -- `main`'s LF copies were put in the worktree, and
+the CRLF discrepancy the 1.0.x and 1.1.x pairs shipped is gone. The portal's recorded sha1 of
+each release equals the local zip's, the two tags point at the release commits, and both
+branches were pushed.
+
+`fmtk details --readme --faq` resynced the description, and the check that followed found a
+defect: the portal does render `~~strikethrough~~` (as `<del>`), but fmtk's remark escapes a
+tilde that opens a list item to `\~`, and the page printed that backslash in front of the
+struck text. Fixed by leading the item with the done-note so the tilde sits mid-line, committed
+on both branches **after** the release, so `main`'s README differs from the
+`upcycler-planner_1.2.0` / `1.2.1` tags by that one line. The shipped zips carry the earlier
+wording -- recorded here rather than re-tagged, as `factorio-release` says. The second sync
+rendered clean; the escape rule is in the release skill now.
+
 ## 2026-09-09 - Recipes past five ingredients: two feed stacks, one nameless relief filter
 
 The owner asked whether the five-ingredient ceiling could be lifted by a second column of

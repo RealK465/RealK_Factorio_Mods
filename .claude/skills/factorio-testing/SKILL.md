@@ -133,6 +133,12 @@ fn)` for behaviour that unfolds over ticks, plain `assert(cond, message)`. Facts
   display where a 2.1.17 run minutes earlier saw two; the crash dialog held the process
   ~165 s and the runner reported `marker: never appeared`. A plain retry passed 353/353.
   Read the log head for those lines before suspecting the mod, and retry once.
+  **Seen again 2026-09-09 on 2.1.17, twice in a row, and this time with the cause:** the
+  physical screen had been unplugged, so Windows showed a lone `WinDisc` virtual display
+  with the Radeon's outputs offline and no DXGI output for the renderer to bind. Count the
+  screens before retrying (`[System.Windows.Forms.Screen]::AllScreens` in PowerShell): a
+  single virtual display cannot pass, however often it is retried, and each failed attempt
+  costs ~5 min on the crash dialog. With the screen back it passed first time, 363/363.
 
 ## Static tier
 

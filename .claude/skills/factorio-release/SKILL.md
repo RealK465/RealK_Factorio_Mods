@@ -198,6 +198,10 @@ read out of its bundled source and confirmed on a live sync (2026-08-29):
 - The body is **re-serialised through remark**, so `-` bullet markers come back as `*`. Text
   and line breaks survive intact; a byte-for-byte comparison against the local file will still
   show these two as differences.
+- A **`~` that opens a list item is escaped to `\~`**, because remark treats a tilde at a line
+  start as a possible code fence. The portal does render `~~strikethrough~~`, but it prints
+  that backslash in front of the `<del>` (measured 2026-09-09 on upcycler-planner). Keep a
+  struck passage mid-line, after a word, and it passes through untouched.
 - A **relative image URL in the markdown is uploaded into the gallery** and rewritten to the
   asset URL — `package.markdown.images` defaults to `"gallery"`, and only a URL matching
   `^((https?|data):|#)` passes through untouched. Host README images somewhere else and link
