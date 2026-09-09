@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.17
-verified: 2026-09-07
+verified: 2026-09-09
 ---
 # The belt-ring layout, generalised
 
@@ -115,6 +115,7 @@ Every tier:
 | Harvest inserter | `(xf, 1)` dir **N** | top ring -> feed chest; `use_filters`, whitelist `ING @ q_k` |
 | Feed chest (`requester-chest`) | `(xf, 2)` | a slot per ingredient at `q_k`, about a minute of crafting capped at a stack; `request_from_buffers`; trash per the modal checkbox |
 | Feed inserter | `(xf, 3)` dir **N** | feed chest -> machine |
+| **Second feed stack** — only when the recipe has more ingredients than the chosen inserter has filter slots | `(x0+1, 1)`, `(x0+1, 2)`, `(x0+1, 3)` | the same three again in the buffer sub-column, empty above the machine on every tier: harvest dir **N** whitelisting its half, feed chest requesting its half, feed inserter dir **N**. The list splits into balanced halves (6 → 3+3, 7 → 4+3); never a third stack, since `xp` carries the product, so `layout.MAX_FEED_STACKS = 2` caps a loop at ten ingredients with the engine's five slots. No footprint cost — but these were the only upper-band tiles a medium pole covered the harvest row from, so the pole ladder opens a column about every two tiers on such plans (`poles.md`); a substation opens none |
 | Out inserter | `(xp, 3)` dir **S** | machine -> `(xp, 2)`: the product belt on non-terminal tiers, the provider on the terminal one; unfiltered, so a lucky above-tier roll leaves too |
 
 Non-terminal tiers (`k < t`) additionally:
@@ -126,7 +127,7 @@ Non-terminal tiers (`k < t`) additionally:
 | Product-fill inserter | `(x0+1, 6+Hm+Hr)` dir **S** | bottom ring -> product buffer; whitelist `P @ q_k` |
 | Product buffer chest (`requester-chest`) | `(x0+1, 5+Hm+Hr)` | one stack of `P @ q_k`; `request_from_buffers`; trash per the modal checkbox |
 | Recycler-feed inserter | `(x0+1, 4+Hm+Hr)` dir **S** | product buffer -> recycler |
-| Extract inserter | `(xf, 4+Hm+Hr)` dir **N** | recycler -> extract chest; `use_filters`, **`filter_mode = "blacklist"`**, filters `ING @ q_k` — drains only what the eject cannot deliver |
+| Extract inserter | `(xf, 4+Hm+Hr)` dir **N** | recycler -> extract chest; `use_filters`, whitelist, **one nameless filter `{q_k, ">"}`** — anything above this tier, exactly what the eject cannot deliver, at one slot whatever the recipe (the tap's shape). It was a blacklist of `ING @ q_k`, one slot per ingredient, until 2026-09-09; the recycler only ever holds `ING @ q_k` or rolled-up `ING @ >q_k`, so the two select the same items (`api.md` §9.6) |
 | Extract chest (plain container) | `(xf, 5+Hm+Hr)` | rolled-up ingredients on their way back to the ring |
 | Unload inserter | `(xf, 6+Hm+Hr)` dir **N** | extract chest -> bottom ring |
 

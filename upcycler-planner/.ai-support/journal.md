@@ -9,6 +9,73 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-09 - Recipes past five ingredients: two feed stacks, one nameless relief filter
+
+The owner asked whether the five-ingredient ceiling could be lifted by a second column of
+inserters and chests at both the machine and the recycler. The study answered narrower than
+the ask. The engine caps `filter_count` at five (`InserterPrototype::filter_count`'s own doc,
+2.1.17 and 2.0.77 alike), so no inserter can ever be the fix. Only two inserters scale with
+the ingredient list -- the harvest whitelist and the extract blacklist, one shared table --
+and the recycler side needs no second column at all: a blacklist cannot be split (each half
+would poach the other half's correct-quality items from under the eject), while "anything
+above this tier", the overflow tap's nameless filter, selects exactly the same items at one
+slot. The machine side had the room already -- the buffer sub-column above every machine was
+empty, terminal included. Demand, counted from data dumps: vanilla one recipe at six
+(fusion reactor equipment), Krastorio 2 eleven at six or seven, none higher (K2 staged under
+`%TEMP%` through junctions into `exemples/` plus a stub for its menu-simulations dependency,
+the junctions removed after). Three explorer agents mapped the pipeline, the geometry and
+the loop mechanics; two architects then converged on one design, differing only in what the
+layout receives (the stack count) and in trying a solo-adequate inserter before a
+split-adequate one.
+
+Decided with the owner: a hard cap of ten everywhere (two stacks, never a third on a wider
+machine), the one-slot relief on every plan, balanced halves, and the medium-pole width cost
+accepted -- with the pole solve's performance as the hard constraint. Built on `main`:
+`layout.build` takes `feed_stacks` (absent or one leaves every existing fixture and plan
+byte for byte as before), divides the names with a pure `layout.split_ingredients`, and
+stands the second stack at `col_buffer`; the planner derives the count in `resources()`
+from the chosen inserter's slots, prefers an inserter that filters the whole list alone
+(`planner.inserter_for`), gates on `planner.min_filter_slots`, names the ceiling in the
+refusal (`planner.max_ingredients`), and keys the pole memo on the stack count -- without
+which a six-ingredient plan would have replayed a five-ingredient plan's poles onto the
+tiles its second stack now occupies. `poles.lua`, `circuits.lua` and `blueprint.lua`
+needed nothing, verified by reading.
+
+Performance, measured before and after with a throwaway ladder re-run over the real solve
+(table in `analysis/poles.md`): every one-stack shape kept its attempt count, width, pole
+count and entity count, timings within noise; a two-stack medium-pole plan takes three
+attempts (compact, all columns, one shrink) and scales linearly -- the biggest legal shape
+went 51 ms to 142 ms on the host, a substation plan 177 to 225 with no width change.
+
+What the suite caught: the tap specs found the tap by "nameless filter", which the relief
+inserters now share -- direction is the discriminator (south for the tap, north for the
+relief), fixed in the pure, blueprint and layout specs alike. Fusion reactor equipment
+flipped from the refusal fixture to the acceptance fixture in three specs, and the
+wizard-survival GUI spec, which relied on it emptying the pick, now empties the pick by
+hand. New specs: a loop test seeding a normal plate beside the rolled-up one proves the
+nameless whitelist leaves the eject its own item (chest 0 normal, 1 uncommon, the loop
+crafting on); a blueprint round trip of a 3+3 split read back off real ghosts; pure specs
+for the split arithmetic, the six- and ten-ingredient shapes, the one-stack parity, and the
+medium-pole shortfall on a compact two-stack plan against the substation's full cover.
+Headless 363/363, pure 113, static clean, data stage clean at 1.2.0, on both installs.
+
+The 2.0 port went out in the same session: `layout.lua`, the locale, the shared specs, the
+README, the changelog and every `.ai-support` file copied verbatim into the worktree;
+`planner.lua`, `gui.lua` and `tests/planner_spec.lua` -- the forked three -- carried the
+same edits by hand, every anchor identical on both branches. The legacy `info.json` stays
+at 1.1.1 until its own release, as the 1.0.x and 1.1.x pairs did. Docs: `decisions.md` (the
+two rewritten rules), `analysis/api.md` §9.5, §9.6 and §15, `layout-belt-ring.md`,
+`poles.md`, the README's limit line and roadmap item, the mod `CLAUDE.md`, the two locale
+messages, and a 1.2.0 changelog section opened with `main`'s `info.json` bumped to match.
+
+A two-reviewer pass closed the session: no defect found across the eight failure modes
+hunted (stack-count disagreement, the split's edges, shared filter tables, a nil in the memo
+key, scoping, the GUI call sites, the locale parameter, the old blacklist in poles or
+circuits); three convention findings, all fixed -- the changelog entry had claimed the loop
+"keeps its footprint" in the same breath as the pole column it may open, the two-stack
+fixture had been written twice (now `layout_params.big(n)` in `tests/support/`, the file's own
+rule), and `filters_needed`'s comment described a neighbour the new functions had displaced.
+
 ## 2026-09-07 - 1.1.0 and 1.1.1 ship: the combinator release, both tracks
 
 Released on the owner's ask ("release and publish"), both tracks in one session: **1.1.0 for

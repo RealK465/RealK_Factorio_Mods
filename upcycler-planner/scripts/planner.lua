@@ -562,14 +562,35 @@ function planner.is_chest(name, role, buffered)
   return chest_candidates(resolved_role(role, buffered))[name] ~= nil
 end
 
--- How many filter slots a plan for this recipe needs, and whether it plumbs anything. Both are
--- the planner's rules, asked by the modal so a picker can be sized or hidden before a plan
--- exists -- which is why they take a recipe that may be nil and answer for "nothing picked yet".
--- Written out rather than `and ... or 1`: a recipe with no item ingredients counts 0, and 0 or 1
--- is 0.
+-- How many filter slots a plan for this recipe needs in all -- the planner's rule, asked by
+-- the modal so the inserter picker can be sized before a plan exists, which is why it takes a
+-- recipe that may be nil and answers for "nothing picked yet" (needs_pipe below is the same
+-- shape for the pipe picker). Written out rather than `and ... or 1`: a recipe with no item
+-- ingredients counts 0, and 0 or 1 is 0. What ONE inserter must carry is min_filter_slots of
+-- this.
 function planner.filters_needed(recipe)
   if not recipe then return 1 end
   return #planner.item_ingredients(recipe)
+end
+
+-- The fewest filter slots an inserter can have and still serve a recipe of this many
+-- ingredients: the list divides across layout.MAX_FEED_STACKS feed stacks per machine, so an
+-- inserter only ever filters the larger share. Every gate on filter slots -- the pick, the
+-- modal's re-pick and validate's refusal -- reads this, so the cap has one owner: with the
+-- engine's five slots an inserter, ten ingredients is the most a loop can take.
+function planner.min_filter_slots(ingredient_count)
+  return math.ceil(ingredient_count / layout.MAX_FEED_STACKS)
+end
+
+-- The most ingredients a loop can filter with what this force can build: the roomiest
+-- inserter's slots, times the stacks a column stands. Only ever said in a refusal, so the fuel
+-- rule is ignored like any_inserter's -- a fuelled inserter's slots count for the ceiling.
+function planner.max_ingredients(force)
+  local roomiest = best_by(inserter_candidates(), function(_, entity)
+    return entity_is_buildable(force, entity) and (entity.filter_count or 0) or nil
+  end)
+  local slots = roomiest and (prototypes.entity[roomiest].filter_count or 0) or 0
+  return slots * layout.MAX_FEED_STACKS
 end
 
 function planner.needs_pipe(recipe)
@@ -589,9 +610,9 @@ function planner.needs_overflow_tap(target)
   return tiers ~= nil and #planner.quality_chain() > #tiers
 end
 
--- Filter slots on a chosen inserter, nil when nothing valid is chosen. One slot per ingredient is
--- a hard requirement of the harvest and relief positions, and every vanilla inserter carries
--- five, so only a modded recipe can outrun a pick.
+-- Filter slots on a chosen inserter, nil when nothing valid is chosen. The harvest inserters
+-- need one slot per ingredient of their own stack, and the engine caps every inserter at five
+-- (prototype docs, both tracks), so only a recipe past two stacks' worth can outrun a pick.
 function planner.inserter_filter_count(name)
   if not (name and planner.is_inserter(name)) then return nil end
   return prototypes.entity[name].filter_count or 0
@@ -1085,9 +1106,9 @@ function planner.pole(force)
 end
 
 -- Bulk inserters move a whole stack per swing, which matters on a loop that is mostly moving
--- items between adjacent buildings. Filters are not optional: the harvest and extract
--- inserters both need one slot per ingredient. Fuelled ones never reach this pick at all -- the
--- candidate table it reads is the electric one.
+-- items between adjacent buildings. Filters are not optional: a harvest inserter needs one slot
+-- per ingredient of its stack. Fuelled ones never reach this pick at all -- the candidate table
+-- it reads is the electric one.
 function planner.inserter(force, filters_needed)
   return best_by(electric_inserter_candidates(), function(_, entity)
     if (entity.filter_count or 0) < filters_needed then return nil end
@@ -1105,6 +1126,17 @@ function planner.any_inserter(force, filters_needed)
     return (entity.filter_count or 0) >= filters_needed
       and entity_is_buildable(force, entity) and 1 or nil
   end)
+end
+
+-- The default inserter for a recipe of this many ingredients. One that filters the whole list
+-- alone wins outright, so a recipe any inserter already serves builds the one stack it always
+-- did; only when none can is the split's smaller requirement consulted -- which in vanilla,
+-- where every inserter carries five slots, means a recipe past five ingredients and nothing
+-- else. A modded game with a faster, narrower inserter would otherwise be handed two stacks
+-- for a recipe one inserter could feed.
+function planner.inserter_for(force, ingredient_count)
+  return planner.inserter(force, ingredient_count)
+    or planner.inserter(force, planner.min_filter_slots(ingredient_count))
 end
 
 -- The default chest for a role: largest researched inventory, so the pick is deterministic
@@ -1230,13 +1262,15 @@ local function chosen_beacon_count(choices, max)
 end
 
 -- The inserter follows the belt's pattern with one addition: a pick can be individually
--- inadequate. Filter slots are needed one per ingredient, so a modded recipe can outgrow an
--- otherwise perfectly good inserter -- and quietly building the loop out of a different one
--- would hide the player's own choice, so the prototype is handed back for validate to name.
-local function chosen_inserter(force, choices, filters_needed)
+-- inadequate. A harvest inserter needs a slot per ingredient of its stack, so a recipe past
+-- two stacks' worth can outgrow an otherwise perfectly good inserter -- and quietly building
+-- the loop out of a different one would hide the player's own choice, so the prototype is
+-- handed back for validate to name. A pick that only serves the recipe split is kept as
+-- picked: the player chose it, and two stacks is what it costs.
+local function chosen_inserter(force, choices, ingredient_count)
   local slots = planner.inserter_filter_count(choices.inserter)
-  if not slots then return planner.inserter(force, filters_needed) end
-  if slots >= filters_needed then return choices.inserter end
+  if not slots then return planner.inserter_for(force, ingredient_count) end
+  if slots >= planner.min_filter_slots(ingredient_count) then return choices.inserter end
   return nil, prototypes.entity[choices.inserter]
 end
 
@@ -1306,8 +1340,15 @@ local function resources(force, recipe, machine, choices)
   -- and validate only ever CHECKS these two when the recipe actually takes a fluid.
   local pipe = chosen_pipe(choices) or planner.pipe(force)
 
-  local inserter, inserter_shortfall =
-    chosen_inserter(force, choices, #planner.item_ingredients(recipe))
+  local ingredient_count = #planner.item_ingredients(recipe)
+  local inserter, inserter_shortfall = chosen_inserter(force, choices, ingredient_count)
+  -- How many feed stacks each machine gets: one while the inserter filters the whole list,
+  -- two once it cannot -- never more, since chosen_inserter refuses anything that would need
+  -- a third. Decided here, on the inserter actually chosen, so the layout and the pole memo
+  -- key read one answer.
+  local slots = inserter and planner.inserter_filter_count(inserter) or 0
+  local feed_stacks = math.min(layout.MAX_FEED_STACKS,
+    (slots > 0 and ingredient_count > slots) and math.ceil(ingredient_count / slots) or 1)
 
   local function chest(role)
     return planner.with_quality(chosen_chest(force, choices, role), choices[role .. "_quality"])
@@ -1320,6 +1361,7 @@ local function resources(force, recipe, machine, choices)
     -- Set only when the CHOSEN inserter is the thing that fell short, so validate can say so
     -- instead of blaming the recipe.
     inserter_shortfall = inserter_shortfall,
+    feed_stacks = feed_stacks,
     belt = chosen_belt(choices) or planner.belt(force),
     pipe = pipe,
     pipe_to_ground = planner.pipe_to_ground_for(force, pipe),
@@ -2186,6 +2228,9 @@ function planner.plan(force, choices, gathered)
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
     tiers = expanded_tiers,
     overflow_tap = overflow_tap,
+    -- One feed stack per machine, or two when the recipe outgrew the inserter's filter
+    -- slots -- resources() decided, on the inserter it chose.
+    feed_stacks = r.feed_stacks,
     circuit = circuit and {
       capped = circuit.capped,
       combinator = CIRCUIT_COMBINATOR, lamp = CIRCUIT_LAMP, panel = CIRCUIT_PANEL,
@@ -2243,9 +2288,12 @@ function planner.plan(force, choices, gathered)
     -- Modules, requests and circuit NUMBERS are absent on purpose: they never move a tile.
     -- Circuit presence is in -- off, reserved, capped -- because the stack it stands is
     -- occupied ground and the lamps are consumers; typing a threshold still re-solves
-    -- nothing, only crossing zero does.
+    -- nothing, only crossing zero does. The feed-stack count is in for the same reason:
+    -- a second stack is three occupied tiles and two consumers per column, on the very
+    -- ground a compact plan's poles stood in -- the recipe itself stays out, since which
+    -- ingredients they are moves nothing.
     local memo_key = table.concat({
-      #expanded_tiers, tostring(overflow_tap), #fluids,
+      #expanded_tiers, tostring(overflow_tap), #fluids, r.feed_stacks,
       circuit and (circuit.capped and "capped" or "reserved") or "off",
       machine_footprint.name, machine_footprint.width, machine_footprint.height,
       tostring(machine_footprint.direction),
@@ -2425,18 +2473,20 @@ function planner.validate(force, choices)
   -- every ok return so plan() can reuse it instead of re-running the same scans.
   local r = resources(force, recipe, machine, choices)
   if not r.inserter then
-    -- Order matters. When nothing available has enough filter slots the RECIPE is the problem
-    -- whatever was picked, and naming the pick would advise a fix that does not exist -- which
-    -- is every vanilla case, since all six vanilla inserters carry five slots and exactly one
-    -- vanilla upcyclable recipe needs six. Only once something better is genuinely available is
-    -- the pick worth naming, so that branch needs a modded inserter to reach.
-    if not planner.any_inserter(force, #ingredients) then
-      return false, { "upl-message.too-many-ingredients" }
+    -- Order matters. When nothing available has enough filter slots for even the larger
+    -- share of a split the RECIPE is the problem whatever was picked, and naming the pick
+    -- would advise a fix that does not exist -- which is every vanilla case, since the engine
+    -- caps every inserter at five slots and two stacks make that ten ingredients; no vanilla
+    -- recipe reaches it. Only once something better is genuinely available is the pick worth
+    -- naming, so that branch needs a modded inserter with fewer slots to reach.
+    local per_inserter = planner.min_filter_slots(#ingredients)
+    if not planner.any_inserter(force, per_inserter) then
+      return false, { "upl-message.too-many-ingredients", planner.max_ingredients(force) }
     end
     if r.inserter_shortfall then
       return false, {
         "upl-message.inserter-too-few-filters",
-        r.inserter_shortfall.localised_name, #ingredients,
+        r.inserter_shortfall.localised_name, per_inserter,
       }
     end
     return false, { "upl-message.only-fuelled-inserters" }

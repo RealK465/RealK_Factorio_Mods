@@ -39,11 +39,12 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (353 tests on both tracks as of 2026-09-07) — planner, layout, poles,
+suite under `tests/` (363 tests on both tracks as of 2026-09-09) — planner, layout, poles,
 circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
 beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
-**wedges** the recycler, and the blacklist relief inserter is what keeps the loop alive
+**wedges** the recycler, and the relief inserter under it — one nameless *above this tier*
+filter since 2026-09-09 — is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
 long played session, where rolls arrive by probability rather than scripted seeding.
 
@@ -85,8 +86,9 @@ above, and any recycler width fits — the columns widen to it. The paired
 machine is pinned to one quality tier and quality matching is *exact*, so a rolled-up
 ingredient does not merely jam the eject — measured 2026-08-16, it **wedges the recycler
 completely** (the next result cannot merge with the differently-qualitied output stack, so no
-craft ever starts). The blacklist inserter beneath the recycler is load-bearing for that
-reason, and `tests/loop_spec.lua` fails if it stops working.
+craft ever starts). The relief inserter beneath the recycler is load-bearing for that
+reason — one nameless `{quality > tier}` whitelist, the overflow tap's shape, since
+2026-09-09 — and `tests/loop_spec.lua` fails if it stops working.
 
 **4. A recycling recipe is never evidence an item is buildable.** Researching `recycling`
 unlocks every generated `*-recycling` recipe at once — grinding a tier-3 module *produces*
@@ -174,7 +176,8 @@ tests/                              the permanent suite (factorio-test); registe
                                     runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
-  support/layout_params.lua         the canonical vanilla layout fixture the pure specs share
+  support/layout_params.lua         the canonical vanilla layout fixture the pure specs share,
+                                    and the two-stack big-recipe one beside it
   support/circuit_stack.lua         the circuit stack's names, roles and lookup, shared by
                                     the pure and in-game circuit specs
   support/component.lua             the undirected wire walk the pole and circuit specs share
@@ -401,11 +404,24 @@ re-opening any of these, and don't restate a reason here.
   logistics and construction bots, requester chests keep them in the loop. Toggling refills the
   stock picker with the new kind's best and keeps its quality; the ingredient, output and
   overflow chests never change kind. Trade-offs and the rejected always/never shapes:
-  `decisions.md`. Inserters reach one tile, are never fuelled and never belt-stacking, and
-  a chosen one that is short of filter slots is named in the refusal **only when a better one
-  exists** — otherwise the recipe is blamed, which is every vanilla case. Both
+  `decisions.md`. Inserters reach one tile, are never fuelled and never belt-stacking. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
   scenery chests.
+- **A recipe past one inserter's filter slots feeds each machine from two stacks** (2026-09-09):
+  a second harvest inserter, feed chest and feed inserter in the buffer sub-column above the
+  machine, the ingredients split into balanced halves, never a third stack — the engine caps
+  every inserter at five slots, so ten ingredients is the cap everywhere
+  (`layout.MAX_FEED_STACKS`, `planner.min_filter_slots`). Plans that fit one inserter are
+  byte-identical to before. A chosen inserter short of the split's larger half is named in the
+  refusal **only when a better one exists** — otherwise the recipe is blamed, naming the
+  ceiling, which is every vanilla case. The default pick tries an inserter that filters the
+  whole list alone before one that only serves the split. The pole memo keys on the stack
+  count. The price is power: with a medium pole such a plan opens a utility column about
+  every two tiers, none with a substation. Reasons: `decisions.md`; the measurements:
+  `analysis/api.md` §15 and `analysis/poles.md` §Performance.
+- **The extract inserter under every recycler is one nameless `{quality > tier}` whitelist**
+  (2026-09-09), the overflow tap's shape — on every plan, not only the big recipes. Reasons:
+  `decisions.md`; the live measurement: `analysis/api.md` §9.6.
 - **Beacons are opt-in: off by default, a vertical stack per tier in the utility column when
   picked**, the machine-only terminal tier included. The player chooses the count from a
   drop-down offering exactly 1..`layout.max_beacon_count` (vanilla: 4); stacking costs rows,
@@ -427,7 +443,8 @@ re-opening any of these, and don't restate a reason here.
   ring belts; machines rotate per prototype to meet the run (fact 5 above). **Nothing is ever
   built outside the ring** — the player taps the stubs from outside and wires the columns as
   they like.
-- Refused, each with a message: recipes with two or more fluids, machines no rotation can
+- Refused, each with a message: recipes with two or more fluids, recipes with more
+  ingredients than two inserters can filter (ten in vanilla), machines no rotation can
   pipe, self-recycling items, and recipes that refuse quality modules.
 - **Spoiling items warn, never refuse** (`item-spoils`), and the warning is placed first among
   the warnings. Ten of the 210 upcyclable items are affected. The runtime read is

@@ -9,6 +9,7 @@
 local layout = require("scripts.layout")
 
 local params_with = require("tests.support.layout_params").vanilla
+local big_params = require("tests.support.layout_params").big
 local deep_equal = require("tests.support.deep_equal")
 local circuit_stack = require("tests.support.circuit_stack")
 
@@ -320,20 +321,29 @@ describe("layout.build per-tier wiring", function()
     end
   end)
 
-  test("each non-terminal tier carries the blacklist relief inserter for its own ingredients", function()
+  test("each non-terminal tier carries the relief inserter: one nameless filter, above its own tier", function()
+    -- The extract inserter under the recycler names no item at all: "anything above this
+    -- tier" is exactly what the eject cannot deliver, at one slot whatever the recipe. It
+    -- faces north, off the recycler -- the overflow tap carries the same filter shape and
+    -- faces south, onto the ring, which is what tells the two apart.
     local built = layout.build(params_with())
-    local blacklists = {}
+    local reliefs = {}
     for _, e in pairs(by_name(built, "fast-inserter")) do
-      if e.filter_mode == "blacklist" then blacklists[#blacklists + 1] = e end
+      if e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.north then
+        reliefs[#reliefs + 1] = e
+      end
     end
-    assert(#blacklists == 2, "expected one blacklist inserter per non-terminal tier, got " .. #blacklists)
+    assert(#reliefs == 2, "expected one relief inserter per non-terminal tier, got " .. #reliefs)
     local tiers_seen = {}
-    for _, e in pairs(blacklists) do
-      assert(#e.filters == 1, "blacklist filter count " .. #e.filters)
-      assert(e.filters[1].name == "iron-plate", "blacklist filters the wrong item")
+    for _, e in pairs(reliefs) do
+      assert(#e.filters == 1, "relief filter count " .. #e.filters)
+      assert(e.filter_mode == "whitelist", "relief filter mode " .. tostring(e.filter_mode))
+      assert(e.filters[1].comparator == ">", "the relief must take strictly above its tier")
       tiers_seen[e.filters[1].quality] = true
     end
-    assert(tiers_seen["normal"] and tiers_seen["uncommon"], "blacklists not one per lower tier")
+    assert(tiers_seen["normal"] and tiers_seen["uncommon"], "reliefs not one per lower tier")
+    assert(not tiers_seen["rare"], "the terminal tier has no recycler and needs no relief")
   end)
 
   test("the terminal catcher takes the product at target quality and above, in one filter", function()
@@ -358,9 +368,15 @@ describe("layout.build per-tier wiring", function()
     -- The terminal column has no recycler, so its extract stack's two tiles are free: the tap
     -- is the unload inserter reversed, and the chest sits where the extract chest would.
     local built = layout.build(params_with())
+    -- Nameless AND facing the ring: the relief inserters carry the same nameless shape, off
+    -- the recyclers, facing north.
     local tap
     for _, e in pairs(by_name(built, "fast-inserter")) do
-      if e.filters and e.filters[1] and not e.filters[1].name then tap = e end
+      if e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.south then
+        assert(not tap, "two inserters read as the overflow tap")
+        tap = e
+      end
     end
     assert(tap, "overflow tap inserter not found")
     assert(#tap.filters == 1, "tap filter count " .. #tap.filters)
@@ -384,8 +400,8 @@ describe("layout.build per-tier wiring", function()
     }))
     assert(#by_name(built, "active-provider-chest") == 0, "a legendary plan built an overflow chest")
     for _, e in pairs(by_name(built, "fast-inserter")) do
-      assert(not (e.filters and e.filters[1] and not e.filters[1].name),
-        "a legendary plan built the overflow tap")
+      assert(not (e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.south), "a legendary plan built the overflow tap")
     end
   end)
 
@@ -454,24 +470,25 @@ describe("layout.build across footprints and recipes", function()
       },
       requests = { ["iron-plate"] = 100, ["copper-cable"] = 200 },
     }))
-    -- The harvest (whitelist) and relief (blacklist) inserters carry one slot per ingredient,
-    -- all at their own tier's quality.
-    local harvests, blacklists = 0, 0
+    -- The harvest inserters carry one slot per ingredient, all at their own tier's quality;
+    -- the relief inserters never name an ingredient, so they stay at one slot.
+    local harvests, reliefs = 0, 0
     for _, e in pairs(by_name(built, "fast-inserter")) do
       if e.filters and e.filters[1] and e.filters[1].name == "iron-plate" then
         assert(#e.filters == 2, "ingredient filter count " .. #e.filters)
         assert(e.filters[2].name == "copper-cable", "second ingredient missing from the filters")
         assert(e.filters[1].quality == e.filters[2].quality,
           "one inserter carries two different tiers")
-        if e.filter_mode == "blacklist" then
-          blacklists = blacklists + 1
-        else
-          harvests = harvests + 1
-        end
+        assert(e.filter_mode == "whitelist", "a harvest inserter must whitelist")
+        harvests = harvests + 1
+      elseif e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.north then
+        assert(#e.filters == 1, "relief filter count " .. #e.filters)
+        reliefs = reliefs + 1
       end
     end
     assert(harvests == 3, "harvest inserters " .. harvests .. ", expected one per tier")
-    assert(blacklists == 2, "relief inserters " .. blacklists .. ", expected one per lower tier")
+    assert(reliefs == 2, "relief inserters " .. reliefs .. ", expected one per lower tier")
 
     local feeds = 0
     for _, e in pairs(by_name(built, "requester-chest")) do
@@ -1014,5 +1031,147 @@ describe("layout.build circuit stack", function()
     }))
     assert(wide.width == 13, "width " .. wide.width .. ", the stack must not widen the plan")
     assert_no_overlap_and_in_bounds(wide)
+  end)
+end)
+
+describe("layout.build feed stacks", function()
+  -- A recipe with more ingredients than one inserter can filter feeds each machine from two
+  -- stacks: the second harvest inserter, feed chest and feed inserter stand in the buffer
+  -- sub-column above the machine. The planner decides the count (params.feed_stacks); this
+  -- file only has to divide the list and stand the stacks. The recipe shape is the shared
+  -- fixture's big(n): "ing-1" .. "ing-n", the i-th requesting 10 * i.
+  local function names_of(n)
+    local names = {}
+    for i = 1, n do names[i] = "ing-" .. i end
+    return names
+  end
+
+  local function concat(chunk)
+    return table.concat(chunk, ",")
+  end
+
+  test("split_ingredients divides balanced, larger halves first, and one stack is the list itself", function()
+    local six = names_of(6)
+    local halves = layout.split_ingredients(six, 2)
+    assert(#halves == 2 and concat(halves[1]) == "ing-1,ing-2,ing-3"
+      and concat(halves[2]) == "ing-4,ing-5,ing-6", "six over two: " .. concat(halves[1])
+      .. " / " .. concat(halves[2]))
+    local seven = layout.split_ingredients(names_of(7), 2)
+    assert(#seven[1] == 4 and #seven[2] == 3, "seven over two must be 4 and 3")
+    local ten = layout.split_ingredients(names_of(10), 2)
+    assert(#ten[1] == 5 and #ten[2] == 5, "ten over two must be 5 and 5")
+    -- One stack, or no count at all, hands back the very same table: the byte-identity of
+    -- every plan that fits one inserter rests on that.
+    local one = layout.split_ingredients(six, 1)
+    assert(#one == 1 and one[1] == six, "one stack must be the list itself")
+    local absent = layout.split_ingredients(six)
+    assert(#absent == 1 and absent[1] == six, "no count must read as one stack")
+    -- Never more stacks than names: a lone ingredient asked for two stacks gets one.
+    local lone = layout.split_ingredients(names_of(1), 2)
+    assert(#lone == 1 and #lone[1] == 1, "a lone ingredient must not stand an empty stack")
+  end)
+
+  test("one stack, asked for or defaulted, builds the plan byte for byte as before", function()
+    assert(deep_equal(layout.build(params_with()), layout.build(params_with({ feed_stacks = 1 }))),
+      "feed_stacks = 1 differs from the param being absent")
+    -- Whether five ingredients fit one inserter is the planner's call, not this file's: sent
+    -- one stack, five ingredients stand one chest per tier requesting all five.
+    local built = layout.build(big_params(5, { feed_stacks = 1 }))
+    assert(#by_name(built, "requester-chest") == 3, "a five-ingredient plan stands one feed chest per tier")
+    for _, c in pairs(by_name(built, "requester-chest")) do
+      assert(#c.requests == 5, "the one chest requests every ingredient")
+    end
+  end)
+
+  test("a six-ingredient recipe stands a second stack in the buffer sub-column, every tier", function()
+    local built = layout.build(big_params(6))
+    assert(built.width == 11 and built.height == 15, "the second stack must cost no footprint")
+    assert_no_overlap_and_in_bounds(built)
+
+    -- Tier columns start at 1, 4 and 7; each has a stack at its first two sub-columns.
+    local tiers = { { x = 1, quality = "normal" }, { x = 4, quality = "uncommon" },
+      { x = 7, quality = "rare" } }
+    local inserters, chests = {}, {}
+    for _, e in pairs(by_name(built, "fast-inserter")) do inserters[e.dx .. "," .. e.dy] = e end
+    for _, e in pairs(by_name(built, "requester-chest")) do chests[e.dx .. "," .. e.dy] = e end
+    assert(#by_name(built, "requester-chest") == 6, "two feed chests per tier")
+
+    local halves = { "ing-1,ing-2,ing-3", "ing-4,ing-5,ing-6" }
+    for _, tier in pairs(tiers) do
+      for i = 1, 2 do
+        local x = tier.x + i - 1
+        local harvest = inserters[x .. ",1"]
+        assert(harvest and harvest.direction == defines.direction.north
+          and harvest.filter_mode == "whitelist", "no harvest inserter at " .. x .. ",1")
+        local filtered = {}
+        for _, f in pairs(harvest.filters) do
+          assert(f.quality == tier.quality, "a harvest filter at the wrong tier")
+          filtered[#filtered + 1] = f.name
+        end
+        assert(concat(filtered) == halves[i], "stack " .. i .. " at " .. x .. " filters " .. concat(filtered))
+
+        local chest = chests[x .. ",2"]
+        assert(chest, "no feed chest at " .. x .. ",2")
+        local requested = {}
+        for _, r in pairs(chest.requests) do
+          assert(r.quality == tier.quality, "a request at the wrong tier")
+          assert(r.count == 10 * tonumber(r.name:match("%d+")), "request count for " .. r.name)
+          requested[#requested + 1] = r.name
+        end
+        assert(concat(requested) == halves[i], "stack " .. i .. " at " .. x .. " requests " .. concat(requested))
+
+        local feed = inserters[x .. ",3"]
+        assert(feed and feed.direction == defines.direction.north and not feed.filters,
+          "no unfiltered feed inserter at " .. x .. ",3")
+      end
+    end
+  end)
+
+  test("the relief inserter stays one nameless slot whatever the stack count", function()
+    local built = layout.build(big_params(10))
+    local reliefs = 0
+    for _, e in pairs(by_name(built, "fast-inserter")) do
+      if e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.north then
+        assert(#e.filters == 1, "relief filter count " .. #e.filters)
+        reliefs = reliefs + 1
+      end
+    end
+    assert(reliefs == 2, "relief inserters " .. reliefs)
+    -- Ten ingredients: five per stack, the vanilla ceiling. The terminal catcher shares the
+    -- harvest row with a named filter of its own -- the product -- so match on the ingredients.
+    local harvests = 0
+    for _, e in pairs(by_name(built, "fast-inserter")) do
+      if e.dy == 1 and e.filters and e.filters[1].name and e.filters[1].name:match("^ing%-") then
+        assert(#e.filters == 5, "a ten-ingredient harvest stack carries " .. #e.filters)
+        harvests = harvests + 1
+      end
+    end
+    assert(harvests == 6, "harvest inserters " .. harvests .. ", expected two per tier")
+  end)
+
+  test("two stacks build the same plan twice, and fit a fluid, beaconed, circuit plan", function()
+    assert(deep_equal(layout.build(big_params(7)), layout.build(big_params(7))),
+      "two builds from identical two-stack params disagreed")
+    local loaded = layout.build(big_params(7, {
+      column_gaps = { 2, 2, 2 },
+      fluid = { pipe = "pipe", pipe_to_ground = "pipe-to-ground" },
+      machine = {
+        name = "assembling-machine-2", quality = "normal", width = 3, height = 3,
+        module_slots = 2, direction = defines.direction.west,
+      },
+      circuit = circuit_stack.params(true),
+    }))
+    assert(#by_name(loaded, "requester-chest") == 6, "feed chests on the loaded plan")
+    assert_no_overlap_and_in_bounds(loaded)
+  end)
+
+  test("repeated columns each stand their own two stacks", function()
+    local built = layout.build(big_params(8, {
+      tiers = { "normal", "normal", "normal", "uncommon", "rare" },
+    }))
+    assert(#by_name(built, "requester-chest") == 10, "two feed chests per physical column")
+    assert(built.width == 17, "width " .. built.width)
+    assert_no_overlap_and_in_bounds(built)
   end)
 end)

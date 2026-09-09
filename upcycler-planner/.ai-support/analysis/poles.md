@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.17
-verified: 2026-09-07
+verified: 2026-09-09
 ---
 # Pole placement — the coverage pass
 
@@ -96,6 +96,17 @@ price of paying for a column at every tier whether or not anything stood in it. 
 above restores growth without restoring that price: a column now has to earn its width by
 holding a pole. What growth still cannot fix is "supply too small" (the big electric pole),
 which is what the free-tile fallback and the honest count answer.
+
+**Two feed stacks make the compact attempt fail on purpose** (2026-09-09). A recipe past one
+inserter's filter slots stands a second harvest inserter, feed chest and feed inserter in the
+buffer sub-column above each machine (`layout-belt-ring.md` §"Per-tier placements") — the
+three tiles that were the only in-column ground a medium pole (supply 3.5) could cover the
+harvest row from. So the compact attempt leaves the harvest row dark, attempt 2 opens every
+column, and the shrink keeps about one column per two tiers: a pole in the column before tier
+`k` reaches tier `k-1`'s upper band too, since seven tiles of supply span two 3-wide columns
+and the 1-wide gap exactly. A substation covers from the ring's own ground and opens nothing.
+`tests/pure/poles_spec.lua` pins the compact shortfall, the opened coverage and the
+substation's compact plan; the ladder's numbers are in §Performance.
 
 ## Best effort is a warning, not an error
 
@@ -303,3 +314,29 @@ each paid per ladder attempt. At the current ceiling (253 x 64 + 1 = 16,193 phys
 columns) that is ~4.5 s per solve on the host (~11 s with a 5x5 machine) and a few seconds
 in game: no longer a hang, but not free — `MAX_COLUMNS_PER_TIER` stays a real ceiling, now
 with margin under it rather than none.
+
+### Two feed stacks — the 2026-09-09 check
+
+The second feed stack adds three occupied tiles and two consumers per physical column and,
+with a medium pole, sends the ladder down the grow-then-shrink path a substation plan already
+takes. Measured on the host (Lua 5.5) with a throwaway re-run of the ladder over the real
+`layout.build` + `poles.plan`, best of three, before and after in one session — the owner's
+condition for the feature was that the pole solve lost nothing. **Plans that fit one inserter
+kept every attempt count, width, pole count and entity count on all 24 shapes swept** (3 and 5
+tiers, 1/16/64 columns, medium and substation, circuits off and capped) and moved within
+noise; the two-stack plans cost the three solves and the extra consumers:
+
+| shape (tiers x columns) | pole | one stack, before → after | two stacks: attempts, width, time |
+|---|---|---|---|
+| 3 x 1 | medium | 1 attempt, 11 wide, <1 ms both | 3, 13, 2 ms |
+| 5 x 1 | medium | 1, 17, ~1 ms both | 3, 20, 2 ms |
+| 5 x 16 | medium | 1, 197, 13 → 12 ms | 3, 230, 33 ms |
+| 5 x 64 | medium | 1, 773, 51 → 51 ms | 3, 902, 142 ms |
+| 3 x 64 | substation | 4, 455, 85 → 91 ms | 4, 455, 100 ms |
+| 5 x 64 | substation | 4, 903, 177 → 180 ms | 4, 903, 225 ms |
+
+Three attempts is compact, all-columns and one shrink — the shrink converges at once, so the
+two-stack cost stays linear in the columns like everything else here. A substation plan keeps
+its width and its four attempts, paying only for the extra consumers. The in-game suite's
+pinned 8-tier wire tree and the pure `feed_stacks = 1` parity spec are what hold the one-stack
+plans byte-identical.

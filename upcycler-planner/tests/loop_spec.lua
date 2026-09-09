@@ -35,7 +35,9 @@ end
 
 -- One machine-recycler pair exactly as the layout stands them: tangent, eject north into the
 -- machine's bottom row, powered by an energy interface through a substation. The relief
--- inserter below the recycler blacklists the tier's own ingredient, mirroring layout.lua.
+-- inserter below the recycler whitelists anything above the tier's quality and names no
+-- item, mirroring layout.lua -- one slot whatever the recipe, where the per-ingredient
+-- blacklist it replaced cost one per ingredient.
 local function build_rig(opts)
   opts = opts or {}
   local s = nauvis()
@@ -64,8 +66,8 @@ local function build_rig(opts)
       direction = defines.direction.north, force = f,
     })
     inserter.use_filters = true
-    inserter.set_filter(1, { name = "iron-plate", quality = "normal", comparator = "=" })
-    inserter.inserter_filter_mode = "blacklist"
+    inserter.inserter_filter_mode = "whitelist"
+    inserter.set_filter(1, { quality = "normal", comparator = ">" })
     rig.inserter = inserter
     rig.chest = s.create_entity({ name = "steel-chest", position = { 0.5, 8.5 }, force = f })
   end
@@ -203,8 +205,8 @@ describe("the recycler eject under a rolled-up ingredient", function()
     seed_stuck_plate(rig.recycler)
     feed_gears(rig.recycler, 40)
     after_ticks(900, function()
-      -- The rolled-up plate must end in the chest: it is not this tier's normal ingredient,
-      -- so the blacklist lets it through while leaving the eject's own flow alone.
+      -- The rolled-up plate must end in the chest: it is above this tier's quality, so the
+      -- nameless filter takes it while leaving the eject's own flow alone.
       assert(rig.chest.get_item_count(UNCOMMON_PLATE) == 1,
         "the relief inserter did not extract the rolled-up plate")
       assert(rig.recycler.get_item_count(UNCOMMON_PLATE) == 0,
@@ -218,6 +220,30 @@ describe("the recycler eject under a rolled-up ingredient", function()
       log("UPL-LOOP-FINDING relief: machine crafted " .. rig.machine.products_finished
         .. ", recycler finished " .. rig.recycler.products_finished
         .. ", recycler output now: " .. contents_line(rig.recycler, defines.inventory.crafter_output))
+    end)
+  end)
+
+  test("the relief inserter leaves the tier's own ingredient to the eject", function()
+    -- The other half of the equivalence with the blacklist it replaced: a plate AT the
+    -- tier's quality is the eject's to deliver, and the relief must never poach it. Seeded
+    -- into the output beside the rolled-up one, it has to reach the machine or stay in the
+    -- recycler -- never the chest -- while the loop crafts on.
+    local NORMAL_PLATE = { name = "iron-plate", quality = "normal" }
+    local rig = build_rig({ relief = true })
+    local seeded = rig.recycler.get_inventory(defines.inventory.crafter_output)
+      .insert({ name = "iron-plate", count = 1, quality = "normal" })
+    assert(seeded == 1, "cannot seed a normal plate into the recycler output")
+    seed_stuck_plate(rig.recycler)
+    feed_gears(rig.recycler, 40)
+    after_ticks(900, function()
+      assert(rig.chest.get_item_count(NORMAL_PLATE) == 0,
+        "the relief inserter took a same-quality plate meant for the eject")
+      assert(rig.chest.get_item_count(UNCOMMON_PLATE) == 1,
+        "the relief inserter did not extract the rolled-up plate beside it")
+      assert(rig.machine.get_item_count(UNCOMMON_PLATE) == 0,
+        "an above-tier ingredient reached the pinned machine")
+      assert(rig.machine.products_finished > 0,
+        "the loop never resumed with both plates seeded")
     end)
   end)
 

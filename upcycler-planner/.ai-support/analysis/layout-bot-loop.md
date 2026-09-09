@@ -94,7 +94,7 @@ it is the safer default for a mod that strangers install into arbitrary bases.
 
 ## Deadlock audit
 
-The eject delivers only what the pinned machine accepts; the blacklist inserter drains the rest;
+The eject delivers only what the pinned machine accepts; the relief inserter drains the rest;
 machine output is drained unfiltered; every buffer is a finite chest with a capped request. The
 one stall mode — machine input full while the recycler's output holds only same-tier ingredients
 — is throttling, and clears as the machine crafts.

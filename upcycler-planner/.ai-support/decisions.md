@@ -750,16 +750,35 @@ per-release approval.
   needs fuel — how a fresh Space Age game genuinely starts — validation says so instead of
   planning a loop that would starve, which is why the burners stay in `inserter_candidates()`
   while the picker and the pick both read the electric subset.
-- **A chosen inserter must still carry a filter slot per ingredient, and the refusal names the
-  pick only when a better inserter actually exists.** The harvest and relief positions need the
-  slots, so the requirement is not negotiable, and quietly substituting a different inserter
-  would hide the player's own choice — but a message advising "pick one with more slots" is worse
-  than useless when none has any. So `any_inserter` decides: nothing available with enough slots
-  blames the *recipe* (every vanilla case — all six vanilla inserters carry five, and exactly one
-  vanilla upcyclable recipe needs six, fusion reactor equipment), and only past that gate is the
-  pick named. **The by-name branch therefore needs a modded inserter to reach and carries no
-  spec**, which is written into the spec that covers the reachable side. A recipe change re-picks
-  an outgrown inserter, exactly as it re-picks a machine that can no longer craft.
+- **A recipe past one inserter's filter slots feeds each machine from two stacks, never three,
+  and the refusal names the pick only when a better inserter actually exists** (the repo
+  owner's call, 2026-09-09, superseding the one-slot-per-ingredient rule that refused six
+  ingredients). The engine caps every inserter at five filter slots — `filter_count`'s own doc,
+  both tracks (`analysis/api.md` §15) — so no inserter can ever be the fix; only the geometry
+  can. The buffer sub-column above the machine is empty on every tier, so a second harvest
+  inserter, feed chest and feed inserter stand there at no width, each taking a balanced half
+  of the ingredients (six is 3 and 3, seven is 4 and 3) and requesting only its own. Never a
+  third: the product sub-column carries the rising product, so `layout.MAX_FEED_STACKS = 2`
+  caps a loop at ten ingredients with vanilla inserters — **a hard ten everywhere** rather than
+  more on wider machines (the owner's call: one rule, one number), which covers every vanilla
+  recipe (one at six) and Krastorio 2 (eleven at six or seven, none higher; counted
+  2026-09-09). The per-inserter requirement is the larger half, `planner.min_filter_slots`,
+  the one owner of that arithmetic; the default pick tries an inserter that filters the whole
+  list alone before one that only serves the split (`planner.inserter_for`), so a modded fast
+  inserter with fewer slots cannot turn a small recipe into two stacks; a player's pick that
+  serves the split is kept as picked, since two stacks is what their choice costs.
+  `any_inserter` still decides the message: nothing available with enough slots for the larger
+  half blames the *recipe*, naming the ceiling (every vanilla case — nothing vanilla has
+  eleven), and only past that gate is the pick named. **The by-name branch therefore needs a
+  modded inserter with fewer than five slots to reach and carries no spec**, which is written
+  into the spec that covers the reachable side. A recipe change re-picks an outgrown inserter,
+  exactly as it re-picks a machine that can no longer craft. The one cost is power: those three
+  tiles were the only in-column ground a medium pole covered the harvest row from, so the
+  ladder opens a utility column about every two tiers on such plans (rare 11 → 13 wide,
+  legendary 17 → 20) and none with a substation — accepted by the owner, since every such
+  recipe was refused outright before, on the condition that the pole solve lost no
+  performance: plans that fit one inserter are byte-identical to before, and the pole memo
+  keys on the stack count (`analysis/poles.md` §Performance).
 - **Belt-stacking inserters are never planned in** (the repo owner's call, 2026-08-17). A
   stacking hand holds out for a full belt stack of one item-and-quality, and a quality loop
   trickles dozens of item/quality combinations past every position — community-documented
@@ -1126,11 +1145,22 @@ per-release approval.
   pole scenarios (including big-pole's honest 3 unpowered), the 210 upcyclable items, the
   wooden-chest empty terminal — so a drift in any of them is a release-visible event, not a
   silent reshape.
-- **The blacklist relief inserter is load-bearing, by measurement.** The eject investigation
-  (journal 2026-08-16, evidence `analysis/api.md` §9.6) showed a rolled-up ingredient in the
-  recycler's output wedges the recycler completely; only the relief inserter keeps the loop
-  alive. Any future layout change must keep it, and a test now fails if the behaviour
-  regresses.
+- **The relief inserter under each recycler is load-bearing, by measurement — and since
+  2026-09-09 it is one nameless `{quality > tier}` whitelist, the overflow tap's shape, on
+  every plan.** The eject investigation (journal 2026-08-16, evidence `analysis/api.md` §9.6)
+  showed a rolled-up ingredient in the recycler's output wedges the recycler completely; only
+  the relief inserter keeps the loop alive. It was a blacklist of the tier's ingredients, one
+  slot each, which is what capped a recipe at five — and a blacklist cannot be split across two
+  inserters, since each half would drain the other half's correct-quality items from under the
+  eject. The recycler only ever holds this tier's ingredients at this quality or a rolled-up
+  one above them, so "anything above this tier" selects exactly the same items at one slot,
+  measured live (`tests/loop_spec.lua`: the rolled-up plate drains, a same-quality plate
+  seeded beside it is left to the eject, and the loop crafts on). Applied to every plan rather
+  than only the big recipes (the owner's call): one shape to test, and a filter no recipe can
+  outrun. The one semantic difference is a foreign item at the tier's own quality hand-fed into
+  the recycler, which the blacklist drained and the whitelist leaves to wedge it — only a
+  player can cause that. Any future layout change must keep the relief, and a test fails if the
+  behaviour regresses.
 - **A behaviour-preserving change to `poles.lua` is proven by a falsified parity sweep, not by a
   green suite.** The suite pins pole counts, plan widths and connectivity; it pins no `wire_to`
   value, so a spanning tree rebuilt with different tie-breaks stays connected, still carries n-1

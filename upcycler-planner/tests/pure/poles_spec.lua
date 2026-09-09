@@ -163,6 +163,48 @@ describe("poles.plan over a real plan", function()
     assert(deep_equal(solve(), solve()), "two identical solves disagreed")
   end)
 
+  -- A recipe past one inserter's filter slots: two feed stacks per column, the second in
+  -- the buffer sub-column above the machine -- the three tiles a compact plan's medium pole
+  -- used to cover the harvest row from. Six ingredients, the shared fixture's shape.
+  local big_params = require("tests.support.layout_params").big
+  local function two_stack_params(overrides)
+    return big_params(6, overrides)
+  end
+
+  local SUBSTATION = { name = "substation", quality = "normal", width = 2, height = 2,
+    supply_distance = 9, wire_distance = 18 }
+
+  test("a plan that fits one inserter grows the same poles with the stack count spelled out", function()
+    -- The feed-stack param must not move a single pole on the plans that existed before it.
+    local plain = poles.plan(layout.build(vanilla_params()), MEDIUM, PLAN_MARGINS)
+    local spelled = poles.plan(layout.build(vanilla_params({ feed_stacks = 1 })), MEDIUM, PLAN_MARGINS)
+    assert(deep_equal(plain, spelled), "feed_stacks = 1 moved a pole")
+  end)
+
+  test("two feed stacks: a medium pole covers from the utility columns, a substation from anywhere", function()
+    -- Compact, the second stack takes the only upper-band tiles a medium pole could cover
+    -- the harvest row from, so the compact solve comes back short -- the geometric fact the
+    -- planner's ladder answers by opening columns. Opened, everything is covered and no pole
+    -- stands on a stack tile.
+    local compact = poles.plan(layout.build(two_stack_params()), MEDIUM, PLAN_MARGINS)
+    assert(compact.unpowered > 0, "a compact two-stack plan should leave the harvest row dark")
+
+    local built = layout.build(two_stack_params({ column_gaps = { 1, 1, 1 } }))
+    local opened = poles.plan(built, MEDIUM, PLAN_MARGINS)
+    assert(opened.unpowered == 0, "unpowered with columns open: " .. opened.unpowered)
+    local occ = {}
+    for _, e in pairs(built.entities) do occ[e.dx .. "," .. e.dy] = e.name end
+    for _, p in pairs(opened.entities) do
+      assert(not occ[p.dx .. "," .. p.dy],
+        "a pole stands on " .. tostring(occ[p.dx .. "," .. p.dy]) .. " at " .. p.dx .. "," .. p.dy)
+    end
+    assert(wire_count(opened) == #opened.entities - 1, "the opened plan is not one network")
+
+    -- A substation's reach dwarfs the pitch: the compact plan covers with no column at all.
+    local wide = poles.plan(layout.build(two_stack_params()), SUBSTATION, PLAN_MARGINS)
+    assert(wide.unpowered == 0, "a substation left " .. wide.unpowered .. " dark on a compact two-stack plan")
+  end)
+
   local function ring_of(tier_count)
     local tiers = {}
     for i = 1, tier_count do tiers[i] = "tier-" .. i end

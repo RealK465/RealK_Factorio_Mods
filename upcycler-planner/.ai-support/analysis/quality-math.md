@@ -28,7 +28,7 @@ Two rules the layout depends on:
   why the terminal machine's output is purely target quality.
 - **Ingredient matching is exact per tier** — you cannot combine uncommon plates with rare
   batteries. That is why a rolled-up ingredient jams a pinned machine, and therefore why the
-  blacklist inserter exists.
+  relief inserter under the recycler exists (`api.md` §9.6).
 - **Fluids are exempt from quality entirely.**
 
 **2.1.7 reworked the roll's internals** (installed `data/changelog.txt`, section confirmed by

@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.0
+Date: ????
+  Features:
+    - Recipes with up to 10 ingredients can now be looped. Past 5, each machine is fed from two
+      ingredient chests, each taking half the ingredients. With medium poles the loop may need
+      an extra pole column beside some machines to reach the added inserters.
+  Changes:
+    - The inserter under each recycler now takes anything above its own quality instead of
+      listing the ingredients it must leave alone. Same behaviour, one filter slot.
+    - The message for a recipe with too many ingredients now says the limit.
+---------------------------------------------------------------------------------------------------
 Version: 1.1.1
 Date: 2026-09-07
   Changes:

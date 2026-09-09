@@ -775,26 +775,53 @@ describe("validate", function()
     end
   end)
 
-  test("a recipe no inserter can filter blames the recipe, picked or not", function()
-    -- Filter slots are needed one per ingredient, and there is exactly one vanilla upcyclable
-    -- recipe that needs more than the five every vanilla inserter carries: fusion reactor
-    -- equipment, at six (measured against the data dump, 2026-08-17). Since NOTHING available can
-    -- serve it, the message must blame the recipe whether or not an inserter was picked -- naming
-    -- the pick would advise a fix that does not exist here.
-    --
-    -- The by-name refusal on the other side of that gate needs a modded inserter with more slots
-    -- to reach, so it is deliberately not covered by a spec; it is the branch below in
-    -- validate(), reached only when any_inserter finds something the pick is worse than.
+  test("a recipe past one inserter's filter slots plans two feed stacks, picked or not", function()
+    -- The engine caps every inserter at five filter slots, and exactly one vanilla upcyclable
+    -- recipe has more ingredients than that: fusion reactor equipment, at six (measured
+    -- against the data dump, 2026-08-17). It was refused until the second feed stack: the
+    -- list divides across two inserters, so the per-inserter requirement is the larger half
+    -- and the cap is ten. Nothing vanilla reaches eleven, so the refusal past the cap is
+    -- pinned through its arithmetic -- six slots per inserter, which no inserter has -- and
+    -- the by-name refusal (a pick with fewer slots than the split needs while a better one
+    -- exists) still needs a modded inserter to reach.
     local ingredients = #planner.item_ingredients(prototypes.recipe["fusion-reactor-equipment"])
     assert(ingredients == 6, "test premise: expected six ingredients, got " .. ingredients)
     assert(planner.any_inserter(force(), ingredients) == nil,
       "test premise: no vanilla inserter should have six filter slots")
+    assert(planner.min_filter_slots(6) == 3 and planner.min_filter_slots(10) == 5
+      and planner.min_filter_slots(11) == 6, "the per-inserter requirement is half, rounded up")
+    assert(planner.any_inserter(force(), planner.min_filter_slots(11)) == nil,
+      "eleven ingredients must find no inserter -- the too-many-ingredients branch")
+    assert(planner.max_ingredients(force()) == 10, "vanilla's ceiling is ten ingredients")
+
+    -- The default pick: solo first, then the split -- six needs the split, and the best
+    -- inserter for three slots is the bulk one the loop always wanted.
+    assert(planner.inserter_for(force(), 6) == planner.inserter(force(), 3),
+      "inserter_for did not fall back to the split's requirement")
+    assert(planner.inserter_for(force(), 5) == planner.inserter(force(), 5),
+      "a recipe one inserter serves must pick as it always did")
 
     local base = { recipe = "fusion-reactor-equipment", machine = "assembling-machine-3" }
-    assert(refusal(base) == "upl-message.too-many-ingredients", "unpicked shortfall")
+    local ok, message = planner.validate(force(), choices_with(base))
+    assert(ok == true, "six ingredients refused: " .. tostring(message and message[1]))
     local picked = { recipe = base.recipe, machine = base.machine, inserter = "fast-inserter" }
-    assert(refusal(picked) == "upl-message.too-many-ingredients",
-      "a pick must not turn an impossible recipe into advice about the pick")
+    ok, message = planner.validate(force(), choices_with(picked))
+    assert(ok == true, "a five-slot pick refused six ingredients: " .. tostring(message and message[1]))
+
+    -- Two feed chests per column, each requesting half the list, and the pick kept.
+    local plan = planner.plan(force(), choices_with(picked))
+    assert(plan, "no plan for six ingredients")
+    local chests, inserters = 0, 0
+    for _, e in pairs(plan.entities) do
+      if e.name == "requester-chest" then
+        chests = chests + 1
+        assert(#e.requests == 3, "a feed chest requests " .. #e.requests .. ", expected 3")
+      elseif e.name == "fast-inserter" then
+        inserters = inserters + 1
+      end
+    end
+    assert(chests == 6, "feed chests " .. chests .. ", expected two per column over three tiers")
+    assert(inserters > 0, "the plan dropped the player's fast-inserter pick")
   end)
 
   test("a fresh force fails on inserters first, with the fuel message", function()
@@ -900,6 +927,9 @@ describe("recipe-shape helpers", function()
     -- Sulfur's ingredients are two fluids and no items at all: zero, not `and ... or 1`-coerced.
     assert(planner.filters_needed(prototypes.recipe["sulfur"]) == 0,
       "a fluid-only recipe needs no filter slots")
+    -- The whole list, not the per-inserter share: that is min_filter_slots' business.
+    assert(planner.filters_needed(prototypes.recipe["fusion-reactor-equipment"]) == 6,
+      "fusion reactor equipment takes six slots in all")
   end)
 
   test("needs_pipe is exactly one fluid", function()

@@ -545,10 +545,11 @@ describe("the modal", function()
     assert(shown and shown.name == "steel-chest", "snap-back not shown on the strip")
   end)
 
-  test("a recipe the chosen inserter cannot filter re-picks it, like the machine", function()
-    -- Filter slots are needed one per ingredient: fusion reactor equipment takes six and every
-    -- vanilla inserter carries five, so the modal must not leave behind a pick that cannot
-    -- serve the new recipe.
+  test("a recipe the chosen inserter can still filter split keeps the pick, and Place", function()
+    -- Fusion reactor equipment takes six ingredients and every vanilla inserter carries five
+    -- filter slots: one inserter cannot serve it, two stacks of three can, so the re-pick --
+    -- which exists so no outgrown pick is left behind to fail validation -- must NOT fire on
+    -- a pick the split still serves. It used to empty the picker and disarm Place here.
     open_with_gears()
     local inserter = widget({ "upl-options", "upl-transport-strip", "upl-inserter" })
     inserter.elem_value = { name = "fast-inserter", quality = "normal" }
@@ -560,11 +561,9 @@ describe("the modal", function()
     local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
     recipe_button.elem_value = "fusion-reactor-equipment"
     fire(recipe_button)
-    -- Nothing in the game has six filter slots, so the honest re-pick is no inserter at all --
-    -- and Place has to go down rather than arm a tool that would do nothing.
-    assert(choices().inserter == nil, "the outgrown pick survived the recipe change")
-    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == false,
-      "Place stayed enabled for a recipe no inserter can filter")
+    assert(choices().inserter == "fast-inserter", "a pick the split serves was re-picked")
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true,
+      "Place went down for a recipe two feed stacks can filter")
   end)
 
   test("the top machine's module follows the recipe, and clearing means empty", function()
@@ -1196,19 +1195,26 @@ describe("the modal", function()
     assert(choices().circuit_hand == nil, "Enter on the moved default froze it as an override")
   end)
 
-  test("a recipe no inserter can filter leaves the wizard standing, not crashed", function()
-    -- Fusion reactor equipment takes six ingredients and every vanilla inserter filters
-    -- five, so the recipe handler honestly re-picks NO inserter. The wizard's Hand size
-    -- default then has no prototype to read and must fall back rather than index nil --
-    -- validate refuses the plan anyway, so the number shown does not matter, the survival
-    -- of the handler does.
+  test("an empty inserter pick leaves the wizard standing, not crashed", function()
+    -- With no inserter picked the wizard's Hand size default has no prototype to read and
+    -- must fall back rather than index nil -- validate refuses such a plan anyway, so the
+    -- number shown does not matter, the survival of the handler does. Fusion reactor
+    -- equipment used to empty the pick here (six ingredients, five slots); since the second
+    -- feed stack no vanilla recipe does, so the pick is emptied by hand, as a force with only
+    -- fuelled inserters researched would leave it.
     open_with_gears()
     choices().circuit_enabled = true
     gui.open_circuits(player())
     local recipe_button = widget({ "upl-content", "upl-table", "upl-recipe" })
     recipe_button.elem_value = "fusion-reactor-equipment"
     fire(recipe_button)
-    assert(choices().inserter == nil, "test premise: the pick should have emptied")
+    assert(choices().inserter ~= nil, "test premise: six ingredients should keep a pick now")
+    assert(circuits_panel() and circuits_panel().valid,
+      "the wizard did not survive the recipe change")
+
+    choices().inserter = nil
+    gui.close_circuits(player())
+    gui.open_circuits(player())
     local panel = circuits_panel()
     assert(panel and panel.valid, "the wizard did not survive the empty inserter pick")
     local field = panel["upl-circuits-content"]["upl-circuit-hand-row"]["upl-circuit-hand"]

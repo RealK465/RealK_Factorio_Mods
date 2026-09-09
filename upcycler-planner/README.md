@@ -38,7 +38,7 @@ By default only researched options are offered, but it can be changed in the pla
 ## Good to know
 
 - Layout processing algorithm is quite demanding in layouts with lots of columns, version 1.0 of the mod benchmarked 5s processing an 8000 column layout (this means like 8000 quality tiers or having 1000+ columns for each quality tier, it requires crazy mods to reach those numbers). Higher durations can cause the game to crash.
-- Recipes with more than 5 ingredients are not supported (limited to the inserter max item filter).
+- Recipes with more than 10 ingredients are not supported (an inserter filters at most 5 items, and the loop feeds each machine from up to two inserters).
 - Recipes with spoilable items are not supported.
 - Recipes that need two different fluids, or that give back a fluid (like the quantum processor), are not supported.
 - Items that recycle into themselves (like steel) are not supported.
@@ -83,7 +83,6 @@ Two lamps and a display panel show what the loop is doing: blue while it runs, g
 - Automatic placement of Lightning Collectors at Fulgora
 - Automatic placement of Heating Pipes at Aquilo
 - Possibility of exporting the layout as a parametrized blueprint
-- Check possibility of adding more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)
 - Small improvements
 
 ## Requirements

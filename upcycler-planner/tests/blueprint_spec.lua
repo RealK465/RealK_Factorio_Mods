@@ -173,26 +173,33 @@ describe("stamping the blueprint", function()
     end
   end)
 
-  test("the blacklist inserter and the requester survive the blueprint round-trip", function()
+  test("the relief inserter and the requester survive the blueprint round-trip", function()
     local plan = gear_plan()
     stamp(plan)
 
+    -- The relief inserter under each recycler: a nameless "> this tier" whitelist, facing
+    -- north off the recycler -- the overflow tap carries the same filter shape facing south.
     local inserter_name
     for _, e in pairs(plan.entities) do
-      if e.filter_mode == "blacklist" then inserter_name = e.name end
-    end
-    assert(inserter_name, "plan lost its blacklist inserter")
-    local blacklists = 0
-    for _, ghost in pairs(ghosts_of(nauvis(), inserter_name)) do
-      if ghost.inserter_filter_mode == "blacklist" then
-        blacklists = blacklists + 1
-        local filter = ghost.get_filter(1)
-        -- get_filter hands the name back as a plain string.
-        assert(filter and filter.name == "iron-plate",
-          "blacklist filter reads back as " .. tostring(filter and filter.name))
+      if e.filters and e.filters[1] and not e.filters[1].name
+        and e.direction == defines.direction.north then
+        inserter_name = e.name
       end
     end
-    assert(blacklists == 2, "blacklist inserters " .. blacklists .. ", expected one per lower tier")
+    assert(inserter_name, "plan lost its relief inserter")
+    local reliefs = {}
+    for _, ghost in pairs(ghosts_of(nauvis(), inserter_name)) do
+      local filter = ghost.get_filter(1)
+      if ghost.direction == defines.direction.north and type(filter) == "table"
+        and not filter.name then
+        assert(ghost.inserter_filter_mode == "whitelist",
+          "relief filter mode reads back as " .. tostring(ghost.inserter_filter_mode))
+        assert(filter.comparator == ">", "relief comparator reads back as " .. tostring(filter.comparator))
+        reliefs[filter.quality] = (reliefs[filter.quality] or 0) + 1
+      end
+    end
+    assert(reliefs["normal"] == 1 and reliefs["uncommon"] == 1 and reliefs["rare"] == nil,
+      "relief inserters by tier: " .. serpent.line(reliefs) .. ", expected one per lower tier")
 
     -- The blueprint's logistic filter is the flat shape -- a count on the filter itself -- and
     -- the engine turns it back into a section slot with a min. Getting that translation wrong
@@ -237,6 +244,82 @@ describe("stamping the blueprint", function()
     end
   end)
 
+  test("a recipe past one inserter's slots stamps two feed stacks per column, filters and requests intact", function()
+    -- Fusion reactor equipment: six ingredients, three per stack, the only vanilla recipe
+    -- past one inserter's five slots. Read back off real ghosts: two feed chests per column
+    -- requesting disjoint halves, and two harvest inserters per column whose filters name
+    -- exactly those halves at the column's tier.
+    local recipe = prototypes.recipe["fusion-reactor-equipment"]
+    local names = {}
+    for _, ingredient in pairs(planner.item_ingredients(recipe)) do names[ingredient.name] = true end
+    local plan = gear_plan({ recipe = "fusion-reactor-equipment", quality = "uncommon" })
+    stamp(plan)
+
+    local inserter_name
+    for _, e in pairs(plan.entities) do
+      if e.filters and e.filters[1] and names[e.filters[1].name] then inserter_name = e.name end
+    end
+    assert(inserter_name, "plan carries no harvest inserter naming an ingredient")
+
+    -- Harvest inserters: those whose first filter names an ingredient (the catcher and the
+    -- product-fill inserters name the product). Keyed by tier, each carrying three names.
+    local harvested = { normal = {}, uncommon = {} }
+    local harvests = 0
+    for _, ghost in pairs(ghosts_of(nauvis(), inserter_name)) do
+      local first = ghost.get_filter(1)
+      if type(first) == "string" then first = { name = first } end
+      if first and names[first.name] then
+        harvests = harvests + 1
+        local tier = first.quality or "normal"
+        local carried = 0
+        for slot = 1, 5 do
+          local filter = ghost.get_filter(slot)
+          if type(filter) == "string" then filter = { name = filter } end
+          if filter and filter.name then
+            carried = carried + 1
+            assert((filter.quality or "normal") == tier, "one harvest inserter mixes tiers")
+            assert(not harvested[tier][filter.name], filter.name .. " harvested twice at " .. tier)
+            harvested[tier][filter.name] = true
+          end
+        end
+        assert(carried == 3, "a harvest inserter carries " .. carried .. " filters, expected 3")
+      end
+    end
+    assert(harvests == 4, "harvest inserters " .. harvests .. ", expected two per column")
+    for tier, seen in pairs(harvested) do
+      for name in pairs(names) do
+        assert(seen[name], name .. " is harvested by no stack at " .. tier)
+      end
+    end
+
+    -- Feed chests: two per column, three requests apiece, disjoint per column.
+    local requested = { normal = {}, uncommon = {} }
+    local chests = 0
+    for _, ghost in pairs(ghosts_of(nauvis(), "requester-chest")) do
+      chests = chests + 1
+      local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
+      local section = point and point.sections[1]
+      assert(section, "a feed chest ghost has no logistic section")
+      local slots = 0
+      for slot = 1, 5 do
+        local request = section.get_slot(slot)
+        if request and request.value and request.value.name then
+          slots = slots + 1
+          local tier = request.value.quality or "normal"
+          assert(not requested[tier][request.value.name], request.value.name .. " requested twice at " .. tier)
+          requested[tier][request.value.name] = true
+        end
+      end
+      assert(slots == 3, "a feed chest requests " .. slots .. " items, expected 3")
+    end
+    assert(chests == 4, "feed chests " .. chests .. ", expected two per column")
+    for tier, seen in pairs(requested) do
+      for name in pairs(names) do
+        assert(seen[name], name .. " is requested by no chest at " .. tier)
+      end
+    end
+  end)
+
   test("the tap and the catcher keep their quality comparators through the blueprint", function()
     -- The only two filters in the plan that name a quality RANGE instead of one tier, read back
     -- off real ghosts rather than trusted from the table. A comparator the engine dropped would
@@ -254,7 +337,9 @@ describe("stamping the blueprint", function()
         local filter = ghost.get_filter(1)
         -- get_filter hands back a bare string when there is nothing but a name to report.
         if type(filter) == "string" then filter = { name = filter } end
-        if filter and not filter.name then
+        -- Nameless AND facing the bottom ring: the relief inserters under the recyclers carry
+        -- the same nameless shape at their own tiers, facing north.
+        if filter and not filter.name and ghost.direction == defines.direction.south then
           tap = filter
         elseif filter and filter.comparator == GTE then
           catcher = filter
