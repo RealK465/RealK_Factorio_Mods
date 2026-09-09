@@ -9,6 +9,51 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-09 - a Minutes field on the Ingredient amounts panel; the stack cap goes (1.2.2 / 1.2.3 opened)
+
+The owner asked for a master input on the Ingredient amounts panel -- one multiplier that
+re-sizes every ingredient at once, "default 3, I think now is 2". The exploration found the
+premise off: `request_count` was a minute of crafting capped at a stack, which reads as 1x
+the recipe for a 60 s recipe, 2x for a 30 s one and a full stack for anything fast; the "2x"
+was `deferred.md`'s note that the mod asks for double vanilla's 30-second convention. Four
+calls put to the owner, each answered: the multiplier is **minutes of crafting**, not crafts
+(so a 60 s and a 0.5 s recipe both keep the same time in hand); the stack cap goes, replaced
+by a warning when the chest cannot hold the ask; the minutes survive an item change; a
+textfield from 1 to 100. Default three, then two on the owner's mid-session call.
+
+Built as `planner.feed_minutes(choices)` (default 2, clamp 1..100, type-guarded like
+`circuit_hand`) feeding `request_count(ingredient, recipe, minutes)` --
+`ceil(amount * 60 * minutes / energy)`, floor one, int32 cap only. The key is deliberately not
+`request_<...>`: that prefix is the per-item family, which `state.prune` sweeps by the recipe's
+ingredients and the item handler clears on a pick, and the minutes must survive both. The
+panel gained a Minutes row above a separator; its handler follows `override_count`'s commit
+rules and, on a value that moved, clears every `request_<item>` override and rewrites each
+row's text and `tags.default` in place -- never a rebuild, the field is mid-edit. The
+overflow check lives on the plan (`plan.request_overflow = { needed, slots }`), not in
+`validate`: validate shows one warning, first come, so a spoiling recipe would never surface
+it. It divides the ingredients exactly as `layout.split_ingredients` does and measures the
+fuller feed chest against `get_inventory_size(chest, quality)` -- the stock-chest capacity
+warning's read (api.md S15). Both request handlers now refresh on a real change, the circuit
+fields' rule, so the warning follows keystrokes; refresh never rebuilds a side panel. The
+removed Columns Apply button was checked as a precedent and does not apply: that one asked
+the solver for geometry, and an amount moves no tile.
+
+Suite 363 -> 370: the formula and the minutes resolver; the minutes reaching the plan and an
+override outranking them; the overflow on one stack, exactly-full not counting, a legendary
+chest absorbing it, and fusion reactor equipment's two stacks where the fuller stack and
+never the pair's total is what the warning reports; the field re-sizing rows in place with
+their tags; the minutes surviving an item change; the warning following keystrokes on the
+status line; `feed_minutes` surviving prune. Every gate green on both tracks: static clean,
+headless 370/370 and a graphics pass 370/370 on 2.1.17 and on 2.0.77 (both screens present,
+no DXGI flake). No prototype changed, so the data stage was not re-validated. Changelog
+opened as 1.2.2 (Factorio 2.1, the entries) with the 1.2.3 port pointer above it, both
+`Date: ????`, identical on both branches; `info.json` 1.2.0 -> 1.2.2 on `main` and
+1.2.1 -> 1.2.3 on `legacy/2.0`. The port was hand-applied the same session: the forked
+`planner.lua` / `gui.lua` / `planner_spec.lua` hunks landed clean away from the seams, every
+shared file copied over byte-identical. Sanity zips built and read: 22 and 23 files, the
+same lists as 1.2.0 / 1.2.1. Committed on both branches and pushed on the owner's ask;
+**nothing uploaded** -- the release itself waits on the owner's word.
+
 ## 2026-09-09 - 1.2.0 and 1.2.1 ship: the ten-ingredient release, both tracks
 
 Released on the owner's ask ("release and publish"), both tracks in one session: **1.2.0 for

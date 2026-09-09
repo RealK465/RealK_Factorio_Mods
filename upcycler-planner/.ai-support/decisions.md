@@ -255,11 +255,12 @@ per-release approval.
   *Ingredient amounts* row — a captioned *Edit...* button, dead until an
   item is picked, sitting in **Build options directly above the Circuits group** since the
   owner's 2026-08-28 follow-up (it tunes the build, not what the loop makes; the Columns row
-  shares the shape and the spot) — opening a panel in the settings panel's slot: one numeric field per item
-  ingredient, at the amount the plan would really use. **Only an edit is stored**
-  (`request_<item>`, flat numbers, the circuit families' key shape, claimed structurally in
-  `state.prune` ahead of the `_quality$` sweep): an untouched ingredient keeps following
-  `request_count` — about a minute of crafting, capped at a stack — so a recipe retune moves
+  shares the shape and the spot) — opening a panel in the settings panel's slot: a **Minutes**
+  field, then one numeric field per item ingredient, at the amount the plan would really use.
+  **Only an edit is stored** (`request_<item>`, flat numbers, the circuit families' key shape,
+  claimed structurally in `state.prune` ahead of the `_quality$` sweep): an untouched
+  ingredient keeps following `request_count` — the Minutes figure of crafting at the
+  recipe's own pace, whole items, floor one — so a recipe retune or a new minutes figure moves
   the default instead of freezing a number the player never chose. That no-backfill rule is
   the one deliberate divergence from the wizard, whose numbers ARE the plan's and so must be
   written back. **Picking a different item clears the family**: the amounts were sized against
@@ -268,6 +269,28 @@ per-release approval.
   for the trash pass to bin; Enter on an *emptied* field is the way back to automatic, and
   deletes the override outright. The per-tier product buffer stayed out on the same call —
   `deferred.md` keeps it as a candidate setting.
+  **The Minutes field is the master** (2026-09-09, the owner's ask, each call the owner's
+  pick from offered options): two minutes of crafting by default (three was the first ask,
+  brought down the same day) — it opened at one, capped at a stack, which read as 1x the
+  recipe for a 60 s recipe and 2x for a 30 s one, the "2x" the owner remembered — and a
+  textfield from 1 to 100, chosen over a crafts multiplier so a
+  60 s and a 0.5 s recipe both keep the same time in hand. Stored only on edit under
+  `feed_minutes`, **never a `request_` key**: that prefix is the per-item family, swept by
+  `state.prune` against the recipe's ingredients and cleared by the item handler, and the
+  minutes are a preference that outlives both — **an item change leaves them alone**. A
+  value that moves **replaces**: every `request_<item>` override is dropped and each row's
+  text and `tags.default` are rewritten in place, never by rebuilding the panel, or the field
+  would die under the cursor after its first keystroke; a per-ingredient edit typed afterwards
+  overrides that one ingredient again. **The stack cap is gone**, replaced by a warning: the
+  plan carries `request_overflow = { needed, slots }` when the fuller feed chest's share of the
+  ingredients — divided exactly as `layout.split_ingredients` divides them — needs more
+  `ceil(count / stack)` slots than the requester holds at its build quality
+  (`get_inventory_size(chest, quality)`, the stock-chest capacity warning's read). On the
+  plan, like unpowered and circuit_unlinked, rather than through `validate`: validate shows
+  ONE warning, first come, so a spoiling recipe would otherwise never surface it. Both request
+  handlers refresh on a real change since then, the circuit fields' rule, so the line follows
+  every keystroke. The removed Columns Apply button is not a precedent against the mass
+  write: that one asked the solver for geometry, and an amount moves no tile.
 - **Quality is pickable on every entity picker except the belt and the pipe.** A measured call,
   not a taste one, and the engine states the rule itself: every entity type gets its own quality
   bonus apart from transport belt, pipe and rail

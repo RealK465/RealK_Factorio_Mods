@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.3
+Date: ????
+  Changes:
+    - Version 1.2.2, ported to Factorio 2.0.
+---------------------------------------------------------------------------------------------------
+Version: 1.2.2
+Date: ????
+  Features:
+    - The Ingredient amounts window has a Minutes field at the top. Every ingredient is
+      requested for that many minutes of crafting, and changing it resets the amounts below.
+      Each amount can still be set on its own.
+  Changes:
+    - Ingredient amounts default to two minutes of crafting instead of one, and are no longer
+      capped at one stack.
+    - The planner warns when the ingredient amounts need more slots than the ingredient chest
+      has.
+---------------------------------------------------------------------------------------------------
 Version: 1.2.1
 Date: 2026-09-09
   Changes:

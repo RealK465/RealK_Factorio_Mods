@@ -574,6 +574,10 @@ function gui.refresh(player)
     if plan.circuit_unlinked then
       messages[#messages + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
     end
+    if plan.request_overflow then
+      messages[#messages + 1] = { "upl-message.request-too-big",
+        plan.request_overflow.needed, plan.request_overflow.slots }
+    end
     if #messages > 0 then
       local separator = status.add({ type = "line", name = "upl-status-sep" })
       separator.style.horizontally_stretchable = true
@@ -825,16 +829,17 @@ local function build_circuits_panel(player, frame)
   paused_box.enabled = maximum ~= nil
 end
 
--- The ingredient-amounts panel: one numeric field per item ingredient of the chosen recipe,
--- opening at the amount the plan would really use -- the player's stored override if one
--- exists, else the live formula. Unlike the wizard it backfills NOTHING: only an edit is
--- stored (request_<item>, flat numbers, the circuit families' key shape), so an untouched
--- ingredient keeps following request_count and a recipe retune moves the default instead of
--- freezing a number the player never chose. The formula's value rides in the field's tags so
--- the reset-to-automatic path cannot re-derive it differently -- safe, because any recipe
--- change rebuilds the modal and this panel with it. Otherwise the settings panel's shape and
--- lifecycle: a second window-styled column, rebuilt from scratch on open, re-created after a
--- modal rebuild, dead with the frame.
+-- The ingredient-amounts panel: a Minutes field, then one numeric field per item ingredient
+-- of the chosen recipe, each opening at the amount the plan would really use -- the player's
+-- stored override if one exists, else the live formula at those minutes. Unlike the wizard
+-- it backfills NOTHING: only an edit is stored (request_<item>, flat numbers, the circuit
+-- families' key shape), so an untouched ingredient keeps following request_count and a
+-- recipe retune moves the default instead of freezing a number the player never chose. The
+-- formula's value rides in the field's tags so the reset-to-automatic path cannot re-derive
+-- it differently -- safe, because any recipe change rebuilds the modal and this panel with
+-- it, and the minutes handler rewrites the tags along with the text. Otherwise the settings
+-- panel's shape and lifecycle: a second window-styled column, rebuilt from scratch on open,
+-- re-created after a modal rebuild, dead with the frame.
 local function build_ingredients_panel(player, frame)
   local choices = state.of(player.index).choices
 
@@ -860,6 +865,39 @@ local function build_ingredients_panel(player, frame)
     return
   end
 
+  -- The minutes every row below is sized from, above the rows it drives: the one number a
+  -- player who wants more of everything needs, where the rows serve the odd ingredient.
+  -- override_count's storage rule (feed_minutes, only an edit stored, the default riding in
+  -- the tags for the Enter-on-empty reset), with one side effect of its own: a value that
+  -- MOVES drops every per-ingredient override and re-sizes the rows in place -- the master
+  -- replaces, it does not merely re-default (owner's call, 2026-09-09). In place and never
+  -- a rebuild, or this field would die under the cursor after its first keystroke.
+  local minutes = planner.feed_minutes(choices)
+  local master = content.add({
+    type = "flow", name = "upl-feed-minutes-row", direction = "horizontal",
+  })
+  master.style.vertical_align = "center"
+  local master_label = master.add({
+    type = "label", caption = { "upl-gui.feed-minutes" },
+    tooltip = { "upl-gui.feed-minutes-tooltip" },
+  })
+  master_label.style.minimal_width = 110
+  local master_field = master.add({
+    type = "textfield", name = "upl-feed-minutes",
+    text = tostring(minutes),
+    numeric = true, allow_decimal = false, allow_negative = false,
+    lose_focus_on_confirm = true,
+    tooltip = { "upl-gui.feed-minutes-tooltip" },
+    tags = dispatch.tags("feed-minutes", {
+      key = "feed_minutes", default = planner.DEFAULT_FEED_MINUTES,
+      min = 1, max = planner.MAX_FEED_MINUTES,
+    }),
+  })
+  master_field.style.width = 60
+  local separator = content.add({ type = "line", name = "upl-feed-minutes-sep" })
+  separator.style.top_margin = 4
+  separator.style.bottom_margin = 4
+
   local list = content.add({
     type = "scroll-pane", name = "upl-ingredients-list", direction = "vertical",
   })
@@ -867,7 +905,7 @@ local function build_ingredients_panel(player, frame)
 
   for _, ingredient in pairs(planner.item_ingredients(recipe)) do
     local key = "request_" .. ingredient.name
-    local default = planner.request_count(ingredient, recipe)
+    local default = planner.request_count(ingredient, recipe, minutes)
     local row = list.add({
       type = "flow", name = "upl-request-row-" .. ingredient.name, direction = "horizontal",
     })
@@ -1883,13 +1921,76 @@ dispatch.register("ingredients-close", function(event)
   gui.close_ingredients(game.get_player(event.player_index))
 end)
 
+-- Every per-ingredient override, dropped: the item handler's reset (the amounts were sized
+-- against the old recipe) and the minutes field's replace (the master's number wins) are
+-- one operation. Clearing a key during next() is legal Lua, so one pass does it.
+local function clear_request_overrides(choices)
+  for key in pairs(choices) do
+    if key:match("^request_") then choices[key] = nil end
+  end
+end
+
+-- The ingredient rows re-sized after the minutes moved: each field's text and the default
+-- in its tags together, gui.refresh's rule for the Hand size field -- or Enter on the shown
+-- number would freeze it as an override. In place, never a rebuild: the minutes field
+-- above them is mid-edit, and a rebuild would take it out from under the cursor.
+local function repaint_request_rows(player, minutes)
+  local choices = state.of(player.index).choices
+  local recipe = chosen_recipe(choices)
+  local panel = panel_frame_of(player, INGREDIENTS_FRAME)
+  local list = panel and panel["upl-ingredients-content"]["upl-ingredients-list"]
+  if not (recipe and list) then return end
+  for _, ingredient in pairs(planner.item_ingredients(recipe)) do
+    local field = list["upl-request-row-" .. ingredient.name]["upl-request-" .. ingredient.name]
+    local tags = field.tags
+    tags.default = planner.request_count(ingredient, recipe, minutes)
+    field.tags = tags
+    field.text = tostring(tags.default)
+  end
+end
+
+-- The Minutes field: override_count's commit rules -- every valid keystroke commits, Enter
+-- snaps the display to what holds, Enter on an emptied field returns to the default, and
+-- the untouched default is never stored -- plus the side effect the rows exist for: a
+-- value that MOVED drops every per-ingredient override and re-sizes the rows in place.
+-- Refreshes on that same move, the circuit fields' rule: the too-big warning on the
+-- status area follows these numbers. Matches both event names for request-count's reason
+-- below -- the focus click reaches here too, carrying the displayed value.
+dispatch.register("feed-minutes", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local tags = event.element.tags
+  local value = tonumber(event.element.text)
+  local before = planner.feed_minutes(choices)
+  if event.name == defines.events.on_gui_confirmed then
+    if not value then
+      choices.feed_minutes = nil
+    elseif choices.feed_minutes ~= nil or value ~= tags.default then
+      choices.feed_minutes = util.clamp(value, tags.min, tags.max)
+    end
+    event.element.text = tostring(planner.feed_minutes(choices))
+  elseif event.name == defines.events.on_gui_text_changed then
+    if not value then return end
+    choices.feed_minutes = util.clamp(value, tags.min, tags.max)
+  else
+    return
+  end
+  local after = planner.feed_minutes(choices)
+  if after ~= before then
+    clear_request_overrides(choices)
+    repaint_request_rows(player, after)
+    gui.refresh(player)
+  end
+end)
+
 -- The ingredient-amount fields: the circuit-limit handler's commit rules -- every valid
--- keystroke commits, Enter snaps the display back to what holds -- with two differences.
+-- keystroke commits, Enter snaps the display back to what holds, a commit that MOVES the
+-- value refreshes (the too-big warning follows these numbers, since 1.2.2; refresh never
+-- rebuilds a side panel, so the field survives its own commit) -- with two differences.
 -- The floor is ONE, never zero: every ingredient keeps a request, so a zeroed field cannot
 -- strand items for the trash pass to bin. And Enter on an EMPTIED field deletes the override
 -- outright -- back to the automatic amount, which the display snaps to off the tags -- where
--- the wizard's fields have no default to return to. No refresh on either path, the wizard's
--- reason: an amount moves no geometry and no warning.
+-- the wizard's fields have no default to return to.
 --
 -- Unlike the wizard's handler this one matches BOTH event names instead of defaulting the
 -- tail: the dispatcher routes the focus click here too, carrying the DISPLAYED value -- for
@@ -1897,13 +1998,16 @@ end)
 -- default as a stored override. The wizard is immune only because backfill already stored
 -- its numbers; here every non-edit has to fall out the bottom.
 dispatch.register("request-count", function(event)
+  local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
   local tags = event.element.tags
   local value = tonumber(event.element.text)
   if event.name == defines.events.on_gui_confirmed then
     if not value then
+      local had = choices[tags.key] ~= nil
       choices[tags.key] = nil
       event.element.text = tostring(tags.default)
+      if had then gui.refresh(player) end
       return
     end
     -- Enter on an UNTOUCHED field re-states the automatic amount -- the focus click's case,
@@ -1912,14 +2016,21 @@ dispatch.register("request-count", function(event)
     -- on display means there is nothing to commit.
     if choices[tags.key] == nil and value == tags.default then return end
     value = math.max(1, math.min(value, INT32_CAP))
-    choices[tags.key] = value
     event.element.text = tostring(value)
+    if choices[tags.key] ~= value then
+      choices[tags.key] = value
+      gui.refresh(player)
+    end
   elseif event.name == defines.events.on_gui_text_changed then
     -- An emptied field mid-edit leaves the last value standing, and the text is never
     -- rewritten under the player's cursor. A transient 0 mid-type commits as 1; the display
     -- catches up on Enter or the next rebuild.
     if value then
-      choices[tags.key] = math.max(1, math.min(value, INT32_CAP))
+      value = math.max(1, math.min(value, INT32_CAP))
+      if choices[tags.key] ~= value then
+        choices[tags.key] = value
+        gui.refresh(player)
+      end
     end
   end
 end)
@@ -1953,12 +2064,10 @@ dispatch.register("recipe", function(event)
 
   -- The ingredient-amount overrides were sized against the OLD recipe, so they reset with it
   -- (the owner's call): the panel re-opens pre-filled with the new recipe's own defaults.
-  -- Clearing a key during next() is legal Lua, so one pass does it. The circuit cap is
-  -- deliberately NOT reset with them -- a backfilled cap is remembered across an item change
+  -- The minutes survive: a preference, not a size fitted to one recipe. The circuit cap is
+  -- deliberately NOT reset either -- a backfilled cap is remembered across an item change
   -- and re-shown for re-picking (decisions.md, circuit limits).
-  for key in pairs(choices) do
-    if key:match("^request_") then choices[key] = nil end
-  end
+  clear_request_overrides(choices)
 
   -- The machine list depends on the recipe, so a machine that can no longer craft it is
   -- replaced rather than left behind to fail validation confusingly. Its QUALITY survives the

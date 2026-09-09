@@ -96,6 +96,13 @@ local function request_field(item)
   return list["upl-request-row-" .. item]["upl-request-" .. item]
 end
 
+-- The Minutes field above the rows, in the same panel.
+local function minutes_field()
+  local panel = ingredients_panel()
+  assert(panel and panel.valid, "the ingredient-amounts panel is not open")
+  return panel["upl-ingredients-content"]["upl-feed-minutes-row"]["upl-feed-minutes"]
+end
+
 local function settings_widget(name)
   local panel = settings_panel()
   assert(panel and panel.valid, "the settings panel is not open")
@@ -1316,12 +1323,14 @@ describe("the modal", function()
     assert(panel.parent == frame(), "the panel must be a column inside the planner's element")
     assert(player().gui.screen[gui.INGREDIENTS_FRAME] == nil,
       "the panel must not be a separate screen window")
-    -- Gears: 2 plates per 0.5 s craft is 240 a minute, capped at the plate stack of 100 --
+    -- Gears: 2 plates per 0.5 s craft is 240 a minute, 480 for the default two minutes --
     -- the formula's own value on display, because nothing is stored until the player edits.
-    assert(request_field("iron-plate").text == "100",
+    assert(request_field("iron-plate").text == "480",
       "the field opened as " .. request_field("iron-plate").text)
     assert(choices()["request_iron-plate"] == nil,
       "opening the panel stored an override the player never made")
+    assert(minutes_field().text == "2", "the minutes opened as " .. minutes_field().text)
+    assert(choices().feed_minutes == nil, "opening the panel stored the default minutes")
   end)
 
   test("typing commits an override; Enter on an emptied field returns to automatic", function()
@@ -1348,7 +1357,7 @@ describe("the modal", function()
     assert(choices()["request_iron-plate"] == 250, "an emptied field clobbered the override")
     fire(field, defines.events.on_gui_confirmed)
     assert(choices()["request_iron-plate"] == nil, "Enter on empty kept the override")
-    assert(field.text == "100", "the display did not snap to the automatic amount")
+    assert(field.text == "480", "the display did not snap to the automatic amount")
 
     -- Zero cannot be typed into a request: the floor is one.
     field.text = "0"
@@ -1369,10 +1378,113 @@ describe("the modal", function()
     assert(choices()["request_iron-plate"] == nil,
       "an override sized for gears survived onto belts")
     -- The rebuild re-created the open panel over the NEW recipe's ingredients, at their own
-    -- automatic amounts: belts eat gears, which gears did not.
+    -- automatic amounts: belts eat gears, which gears did not -- one per 0.5 s craft, two
+    -- minutes' worth.
     assert(ingredients_panel() and ingredients_panel().valid, "the rebuild dropped the panel")
-    assert(request_field("iron-gear-wheel").text == "100",
+    assert(request_field("iron-gear-wheel").text == "240",
       "the new recipe's field opened as " .. request_field("iron-gear-wheel").text)
+  end)
+
+  test("the Minutes field re-sizes every row in place and replaces their overrides", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    local master = minutes_field()
+    -- The focus click and Enter on the untouched default store nothing, request-count's
+    -- rule: the default keeps following planner.DEFAULT_FEED_MINUTES.
+    fire(master, defines.events.on_gui_click)
+    fire(master, defines.events.on_gui_confirmed)
+    assert(choices().feed_minutes == nil, "a non-edit stored the default minutes")
+
+    -- A per-ingredient override, then the minutes move: the override goes, the row shows the
+    -- new automatic amount with its default moved alongside, and neither field was rebuilt
+    -- under the cursor.
+    local field = request_field("iron-plate")
+    field.text = "250"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(choices()["request_iron-plate"] == 250, "premise: the override landed")
+    master.text = "1"
+    fire(master, defines.events.on_gui_text_changed)
+    assert(choices().feed_minutes == 1, "the keystroke did not commit the minutes")
+    assert(choices()["request_iron-plate"] == nil, "the minutes change kept the override")
+    assert(master.valid and field.valid, "the minutes change rebuilt the panel under the cursor")
+    assert(field.text == "240", "the row was not re-sized: " .. field.text)
+    assert(field.tags.default == 240, "the row's default did not follow the minutes")
+    -- Enter on the re-sized row is the untouched case again: nothing stored.
+    fire(field, defines.events.on_gui_confirmed)
+    assert(choices()["request_iron-plate"] == nil, "Enter on the re-sized row froze it")
+    -- Re-stating the same minutes moves nothing, so an override typed after it survives.
+    field.text = "50"
+    fire(field, defines.events.on_gui_text_changed)
+    master.text = "1"
+    fire(master, defines.events.on_gui_confirmed)
+    assert(choices()["request_iron-plate"] == 50, "an unmoved master dropped the override")
+
+    -- Out of range clamps; an emptied field mid-edit keeps the last value; Enter on it
+    -- returns to two and re-sizes the rows again.
+    master.text = "500"
+    fire(master, defines.events.on_gui_text_changed)
+    assert(choices().feed_minutes == planner.MAX_FEED_MINUTES, "the minutes did not clamp")
+    assert(choices()["request_iron-plate"] == nil, "the clamped change kept the override")
+    master.text = ""
+    fire(master, defines.events.on_gui_text_changed)
+    assert(choices().feed_minutes == planner.MAX_FEED_MINUTES,
+      "an emptied field mid-edit clobbered the minutes")
+    fire(master, defines.events.on_gui_confirmed)
+    assert(choices().feed_minutes == nil, "Enter on empty kept the minutes")
+    assert(master.text == "2", "the display did not snap to the default minutes")
+    assert(field.text == "480", "the rows did not return to two minutes: " .. field.text)
+  end)
+
+  test("picking a different item keeps the minutes", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    local master = minutes_field()
+    master.text = "4"
+    fire(master, defines.events.on_gui_text_changed)
+    assert(choices().feed_minutes == 4, "premise: the minutes landed")
+
+    local button = widget({ "upl-content", "upl-table", "upl-recipe" })
+    button.elem_value = "transport-belt"
+    fire(button)
+    assert(choices().recipe == "transport-belt", "premise: the pick landed")
+    -- A preference, not a size fitted to one recipe: it outlives the item, and the rebuilt
+    -- panel sizes the new recipe's rows from it -- one gear per 0.5 s craft, four minutes.
+    assert(choices().feed_minutes == 4, "the item change reset the minutes")
+    assert(minutes_field().text == "4", "the rebuilt panel lost the minutes")
+    assert(request_field("iron-gear-wheel").text == "480",
+      "the new recipe's field opened as " .. request_field("iron-gear-wheel").text)
+  end)
+
+  test("an amount past the ingredient chest's slots warns, following every keystroke", function()
+    open_with_gears()
+    gui.open_ingredients(player())
+    assert(status_entry("upl-message-1") == nil, "premise: two minutes of gears warn already")
+
+    -- A hundred minutes of plates is 24000: 240 slots of a 48-slot chest.
+    local master = minutes_field()
+    master.text = "100"
+    fire(master, defines.events.on_gui_text_changed)
+    local line = status_entry("upl-message-1")
+    assert(line and line[3][1] == "upl-message.request-too-big",
+      "no too-big warning after the minutes: " .. serpent.line(line))
+    -- Build-through: Place stays enabled, and the fields survived the repaint.
+    assert(widget({ "upl-buttons", "upl-confirm" }).enabled == true, "the warning disabled Place")
+    assert(master.valid, "the warning rebuilt the panel under the cursor")
+    master.text = "2"
+    fire(master, defines.events.on_gui_text_changed)
+    assert(status_entry("upl-message-1") == nil, "the warning outlived the minutes")
+
+    -- One row can overflow the chest on its own, and clears the same way.
+    local field = request_field("iron-plate")
+    field.text = "10000"
+    fire(field, defines.events.on_gui_text_changed)
+    line = status_entry("upl-message-1")
+    assert(line and line[3][1] == "upl-message.request-too-big",
+      "no too-big warning after a row edit: " .. serpent.line(line))
+    assert(field.valid, "the row's refresh rebuilt the panel under the cursor")
+    field.text = ""
+    fire(field, defines.events.on_gui_confirmed)
+    assert(status_entry("upl-message-1") == nil, "the warning outlived the override")
   end)
 
   test("the ingredient panel shares the slot with the other four", function()

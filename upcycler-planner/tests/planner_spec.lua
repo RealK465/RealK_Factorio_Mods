@@ -952,16 +952,34 @@ describe("recipe-shape helpers", function()
     assert(planner.recycling_recipe("not-an-item") == nil, "a bogus name found a recipe")
   end)
 
-  test("request_count is a minute of crafting, capped at a stack", function()
-    -- request_count reads only amount, energy and the item's stack size, so the recipe half
-    -- can be a plain table and the arithmetic is pinned without depending on recipe retunes.
-    assert(prototypes.item["iron-plate"].stack_size == 100, "premise: the plate stack moved")
-    assert(planner.request_count({ name = "iron-plate", amount = 2 }, { energy = 0.5 }) == 100,
-      "240 a minute must cap at the stack of 100")
-    assert(planner.request_count({ name = "iron-plate", amount = 1 }, { energy = 20 }) == 3,
-      "a slow craft requests just what a minute needs")
-    assert(planner.request_count({ name = "iron-plate", amount = 1 }, { energy = 120 }) == 1,
+  test("request_count is the minutes of crafting, whole items, at least one, never capped", function()
+    -- request_count reads only amount, energy and the minutes, so both halves can be plain
+    -- tables and the arithmetic is pinned without depending on recipe retunes.
+    assert(planner.request_count({ amount = 2 }, { energy = 0.5 }, 3) == 720,
+      "240 a minute for three minutes is 720 -- the stack cap went in 1.2.2")
+    assert(planner.request_count({ amount = 2 }, { energy = 0.5 }, 1) == 240,
+      "one minute is the old formula, uncapped")
+    assert(planner.request_count({ amount = 1 }, { energy = 20 }, 3) == 9,
+      "a slow craft requests just what three minutes need")
+    assert(planner.request_count({ amount = 1 }, { energy = 120 }, 3) == 2,
+      "a minute and a half's worth rounds up to two")
+    assert(planner.request_count({ amount = 1 }, { energy = 300 }, 1) == 1,
       "a very slow craft still requests one")
+    assert(planner.request_count({ amount = 1 }, { energy = 3 }, 1) == 20,
+      "an exact quotient must not ceil up one")
+  end)
+
+  test("feed_minutes is the stored number clamped, or two", function()
+    assert(planner.feed_minutes(nil) == 2 and planner.feed_minutes({}) == 2,
+      "the default is two minutes")
+    assert(planner.feed_minutes({ feed_minutes = 5 }) == 5, "a stored number was not read")
+    assert(planner.feed_minutes({ feed_minutes = 2.7 }) == 2, "a fraction was not floored")
+    assert(planner.feed_minutes({ feed_minutes = 1e9 }) == planner.MAX_FEED_MINUTES,
+      "the minutes have no ceiling")
+    -- A hand-edited save can hold anything: each falls back rather than reaching the formula.
+    assert(planner.feed_minutes({ feed_minutes = 0 }) == 2, "zero minutes did not fall back")
+    assert(planner.feed_minutes({ feed_minutes = "junk" }) == 2, "a string did not fall back")
+    assert(planner.feed_minutes({ feed_minutes = 0 / 0 }) == 2, "a NaN did not fall back")
   end)
 
   test("with_quality builds the pair and normalises a stale tier", function()

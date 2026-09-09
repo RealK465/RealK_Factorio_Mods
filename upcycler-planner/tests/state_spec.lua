@@ -54,6 +54,7 @@ describe("state.prune -- drop what no longer qualifies", function()
       machine_quality = "uncommon",
       inserter_quality = "rare",
       trash_unrequested = false,
+      feed_minutes = 5,
     })
     state.prune()
     local c = entry.choices
@@ -73,6 +74,9 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.provider == "passive-provider-chest", "provider pruned wrongly")
     assert(c.inserter_quality == "rare", "inserter_quality pruned wrongly")
     assert(c.trash_unrequested == false, "boolean choice touched by prune")
+    -- A plain number outside every keyed family -- and outside request_<item>, whose sweep
+    -- would read it as an ingredient called "minutes" and drop it.
+    assert(c.feed_minutes == 5, "the minutes were pruned")
   end)
 
   test("the snapshot 0.3.1 left behind is cleared", function()

@@ -212,7 +212,8 @@ describe("stamping the blueprint", function()
       assert(ghost.request_from_buffers == true, "request-from-buffers did not reach the ghost")
       local slot = point.sections[1] and point.sections[1].get_slot(1)
       if slot and slot.value and slot.value.name == "iron-plate" then
-        assert(slot.min == 100, "iron-plate request min " .. tostring(slot.min))
+        -- Two minutes of gear crafting: 480 plates, past the stack the old formula capped at.
+        assert(slot.min == 480, "iron-plate request min " .. tostring(slot.min))
         requested = true
       end
     end

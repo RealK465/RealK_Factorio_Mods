@@ -298,14 +298,14 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
     could expose it, and could also set the checkbox's default.
   - product buffer size (currently one stack of the item).
   - whether to place obstacle-clearing deconstruction orders at all.
-- **The ingredient request default is a minute of crafting; the game's own convention is 30
-  seconds** (noted 2026-08-27). Shift-right-click on a machine and shift-left-click on a
-  requester chest fills it with *"enough ingredients for 30 seconds of continuous crafting"* —
-  the vanilla behaviour a player's hands already know, and half what `planner.request_count`
-  asks for. Not a defect: the loop is unattended and a fuller chest rides out belt lulls, and
-  the number is now the player's anyway (Ingredient amounts, 2026-08-27). Worth knowing before
-  anyone "fixes" the formula to match the game, and worth saying in the panel's tooltip if the
-  divergence ever surprises someone.
+- **The ingredient request default is two minutes of crafting; the game's own convention is
+  30 seconds** (noted 2026-08-27, the default raised from one minute on 2026-09-09).
+  Shift-right-click on a machine and shift-left-click on a requester chest fills it with
+  *"enough ingredients for 30 seconds of continuous crafting"* — the vanilla behaviour a
+  player's hands already know, and a quarter of what `planner.request_count` asks for. Not a
+  defect: the loop is unattended and a fuller chest rides out belt lulls, and the number is the
+  player's anyway — the panel's Minutes field since 2026-09-09, per ingredient since
+  2026-08-27. Worth knowing before anyone "fixes" the formula to match the game.
 - **Per-option hiding in a picker**, the genre's other answer to clutter (noted 2026-08-27).
   Mining Patch Planner lets a player shift+right-click an entity choice to hide it, permanently
   and per player. This mod's answer is the count rule plus *Show all build options*, which is a
