@@ -1,11 +1,11 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.3
-Date: ????
+Date: 2026-09-09
   Changes:
     - Version 1.2.2, ported to Factorio 2.0.
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.2
-Date: ????
+Date: 2026-09-09
   Features:
     - The Ingredient amounts window has a Minutes field at the top. Every ingredient is
       requested for that many minutes of crafting, and changing it resets the amounts below.
