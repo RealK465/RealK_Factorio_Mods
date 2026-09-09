@@ -83,7 +83,7 @@ Two lamps and a display panel show what the loop is doing: blue while it runs, g
 - Automatic placement of Lightning Collectors at Fulgora
 - Automatic placement of Heating Pipes at Aquilo
 - Possibility of exporting the layout as a parametrized blueprint
-- ~~Check possibility of adding more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)~~ Done in 1.2.0: each machine is fed by up to two inserters, so recipes with up to 10 ingredients work.
+- Done in 1.2.0, each machine is now fed by up to two inserters and recipes with up to 10 ingredients work: ~~Check possibility of adding more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)~~
 - Small improvements
 
 ## Requirements
