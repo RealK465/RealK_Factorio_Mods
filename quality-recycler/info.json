@@ -1,0 +1,12 @@
+{
+  "name": "quality-recycler",
+  "version": "0.1.0",
+  "title": "Quality Recycler",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/quality-recycler",
+  "description": "A new recycler with quality built right in.",
+  "dependencies": ["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "space-age >= 2.1.0"],
+  "quality_required": true,
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md"] }
+}
