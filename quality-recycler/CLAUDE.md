@@ -39,6 +39,28 @@ the wrong machine — that is exactly what happened here. And `ragged` is alpha 
 bbox perimeter, so raggedness is bought with **holes** (open railings, ladders, cables in clear
 air) and *lost* by adding solid parts.
 
+**Never steer the paint-over by luminance sd — split it into form and grain.** Contrast above
+12 px against contrast below 3 px: vanilla carries its at ratio 0.61 (recycler) to 1.08 (chem
+plant), and raising `form_amount` to hit an sd target buys the number by *smoothing* the
+machine. This entity sat inside the sd band through two rejected builds at ratio 1.25.
+Settled: `form_amount` 0.30 with `contrast_amount` 1.35 and `crevice_amount` 1.30. Reasoning in
+`.ai-support/quality-recycler-design.md` → *Built*.
+
+**This entity rotates, so it has four front elevations.** "A side wall renders as a one-pixel
+line" is a fixed-entity rule. The west wall is the front in east, the north wall in south, the
+east apron in west — every one of them needs stiles, rails and a focal point, or three
+rotations read as blank painted plates.
+
+**Nothing may stand on a deck that is already at the cone limit; spend the detail downward.**
+The rear deck tops out at 1.06 where `cone_z` allows 1.07, so a cooler on it measured 2.48 and
+`fit_cone()` refused rather than shrink the machine 9% to hide it. A recessed louvre bank reads
+the same at 30 px and costs no height.
+
+**Check the glow sheet separately — it hides faults the base sheet cannot show.** Three shipped
+at once here: a beacon clipped to pure white (keep colour x strength near 1.0), and a violet
+pair buried inside the rear deck so the south view had no field at all. Measure lit pixels and
+per-channel maxima per direction, not by eye.
+
 ## Layout
 
 ```
@@ -96,9 +118,18 @@ to fall into.
 - **Validate after any prototype edit** — `factorio-validate`, about five seconds. It has already
   caught two things nothing else would have: `hit_effects` needing a `require`, and a
   `frame_count` written into a sidecar where `util.sprite_load` ignores it.
-- **Run the object-ID pass before judging any change to the model.** Every part gets a flat
-  unique colour and a pixel count; it has already caught six occlusion faults nothing else could
-  see. The design's *Built* section says what it found and the two ways the tool itself lies.
+- **Run the object-ID pass before judging any change to the model** —
+  `blender -b -P check_visibility.py -- <dir> --dirs N,E,S,W` in the entity's asset folder.
+  Every part gets a flat colour off a value lattice and a pixel count. It has caught, twice
+  over, faults nothing else can see: the ring gear buried in a wall, the radiator inside the
+  rear deck, the whole capacitor bank embedded in a 0.14-tile apron, and a fan "ring" built
+  with `cyl()` lidding the hub it was meant to surround. **60 of 213 objects once drew nothing
+  at all.** The design's *Built* section says what it found and the two ways the tool lies.
+- **`cyl()` makes a solid disc, not a ring.** An annulus has to be built from segments, like
+  `rotor-ribs` does. This is invisible in a render and obvious in the object-ID pass.
+- **A part the pass calls dead is not always a part to move.** Three here were deleted instead:
+  in north the drum occludes them and in south the rear deck does, so no wall could be opened
+  to reveal them. Check what the occluder actually is before rebuilding around it.
 - The next step is to **put it on a real map**. The data stage loads clean, which says nothing
   about whether the machine is worth building, how the animation reads at gameplay zoom, or
   whether any rotation has a fault an offline check cannot see.

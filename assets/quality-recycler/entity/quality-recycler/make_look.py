@@ -65,7 +65,25 @@ def _skill_scripts(start=None):
 sys.path.insert(0, _skill_scripts())
 from factorio_render import gates, post, vanilla            # noqa: E402
 
-POST = dict(preset="entity", saturation=0.56, value=0.88, form_amount=1.70)
+POST = dict(preset="entity", saturation=0.70, value=0.90, form_amount=0.30,
+            contrast_amount=1.35, crevice_amount=1.30)
+
+# **form_amount 0.30, down from 1.70, and this is the measurement that turned
+# this sprite round.** Luminance sd was in band the whole time -- 45-51 against
+# a 43-56 gate -- while the sprite still read as a soft CG blob beside vanilla.
+# Splitting the variance says why. Form (>12 px) against grain (<3 px):
+#
+#     vanilla recycler  form 16.1  grain 26.5  ratio 0.61
+#     chemical plant    form 24.8  grain 23.0  ratio 1.08
+#     this entity @1.70 form 27.2  grain 21.8  ratio 1.25
+#
+# An unsharp mask lifts every frequency above its radius, and at form_radius 11
+# almost all of a greebled sprite's energy is 1-3 px wide -- so pushing
+# form_amount to hit an sd target spends it on the ONE band vanilla has least
+# of, and buys the absolute number by making the machine smoother. Dropping it
+# to 0.30 and paying for the sd with contrast_amount (radius 7) and
+# crevice_amount (radius 1.8) instead lands form 15.6 / grain 37.9 / sd 52.9:
+# hard part separation and dark gaps, which is what vanilla actually is.
 
 # Measured off the shipped sprites at 2.1.17 (see .ai-support/analysis).
 TARGETS = ("vanilla 3x3: chemical plant lum 63 sat 0.47 (95%% >= .12), north "
