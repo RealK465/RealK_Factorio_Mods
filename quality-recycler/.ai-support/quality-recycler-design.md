@@ -90,7 +90,7 @@ PLAN 3x3, N up          SIDE, from S
 ```
 
 - **Tall:** the rotor at the centre, with the exhaust stack directly above the seam. **[built]**
-  — the height is **1.44 at the hood, 1.71 at the stack cap**, not the 2.5 this section first
+  — the height is **1.36 at the hood crown, 1.54 at the stack cap**, not the 2.5 this section first
   claimed. Screen row is `-(y + z)`, so a 2.5-tile mass sitting north draws 1.6 tiles past the
   footprint and covers whatever is placed behind it. Measured off the shipped 2.1 sprites: the
   **chemical plant overhangs 0.77 tiles north, the biochamber ~0.1, the vanilla recycler 0.58**.
@@ -141,17 +141,31 @@ Two placement rules the fix depends on, both learned by breaking them:
 
 ## Component list — the four flows
 
-Fifteen distinct kinds, against an audited vanilla band of 8-15. Parts marked `>` already exist
+Seven flows and 161 distinct kinds over 213 objects, against an audited vanilla band of 8-15 kinds. Parts marked `>` already exist
 in `factorio_render`'s catalogue and cost roughly one line each to place.
 
 | Flow | Parts |
 |---|---|
-| **Hero** | Eddy-current drum with exposed copper pole faces, oversized · ring-gear drive taken off the salvaged half, so the seam is mechanical rather than cosmetic · `>bolt_ring` bearing housings at both drum ends |
-| **Power in** | `>junction_box` on the tower · four sagging `>cable` runs · a bank of finned capacitor cans on the east wall — the rotor draws hard and that should show |
-| **Material through** | Jaw maw and hopper, salvaged olive, breaching the south edge · scrap chute past the west edge · the open sorting gap where fragments arc across · four graded bins · a common auger under them running to one output chute at the south-east |
-| **Heat out** | `>louvre_bank` and `>radiator` fins on the tower · exhaust cowl with soot. Earned, not decorative: eddy currents genuinely make heat |
-| **Human service** | `>ladder` up the tower · `>railing` on a short catwalk at the seam · `>handwheel` at the coolant line · `>gauge_pod` cluster · `>placard` stencils and hazard chevrons on the rotor guard |
-| **Structure** | `>rivet_row` along panel seams · `>skid_feet` at the corners · `>flange` collar at the seam · concrete pad |
+| **Hero** | Eddy-current drum with exposed copper pole faces, oversized · copper end flange and bolt circle at **both** ends · split pillow blocks with bolt pairs and a grease line · a guard hoop over the drum's west shoulder · ring-gear drive taken off the salvaged half, so the seam is mechanical rather than cosmetic |
+| **Power in** | `>junction_box` on the tower and a second on the hood · four sagging `>cable` runs · four capacitor cans with a copper busbar on the east apron — the rotor draws hard and that should show |
+| **Material through** | Jaw maw and hopper, salvaged olive, breaching the south edge · scrap chute past the west edge · the open sorting gap with a splitter ridge and four angled guide plates · four graded bins · a common auger under them running to one output chute at the south-east |
+| **Heat out** | `>louvre_bank` on the hood flank and `>radiator` fins on the deck · a recessed louvre bank in the rear deck · exhaust stack and cowl with soot. Earned, not decorative: eddy currents genuinely make heat |
+| **Human service** | `>ladder` up the tower and a second off the west wall · a grated catwalk at the seam with `>railing` · `>handwheel` at the coolant line and at the hatch · `>gauge_pod` cluster · `>placard` stencils and hazard chevrons |
+| **Shredder drive** | Finned motor about Y · gearbox with a split-line flange and bolt ring · belt guard sloping to the roller shafts · drive sprocket. The rollers turned and nothing on the model turned them |
+| **Structure** | `>rivet_row` along panel seams on all four walls · stiles and rails on all four walls · `>skid_feet` at the corners · `>flange` collar at the seam · concrete pad |
+
+**The olive half's top tier is a rounded hood, not a third flat plate.** Two
+stacked box tops were ~2 tiles of empty painted deck, and the camera sees the
+deck more than any other surface — vanilla never leaves one bare. A cylinder
+about Y at r 0.30 is the curved primary form the machine otherwise has none of
+outside the drum, and it carries the crown pipe, clamps, inspection plate,
+gauge, stack and beacon on top of it.
+
+**All four walls carry front-elevation treatment, not just the south one.**
+"A side wall renders as a one-pixel line" is a rule for a FIXED entity. This one
+rotates, so the west wall is the front elevation in east, the north wall is in
+south, and the east apron is in west. Treating only the south wall left three
+rotations reading as blank painted plates.
 
 **The four bins are a deliberate accepted risk.** The entity has one output inventory (the
 vanilla recycler's `result_inventory_size = 12`), so four visible bins can imply four separately
@@ -303,6 +317,7 @@ only exported PNGs go into the mod's `graphics/`:
 | `make_look.py` | one-frame look-dev: paint-over, gates, the vanilla A/B |
 | `check_sheets.py` | the gates and the per-direction overhang, on the packed sheets |
 | `check_wear.py` | renders the edge-wear term alone through a `material_override` and gates it — the only check that measures the MODEL rather than an output PNG |
+| `check_visibility.py` | the object-ID pass, as a script rather than something rebuilt by hand each time: every object gets a flat emission colour off a value lattice, renders to scene-linear EXR, and reports what draws nothing, what is under the legibility floor, and what the biggest objects are |
 | `quality-recycler.blend` | the saved scene |
 
 Two helpers in the generator worth knowing about before adding surface detail:
@@ -314,7 +329,10 @@ paints hazard stripes on black and yellow-on-olive is two mid-tones of one hue.
 **Four layers, not one animated body.** The vanilla recycler ships its whole
 machine as a 64-frame sheet (`recycler-N.png` is 1360x2432, 3.7 MB, per
 direction). Splitting the static body from the moving parts costs four sheets
-instead of two and lands all sixteen files at **4.4 MB together**:
+instead of two and lands all thirty-two files at **14.2 MB together** — still
+well under the 30 MB the vanilla recycler spends on the same eight directions.
+The anim layer is 13.0 MB of it, the base 0.7, the glow 0.5 and the shadow
+under 0.1, so the moving parts are where any future budget has to come from:
 
 | layer | frames | prototype |
 |---|---|---|
@@ -361,11 +379,16 @@ Measured on the packed sheets, **all eight directions**, 2026-09-10:
 | | measured | vanilla reference |
 |---|---|---|
 | Overhang, worst of eight | **0.77 tiles** | chemical plant 0.77, recycler 0.69 |
-| Overhang, N / E / S / W | 0.75 / 0.75 / 0.77 / 0.75 | chem 0.77 / 0.61 / 0.38 / 0.30 |
+| Overhang, N / E / S / W | 0.77 / 0.73 / 0.77 / 0.73 | chem 0.77 / 0.61 / 0.38 / 0.30 |
 | Full-width rows | 0% in all eight | 0% across every shipped machine sprite |
-| Fill | 0.83 - 0.88 | chem 0.78 - 0.82, recycler 0.72 - 0.84 |
-| Ragged | 0.96 - 1.17 | chem 0.98 - 1.24, recycler 1.03 - 1.16 |
-| Luminance sd | 46.1 - 51.3 | `gates.contrast` band 43-56 |
+| Fill | 0.83 - 0.87 | chem 0.78 - 0.82, recycler 0.72 - 0.84 |
+| Ragged | 0.98 - 1.30 | chem 0.98 - 1.24, recycler 1.03 - 1.16 |
+| Luminance sd | 49.9 - 53.4 | `gates.contrast` band 43-56 |
+| Form / grain ratio | 0.57 | recycler 0.61, chem 1.08 |
+| Luminance mean / saturation | 60.2 / 0.28 | recycler 67.0 / 0.31 |
+| Distinct kinds of detail | 186 over 241 objects | audited vanilla band 8-15 kinds |
+| Objects drawing zero pixels | 16 of 241, all of them legitimate | was 60 of 213 before the object-ID pass was runnable |
+| Edge-wear mask | 2.9% bright | `gates.wear_mask` flood threshold |
 | Luminance mean (look frame) | 65 | chemical plant 63, recycler 67 |
 | Saturation (look frame) | 0.47 | chemical plant 0.47, recycler 0.31 |
 | Clipped pixels | 0.00% | gate allows 0.05% |
@@ -382,29 +405,62 @@ therefore uses 0.95, which sits under the lowest vanilla rotation; raising the
 east view to 1.05 would have meant bolting greebles on to clear a bar the
 reference art does not.
 
-**The flat-render weakness this section used to record is fixed, and the fix was
-in the render rather than the paint-over.** The raw frame measured luminance
-sd 26.5 against the Pure beacon's 31.6, and `form_amount` had been pushed to
-1.85 to compensate — i.e. the paint-over was inventing contrast instead of
-sharpening it. Darkening the palette did not help: an absolute sd needs bright
-highlights as much as dark crevices, and lowering everything moves the mean
-with the spread. A harder key with less sky fill (**6.6 / 0.95 / 0.15** against
-the rig's validated 5.2 / 1.2 / 0.22) took the raw to **sd 30.4**, and the
-stock `form_amount` 1.25 then lands 45.7. The only paint-over overrides left
-are `saturation 0.72` and `value 0.88`.
+**Luminance sd is the wrong number to steer the paint-over by, and steering by
+it made this sprite worse twice.** The band is 43-56 and this machine sat
+inside it at 45-51 through two rejected builds. Split the variance instead —
+form above 12 px against grain below 3 px:
 
-Saturation still leaves at 0.49 against the chemical plant's 0.47 — a machine
-carrying olive paint, copper and a hazard yellow sits at the top of the vanilla
-band, which is defensible; it is not outside it.
+| | form | grain | ratio |
+|---|---|---|---|
+| vanilla recycler | 16.1 | 26.5 | **0.61** |
+| chemical plant | 24.8 | 23.0 | 1.08 |
+| this entity at `form_amount` 1.70 | 27.2 | 21.8 | **1.25** |
 
-**The object-ID pass is the tool that earned its keep here** — every object given a flat unique
-colour, rendered, and counted. It found the drum sealed inside its own housing, a junction box
-and four cables drawing zero pixels behind a wall, three instrument pods hanging in the throat
-of the shredder, a rivet row on a side wall that renders as a one-pixel line, and a seam frame
-that had grown to 17.9% of the sprite while the hero it joins held 4.9%. None of that is visible
-in the render, and none of it is reasoning you can do about the 3D scene. Rebuild it before
-judging any future change; the encoding must be a value lattice, not a hue wheel, or the report
-aliases and lies.
+Vanilla carries its contrast in small hard-edged parts. `form_contrast` has
+radius 11, so raising it spends the budget on exactly the band vanilla has
+least of: the knob was buying the sd number by SMOOTHING the machine. The
+render is not the problem — the raw frame measures sd 30.5, near the Pure
+beacon's 31.6, under a harder key with less sky fill (**6.6 / 0.95 / 0.15**
+against the rig's validated 5.2 / 1.2 / 0.22).
+
+Settled overrides: **`form_amount` 0.30**, with the sd paid for by
+`contrast_amount` **1.35** (radius 7) and `crevice_amount` **1.30**
+(radius 1.8), plus `saturation` 0.62 and `value` 0.90. That lands form 15.6,
+grain 37.9, sd 52.9 — hard part separation and dark gaps, which is what
+vanilla actually is. Saturation leaves at 0.30 against the vanilla recycler's
+0.31.
+
+**The object-ID pass is the tool that earned its keep here, and it is now
+`check_visibility.py` rather than something rebuilt by hand.** Every object gets
+a flat colour off a value lattice, renders, and is counted. It has found, across
+two sessions: the drum sealed inside its own housing; a junction box and four
+cables drawing zero pixels behind a wall; three instrument pods hanging in the
+throat of the shredder; a seam frame grown to 17.9% of the sprite while the hero
+it joins held 4.9%; **the ring gear**, the design's one mechanical link between
+the two halves, buried inside the bearing wall; **the radiator** inside the rear
+deck; **the entire capacitor bank** embedded in a 0.14-tile apron; the north
+pillow block behind the drum; the sorting-gap guide plates at 0, 0, 2 and 7
+pixels; and a fan "ring" built with `cyl()`, which makes a solid disc, lidding
+the hub it was meant to surround. None of that is visible in a render, and none
+of it is reasoning you can do about the 3D scene.
+
+Two things about the tool itself, both learned by getting them wrong:
+
+- **The encoding must be a value lattice, not a hue wheel**, or the report
+  aliases and lies.
+- **Write scene-linear EXR, not PNG.** The first cut set the view transform to
+  Raw to keep the lattice intact through a PNG; only 34% of pixels then
+  classified, and the report confidently declared the bins, the drive motor and
+  the capacitor bank invisible while all three were plainly in the render. EXR
+  carries the value the emission shader produced and no colour-management
+  setting can quietly break it — classification went to 97%.
+
+**What the pass cannot tell you is whether an occluder can be moved.** Three
+parts here are genuinely unviewable and were deleted rather than relocated: the
+north pillow block, its hub and its bolt circle. In north the drum itself is in
+front of them; in south the rear deck tops out at 1.06 against their 1.05.
+Splitting `cheek-n` into two piers to open a window onto them did not help,
+because the wall was never the occluder.
 
 ## The rotation cone — the constraint that re-massed this entity
 

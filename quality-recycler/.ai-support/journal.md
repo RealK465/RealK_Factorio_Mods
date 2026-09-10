@@ -2,6 +2,156 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-10 (third) — the content round, and the pass that should have run first
+
+The owner asked for more content. What the round actually turned into was
+building `check_visibility.py` — the object-ID pass, which this mod's own
+`CLAUDE.md` has been telling everyone to run and which nobody had made runnable.
+Its first report on the 213-object model:
+
+**The ring gear drew zero pixels.** GEAR_XY was (-0.06, -1.01) and `rotor-house`
+spans y -1.06..-0.94, so the design's one mechanical link between the salvaged
+half and the new one — the whole reason the seam is a drive rather than a paint
+line — was inside a wall, in all four rotations. So was **the radiator** (inside
+the rear deck), **the entire capacitor bank** (embedded in a 0.14-tile apron
+wall), **three more capacitor cans** (inside the rear deck), **three gauge pods**
+(inside the apron), **the grease pot**, **the north pillow block**, and the four
+**sorting-gap guide plates** at 0, 0, 2 and 7 px. 60 of 213 objects were paying
+render time and sprite budget for nothing.
+
+**The tool lied the first time and the fix is worth recording.** It wrote PNG
+with the view transform set to Raw, on the theory that Raw keeps the lattice
+intact through a byte. Only 34% of pixels classified and the report declared the
+bins, the drive motor and the capacitor bank invisible — all three plainly in the
+render. Writing scene-linear EXR instead took classification to 97%. A display
+transform is a display transform; do not try to reason around one.
+
+What moved, and why each is where it is now:
+
+- **The rotor-house ROOF is the best real estate on the machine and was empty.**
+  Up-facing, so it reads in all four rotations; at |y| ~1.00 where the cone still
+  allows 1.25; and directly over the hero. It now carries the capacitor bank, the
+  slip-ring and brush gear, the gauge cluster, the lubricator and three cable
+  runs — every one of them a part that measured zero somewhere else.
+- **The ring gear moved outboard** to y -1.14, in front of the wall that hid it,
+  where it meshes on the drum's lower west quadrant in plain sight, with a shroud.
+- **The guide plates became discharge chutes on the outside of the wall.** The
+  sorting gap is not a place a viewer can see into on this machine — the drum is
+  over it and the bearing wall in front of it. One short sloped chute per bin on
+  the south face tells the same causal story where it can actually be read.
+- **The north pillow block was deleted, not relocated.** In north the drum is in
+  front of it; in south the rear deck tops out at 1.06 against its 1.05.
+  Splitting `cheek-n` into two piers to open a window onto it changed nothing,
+  because the wall was never the occluder. The window stayed anyway: `cheek-n`
+  was 3.07% of the sprite as one slab, the fourth-largest object on the machine.
+
+New content, all of it with a stated job: **auger gearmotor, chain guard and
+sprocket** (the auger turned with nothing driving it, the same fault the maw
+rollers had); a **cooling fan on the hood's south cap**, 5 turns a loop against
+the rotor's 1, which is the machine's fourth moving part and the only one
+outside the material path; a **tachometer** cabled to the slip ring; a **spares
+crate** on the pad; **rad header**, **hydraulic line** and **coolant return**
+runs, each joining two parts that already existed. 241 objects, 186 distinct
+kinds, up from 213 and 161.
+
+**Two modelling traps, both caught by the pass and invisible in a render.**
+`cyl()` builds a solid disc, so a fan "ring" at r 0.235 was a lid over its own
+hub. And a louvre bank recessed *below* its own frame draws nothing — the rear
+vent fins were at z 0.99..1.055 under a frame topping at 1.065.
+
+**The drum was a window pane and the fix was the radii, not the ribs.** With
+every band within 0.03 of one radius the barrel had no curvature in its own
+silhouette, so 12 axial copper ribs crossing 9 band edges resolved as gold
+mullions over coloured glass. Tapering the ends to 0.575 against a middle of
+0.640 gave the flank a curve and put both end flanges proud of the barrel they
+cap. The ribs went to 16 at half-width 0.017. Bronze was tried for them and is
+wrong: `bronze` carries heat 0.45 off the rotor and the ribs sit ON the rotor,
+so they took the ramp at full strength and came out pale lavender. `copper`
+carries heat 0.14 for exactly this reason.
+
+Saturation override 0.62 -> 0.70, which lands 0.32 against the vanilla
+recycler's 0.31.
+
+## 2026-09-10 (later) — the density pass, and why every gate was green again
+
+The repo owner rejected the sprites a second time. The gates were green a second
+time: luminance sd 45-51 against a 43-56 band, saturation 0.44 against the
+chemical plant's 0.47, zero full-width rows, overhang 0.75. What the sprite
+actually looked like was a soft pale slab with two flat quadrants on it.
+
+**The measurement that finally named it was the form/grain split, not the sd.**
+Splitting luminance variance into form (>12 px) and grain (<3 px):
+
+| | form | grain | ratio |
+|---|---|---|---|
+| vanilla recycler | 16.1 | 26.5 | **0.61** |
+| chemical plant | 24.8 | 23.0 | 1.08 |
+| this entity, before | 27.2 | 21.8 | **1.25** |
+
+Vanilla carries its contrast in small hard-edged parts; this machine was
+carrying it in broad shading. Two causes, one in post and one in the model.
+
+**In post: `form_amount` was 1.70 and was making it worse.** An unsharp mask
+lifts every frequency above its radius, so at form_radius 11 the knob spends
+itself on the one band vanilla has least of — it was buying the sd number by
+smoothing the machine. Dropped to **0.30**, with the sd paid for by
+`contrast_amount` 1.35 (radius 7) and `crevice_amount` 1.30 (radius 1.8)
+instead: form 15.6, grain 37.9, sd 52.9. Hard part separation and dark gaps.
+
+**In the model: two flat plates and a bare deck.** The olive half was three
+stacked boxes, and T2's and T3's tops were ~2 tiles of empty painted plate —
+the camera sees the deck more than anything else, and vanilla never leaves one
+bare. T3 is now a **rounded hood** (a cylinder about Y, r 0.30 at z 1.06),
+which is the curved primary form the machine had none of, and the shredder
+drive that turns the maw rollers now exists and sits on T2: motor with cooling
+fins, gearbox with a split-line flange, belt guard, drive sprocket. Also added:
+pillow-block bearings at both drum ends, a guard hoop, the catwalk the design
+had always listed, the capacitor bank it had always listed, and guide plates in
+the sorting gap. 138 objects to 213, 104 distinct kinds to 161.
+
+**"A side wall renders as a one-pixel line" is a FIXED-entity rule, and this
+entity rotates.** The west wall is the front elevation in east, the north wall
+is in south, the east apron is in west — and only the south wall had ever been
+given stiles, rails and a hatch. Three rotations were reading as blank painted
+plates for that reason alone. All four walls now carry the same treatment.
+
+**Nothing can stand on a deck already at the cone limit.** A finned cooler on
+the rear deck measured `max(|x|,|y|) + z = 2.48` against APEX 2.25, and
+`fit_cone()` refused it rather than shrinking the machine 9% to hide it — the
+floor doing exactly its job. The deck tops out at 1.06 where the cone allows
+1.07, so the detail went **downward** instead: a recessed louvre bank in the
+deck, which costs no height and reads the same at 30 px.
+
+**Three defects in the glow sheet, none of which any gate reads.**
+
+- The **amber beacon was blown to pure white** — measured max (255, 255, 255)
+  over the lamp, because #FF8A12 has a full red channel and the strength was
+  1.9. The additive layer put a glowing orange egg on the machine in all eight
+  directions. Strength 1.0; the green lamp had the same fault at 1.9 and is 1.2.
+- The **south view had no violet field at all.** The north-facing pair sat at
+  y 0.92 on the bearing cheek, and the rear deck spans y 0.92..1.24 up to
+  z 1.06 — both slots were inside solid geometry. Moved to the cowl's north
+  face at z 1.12, the first exposed surface north of the rotor.
+- The **drum's nine bands were of roughly equal width**, so the flank
+  alternated bright and dark every 10 px and read as a deck-chair stripe. Now
+  wide tempered zones with narrow copper binding rings between them. The
+  winding texture comes from the axial ribs, which is where it belongs — a
+  winding runs along a rotor, not around it.
+
+**The drum goes edge-on in east and west, and that is not fixable.** Its axis
+is Y, so rotating the entity 90 degrees puts it on the camera's transverse
+axis, where every circular cross-section projects to a line segment — the same
+projection fact that ruled the X axis out originally, now unavoidable in two of
+four rotations. What was fixable is that the one round feature left, the end
+flange, existed at one end only, so east and west each showed a bare cut tube
+on one side. Both ends carry a copper flange and bolt circle now.
+
+Final, all eight directions: 0% full-width rows, contrast sd 50.1-52.5, ragged
+0.99-1.20, fill 0.83-0.87, shadow 100% pure black, worst north overhang **0.77
+tiles** — exactly the chemical plant's, vanilla's ceiling for a rotatable
+machine. Wear mask 2.4% bright, well inside its band. Icons re-rendered from
+the changed model.
+
 ## 2026-09-10 — the art rebuild, against the concept sheet
 
 The repo owner rejected the first sprites: too far from `prototype.png`, "still a
