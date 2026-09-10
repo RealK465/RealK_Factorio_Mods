@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.1
-Date: ????
+Date: 2026-09-10
   Changes:
     - Version 0.1.0, built for Factorio 2.0.
   Info:
@@ -9,7 +9,7 @@ Date: ????
       that only arrived in 2.1.
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.0
-Date: ????
+Date: 2026-09-10
   Major Features:
     - Added two quality tiers above legendary: mythic and celestial.
   Features:
