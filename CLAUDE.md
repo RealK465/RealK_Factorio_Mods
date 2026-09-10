@@ -80,7 +80,9 @@ Tracked unpacked folders are this repo's own mods:
 - **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
 
 - **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and hands it over as a blueprint. Works end to end (shortcut button or CTRL+U → modal → Confirm → a blueprint in the cursor; the engine builds it), with research-gated pickers and support for modded recyclers, and a permanent four-tier test suite (`tests/`, run via the `factorio-testing` skill) that
-  settled the once-open eject question by measurement. **Published** since 2026-08-16, on both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below); `git tag -l 'upcycler-planner_*'` is the list of what has actually shipped. The only mod here with a hard `quality` dependency. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly the thirteen blueprint-entity fields read out of the engine, and that only blueprint *strings* are simulation-restricted, a limit once over-generalised to all runtime blueprint writing.
+  settled the once-open eject question by measurement. **Published** since 2026-08-16, on both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below); `git tag -l 'upcycler-planner_*'` is the list of what has actually shipped. Has a hard `quality` dependency, like `quality-recycler` below. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly the thirteen blueprint-entity fields read out of the engine, and that only blueprint *strings* are simulation-restricted, a limit once over-generalised to all runtime blueprint writing.
+
+- **`quality-recycler/`** — Quality Recycler. A new recycler with quality built in: 12% quality on every craft with no modules fitted, twice the vanilla recycler's speed, 3x3, unlocked after the first three planets. **Unpublished**, version `0.1.0`, no tag. The entity, item, recipe and technology exist and the data stage loads clean; the machine is modelled, animated and rendered at eight directions (`assets/quality-recycler/`), with both icons. **Nothing has been played** — the balance is a guess, not a measurement. Has a hard `quality` dependency like `upcycler-planner`, plus hard `recycler` and `space-age` ones. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions, the art direction and the measured render numbers; `deferred.md` is the open list.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
@@ -203,6 +205,13 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   and its engine premises pin the roll shim where main's pin `get_roll_chances`), plus
   `data-final-fixes.lua`, which exists **only** on `legacy/2.0` — the 2.0 shims live on that
   branch alone, never version-gated into `main`.
+  For Quality Recycler they are `info.json` and `prototypes/recycler/entity.lua` — nothing
+  else. Two things force that one file apart, and both load clean when got wrong: **quality
+  effect values are ten times larger on 2.0** (`quality = 1.2` there for the 12% that `0.12`
+  buys on 2.1), and **`use_mirroring` does not exist on 2.0**, where `graphics_set_flipped`
+  alone drives the mirrored art. There is also no `recycler` mod on 2.0 — the recycler
+  prototype ships inside `quality` and the `recycling` category inside `base` — so the
+  dependency set differs too.
   `README.md` and `changelog.txt` are **not** on that list — both are kept identical on the two
   branches, for reasons the `factorio-multiversion` skill carries.
   `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
