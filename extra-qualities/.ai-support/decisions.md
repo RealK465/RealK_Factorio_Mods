@@ -109,3 +109,35 @@ bonuses. Numbers and the reasoning in `balance.md`. Two departures, both forced:
 
 Nothing here needs runtime scripting. If that changes, it is a decision to record here before
 the file is written.
+
+## The 2.0 build, and the four files it forks
+
+Shipped on `legacy/2.0` as version 0.1.1 (2026-09-10), validated against base 2.0.77 with Space
+Age. The repo forks rather than gates, so these four files differ there and nothing on `main`
+knows 2.0 exists. Everything else — the technologies, the vanilla-technology rewiring, the icon
+overrides, all the art, the locale and every note in this folder — is byte-identical.
+
+- **`info.json`** — version, `factorio_version`, the three `>= 2.0.0` floors, the `legacy/2.0`
+  homepage, and `? upcycler-planner` instead of `+`: the recommended-dependency prefix is 2.1
+  only, and an unrecognised prefix does not fail loudly.
+- **`prototypes/quality/ladder.lua`** — every `next_probability` is a tenth of the 2.1 value
+  (0.14 / 0.13 / 0.11 / 0.1). 2.1.7 divided quality effect values by ten and multiplied
+  `next_probability` by ten to compensate, so the two files describe *the same odds*. Copying
+  2.1's across would make every step ten times as likely and would not error.
+  `chain_probability` is dropped: it does not exist on 2.0, which has no tier-skip roll at all.
+- **`prototypes/quality/qualities.lua`** — drops `chain_probability`,
+  `locomotive_power_multiplier` and `rolling_stock_max_speed_multiplier`, all three 2.1-only.
+  A 2.0 quality above legendary therefore gives no train bonuses. Left out rather than left in,
+  because an unknown property loads clean and does nothing, which is the whole failure mode.
+- **`data-final-fixes.lua`** — counts *every* quality rather than the shown ones. `quality`
+  un-hides `normal` on 2.1 but not on 2.0, so the shown count there is 6 against 2.1's 7 while
+  both games build 8 in total. `shown + 1` would set the threshold to 7 with 8 qualities above
+  it, which loses the buttons if the engine counts hidden qualities — the exact failure this
+  file exists to prevent. Measured off the two dumps.
+
+**The dump diff is the evidence.** Comparing the two builds property by property shows exactly
+the four 2.1-only fields absent on 2.0 (`chain_probability`, `locomotive_power_multiplier`,
+`rolling_stock_max_speed_multiplier`, `cargo_wagon_inventory_size_multiplier` — the last on
+vanilla's own tiers, never set by this mod), the `next_probability` values differing by exactly
+ten, and **no difference at all** in `default_multiplier` or in any of the four technologies.
+The strength ladder and the gating are identical on both games.

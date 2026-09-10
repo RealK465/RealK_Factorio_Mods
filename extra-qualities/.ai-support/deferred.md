@@ -84,17 +84,10 @@ equally rather than reshaping the curve — which is the thing the design rule i
 actually needs. The costs it was compared against at the time were from a draft ladder and are
 not quoted here; re-run `qsim.py` with a module-4 multiplier if the idea comes back.
 
-## A 2.0 build
+## The 2.0 build has not been played either
 
-Not started, and cheap when it is wanted: the whole mod is five small prototype files. Two
-things would need forking on `legacy/2.0` — `info.json`, and whatever the pre-2.1 quality-effect
-scale does to `next_probability`.
-
-**`info.json` has a second reason to fork now: the `+` recommended-dependency prefix is 2.1
-only.** 2.0 has no such concept, so the 2.0 build has to drop `+ upcycler-planner` or downgrade
-it to `?` (plain optional). Getting this wrong is the usual kind of silent: an unrecognised
-prefix is not a loud failure. The 2.1.7 rescale divided quality effect values by ten and
-multiplied `next_probability` by ten to compensate, so the values in `ladder.lua` are 2.1
-numbers and mean something different on 2.0. Verify against the 2.0 install rather than
-scaling by eye. Also unverified there: whether 2.0's core defines
-`quality_selector_dropdown_threshold` at all.
+Built and validated on 2026-09-10 — `legacy/2.0`, version 0.1.1, clean against base 2.0.77 with
+Space Age, and dump-diffed against the 2.1 build. What the port does and why is in
+`decisions.md`. What is *not* settled is the same thing as on 2.1: nobody has played it, and the
+2.0 build has two behaviour differences a player would notice — no train bonuses above legendary
+and no tier skipping — that only in-game time can judge.

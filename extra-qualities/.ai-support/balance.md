@@ -90,6 +90,12 @@ The two new steps are deliberately **not** gated. Recycling discards 75% of the 
 every pass, which is gate enough on its own; a second one on top of it produces a grind rather
 than a goal.
 
+**The 2.0 build writes a tenth of these numbers and means the same thing** — 0.14 / 0.13 / 0.11
+where this table says 1.4 / 1.3 / 1.1. 2.1.7 rescaled quality effects down by ten and
+`next_probability` up by ten together, so every cost in this file holds on both games. It has no
+`chain_probability` at all, so its rolls never skip a tier; that makes the top of the ladder
+fractionally dearer there than the table says. See `decisions.md`.
+
 ## Measured cost per tier
 
 Normal items consumed per one finished item, in the usual upcycling loop: an assembler with

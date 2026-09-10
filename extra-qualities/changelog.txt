@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: ????
+  Changes:
+    - Version 0.1.0, built for Factorio 2.0.
+  Info:
+    - On Factorio 2.0 the new tiers give no locomotive or cargo wagon bonuses, and a
+      quality roll can only ever move up one tier at a time. Both need engine support
+      that only arrived in 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: ????
   Major Features:

@@ -3,6 +3,36 @@
 Dated sessions, newest first. Append-only: entries are history and may go stale. Only a moved
 file path is ever repaired in place.
 
+## 2026-09-10 — ported to Factorio 2.0, and the odds rescale was the whole job
+
+`legacy/2.0`, version 0.1.1, clean against base 2.0.77 with Space Age. Four files fork; the
+list and the reasons are in `decisions.md`.
+
+**The one that would have shipped broken is `next_probability`.** 2.1.7 divided quality effect
+values by ten and multiplied `next_probability` by ten together, so 2.1's 1.4 and 2.0's 0.14
+describe the same 14% step. Copied across unchanged, the 2.1 numbers would have made every step
+ten times as likely on 2.0 — the mod's entire difficulty curve gone — and nothing would have
+errored, dumped oddly, or logged a word. It is exactly the silent class the multiversion skill
+warns about, and the only reason it was caught is that the skill says to read the behaviour
+entries before porting rather than after validating.
+
+Three fields simply do not exist on 2.0 and were removed rather than left to be ignored:
+`chain_probability`, `locomotive_power_multiplier`, `rolling_stock_max_speed_multiplier`. So the
+2.0 build gives no train bonuses above legendary and can never skip a tier on a roll. Both are
+recorded in the changelog under 0.1.1, because a player would notice.
+
+**`data-final-fixes.lua` forked for a reason that only appeared when counted.** The `quality` mod
+un-hides `normal` on 2.1 and does not on 2.0, so the shown count differs (7 against 6) while both
+games build 8 qualities in total. The 2.1 rule of `shown + 1` would have set 2.0's threshold to 7
+with 8 qualities present — losing the row of buttons, which is the single thing this file exists
+to protect. The 2.0 file counts the total instead. Vanilla 2.1 disproves the strictest reading
+on its own: it builds 6 qualities against a threshold of 6 and still shows buttons.
+
+The dump diff is what turned all of this from argument into evidence: four 2.1-only fields
+absent, `next_probability` differing by exactly ten, and **no difference at all** in
+`default_multiplier` or in any of the four technologies. The strength ladder and the gating are
+identical on both games, which is the part that had to be true.
+
 ## 2026-09-10 — a review pass found the registers quoting a ladder that no longer ships
 
 A code review over the three commits found the Lua clean and the notes stale. The session below
