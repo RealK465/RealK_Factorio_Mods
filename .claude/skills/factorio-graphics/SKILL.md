@@ -237,6 +237,33 @@ sprite's pixels; side-wall detail never appeared at all.
 - Decide this by rendering, never by reasoning about the 3D scene. Two parts
   0.3 tiles apart in depth can sit exactly on top of each other on screen.
 
+**Run the object-ID pass BEFORE adding detail, not after.** It is the only
+check that measures the model rather than the output PNG, and on a dense
+machine the answer is never what you expect: 60 of the quality recycler's 213
+objects drew zero pixels — its ring gear inside a bearing wall, its radiator
+inside a deck, its entire capacitor bank embedded in a 0.14-tile apron. Adding
+content on top of that is paying twice. And when the pass calls a part dead,
+find out what the occluder actually IS before rebuilding around it: three parts
+there were deleted rather than moved, because the thing hiding them was the
+hero drum in one rotation and a deck in another, and no wall could be opened.
+
+**A ROTATABLE entity has four front elevations, not one.** Everything above is
+written for a fixed entity, where the side walls really are one-pixel lines and
+detail belongs on the deck and the −Y wall. Rotating the model swaps which wall
+faces the camera: the west wall is the front elevation in east, the north wall
+is in south, the east wall is in west. Measured on this repo's quality recycler
+— three of its four rotations shipped reading as blank painted plates because
+only the south wall had ever been given stiles, rails and a focal point, and
+nothing in the gate kit reads that. Give every outward wall the same treatment,
+and judge it by rendering all four, never by reasoning from the north view.
+
+The same asymmetry bites the emissive layer. An emissive on a wall is face-on in
+one rotation, a thin bright streak in two, and invisible in the fourth; an
+UP-facing one is compact in all four, because the deck is the one surface this
+camera always sees. Prefer up-facing slots, and check the glow sheet per
+direction — a violet pair on this machine sat inside solid geometry and one
+rotation had no glow at all, which no gate reads.
+
 **A disc on a transverse (X) axis is EXACTLY edge-on and renders as a line.**
 The camera looks along `(0, cos 45, −sin 45)`, which lies entirely in the Y-Z
 plane — so a wheel, gear, pulley or fan whose axis is world X has the view
@@ -706,7 +733,7 @@ Mipmaps are optional but vanilla-standard — they stop icons shimmering when sc
       of its rows that way through a published release, past every other gate here
 - [ ] **`gates.wear_mask` run on the edge-wear term** — the only gate that measures the *model*. Every other one reads the output PNG, which is how a wear term that marked 55% of the beacon shipped unnoticed (`references/materials.md`)
 - [ ] Form/grain ratio checked against a vanilla entity of the **same footprint**, and saturation distribution against `references/materials.md`
-- [ ] Object-ID render run — nothing the design depends on is buried inside another object (`references/pipeline.md`)
+- [ ] Object-ID render run — nothing the design depends on is buried inside another object (`references/pipeline.md`). **Write the pass to scene-linear EXR, not PNG**: a display transform will not preserve the ID lattice, and setting the view transform to Raw does not save it — measured on the quality recycler, PNG classified 34% of pixels and reported three plainly visible assemblies as invisible, where EXR classified 97%. A worked implementation is `assets/quality-recycler/entity/quality-recycler/check_visibility.py`
 - [ ] Paint-over applied per frame before packing; no layer that shouldn't have it did
 - [ ] Every resize went through `imaging`, not `Image.resize`
 - [ ] Drawn size against the entity's footprint checked with `area_vs_footprint`, and the **north overhang** measured against vanilla's 0.52–0.81 tiles
