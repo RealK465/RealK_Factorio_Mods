@@ -57,8 +57,13 @@ end
 -- The cap is what makes it three rather than four. Boosts compound, because reaching legendary
 -- passes through every step below it, so a modest boost on each of four steps made legendary
 -- 2.06x cheaper than vanilla - more of a discount than the owner wanted. Tapering to nothing by
--- epic holds it to 1.58x while still helping the bottom of the ladder, where the climb is
--- longest. Per-tier measurements are in .ai-support/balance.md.
+-- epic holds the odds retune to 1.57x while still helping the bottom of the ladder, where the
+-- climb is longest.
+--
+-- What a player actually pays at legendary is 1.77x, not 1.57x: the extra comes from epic's
+-- multiplier above, which makes epic quality modules farm legendary faster. Which of the two
+-- the 1.62x cap means is an open question - see .ai-support/deferred.md before retuning either
+-- knob. Per-tier measurements are in .ai-support/balance.md.
 --
 -- next_probability is the per-step difficulty knob: the chance of an upgrade is the machine's
 -- quality effect times this, so 1.4 turns a 10% quality effect into a 14% chance of stepping

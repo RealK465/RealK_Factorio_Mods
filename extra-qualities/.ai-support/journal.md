@@ -3,6 +3,51 @@
 Dated sessions, newest first. Append-only: entries are history and may go stale. Only a moved
 file path is ever repaired in place.
 
+## 2026-09-10 — a review pass found the registers quoting a ladder that no longer ships
+
+A code review over the three commits found the Lua clean and the notes stale. The session below
+retuned the odds from `1.5 / 1.4 / 1.3 / 1.2` to `1.4 / 1.3 / 1.1 / 1`, regenerated the cost
+table in `balance.md`, and left the prose under it describing the old ladder. Ten lines apart
+the same file gave two answers to the same question: the table said mythic costs 238–348 and
+the paragraph said 182–265.
+
+**The failure is worth naming because the rule already covers it.** `../CLAUDE.md` says a
+register is edited in place; what happened is that the *generated* part was and the written part
+was not, which reads as a maintained file rather than a stale one. Regenerating a table is a
+mechanical act and pasting it is easy to finish; rereading four paragraphs against it is not,
+and was skipped. Every wrong number in the review came out of that one boundary.
+
+Fixed by re-running `qsim.py` and rewriting against its output: the cost prose, the like-for-like
+table, the per-step ratios (claimed 1.5x–1.9x against vanilla's 2.9x–3.5x; actually 3.5x, 4.1x,
+2.5x, 2.0x, 1.5x against vanilla's 3.9x, 4.3x, 2.8x), the without-the-retune figures, and the
+two `deferred.md` items that quoted them. `analysis/quality-roll-mechanics.md` said its measured
+block was taken "on the ladder as shipped" when the probe ran against the draft — the numbers
+are real and are kept, relabelled, because what they demonstrate is that the engine multiplies
+linearly, and five distinct values do that better than three.
+
+Three claims were wrong on their own terms rather than stale. The strength ladder is monotone
+absolutely but not proportionally (25% a step with two 28% blips), and the requirement was
+stated proportionally. `level` runs 0, 1, 2, 3, 5, 6, 8, so every *counted* bonus steps +2 into
+legendary and +1 into mythic — the requirement is met on strength and knowingly not on those.
+And "the engine rejects zero" was true of `beacon_power_usage_multiplier` (must be >= 0.01) but
+not of `mining_drill_resource_drain_multiplier`, whose range is `[0, 1]`; zero there is legal
+and would mean free ore, which is a design refusal, not an engine one.
+
+**One finding is not a documentation problem and is now the top open item.** The 1.62x cap
+measures 1.57x one way and 1.77x the other. Like for like, modules held constant, the odds
+retune buys 1.57x — that is how it was measured when the cap was set, and it is under it. End
+to end, which is what a player pays, it is 1.77x, and the mod's own headline table has said so
+since it was written. The difference is epic's multiplier moving 1.9 → 2.0, which makes epic
+quality modules farm legendary faster; that change predates the cap and was never counted
+against it. Nothing was changed pending the owner's ruling, and both numbers are now in
+`balance.md`.
+
+Also recorded as open, both from the same review: the asteroid collector's collection radius
+defaults to `level`, so celestial reaches 15.5 off a 7.5 base, and the API warns that the
+navigation pre-calculates for the highest tier that *exists* — a cost every Space Age save pays
+on install, researched or not. And `legendary.next = "mythic"` is assigned unconditionally, so a
+second mod adding a tier above legendary silently orphans one of the two.
+
 ## 2026-09-10 — the odds retune capped, after the discount was checked instead of trusted
 
 The owner queried a changelog line, "working up through the older quality tiers is about twice

@@ -1,4 +1,4 @@
-"""Turn the two 512 die renders into what the mod ships.
+"""Turn the four 512 die renders into what the mod ships.
 
     py make_tech_icons.py <raw_dir> [<mod_dir>]
 

@@ -1,8 +1,8 @@
-"""Render the mythic and celestial technology dies.
+"""Render the four quality technology dies - vanilla's two as well as ours.
 
     blender -b -P render_tech_icons.py -- <out_dir>
 
-Writes <out_dir>/mythic-raw.png and celestial-raw.png at 512. make_tech_icons.py does the
+Writes <out_dir>/<name>-raw.png at 512 for every entry in ICONS. make_tech_icons.py does the
 drop shadow, the mipmap strips and the thumbnail.
 
 Follows references/icons.md, not the entity rig: an icon is not on the tile grid, so

@@ -10,7 +10,7 @@ Date: ????
     - Legendary quality now comes from the first three planets instead of Aquilo.
   Balancing:
     - The early quality tiers come quicker than in vanilla, so the longer ladder still
-      fits inside a normal game. Reaching legendary takes about a third less material.
+      fits inside a normal game. Reaching legendary takes about 40% less material.
       From epic upward the odds are vanilla's.
     - An assembling machine 3 runs at 4 on mythic and 5 on celestial.
     - Every quality tier is now about 25% better than the one below it, all the way up.

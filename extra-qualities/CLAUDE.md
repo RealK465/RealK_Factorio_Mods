@@ -7,10 +7,10 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 **Two quality tiers above legendary — mythic (level 6) and celestial (level 8) — and the seven
 tiers respread one per planetary milestone: epic on Fulgora, legendary after the first three
-planets, mythic on Aquilo, celestial after promethium science.** The four older steps were made
-about twice as quick to pay for the two new ones, so each tier costs roughly what the tier below
-it costs in vanilla at the point the player unlocks it. An assembling machine 3 runs at 4 on
-mythic and 5 on celestial, which is the owner's power anchor.
+planets, mythic on Aquilo, celestial after promethium science.** The first three steps of the
+odds ladder were made easier to pay for the two new ones, so each tier costs roughly what the
+tier below it costs in vanilla at the point the player unlocks it. An assembling machine 3 runs
+at 4 on mythic and 5 on celestial, which is the owner's power anchor.
 
 **The mod owns all eleven icons**, not its own four: vanilla's five quality glyphs and its two
 quality technology icons are redrawn too, because a set where two of seven follow different

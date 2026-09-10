@@ -1,4 +1,4 @@
-"""The quality die - the model behind both technology icons.
+"""The quality die - the model behind all four technology icons.
 
 Vanilla's epic-quality and legendary-quality icons are one worn white die photographed
 corner-on, its top face carrying the tier being unlocked and the two visible side faces the

@@ -97,7 +97,10 @@ files let an uneven step ship twice. `level` is still set here and still drives 
 bonuses. Numbers and the reasoning in `balance.md`. Two departures, both forced:
 
 - **`beacon_power_usage_multiplier` and `mining_drill_resource_drain_multiplier` are hand-picked.**
-  Vanilla's ramp is `(6 - level) / 6`, which reaches zero at level 6 and the engine rejects it.
+  Vanilla's ramp is `(6 - level) / 6`, which reaches zero at level 6. The engine refuses that
+  for the beacon — the API says "must be >= 0.01" — but *allows* it for the drill, whose range
+  is `[0, 1]`. Zero there is legal and would mean mining consumes no resource at all, which is
+  a different game rather than a stronger quality, so both are picked by hand.
 - **`cargo_wagon_inventory_size_multiplier` is omitted.** Vanilla's override is a nerf *below*
   the general multiplier that converges on it exactly at legendary, so past legendary the
   default already is the continuation.

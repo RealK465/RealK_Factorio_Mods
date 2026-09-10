@@ -8,7 +8,8 @@ verified: 2026-09-10
 All three findings below are **measured** against the pinned dev install, by a throwaway probe
 mod that calls `LuaQualityPrototype.get_roll_chances` from `on_init` under
 `factorio.exe --create`. The probe is not kept; its output is quoted here because that is the
-part worth not re-deriving. Nothing on this page is inferred.
+part worth not re-deriving. Anything on this page that is derived rather than measured says so
+in those words; everything else is the probe's own output.
 
 ## The roll formula
 
@@ -30,7 +31,11 @@ Nothing in `prototype-api.json` gives it an upper bound (only ">= 0"), and the e
 as a plain multiplier on the machine's quality effect. This is what makes it the per-step
 difficulty knob this mod's `prototypes/quality/ladder.lua` turns.
 
-Measured at `quality_effect = 0.25`, on the ladder as shipped:
+Measured at `quality_effect = 0.25`. **The probe ran against a draft ladder, not the one that
+ships** — its `next_probability` values were 1.5 / 1.4 / 1.3 / 1.2 where the shipped ladder is
+1.4 / 1.3 / 1.1 / 1 (see `../balance.md`). Keep the draft numbers here rather than re-running:
+what is being measured is that the engine multiplies linearly, and five distinct values above
+1 demonstrate that better than three do.
 
 ```
   normal     np=1.5  stay=0.625000  up=0.337500  beyond=0.037500
@@ -44,7 +49,10 @@ Measured at `quality_effect = 0.25`, on the ladder as shipped:
 
 Every row matches the formula above exactly: `0.25 * 1.5 = 0.375`, times `1 - 0.1` for the
 next tier and times `0.1` for beyond it. The cost model in `../balance.md` uses the same
-arithmetic, which is why its numbers can be quoted as measured rather than assumed.
+arithmetic, which is why its numbers rest on a measured formula rather than an assumed one.
+
+For the shipped values, the same formula gives `up` of 0.315 / 0.2925 / 0.2475 / 0.225 at
+`quality_effect = 0.25`. **Derived from the measurement above, not separately measured.**
 
 The last row is the terminal quality: no `next`, so `next_probability` defaults to 0 and the
 roll always stays.

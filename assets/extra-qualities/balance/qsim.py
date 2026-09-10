@@ -81,7 +81,7 @@ def cost(tiers, q_asm, q_rec, np_, cp=CHAIN_P, retention=0.25, cycles=4000):
 
 
 def main():
-    print("normal items per one finished item, assembling machine 3 -> electromagnetic plant\n")
+    print("normal items per one finished item, electromagnetic plant -> assembling machine 3\n")
     print("%-24s %-22s %-18s %s" % ("tier unlocked at", "modules in hand", "vanilla ladder", "this mod"))
     for label, tier, mod_level in STAGES:
         tiers = CHAIN.index(tier) + 1
@@ -94,6 +94,10 @@ def main():
         vanilla = band(VANILLA_NP, VANILLA_MULT) if tiers <= 5 else "--"
         print("%-24s %-22s %-18s %s"
               % (label, "%.0f%% / %.0f%%" % (asm * 100, em * 100), vanilla, band(SHIPPED_NP)))
+
+    # The percentages above are this mod's. The vanilla column is run at vanilla's own module
+    # strength, which differs only at epic: 4.75% a module against this mod's 5%.
+    print("\nvanilla's epic quality module 3 is 4.75%, so its legendary row runs at 19% / 23.75%")
 
 
 if __name__ == "__main__":

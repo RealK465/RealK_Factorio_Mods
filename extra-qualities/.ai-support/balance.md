@@ -10,7 +10,7 @@ at the bottom.
 player unlocks it.**
 
 Two extra tiers bolted onto the end of the ladder would put the top of it far past anything
-vanilla asks for, because every step costs about 3.5x the one below. The owner's answer was to
+vanilla asks for, because every step costs three to four times the one below. The owner's answer was to
 make the older tiers easier by the amount the new ones add, and that rule is what "easier by
 how much" resolves to. It lands mythic-on-Aquilo at what legendary-on-Aquilo costs today.
 
@@ -30,9 +30,15 @@ tiers**, set as a table in `prototypes/quality/ladder.lua`.
 | mythic | 6 | 3.2 | 4 | +28% | 8% | — |
 | celestial | 8 | 4.0 | 5 | +25% | 10% | — |
 
-No step is smaller than an earlier one, proportionally or absolutely (+0.35, +0.4, +0.5,
-+0.625, +0.875, +1.0). The ladder reads as one rule — **quality doubles every three tiers** —
-and every assembling machine 3 speed lands on a round number.
+No step is smaller than an earlier one **in absolute terms** (+0.35, +0.4, +0.5, +0.625,
++0.875, +1.0). Proportionally it is 25% a step with two 28% blips, at uncommon and at mythic,
+where landing the assembling machine 3 on a round number was worth more than the last decimal
+of evenness. The ladder still reads as one rule — **quality doubles every three tiers**.
+
+The requirement is met on `default_multiplier` and **knowingly not met on `level`**, which runs
+0, 1, 2, 3, 5, 6, 8: epic → legendary gains +2 of everything counted where legendary → mythic
+gains +1. See the two fields below for what that covers, and `deferred.md` for the open
+question.
 
 ### Why the vanilla tiers had to move
 
@@ -76,13 +82,13 @@ see the analysis file). `chain_probability` stays at vanilla's 0.1 everywhere.
 **Only the first three steps are retuned, and the taper is what caps the discount.** Boosts
 compound: reaching legendary passes through every step below it, so a boost on each of four
 steps made legendary 2.06x cheaper than vanilla. The owner capped that at 1.62x. Tapering to
-nothing by epic holds it to 1.58x while still helping the bottom of the ladder, where the climb
-is longest.
+nothing by epic holds the odds retune to 1.57x at legendary while still helping the bottom of
+the ladder, where the climb is longest. **The strength change adds to that separately, and the
+cap has not been ruled on for the total — see "Two ways to read the cap" below.**
 
 The two new steps are deliberately **not** gated. Recycling discards 75% of the material on
 every pass, which is gate enough on its own; a second one on top of it produces a grind rather
-than a goal. What the retune buys is measured below — the ladder runs about 1.6x to 1.9x per
-step where vanilla's runs 2.9x to 3.5x.
+than a goal.
 
 ## Measured cost per tier
 
@@ -99,36 +105,61 @@ legendary modules before legendary exists.
 | mythic (Aquilo) | legendary quality-3, 25% / 31% | — | 238 – 348 |
 | celestial (promethium) | mythic quality-3, 32% / 40% | — | 357 – 549 |
 
-Each range is electromagnetic plant (5 module slots) to assembling machine 3 (4 slots).
+Each range is electromagnetic plant (5 module slots) to assembling machine 3 (4 slots). The
+percentages are this mod's. The vanilla column is run at vanilla's own module strength, which
+is identical except on the legendary row, where vanilla's epic quality module 3 gives
+19% / 23.75% rather than 20% / 25%.
 
-**How much the retune actually buys, like for like.** Same modules on both ladders, so only
-the odds differ. **No tier is more than 1.58x cheaper**, which is the cap the owner set after an
-earlier version reached 2.06x at legendary:
+**How much the retune actually buys, like for like.** Same modules on both ladders, so only the
+odds differ:
 
 | Tier | vanilla | this mod | cheaper by |
 |---|---|---|---|
-| uncommon | 4 | 3 | 1.33x |
-| rare | 17 | 11 | 1.49x |
-| epic | 70 | 45 | 1.57x |
-| legendary | 288 | 183 | **1.58x** |
+| uncommon | 4.3 – 5.1 | 3.2 – 3.8 | 1.35x |
+| rare | 17 – 21 | 11 – 14 | 1.49x |
+| epic | 73 – 96 | 47 – 61 | 1.57x |
+| legendary | 208 – 288 | 133 – 183 | **1.57x** |
 
-Read the two columns against each other: **mythic on Aquilo costs 182–265, and vanilla
-legendary on Aquilo costs 208–288.** The player's experience at each planet is preserved.
-And the best item in the game costs more than vanilla's best does — 275–421 against 208–288 —
-while being 60% stronger.
+### Two ways to read the cap
+
+The owner capped the discount at 1.62x after an earlier version reached 2.06x at legendary.
+There are two measurements and they do not agree, so **this is open, not settled**:
+
+- **Odds only, like for like** — the table just above. Legendary is **1.57x** cheaper. This is
+  what was measured when the cap was set, and it is under it.
+- **End to end**, vanilla as vanilla against this mod as shipped — the headline table.
+  208 – 288 against 118 – 163, so **1.77x**. Over it.
+
+The gap is the strength change, not the odds. Epic quality module 3 goes 1.9 → 2.0 here, so a
+player farming legendary does it with 20% / 25% modules where vanilla gives 19% / 23.75%. That
+change landed before the cap was set, and the capping measurement held modules constant, so it
+was never counted against the cap.
+
+Bringing end-to-end legendary under 1.62x would mean trimming the odds to roughly
+1.3 / 1.2 / 1.05 — re-run `qsim.py` rather than taking that on trust. Left as it ships until
+the owner rules on which measurement the cap means; `deferred.md` carries the question.
+
+### What the table says
+
+**Mythic on Aquilo costs 238 – 348, where vanilla legendary on Aquilo costs 208 – 288.** The
+experience at each planet is close to preserved, a little harder at the top. And the best item
+in the game costs well more than vanilla's best does — 357 – 549 against 208 – 288 — while
+being 60% stronger.
 
 **`default_multiplier` moves this table, and not in the direction you would guess.** A stronger
 tier means stronger quality modules of that tier, which farm the tier above it faster: mythic
-at 3.0 put celestial at 338–520, and raising it to 3.2 brought it back to 275–421. Quality
+at 3.0 put celestial at 440 – 679, and raising it to 3.2 brought it down to 357 – 549. Quality
 strength feeds back into quality production, so any change to a multiplier has to be re-run
 through `assets/extra-qualities/balance/qsim.py` rather than reasoned about.
 
-The retuned ladder runs about 1.5x to 1.9x per step, against vanilla's 2.9x to 3.5x — that is
-the retune doing its job, and it is why the two new steps are not gated on top of it. Gating
-mythic→celestial was measured and rejected; `deferred.md` keeps it as a play question.
+**Per step**, reading up, this mod's ladder runs 3.5x, 4.1x, 2.5x, 2.0x, 1.5x against vanilla's
+3.9x, 4.3x, 2.8x over its three. Each row uses the modules the player owns when that tier
+unlocks, which is why the ratios are not monotone: better modules arrive at the same time the
+target gets harder. The two new steps are the cheapest on the ladder by design; `deferred.md`
+keeps whether mythic → celestial is too cheap as a play question.
 
-Without the retune the same ladder gives legendary 208–288, mythic 369–542 and celestial
-848–1322 — not broken, but every tier lands harder than the vanilla tier it replaces, and the
+Without the retune the same ladder gives legendary 185 – 256, mythic 369 – 542 and celestial
+543 – 843 — not broken, but every tier lands harder than the vanilla tier it replaces, and the
 whole ladder drifts later than the planets it is pinned to.
 
 ## Technology costs

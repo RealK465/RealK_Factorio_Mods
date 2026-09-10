@@ -23,8 +23,9 @@ data:extend(
       chain_probability = 0.1,
       subgroup = "qualities",
       icon = "__extra-qualities__/graphics/icons/quality-mythic.png",
-      -- Vanilla's (6 - level)/6 ramp for these two hits zero at level 6, and the engine
-      -- rejects that, so both continue by hand instead.
+      -- Vanilla's (6 - level)/6 ramp for these two hits zero at level 6. The engine refuses
+      -- that for the beacon (must be >= 0.01); it allows it for the drill, where it would
+      -- mean free ore. Both continue by hand instead.
       beacon_power_usage_multiplier = 1/8,
       mining_drill_resource_drain_multiplier = 1/8,
       science_pack_drain_multiplier = 94/100,

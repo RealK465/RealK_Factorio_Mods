@@ -80,15 +80,18 @@ socket overlaps the four corners at the spacing the four-pip face uses. `METRICS
 `die_gen.py` gives every count its own inset and socket radius, and `_check_clearance` refuses
 to build a face whose sockets would touch.
 
-Measured off the two vanilla PNGs at 2.1.17, and what the generator targets:
+Measured off the two vanilla PNGs at 2.1.17 and our four, all six the same way: the 256 px tile
+of the mipmap strip, pixels at alpha >= 250 only, so the shadow and the feathered edge are out.
 
 | | vanilla | ours, across all four |
 |---|---|---|
 | die within the 256 box | x 28..235, y 24..255 | 12 px inset, 224 px subject |
-| body mean RGB | (165,145,161) and (159,149,129) | (136,131,130) to (171,131,130) |
-| luminance sd | 51.9 and 56.1 | 54.3 to 57.5 |
-| clipped to white | 0.04% | 0.00% |
+| body mean RGB | (151,133,148) and (142,133,115) | R 126–151, G 113–124, B 111–130 |
+| luminance sd | 66.1 and 68.9 | 69.5 to 73.8 |
+| clipped to white | 0.04% and 0.03% | 0.00% |
 | drop shadow | mean alpha 120, RGB (23,21,20) | offset (11,13), blur 7, cap 150 |
+
+Ours run a little darker and a little higher in contrast than vanilla's, and clip nothing.
 
 Four things the first passes got wrong, all of which look like something else:
 

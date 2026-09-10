@@ -44,7 +44,7 @@ Chance that one craft improves the quality, in an assembling machine 3 holding f
 | Legendary to **mythic** | Does not exist | 10% |
 | **Mythic** to **celestial** | Does not exist | 10% |
 
-The help tapers off, and from epic upward the odds are vanilla's. Better quality modules raise every row by the same proportion. Working up from normal to legendary takes about a third less material than in vanilla.
+The help tapers off, and from epic upward the odds are vanilla's. Better quality modules raise every row by the same proportion. Working up from normal to legendary takes about 40% less material than in vanilla.
 
 ## Also
 
