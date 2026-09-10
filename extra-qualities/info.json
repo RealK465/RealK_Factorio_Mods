@@ -8,5 +8,5 @@
   "description": "Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.",
   "dependencies": ["base >= 2.1.0", "quality >= 2.1.0", "space-age >= 2.1.0", "+ upcycler-planner"],
   "quality_required": true,
-  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md"] }
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images"] }
 }
