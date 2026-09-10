@@ -1,0 +1,12 @@
+{
+  "name": "extra-qualities",
+  "version": "0.1.1",
+  "title": "Extra Qualities",
+  "author": "RealK",
+  "factorio_version": "2.0",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/legacy/2.0/extra-qualities",
+  "description": "Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.",
+  "dependencies": ["base >= 2.0.0", "quality >= 2.0.0", "space-age >= 2.0.0", "? upcycler-planner"],
+  "quality_required": true,
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images"] }
+}

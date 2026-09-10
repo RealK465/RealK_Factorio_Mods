@@ -1,0 +1,33 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: ????
+  Changes:
+    - Version 0.1.0, built for Factorio 2.0.
+  Info:
+    - On Factorio 2.0 the new tiers give no locomotive or cargo wagon bonuses, and a
+      quality roll can only ever move up one tier at a time. Both need engine support
+      that only arrived in 2.1.
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: ????
+  Major Features:
+    - Added two quality tiers above legendary: mythic and celestial.
+  Features:
+    - Mythic quality is unlocked on Aquilo, celestial quality after promethium science.
+  Changes:
+    - Epic quality now comes from Fulgora instead of Gleba.
+    - Legendary quality now comes from the first three planets instead of Aquilo.
+  Balancing:
+    - The early quality tiers come quicker than in vanilla, so the longer ladder still
+      fits inside a normal game. Reaching legendary takes about 40% less material.
+      From epic upward the odds are vanilla's.
+    - An assembling machine 3 runs at 4 on mythic and 5 on celestial.
+    - Every quality tier is now about 25% better than the one below it, all the way up.
+      Epic is slightly stronger than in vanilla and uncommon slightly weaker; rare and
+      legendary are unchanged.
+  Graphics:
+    - Redrew every quality icon and every quality technology icon, vanilla's included, so
+      all seven tiers match.
+  Gui:
+    - The quality picker keeps its row of buttons instead of collapsing into a dropdown
+      once there are more than five tiers.
