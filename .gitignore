@@ -80,3 +80,13 @@ desktop.ini
 # The skill's SKILL.md, scripts/ and hand-written meta/ stay tracked.
 /.claude/skills/factorio-testing/typedefs/
 /.claude/skills/factorio-testing/tools/
+
+# Every render output under assets/. `renders/frames/` alone is ~1,500 PNGs per
+# bake, and all of it -- frames, swatches, the object-ID pass, the look-dev
+# contact sheets -- is regenerated from source by the scripts beside it. The
+# SOURCE is qr_layout.py plus qr_anim.py, not the pixels.
+#
+# The deliverable previews are copied into `docs/art/<entity>/previews/`
+# instead, which IS tracked: a before/after sheet and a looping animation
+# belong with the log that explains them, not in a 52 MB scratch tree.
+/assets/*/entity/*/renders/
