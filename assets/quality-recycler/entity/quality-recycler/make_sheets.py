@@ -48,7 +48,7 @@ COLS = 8                    # vanilla is 64 frames at line_length 8
 # mirrored renders, not flipped PNGs -- the light is world-fixed, so flipping
 # the image would carry every highlight to the wrong side.
 DIRS = ("N", "E", "S", "W", "flipped-N", "flipped-E", "flipped-S", "flipped-W")
-ORDER = ("base", "shadow", "anim", "glow")
+ORDER = ("base", "shadow", "anim", "fx", "glow", "lamp")
 
 # What each layer's paint-over must and must not do.
 #   shadow  pure black + alpha already; contrast on it is meaningless
@@ -57,8 +57,10 @@ ORDER = ("base", "shadow", "anim", "glow")
 POST_BY_LAYER = {
     "base": dict(ENTITY_POST),
     "anim": dict(ENTITY_POST),
+    "fx": dict(ENTITY_POST),
     "shadow": None,
     "glow": None,
+    "lamp": None,
 }
 
 
@@ -186,6 +188,26 @@ def main():
             # prototypes/recycler/pictures.lua, exactly as vanilla's does.
             sidecar(out_dir, stem, abox, line_length=COLS)
             lines.append(line_sheet("%s anim" % d, abox, len(frames), img))
+
+        fx_paths = frames_of(frames_dir, d, "fx")
+        if fx_paths:
+            frames = [paint("fx", Image.open(p).convert("RGBA")) for p in fx_paths]
+            fbox = imaging.union_box(frames, CANVAS, alpha_floor=8, pad=2)
+            stem = "quality-recycler-%s-fx" % d
+            img = imaging.pack_sheet(frames, fbox, COLS)
+            img.save(os.path.join(out_dir, stem + ".png"))
+            sidecar(out_dir, stem, fbox, line_length=COLS)
+            lines.append(line_sheet("%s fx" % d, fbox, len(frames), img))
+
+        lamp_paths = frames_of(frames_dir, d, "lamp")
+        if lamp_paths:
+            lit = light_bloom(light_only(
+                Image.open(lamp_paths[0]).convert("RGBA")))
+            lbox = imaging.even_box(imaging.bbox_above(lit, 8), CANVAS, pad=2)
+            stem = "quality-recycler-%s-lamp" % d
+            lit.crop(lbox).save(os.path.join(out_dir, stem + ".png"))
+            sidecar(out_dir, stem, lbox)
+            lines.append(line_static("%s lamp" % d, lbox))
 
         glow_paths = frames_of(frames_dir, d, "glow")
         if glow_paths:

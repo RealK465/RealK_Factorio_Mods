@@ -102,13 +102,24 @@ APEX = 2.25
 # the range in the render, which is where contrast belongs; the paint-over
 # should sharpen what is there, not invent it. Overridable so the sweep that
 # picked them is repeatable.
-KEY = float(os.environ.get("QR_KEY", "6.6"))
-FILL = float(os.environ.get("QR_FILL", "0.95"))
-# 0.12, not 0.15: the olive hull's 10th-percentile luminance sat at 38 against
-# the concept render's 11, and a shadow that never gets dark is sky fill, not
-# palette. Lowering it deepens the crevices in the RENDER, which is where
-# contrast belongs -- the paint-over sharpens what is there, it cannot dig.
-AMBIENT = float(os.environ.get("QR_AMBIENT", "0.12"))
+# **5.4, back down from 6.6, and the reason the hard key stopped being needed
+# is that the flatness it was compensating for was never lighting.** The raw
+# render measured sd 26.5 because BARE was near-white and every edge on the
+# machine wore toward it -- a uniform pale film flattens an image no matter
+# how hard the key is, and a harder key only pushes the film further up. At
+# 6.6 `scoured` measured luminance 196 and `hazard` 208 on a flat swatch, and
+# the maw rollers rendered rgb 241 at saturation 0.03: white plastic. With a
+# dark BARE and the roughness spread below, contrast comes from the palette
+# instead, which is where materials.md says it belongs.
+KEY = float(os.environ.get("QR_KEY", "5.4"))
+FILL = float(os.environ.get("QR_FILL", "1.05"))
+# 0.18. Was 0.12, on the reasoning that a darker sky digs the crevices the
+# paint-over cannot; true, but it was digging against a palette whose lit
+# faces were pale for an unrelated reason, so it bought depth by making the
+# machine murky. With the palette darkened the crevices have somewhere to go
+# on their own, and the brief's "broad soft light rather than harsh point
+# reflections" wants the sky doing more of the work, not less.
+AMBIENT = float(os.environ.get("QR_AMBIENT", "0.18"))
 DECK = 0.12                         # top of the pad, everything stands on it
 
 
@@ -142,24 +153,31 @@ def srgb(hex_str):
 # The base is warmer than the render it has to produce -- grime and the key
 # shift hue about 10 degrees toward yellow-green on the way through, so a base
 # at hue 51 lands near the concept's 43.
-OLIVE_LIT = srgb("#605932")
-OLIVE_DARK = srgb("#211E11")
+OLIVE_LIT = srgb("#79863E")
+OLIVE_DARK = srgb("#2C3116")
 TEMPER_VIOLET = srgb("#61506F")     # render-sampled #5B4F6E, nudged warmer
 TEMPER_BLUE = srgb("#3B5170")
 BRONZE_LIT = srgb("#946844")
 BRONZE_DARK = srgb("#452F22")
 COPPER_LIT = srgb("#BC6A2C")
 COPPER_DARK = srgb("#5E2F13")
-STEEL_LIT = srgb("#948E80")
-STEEL_DARK = srgb("#464137")
+# #837B6B, not #948E80: measured on a flat swatch under the rig, the old value
+# rendered luminance 146 at saturation 0.07 -- a pale neutral, and vanilla has
+# no neutral mass at all. Warmer and a step down, it reads as galvanised steel
+# instead of as light grey card.
+STEEL_LIT = srgb("#8C7A5E")
+STEEL_DARK = srgb("#3E3226")
 # materials.md: vanilla has NO neutral mass -- saturation runs inverse to
 # value, so the darks carry warm oxide rather than grey.
 GUNMETAL_LIT = srgb("#4A3F33")
 GUNMETAL_DARK = srgb("#1B1611")
 RUBBER = srgb("#141517")
-HAZARD = srgb("#DFAE3E")
-CONCRETE_LIT = srgb("#75705F")
-CONCRETE_DARK = srgb("#37342D")
+HAZARD = srgb("#E9BE42")
+# The pad measured luminance 178 on a swatch and 123 on the machine, which put
+# the concrete inside a stop of the olive hull standing on it. A pad is the one
+# surface the eye should never notice; it goes under everything.
+CONCRETE_LIT = srgb("#6B5E45")
+CONCRETE_DARK = srgb("#2E281D")
 
 VIOLET_EMIT = srgb("#8900B2")       # epic quality {137, 0, 178}
 LED_GREEN = srgb("#5CE07A")
@@ -192,6 +210,11 @@ def _emit(bm, name, material=None, cuts=2, bevel=0.008, angle=40.0):
     bpy.context.scene.collection.objects.link(obj)
     if material:
         obj.data.materials.append(material)
+    else:
+        # Blender's default grey is BRIGHTER than anything in this palette, so
+        # a part with no material reads as a white bullseye and looks
+        # deliberate. Two tori shipped that way in the rebuild's first pass.
+        print("[mat] %s has NO MATERIAL" % (PREFIX + name))
     if bevel:
         b = obj.modifiers.new("Bevel", "BEVEL")
         b.width = bevel
@@ -318,7 +341,24 @@ def chevrons(name, x0, x1, z0, z1, y_wall, mat="hazard", count=6, lean=0.62,
 
 _IMG_CACHE = {}
 RUST = (0.14, 0.055, 0.025)
-BARE = srgb("#9E9890")
+# Chipped paint reveals DARK warm steel, not bright metal. At #9E9890 (lum
+# 152) this was the largest single desaturator on the machine. `worn_metal`
+# mixes toward BARE wherever pointiness is high, and most of a 241-object
+# model IS edge -- a 0.076-tile guard bar is nearly all of it. Measured on the
+# N render against the object-ID pass: the bronze guard came out
+# rgb(168,151,155) at saturation 0.10, the drum core at luminance 158, and
+# every part in the machine sat between 0.08 and 0.20 against vanilla's
+# 0.27-0.44. That pale film over every edge is what read as "a strange bright
+# reflective highlight" -- it is not a reflection at all, it is paint chipping
+# to a colour lighter than the paint. Warm and dark, the chip reads as exposed
+# steel and the bevel still catches the key on its own.
+BARE = srgb("#6E6459")
+# Verdigris: the cool blue-green oxide bronze grows in its recesses. The
+# design's second zone is oxidised bronze and the machine had no green in it
+# anywhere -- `bronze` rendered terracotta and `temper` sandstone, so the
+# palette's secondary was competing with copper instead of contrasting it.
+PATINA = srgb("#39685B")
+PATINA_DARK = srgb("#1B332C")
 
 
 def photo_map(slug, kind):
@@ -353,7 +393,7 @@ def _get_mat(name):
 def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
                grime=0.0, noise_scale=9.0, wear=0.5, rust=0.35,
                heat=0.0, heat_from=None, grain=0.0, grain_slug="metal_plate",
-               scratch=0.0):
+               scratch=0.0, patina=0.0):
     """Painted worn metal. `heat` is this entity's own addition: a tempering
     ramp radiating from the rotor, straw -> bronze -> purple -> blue as the
     surface gets closer to it. That is where the violet accent comes from --
@@ -491,6 +531,49 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
         nt.links.new(rust_amt.outputs["Value"], rusted.inputs["Factor"])
         color_out = rusted.outputs["Result"]
 
+    # VERDIGRIS. Bronze grows a cool blue-green oxide, and where it grows is
+    # not random: rain and condensate carry it DOWN and it collects in
+    # recesses, while anything rubbed or handled stays bare metal. So the mask
+    # is the crevice term (low AO) taken together with patchy noise, and the
+    # convex edges are deliberately left out -- the edge-wear term below
+    # scours them back to metal afterwards, which is what makes the patina
+    # read as a film ON bronze rather than as green paint. Two tones, because
+    # a single green is the "do not make it flat green" failure: bright cool
+    # patina on the open surface, near-black oxidation in the deep recesses.
+    if patina > 0:
+        pao = nt.nodes.new("ShaderNodeAmbientOcclusion")
+        pao.inputs["Distance"].default_value = 0.5
+        pao_inv = math_node("SUBTRACT")
+        pao_inv.inputs[0].default_value = 1.0
+        nt.links.new(pao.outputs["AO"], pao_inv.inputs[1])
+        # large slow patches, so the patina reads as chemistry over a whole
+        # panel rather than as speckle
+        pblotch = map_range((0.0, 1.0), fr=(0.40, 0.62))
+        nt.links.new(noise_node(noise_scale * 0.45, detail=3.2).outputs["Fac"],
+                     pblotch.inputs["Value"])
+        # it runs downward: bias the mask by height so the lower half of any
+        # part carries more of it
+        pdrip = map_range((1.0, 0.35), fr=(-0.4, 1.2))
+        nt.links.new(sep.outputs["Z"], pdrip.inputs["Value"])
+        pmix = math_node("MULTIPLY")
+        nt.links.new(pblotch.outputs["Result"], pmix.inputs[0])
+        nt.links.new(pdrip.outputs["Result"], pmix.inputs[1])
+        pseed = math_node("MAXIMUM")
+        nt.links.new(pao_inv.outputs["Value"], pseed.inputs[0])
+        nt.links.new(pmix.outputs["Value"], pseed.inputs[1])
+        # the two oxide tones, selected by depth: deep recesses go near-black
+        ptone = mix_color()
+        ptone.inputs["A"].default_value = (*PATINA, 1.0)
+        ptone.inputs["B"].default_value = (*PATINA_DARK, 1.0)
+        nt.links.new(pao_inv.outputs["Value"], ptone.inputs["Factor"])
+        pamt = math_node("MULTIPLY", patina)
+        nt.links.new(pseed.outputs["Value"], pamt.inputs[0])
+        greened = mix_color()
+        nt.links.new(color_out, greened.inputs["A"])
+        nt.links.new(ptone.outputs["Result"], greened.inputs["B"])
+        nt.links.new(pamt.outputs["Value"], greened.inputs["Factor"])
+        color_out = greened.outputs["Result"]
+
     # heat tempering, radiating from the rotor. Steel runs straw -> bronze ->
     # purple -> blue as it gets hotter, so the ramp is read nearest-first and
     # the hottest band is the one the design picked as the accent.
@@ -517,16 +600,26 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
         # the hot band squeezed into the first fifth, everything but the drum
         # itself came out bronze and the new half rendered orange -- which is
         # the vanilla FOUNDRY's colour, the one hue this palette must not be.
+        # **Violet keeps the first sixth of the ramp, not the first third.**
+        # The brief is explicit that purple is a HOT ACCENT concentrated at the
+        # rotor, and at 0.30/0.54 it owned half the tempered half -- measured
+        # on the N render, `hull-temper` came back rgb(146,129,129), a pink-grey
+        # that is neither bronze nor violet and read as the machine's dominant
+        # colour at 12% of the sprite. The old objection to squeezing it was
+        # that the half then rendered plain orange, which is the vanilla
+        # foundry's hue and the one this palette must not be; the verdigris
+        # above is what answers that, and it answers it with a colour the
+        # design wanted anyway rather than by spreading the accent.
         ramp = nt.nodes.new("ShaderNodeValToRGB")
         ramp.color_ramp.interpolation = "EASE"
         e = ramp.color_ramp.elements
         e[0].position, e[0].color = 0.0, (*TEMPER_VIOLET, 1.0)
         e[1].position, e[1].color = 1.0, (*color_a, 1.0)
-        for p, c in ((0.30, TEMPER_VIOLET), (0.54, TEMPER_BLUE),
-                     (0.80, BRONZE_LIT)):
+        for p, c in ((0.16, TEMPER_VIOLET), (0.34, TEMPER_BLUE),
+                     (0.58, BRONZE_LIT)):
             el = e.new(p)
             el.color = (*c, 1.0)
-        span = map_range((0.0, 1.0), fr=(0.10, 1.60))
+        span = map_range((0.0, 1.0), fr=(0.06, 1.30))
         nt.links.new(wobble.outputs["Value"], span.inputs["Value"])
         nt.links.new(span.outputs["Result"], ramp.inputs["Fac"])
         # only where the surface is not already worn back to bare metal
@@ -541,10 +634,16 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
         color_out = tempered.outputs["Result"]
 
     # per-object hue/value jitter -- the single biggest hand-painted tell
+    # +-30% value per object was too much by a long way and it is the direct
+    # cause of the brief's "some components look like individually generated
+    # objects rather than parts of one coherent industrial machine": two
+    # neighbouring plates cut from the same steel could differ by 1.9x. The
+    # jitter is meant to break the CG tell of one flat colour repeated, not to
+    # repaint each part. +-12% still does that and the machine holds together.
     obj_info = nt.nodes.new("ShaderNodeObjectInfo")
-    hue_map = map_range((0.47, 0.53))
+    hue_map = map_range((0.485, 0.515))
     nt.links.new(obj_info.outputs["Random"], hue_map.inputs["Value"])
-    val_map = map_range((0.70, 1.30))
+    val_map = map_range((0.88, 1.12))
     nt.links.new(obj_info.outputs["Random"], val_map.inputs["Value"])
     jitter = nt.nodes.new("ShaderNodeHueSaturation")
     nt.links.new(hue_map.outputs["Result"], jitter.inputs["Hue"])
@@ -555,7 +654,13 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
     # edge wear: convex edges chip to bare metal, patchy via fine noise
     edge = map_range((0.0, 1.0), fr=(0.53, 0.62))
     nt.links.new(geo.outputs["Pointiness"], edge.inputs["Value"])
-    wear_patch = map_range((0.25, 1.0), fr=(0.35, 0.65))
+    # floor 0.0, not 0.25. With a floor the patch noise could only ever
+    # MODULATE the chipping, never switch it off, so every edge on the machine
+    # carried at least a quarter of the wear colour and the result read as a
+    # uniform film -- the brief's "avoid uniform grunge", arrived at from the
+    # material side. Wear that genuinely stops is what makes the wear that
+    # remains read as placed.
+    wear_patch = map_range((0.0, 1.0), fr=(0.38, 0.66))
     nt.links.new(noise_node(noise_scale * 1.5).outputs["Fac"],
                  wear_patch.inputs["Value"])
     edge_mask = math_node("MULTIPLY")
@@ -599,7 +704,14 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
 
     nt.links.new(color_out, bsdf.inputs["Base Color"])
 
-    met = map_range((metallic, 0.75))
+    # **A chipped edge is slightly barer, not chromed.** This ramp used to run
+    # to 0.75 while the roughness dropped 0.35 at the same mask -- so every
+    # worn edge became near-white BARE at metallic 0.75 and roughness 0.35
+    # lower than the panel it sat on, which is the recipe for chrome, applied
+    # to every bevel on 241 objects at once. That compound was the "mirror
+    # reflections / giant white highlights / chrome-like surfaces" the brief
+    # rules out, and no lighting change could have reached it.
+    met = map_range((metallic, min(0.60, metallic + 0.20)))
     nt.links.new(wear_amt.outputs["Value"], met.inputs["Value"])
     nt.links.new(met.outputs["Result"], bsdf.inputs["Metallic"])
 
@@ -610,9 +722,22 @@ def worn_metal(name, color_a, color_b, metallic, rough_lo, rough_hi,
     rough = math_node("MULTIPLY_ADD")
     rough.use_clamp = True
     nt.links.new(rough_worn.outputs["Result"], rough.inputs[0])
-    rough.inputs[1].default_value = 0.35
+    rough.inputs[1].default_value = 0.12
     nt.links.new(rmap.outputs["Result"], rough.inputs[2])
     nt.links.new(rough.outputs["Value"], bsdf.inputs["Roughness"])
+
+    # Restrained specular, per the brief's reflection philosophy. The default
+    # dielectric level of 0.5 puts a broad white lobe on every rough painted
+    # surface under a sun this size, and a white lobe on a coloured panel is
+    # exactly the "materials merge because their specular response is too
+    # similar" complaint: it is the same colour on every zone. Painted and
+    # oxidised surfaces get less of it; the bare and polished ones keep more,
+    # which is what separates them.
+    try:
+        spec = 0.50 if metallic >= 0.40 else 0.28
+        bsdf.inputs["Specular IOR Level"].default_value = spec
+    except KeyError:
+        pass
 
     if normal_out is not None:
         nt.links.new(normal_out, bsdf.inputs["Normal"])
@@ -700,16 +825,25 @@ ROTOR_AXIS = "Y"
 # middle at 0.640 give the flank a visible curve, and it also puts the end
 # flanges (0.642 and 0.655) proud of the barrel they cap, which is how a real
 # drum is built.
+# **The hottest band is the MIDDLE one, and it was the two flanking ones.**
+# The drum's windings run hottest at its centre and the heat leaves through
+# the bearings at each end, so tempering runs violet at the middle, straw and
+# bronze toward the flanges, bare bronze at the collars. The old table had the
+# violet on both wide flanking zones with a blue one between them -- two large
+# saturated purple areas separated by a teal one, which is neither physical nor
+# localized, and it is most of why the drum read as a stained-glass barrel.
+# Violet is now a single band across the drum's waist: one accent, at the
+# hottest point, exactly where the brief wants it.
 ROTOR_BANDS = [
-    (-0.73, -0.60, 0.575, "bronze"),
-    (-0.60, -0.54, 0.600, "copper"),
-    (-0.54, -0.26, 0.628, "temperv"),
-    (-0.26, -0.20, 0.612, "copper"),
-    (-0.20, 0.14, 0.640, "temperb"),
-    (0.14, 0.20, 0.612, "copper"),
-    (0.20, 0.48, 0.628, "temperv"),
-    (0.48, 0.54, 0.600, "copper"),
-    (0.54, 0.73, 0.575, "bronze"),
+    (-0.73, -0.60, 0.575, "bronze"),    # end collar, out of the heat
+    (-0.60, -0.54, 0.600, "copper"),    # binding ring
+    (-0.54, -0.26, 0.628, "tempers"),   # straw / bronze temper
+    (-0.26, -0.20, 0.612, "copper"),    # binding ring
+    (-0.20, 0.14, 0.640, "temperv"),    # the hot waist -- the violet accent
+    (0.14, 0.20, 0.612, "copper"),      # binding ring
+    (0.20, 0.48, 0.628, "tempers"),     # straw / bronze temper
+    (0.48, 0.54, 0.600, "copper"),      # binding ring
+    (0.54, 0.73, 0.575, "bronze"),      # end collar
 ]
 # The olive hood's axis, at module scope because animate() needs the fan
 # pivot on it and build() needs the barrel there.
@@ -750,10 +884,10 @@ def cone_z(x, y):
 # they belong in the SHADOW pass as well as the animation -- unlike anything
 # that travels, which would leave a frozen blob on the ground.
 MOVING_KINDS = ("rotor-drum", "rotor-band", "rotor-ribs", "rotor-flange",
-                "rotor-hub", "rotor-bolts", "gear-disc", "gear-teeth",
-                "maw-roller", "maw-teeth", "auger-belt", "auger-flight",
-                "fan-hub", "fan-blade")
-FX_KINDS = ("frag",)
+                "rotor-hub", "rotor-bolts", "rotor-cap", "gear-disc",
+                "gear-teeth", "maw-roller", "maw-teeth", "auger-belt",
+                "auger-flight", "fan-hub", "fan-blade", "flap-")
+FX_KINDS = ("frag", "arc")
 COLL_NAMES = ("QR_Base", "QR_Moving", "QR_Fx")
 
 # The uniform cone fit, filled in by fit_cone() and applied by set_direction().
@@ -785,9 +919,32 @@ def build_materials():
         # a card rather than as a panel -- the tell design-language.md calls
         # "flat single colours", arrived at from the other direction. More
         # grime and a rougher floor put the variation back.
-        "olive": worn_metal("olive", OLIVE_LIT, OLIVE_DARK, 0.18, 0.52, 0.80,
-                            grime=0.46, wear=0.62, rust=0.40, grain=0.28,
+        # roughness 0.66-0.90, up from 0.52-0.80, and rust 0.40 -> 0.22.
+        # This is OLD PAINT and the brief puts it at the matte end of the
+        # hierarchy; at 0.52 it shared its specular response with bare steel,
+        # which is one of the two ways the zones were merging. The rust came
+        # down because a maintained machine is not a rusty one -- at 0.40 the
+        # mottling ate the olive and the swatch read dirty grey-green rather
+        # than paint. Large calm areas, dirt in the streaks, chips on the
+        # edges: the "maintained, not abandoned" the brief asks for.
+        # 2026-09-11: rust 0.22 -> 0.10 and grime 0.40 -> 0.26. Measured on a
+        # lit swatch, the old settings rendered (73, 67, 45) at luminance 66 and
+        # hue 48 -- RED-dominant khaki. The vanilla recycler's own olive-green
+        # measures (96, 106, 57) at luminance 101 and is GREEN-dominant by ten
+        # points. Rust is a red mix and grime pulls toward OLIVE_DARK, so
+        # between them they were turning the identity paint into mud on the
+        # machine's largest painted surface.
+        "olive": worn_metal("olive", OLIVE_LIT, OLIVE_DARK, 0.16, 0.66, 0.90,
+                            grime=0.31, wear=0.46, rust=0.12, grain=0.28,
                             grain_slug="rusty_painted_metal", noise_scale=8.0),
+        # 1b. the same paint, lower down and dirtier. Grime pools toward the
+        #     ground on a real machine and the camera reads the resulting
+        #     vertical gradient as light direction; a uniform hull reads flat
+        #     however good the key is.
+        "olived": worn_metal("olived", srgb("#4E5729"), srgb("#1C2010"), 0.16,
+                             0.70, 0.92, grime=0.52, wear=0.34, rust=0.16,
+                             grain=0.30, grain_slug="rusty_painted_metal",
+                             noise_scale=8.0),
         # 2. the new half: bronze tempered violet/blue toward the rotor
         # heat 0.62, not 0.92. The ramp is a function of distance from the
         # rotor and the tempered half is ALL near the rotor, so at 0.92 the
@@ -795,38 +952,69 @@ def build_materials():
         # concept sheet is bronze with the violet concentrated at the drum;
         # 0.62 leaves bronze showing at the extremities, which is what makes
         # the tempering read as a gradient rather than as a paint job.
-        "temper": worn_metal("temper", BRONZE_LIT, BRONZE_DARK, 0.42, 0.30, 0.60,
-                             grime=0.16, wear=0.44, rust=0.20, heat=0.62,
-                             heat_from=ROTOR_XY, grain=0.18, noise_scale=7.0),
-        "bronze": worn_metal("bronze", BRONZE_LIT, BRONZE_DARK, 0.45, 0.28, 0.56,
-                             grime=0.18, wear=0.50, rust=0.24, heat=0.45,
-                             heat_from=ROTOR_XY, grain=0.16, noise_scale=9.0),
-        # 2b. the drum's own bands. The heat ramp is a function of distance
-        #     from the rotor, so on the rotor itself every band would land on
-        #     the same tint -- these carry the tempering colours as their BASE
-        #     instead, which is what makes the drum read banded rather than
-        #     uniformly violet. Straight off the concept sheet's chips:
-        #     purple #9654A3 (hue 290) and blue #517DA7 (hue 209), taken to
-        #     roughly a third toward the metal they are an oxide film on.
-        "temperv": worn_metal("temperv", srgb("#6E4A7C"), srgb("#2C1B33"), 0.40,
-                              0.26, 0.52, grime=0.12, wear=0.46, rust=0.14,
-                              grain=0.14, noise_scale=13.0),
-        # #33506F, not #3F6288. The blue band is the coolest and lightest
-        # thing on a machine whose hero is meant to read COPPER; at the chip
-        # value it out-popped the windings either side of it and the drum came
-        # out as a deck-chair stripe. Taken a third darker it still separates
-        # the two violet bands and stops competing.
-        "temperb": worn_metal("temperb", srgb("#33506F"), srgb("#141F2C"), 0.40,
-                              0.26, 0.52, grime=0.12, wear=0.46, rust=0.14,
-                              grain=0.14, noise_scale=13.0),
+        # Both carry `patina` now, which is what turns the design's "verdigris
+        # bronze" from a label into a colour. Roughness up to 0.54-0.84 and
+        # 0.50-0.80: an oxide film is the roughest thing on the machine after
+        # the paint, and at 0.30 these two were reading as polished sheet.
+        # heat 0.62 -> 0.44 on the hull for the same reason the ramp was
+        # tightened -- the tempered half is ALL near the rotor, so the mix
+        # factor is what decides how much of it goes mauve.
+        "temper": worn_metal("temper", BRONZE_LIT, BRONZE_DARK, 0.38, 0.54, 0.84,
+                             grime=0.20, wear=0.40, rust=0.16, heat=0.32,
+                             heat_from=ROTOR_XY, grain=0.18, noise_scale=7.0,
+                             patina=0.14),
+        "bronze": worn_metal("bronze", BRONZE_LIT, BRONZE_DARK, 0.40, 0.50, 0.80,
+                             grime=0.22, wear=0.44, rust=0.18, heat=0.30,
+                             heat_from=ROTOR_XY, grain=0.16, noise_scale=9.0,
+                             # 0.52 -> 0.10. PATINA IS A GREEN (#39685B), and
+                             # zone 2 stopped being verdigris when it became
+                             # heat-tempered bronze -- but the term stayed. On
+                             # a lit swatch `bronze` rendered (113, 115, 78):
+                             # green-dominant grey, not bronze at all, on the
+                             # rotor well and the seam, which are two of the
+                             # three largest curved surfaces in the sprite.
+                             patina=0.10),
+        # 2b. THE DRUM'S BANDS -- and this is the pair that produced the
+        #     defect the brief opens with. `temperv` #6E4A7C and `temperb`
+        #     #33506F are saturated purple and teal at roughness 0.26 and
+        #     metallic 0.40, laid as wide smooth zones on a 1.26-tile barrel
+        #     with copper ribs crossing them. That is stained glass with gold
+        #     mullions, and it is what "a strange bright reflective-looking
+        #     highlight that reads like an artificial reflection" describes: a
+        #     large, smooth, semi-gloss coloured surface, on the one object
+        #     that owns 40% of the sprite.
+        #
+        #     They are replaced by a real tempering SERIES, not two colours.
+        #     Steel running hot goes straw -> bronze -> violet -> blue, and an
+        #     oxide film is DARK and ROUGH -- it is a few hundred nanometres of
+        #     interference colour over grey metal, not enamel. So both tones
+        #     sit at half the old luminance, roughness triples, and they are
+        #     near enough each other in value that the drum reads as one form
+        #     with heat across it. The violet is still there, still physical,
+        #     and confined to the drum's hot middle, which is exactly the
+        #     brief's "keep the hottest region localized".
+        #
+        #     `patina` is deliberately absent here: verdigris is a slow wet
+        #     oxide and this surface is too hot to grow one. The two zones stay
+        #     legible from each other for that reason.
+        "temperv": worn_metal("temperv", srgb("#4B3A56"), srgb("#1D1622"), 0.34,
+                              0.48, 0.78, grime=0.18, wear=0.34, rust=0.12,
+                              grain=0.22, noise_scale=11.0),
+        "tempers": worn_metal("tempers", srgb("#5C4B33"), srgb("#241C13"), 0.34,
+                              0.48, 0.78, grime=0.18, wear=0.34, rust=0.14,
+                              grain=0.22, noise_scale=11.0),
         # 3. bare / galvanised steel: frame, ducts, catwalk, auger housing
-        "steel": worn_metal("steel", STEEL_LIT, STEEL_DARK, 0.44, 0.34, 0.64,
-                            grime=0.26, wear=0.52, rust=0.34, grain=0.20,
+        # BARE WORN STEEL is the one zone the brief allows to be moderately
+        # reflective, so it keeps the lowest roughness of the structural
+        # materials -- that separation is now doing work, because the paint
+        # above it went to 0.66 and the oxide beside it to 0.50.
+        "steel": worn_metal("steel", STEEL_LIT, STEEL_DARK, 0.40, 0.38, 0.64,
+                            grime=0.28, wear=0.46, rust=0.30, grain=0.20,
                             noise_scale=10.0),
         # 4. dark iron / gunmetal: bin mouths, housings, every recess.
         #    Warm, not grey -- vanilla has no neutral mass.
-        "gunmetal": worn_metal("gunmetal", GUNMETAL_LIT, GUNMETAL_DARK, 0.38,
-                               0.42, 0.74, grime=0.34, wear=0.34, rust=0.44,
+        "gunmetal": worn_metal("gunmetal", GUNMETAL_LIT, GUNMETAL_DARK, 0.34,
+                               0.56, 0.86, grime=0.34, wear=0.30, rust=0.34,
                                noise_scale=11.0),
         # 4b. the shredder throat, and only that. The maw is the olive half's
         #     whole identity and it has to read as a HOLE: the first build lined
@@ -834,29 +1022,56 @@ def build_materials():
         #     thing on the front elevation was the cavity, and it came out as a
         #     grey grille rather than a mouth. Cycles' AO does the rest once the
         #     surface is dark enough to have somewhere to go.
-        "cavity": worn_metal("cavity", srgb("#2A241D"), srgb("#0C0A07"), 0.34,
-                             0.56, 0.86, grime=0.46, wear=0.20, rust=0.30,
+        "cavity": worn_metal("cavity", srgb("#241F19"), srgb("#0A0806"), 0.28,
+                             0.72, 0.95, grime=0.46, wear=0.16, rust=0.26,
                              noise_scale=12.0),
+        # 4c. THE MAW THROAT, darker still. `cavity` renders luminance 46, and
+        #     against it the scoured rollers and their teeth merged into an
+        #     evenly striped band -- the maw read as a LOUVRE VENT rather than
+        #     as teeth. Teeth need something to cut into, so the back wall and
+        #     the jambs go to a near-black that the tooth tips can break.
+        "pitch": worn_metal("pitch", srgb("#14110D"), srgb("#050403"), 0.24,
+                            0.78, 0.96, grime=0.50, wear=0.10, rust=0.18,
+                            noise_scale=12.0),
         # 5. copper: windings, pole faces, the seam collar.
         #    Metallic 0.42, not 0.62: a metal surface has only the dim world to
         #    reflect, so the pole faces rendered near-black at 0.62 and the
         #    hero's one bright material read as grey bars. Tempering is kept
         #    light here for the same reason -- copper that goes violet stops
         #    being copper.
-        "copper": worn_metal("copper", COPPER_LIT, COPPER_DARK, 0.42, 0.20, 0.42,
-                             grime=0.08, wear=0.40, rust=0.12, heat=0.14,
+        # roughness 0.32-0.56, up from 0.20-0.42: the brief puts copper at
+        # "medium-low", one step BELOW bare steel rather than at the polished
+        # end, and at 0.20 the binding rings and ribs were the glossiest thing
+        # on the machine. Copper is meant to be the richest accent, and rich
+        # is not the same as shiny -- what makes it read as copper is the warm
+        # hue holding through both a lit face and a shaded one, which a broad
+        # white specular lobe was washing out.
+        "copper": worn_metal("copper", COPPER_LIT, COPPER_DARK, 0.44, 0.32, 0.56,
+                             grime=0.14, wear=0.34, rust=0.14, heat=0.10,
                              heat_from=ROTOR_XY, noise_scale=14.0),
         # 6. rubber black: cables, hose runs, the auger belt
         "rubber": rubber("rubber"),
-        # the material path, scoured mirror-bright by what passes through it
-        "scoured": worn_metal("scoured", srgb("#A39B8C"), STEEL_DARK, 0.40,
-                              0.14, 0.38, grime=0.16, wear=0.55, rust=0.16,
-                              scratch=0.55, noise_scale=13.0),
-        "concrete": worn_metal("concrete", CONCRETE_LIT, CONCRETE_DARK, 0.05,
-                               0.72, 0.92, grime=0.34, wear=0.22, rust=0.26,
+        # The material path, polished by what passes through it -- and the
+        # single brightest thing in the machine until now. Measured on a flat
+        # swatch under the rig it rendered luminance 196 at saturation 0.07,
+        # and on the model the maw rollers came back rgb 241 at saturation
+        # 0.03: white plastic, on the three parts sitting inside the shredder
+        # mouth. #857C6C at roughness 0.30-0.52 still reads as the one surface
+        # rubbed clean -- "localized higher reflectivity", which only means
+        # anything if it is local. The `scratch` term keeps the directional
+        # polish that makes it a material rather than a value.
+        "scoured": worn_metal("scoured", srgb("#8E7C62"), STEEL_DARK, 0.42,
+                              0.30, 0.52, grime=0.22, wear=0.44, rust=0.16,
+                              scratch=0.50, noise_scale=13.0),
+        "concrete": worn_metal("concrete", CONCRETE_LIT, CONCRETE_DARK, 0.0,
+                               0.82, 0.97, grime=0.36, wear=0.16, rust=0.24,
                                noise_scale=6.0),
-        "hazard": worn_metal("hazard", HAZARD, srgb("#8A6A20"), 0.18, 0.44, 0.70,
-                             grime=0.24, wear=0.72, rust=0.30, noise_scale=16.0),
+        # HAZARD is the brief's one limited yellow, and it rendered luminance
+        # 208 -- brighter than anything else including the hero. Paint
+        # roughness, and the wear pulled back from 0.72: chevrons scoured to
+        # bare metal stop being chevrons.
+        "hazard": worn_metal("hazard", HAZARD, srgb("#7A5C1B"), 0.14, 0.60, 0.88,
+                             grime=0.24, wear=0.52, rust=0.20, noise_scale=16.0),
         "glass": plain("glass", srgb("#B8C4C0"), metallic=0.1, rough=0.18),
         # strength 1.5, not 2.2. The glow gets its own additive layer, so the
         # only job the slot has in the BASE sheet is to look like a lit slot --
@@ -869,7 +1084,12 @@ def build_materials():
         # MAX EMITTED CHANNEL (colour x strength) has to stay near 1.0 or the
         # hue clips out and the lamp goes white. LED_GREEN's top channel is
         # 0.75 linear, so 1.9 landed at 1.4 and the lamp was a white pip.
-        "led": plain("led", (0.02, 0.03, 0.02), emission=LED_GREEN, strength=1.2),
+        # strength 0.65, not 1.2. The lamp is drawn twice -- lit in the base
+        # sheet AND added by its own `always_draw` glow layer -- and at 1.2
+        # the sum clipped to a white dot on the hazard band, which is the
+        # one place a GREEN lamp had to stay green.
+        "led": plain("led", (0.02, 0.03, 0.02), emission=LED_GREEN,
+                     strength=0.45),
         # the concept sheet's amber beacon, on top of the salvaged half. Kept
         # well clear of the foundry's 15 deg and legendary's 35: this is a
         # running lamp, not a quality tier.
@@ -890,8 +1110,8 @@ def build_materials():
     for i, c in enumerate(QUALITY_LIP):
         lit = tuple(0.26 * a + 0.74 * b for a, b in zip(c, GUNMETAL_LIT))
         dark = tuple(v * 0.42 for v in lit)
-        m["lip%d" % i] = worn_metal("lip%d" % i, lit, dark, 0.24, 0.44, 0.72,
-                                    grime=0.30, wear=0.74, rust=0.38,
+        m["lip%d" % i] = worn_metal("lip%d" % i, lit, dark, 0.18, 0.62, 0.88,
+                                    grime=0.30, wear=0.50, rust=0.30,
                                     noise_scale=18.0)
     _MATS.clear()
     _MATS.update(m)

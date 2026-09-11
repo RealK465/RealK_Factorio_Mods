@@ -20,6 +20,7 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import quality_recycler_gen as gen                             # noqa: E402
+import qr_layout                                              # noqa: E402
 
 sys.path.insert(0, gen._skill_scripts())
 from factorio_render import gates, rig                         # noqa: E402
@@ -48,7 +49,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     scene = rig.empty_scene()
-    gen.build(gen.build_materials())
+    qr_layout.build(gen.build_materials())
     gen.set_direction(0)
     rig.camera(scene, gen.CANVAS)
     rig.lights(scene, key=gen.KEY, fill=gen.FILL, ambient=gen.AMBIENT)
