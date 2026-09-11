@@ -54,7 +54,15 @@ param(
   # install is also what makes this script work with the game open; see the header.
   [string] $FactorioPath,
   [int]    $Ticks = 120,
-  [switch] $Keep
+  [switch] $Keep,
+
+  # Extra arguments for the RENDER run only, e.g. '--force-opengl'. Needed
+  # when the session has no Direct3D display output -- Remote Desktop, or a
+  # console launched from a service -- where the D3D11 path dies with
+  # "Failed to enumerate adapter output" and a modal DirectX error dialog that
+  # holds the .lock until it is dismissed. OpenGL does not enumerate DXGI
+  # outputs and renders the same screenshots.
+  [string[]] $ExtraArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +112,12 @@ if ($SpecJson) {
 # --- stage ---------------------------------------------------------------
 $stage = Join-Path $env:TEMP 'factorio-gfx-probe'
 $data = "$stage-data"
+if (Test-Path -LiteralPath (Join-Path $data '.lock')) {
+  $stale = Get-Process factorio -ErrorAction SilentlyContinue
+  if ($stale) {
+    throw "A factorio.exe from a previous run still holds $data\.lock (window: '$($stale[0].MainWindowTitle)'). Stop it first: Get-Process factorio | Stop-Process -Force"
+  }
+}
 foreach ($p in @($stage, $data)) {
   if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force }
   New-Item -ItemType Directory -Path $p | Out-Null
@@ -138,7 +152,8 @@ $json = [pscustomobject]@{ mods = @($mods | ForEach-Object { [pscustomobject]$_ 
 [System.IO.File]::WriteAllText((Join-Path $stage 'mod-list.json'), $json,
   (New-Object System.Text.UTF8Encoding $false))
 
-$ini = "[path]`nread-data=$FactorioPath\data`nwrite-data=$data`n"
+# Windowed, never fullscreen: with the monitor asleep or absent the display index resolves to -1 and a fullscreen window spins forever after "Logitech LED Controller initialized" without ever loading sprites (10 minutes of CPU, measured 2026-09-11). A window on the one display SDL still reports renders fine.
+$ini = "[path]`nread-data=$FactorioPath\data`nwrite-data=$data`n[graphics]`nfull-screen=false`nwindow-size=1600x1000`n"
 [System.IO.File]::WriteAllText((Join-Path $data 'config.ini'), $ini,
   (New-Object System.Text.UTF8Encoding $false))
 
@@ -157,9 +172,9 @@ Write-Host 'Rendering...'
 $old = $env:SteamAppId
 $env:SteamAppId = '427520'
 try {
-  $p = Start-Process -FilePath $exe -Wait -PassThru -NoNewWindow -ArgumentList @(
-    '--config', $cfg, '--mod-directory', $stage,
-    '--benchmark-graphics', $save, '--benchmark-ticks', "$Ticks")
+  $renderArgs = @('--config', $cfg, '--mod-directory', $stage,
+                  '--benchmark-graphics', $save, '--benchmark-ticks', "$Ticks") + $ExtraArgs
+  $p = Start-Process -FilePath $exe -Wait -PassThru -NoNewWindow -ArgumentList $renderArgs
 } finally {
   if ($null -eq $old) { Remove-Item Env:SteamAppId -ErrorAction SilentlyContinue }
   else { $env:SteamAppId = $old }

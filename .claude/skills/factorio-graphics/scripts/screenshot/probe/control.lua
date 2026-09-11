@@ -41,8 +41,8 @@ end
 
 local STEP_GENERATE = 2
 local STEP_BUILD = 10
-local STEP_SHOOT = 20
-local STEP_DONE = 40
+local STEP_SHOOT = 60
+-- the log is written 20 ticks after the last shot; see on_tick
 
 local log_lines = {}
 
@@ -96,6 +96,12 @@ end
 
 local function build(group)
   local surf = surface()
+  -- A crafting machine only WORKS if its recipe is unlocked, and a fresh map
+  -- has researched nothing: a recycler fed processing units sat idle with the
+  -- output arrow drawn and the working-only layers absent, photographed 2026-09-11
+  -- as "working" until a tick sequence showed the rotor never moved. Research
+  -- everything before placing anything.
+  game.forces.player.research_all_technologies()
   clear(group)
   for _, spawn in pairs(group.entities or {}) do
     local ok, entity = pcall(function()
@@ -123,6 +129,27 @@ local function build(group)
       if spawn.recipe and entity.type == "assembling-machine" then
         pcall(function() entity.set_recipe(spawn.recipe) end)
       end
+      -- A crafting machine only shows its WORKING state -- animation frame,
+      -- working_visualisations, additive glow -- with something to craft, and
+      -- a furnace picks its recipe from whatever is inserted. Recycling runs at
+      -- a sixteenth of the original craft time, so use a slow item and plenty
+      -- of it or the machine is idle again before the screenshot tick.
+      if spawn.insert then
+        local ok2, err = pcall(function()
+          return entity.insert { name = spawn.insert, count = spawn.insert_count or 50 }
+        end)
+        if not ok2 then
+          note("insert %s into %s FAILED: %s", spawn.insert, spawn.name, tostring(err))
+        else
+          note("inserted %s x%d into %s", spawn.insert, spawn.insert_count or 50, spawn.name)
+        end
+      end
+      -- `use_mirroring` entities have a second set of art the player reaches
+      -- with the flip key; a spec entity with `mirror = true` photographs it.
+      if spawn.mirror then
+        local ok3, err3 = pcall(function() entity.mirroring = true end)
+        if not ok3 then note("mirror %s FAILED: %s", spawn.name, tostring(err3)) end
+      end
       -- LuaEntity.minable is read-only in 2.1; nothing here needs it anyway,
       -- the run lasts a couple of hundred ticks with no player in it.
       entity.destructible = false
@@ -132,27 +159,51 @@ local function build(group)
   -- Electric machines need real power or they render their idle state. An
   -- electric-energy-interface is the cheapest infinite source that does not
   -- itself appear in shot when placed outside the framing.
+  --
+  -- The source alone is not enough: a big pole SUPPLIES only a 4x4 area, so
+  -- one pole beside the source 24 tiles away powered nothing, and every
+  -- machine this probe photographed before 2026-09-11 reported `no_power`
+  -- while looking plausibly idle. A substation at the group's centre supplies
+  -- 18x18 -- the whole rig -- and a relay big pole halfway out carries the
+  -- wire from the source, whose distance exceeds the substation's own reach.
   if group.power ~= false then
-    local px = (group.center and group.center[1] or 0)
-    local py = (group.center and group.center[2] or 0) - (group.radius or 20) + 2
+    local cx = (group.center and group.center[1] or 0)
+    local cy = (group.center and group.center[2] or 0)
+    local py = cy - (group.radius or 20) + 2
     local src = surf.create_entity {
-      name = "electric-energy-interface", position = { px, py }, force = "player",
+      name = "electric-energy-interface", position = { cx, py }, force = "player",
     }
     if src then
       src.power_production = 5000000000
       src.electric_buffer_size = 5000000000
       src.energy = 5000000000
-      local pole = surf.create_entity {
-        name = "big-electric-pole", position = { px + 2, py }, force = "player",
-      }
-      if pole then pole.destructible = false end
       src.destructible = false
+    end
+    for _, spec_e in pairs({
+        { name = "big-electric-pole", position = { cx + 2, py } },
+        { name = "big-electric-pole", position = { cx, cy - 10 } },
+        { name = "substation", position = { cx, cy } } }) do
+      local pole = surf.create_entity {
+        name = spec_e.name, position = spec_e.position, force = "player",
+      }
+      if pole then pole.destructible = false
+      else note("FAILED to place %s", spec_e.name) end
     end
   end
 end
 
-local function shoot(group)
+local function shoot(group, tick_tag)
   local surf = surface()
+  -- Say what state each machine is actually in when it is photographed, so a
+  -- shot of an idle machine is never mistaken for a shot of a working one.
+  for _, e in pairs(surf.find_entities_filtered {
+      area = area_for(group), type = { "furnace", "assembling-machine" } }) do
+    local name = "?"
+    for k, v in pairs(defines.entity_status) do
+      if v == e.status then name = k end
+    end
+    note("%s at %s,%s: status %s", e.name, e.position.x, e.position.y, name)
+  end
   -- Night is not cosmetic here: draw_as_light and blend_mode "additive" only
   -- resolve in the light pass, so a layer that glows after dark is invisible
   -- at noon and cannot be checked offline at all. A group asking for several
@@ -162,8 +213,8 @@ local function shoot(group)
     for _, dt in pairs(times) do
     for _, alt in pairs(group.alt_mode and { false, true } or { false }) do
       local suffix = (dt ~= 0) and string.format("-d%s", tostring(dt)) or ""
-      local name = string.format("%s-z%s%s%s.png", group.label, tostring(zoom),
-                                 suffix, alt and "-alt" or "")
+      local name = string.format("%s-z%s%s%s%s.png", group.label, tostring(zoom),
+                                 suffix, alt and "-alt" or "", tick_tag or "")
       game.take_screenshot {
         surface = surf,
         position = group.center or { 0, 0 },
@@ -185,16 +236,37 @@ local function shoot(group)
   end
 end
 
+-- A working loop cannot be judged from one frame. A group may carry
+-- `shoot_ticks`, a list of tick offsets AFTER the build tick; each is shot
+-- separately with a `-t<offset>` tag. At animation_speed 2 a 64-frame loop is
+-- 32 ticks, so offsets 4 apart sample it 8 frames apart.
+local function shoot_offsets(group)
+  local list = group.shoot_ticks
+  if list == nil then return { STEP_SHOOT - STEP_BUILD } end
+  if type(list) == "number" then return { list } end
+  return list
+end
+
 script.on_event(defines.events.on_tick, function(event)
   local t = event.tick
   if t == STEP_GENERATE then
     generate()
   elseif t == STEP_BUILD then
     for _, group in pairs(get_spec().groups) do build(group) end
-  elseif t == STEP_SHOOT then
-    for _, group in pairs(get_spec().groups) do shoot(group) end
-    game.set_wait_for_screenshots_to_finish()
-  elseif t == STEP_DONE then
-    helpers.write_file("gfx-probe.log", table.concat(log_lines, "\n") .. "\n", false)
+  elseif t > STEP_BUILD then
+    local last = STEP_SHOOT
+    for _, group in pairs(get_spec().groups) do
+      for _, off in pairs(shoot_offsets(group)) do
+        local at = STEP_BUILD + off
+        if at > last then last = at end
+        if t == at then
+          shoot(group, group.shoot_ticks and string.format("-t%d", off) or nil)
+          game.set_wait_for_screenshots_to_finish()
+        end
+      end
+    end
+    if t == last + 20 then
+      helpers.write_file("gfx-probe.log", table.concat(log_lines, "\n") .. "\n", false)
+    end
   end
 end)

@@ -284,6 +284,19 @@ ports are on its edges. If the ports cannot move, declare neither `pipe_covers`
 nor `pipe_picture` and draw the stub in the sprite; the machine then looks the
 same connected or not, which is a smaller price than floating art.
 
+**The harness photographs WORKING machines only if the spec makes them work, and it
+says so.** `shoot.ps1` takes a JSON spec; per entity, `insert` / `insert_count` puts a slow
+item in a crafting machine (recycling runs at a sixteenth of the craft time), `mirror = true`
+photographs the `use_mirroring` set, and per group `shoot_ticks = [50, 58, ...]` shoots a
+tick sequence tagged `-t<offset>` so a loop can be judged in motion (the benchmark renderer
+produces a new frame only every few ticks; sample eight apart). The probe researches every
+technology, powers each group from a substation at its centre, and logs every machine's
+`status` before each shot — read for `status working`, because a locked recipe, an empty
+input or an out-of-range pole all photograph as a plausible idle machine (measured 2026-09-11:
+every shot before that day was of an unpowered machine). On a machine whose monitor is asleep
+or whose session has no display output, pass `-ExtraArgs '--force-opengl'`; the harness
+already writes windowed mode into its scratch config.
+
 **Photograph every ROTATION, not just north.** A rotation-specific defect is
 invisible to a one-rotation check, and every offline metric in one drill's
 render pipeline passed while all four rotations carried the same visible fault.
