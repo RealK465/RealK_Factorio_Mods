@@ -35,7 +35,7 @@ def _skill_scripts(start=None):
 
 
 sys.path.insert(0, _skill_scripts())
-from factorio_render import imaging                          # noqa: E402
+from factorio_render import imaging, post                    # noqa: E402
 
 
 def trimmed(raw, margin=6):
@@ -64,7 +64,14 @@ def drop_shadow(im, offset=(11, 13), blur=7, cap=150):
 def main():
     raw_dir, graphics = sys.argv[1], sys.argv[2]
     raw = Image.open(os.path.join(raw_dir, "icon-raw.png")).convert("RGBA")
-    subject = trimmed(raw)
+    # The paint-over vanilla gives every sprite, here too: the raw icon
+    # measured luminance mean 49 / sd 29 / saturation 0.31 at 64 px where the
+    # vanilla recycler, EM plant and foundry icons measure 79-100 / 57-64 /
+    # 0.41-0.60. Lit harder in the rig and sharpened here, not one or the
+    # other -- a hotter key alone flattens the crevices the icon reads by.
+    subject = post.paint_over(trimmed(raw), preset="entity", saturation=1.3,
+                              value=1.06, form_amount=0.30, contrast_amount=0.9,
+                              crevice_amount=0.4)
 
     icons = os.path.join(graphics, "icons")
     tech = os.path.join(graphics, "technology")

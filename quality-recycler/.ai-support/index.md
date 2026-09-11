@@ -22,5 +22,10 @@ Read this first. One line per file: what is in it, and when to read it.
   alt-mode so the output arrow shows; the mirrored set; idle; midnight; the zoom 1 overview.
   Read beside the design doc's v3 section. All git-ignored like `prototype.png`; the tracked,
   smaller study sheets are in `docs/art/quality-recycler/previews/`.
+- **`ingame-v4-working.png`, `ingame-v4-mirrored.png`, `ingame-v4-idle.png`,
+  `ingame-v4-night.png`, `ingame-v4-altmode.png`, `ingame-v4-row.png`** — v4 (the 4x4) in
+  the engine, the same rig as the v3 set with a chest on both candidate output tiles, plus the
+  owner's own scenario: a row of abutting machines beside a vanilla recycler and an EM plant.
+  Read beside the design doc's v4 section. Git-ignored like the rest.
 - **`deferred.md`** — open design questions and parked work. Read before the first prototype.
 - **`journal.md`** — dated sessions, newest first. Read to catch up on what happened and why.

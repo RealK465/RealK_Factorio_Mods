@@ -41,7 +41,7 @@ sys.path.insert(0, HERE)
 from factorio_render import imaging, post                   # noqa: E402
 from make_look import POST as ENTITY_POST                   # noqa: E402
 
-CANVAS = (320, 384)
+CANVAS = (384, 448)         # must match quality_recycler_gen.CANVAS
 COLS = 8                    # vanilla is 64 frames at line_length 8
 # Eight, matching the vanilla recycler exactly: recycler-N/E/S/W plus
 # recycler-flipped-N/E/S/W for `use_mirroring`. The flipped set is real

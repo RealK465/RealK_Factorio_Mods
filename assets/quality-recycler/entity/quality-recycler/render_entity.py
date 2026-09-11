@@ -135,16 +135,20 @@ def render_shadow(scene, out_dir):
     bpy.data.objects.remove(catcher, do_unlink=True)
 
 
-VIOLETS = ("violet", "violet2", "violet3")
+# Emission strength of each violet material in the BASE pass. 0.22 leaves a
+# thin ring reading as a dull painted gap; the console screen is a flat patch
+# ten pixels across and at 0.22 it read as a purple sticker on the idle
+# machine, so it drops to dark glass and the glow sheet carries all of it.
+BASE_DIM = {"violet": 0.22, "violet2": 0.22, "violet3": 0.22, "violet4": 0.06}
 
 
-def _dim_violets(strength):
+def _dim_violets(strengths):
     """The base sheet is drawn in every state, so a field ring lit in it makes
     an IDLE machine glow by day. The glow sheet is the working-only layer;
     the base carries the ring as a dull painted gap. Materials with keyframed
     emission get their action detached for the pass and restored after."""
     saved = []
-    for name in VIOLETS:
+    for name, strength in strengths.items():
         mat = bpy.data.materials.get(gen.PREFIX + name)
         if not mat or not mat.node_tree:
             continue
@@ -173,7 +177,7 @@ def render_layer(scene, layer, out_dir, frames, only, restore):
     spec = LAYERS[layer]
     show_only(spec)
     dark = []
-    dimmed = _dim_violets(0.22) if layer == "base" else []
+    dimmed = _dim_violets(BASE_DIM) if layer == "base" else []
     if layer in EMISSION_ONLY:
         for o in bpy.data.objects:
             if o.type == "LIGHT":

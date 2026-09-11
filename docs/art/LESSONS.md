@@ -186,3 +186,59 @@ config renders the same screenshots.
 `find` over the user's profile root walked into the OneDrive folder and Files On-Demand began
 downloading the whole cloud, even with stat-only predicates. Search the repo, the dev installs,
 Downloads and the scratchpad; if a named file is not there, it is missing -- say so.
+
+## The cone bounds height, not reach, and a neighbour is drawn in the reach
+
+Low hardware hanging past the footprint passes every offline gate: the rotation cone only
+limits `max(|x|,|y|) + z`, and at ground level that allows a part almost a tile past the
+tiles. In play the tile past the edge belongs to the next entity, and a cabinet or an apron
+there is drawn on top of it. The Quality Recycler shipped both and the owner's row-of-machines
+screenshot is what found them. Keep ground hardware inside the footprint; the one exception
+is the output side, where the tile is the machine's own drop point.
+
+## An even footprint puts a centred output on a tile boundary
+
+A 4x4's centre is a tile corner, so a `vector_to_place_result` at x 0 sits exactly between
+the two centre tiles past the edge. Vanilla's 2-wide recycler offsets its own to −0.35 for
+that reason. Offset it into one tile, mirror the art with the entity, and move the port with
+it — and check the silhouette guarantee again, because the port's rows move with it.
+
+## Growing a footprint is a scale on the root, and the cone chooses the factor
+
+A layout written in one footprint's units survives a larger box as one uniform scale applied
+where the cone fit already is, so every literal and every keyed animation offset grows
+together. The factor is not the tile ratio: 4/3 put the Quality Recycler's cowl rim past the
+4x4's APEX, 1.2 landed under it with a margin at ground level — which is exactly the room the
+hardware that used to hang past the tiles needed.
+
+## A silhouette hole only counts when the ground shows through it
+
+Raggedness is bought with holes, and a hole is background alpha inside the outline. A rail, a
+ladder or a platform on legs adds nothing if the machine's own pad lies behind the gap: the
+Quality Recycler's 4x4 pad reached under its apron, its walkway and its coolant step and every
+one of those gaps looked onto concrete — ragged fell from 1.0–1.07 to 0.87–0.91 with more
+open-frame parts on the model, not fewer. Stop the pad short of anything that stands on legs.
+
+## A lit strip at 0.22 in the base sheet is a sticker if it is a patch
+
+The 0.22 base-pass dim that leaves a thin field ring reading as a dull painted gap makes a
+ten-pixel screen read as a purple sticker on an idle machine. Dim per material: rings can
+keep 0.22, flat patches want dark glass (0.06) with the glow sheet carrying all of the light.
+
+## A tall output port reads as displaced in the two rotations where its height is sideways
+
+On a rotatable machine the output end faces the camera in one rotation, faces away in one,
+and is a side in two. In those two, every part's height projects up-screen — perpendicular to
+the output axis — so a hood over the mouth draws its mass north of the ground position the
+arrow marks, and a player reads the port as misplaced although the mouth is exactly on the
+arrow. Measured on the Quality Recycler's 4x4: a 1.19-tile riser and hood put the port's
+visual centre 0.75 tiles from the arrow in east. Keep the output end low and put a port's
+height behind the mouth; vanilla's recycler ejects from its low end for this reason.
+
+## A flat machine's icon gets squarer as the camera goes UP, not down
+
+The icons reference says lower the elevation to make a silhouette taller, and it is right for
+a cube. A 4x4 that is 1.2 tiles high on a 5.4-tile corner-on footprint projects a height of
+5.4 sin(e) + 1.2 cos(e): at 33 degrees it trimmed to 62x46, at 52 to 62x56 in the 64 px box.
+Measure the vanilla icons the machine will sit beside (60x63, 61–76% opaque, luminance 79–100,
+sd 57–64) and pick the elevation from the machine's own proportions.
