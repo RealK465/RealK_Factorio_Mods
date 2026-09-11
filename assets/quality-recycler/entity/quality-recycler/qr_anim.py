@@ -1,31 +1,35 @@
-"""The eight working systems and the designed idle.
+"""v3: the working loop, ejection included.
 
-Every loop closes EXACTLY on `frames`, because a loop that does not close is
-the animation equivalent of a seam: the sprite jumps on the wrap, once a
-second, forever. Every rotating part therefore turns a whole number of its own
-symmetry steps, and the frame that would follow the last one is the first.
+Every loop closes EXACTLY on `frames` -- a loop that does not close is the
+animation equivalent of a seam, and the sprite jumps on the wrap once a second
+forever. Rotating parts turn a whole number of their own symmetry steps.
 
-**Speed is checked twice.** The engine scales a crafting machine's animation by
-its crafting speed unless `constant_speed` is set, and this machine runs at 1.0
-against the vanilla recycler's 0.5 -- so the prototype uses `animation_speed =
-2` where the recycler uses 4, and the two read at the same tempo standing side
-by side. Per-frame rotation is then kept well under half the symmetry step, so
-nothing wagon-wheels backwards:
+The engine scales a crafting machine's animation by its crafting speed unless
+`constant_speed` is set, and this machine runs at 1.0 against the vanilla
+recycler's 0.5, so the prototype uses `animation_speed = 2`. Per-frame
+rotation stays well under half the symmetry step:
 
-    rotor    14 poles,  2 pitches/loop ->  0.80 deg/frame  (limit 12.9)
-    gear     20 teeth,  5 pitches/loop ->  1.41            (limit  9.0)
-    rollers   9 teeth,  4 pitches/loop ->  2.50            (limit 20.0)
-    fan       5 blades, 6 pitches/loop ->  6.75            (limit 36.0)
+    rotor    12 poles / 6 cap slots, 60 deg per loop -> 0.94 deg/frame
+    rollers   9 teeth,  4 pitches/loop               -> 2.50
 
-The gear's 5 against the rotor's 2 and the fan's 6 are chosen so no two systems
-share a period: three parts turning in lockstep read as one mechanism, which is
-the opposite of "a machine with several subsystems".
+## The ejection cycle, one batch per loop
 
-**Idle** is frame 0 with the emissives off: the rotor parked with a pole at top
-dead centre, the rollers shut, the ram home, no chip in flight. The anim sheet
-is a layer of `animation`, so the engine simply stops advancing it; the glow and
-fx sheets are `working_visualisations` and vanish, and the green status lamp --
-which never animates -- is what says IDLE at a glance.
+    f0        chips at rest at the trough's south end; doors shut; ram home
+    f2-f26    the ram pushes north, slowly -- effortful -- chips ride ahead
+    f8-f16    the scanner over the trough lights as the batch passes under
+    f20-f26   each chip reaches the trough's end and DROPS into the throat,
+              seen from above; the ejector lamp on the throat's rim lights
+    f22-f28   the doors part
+    f27-f33   the batch is inside the hopper (hidden)
+    f34-f42   chips drop out of the mouth, over the sill, off the tile
+    f30-f42   the ram returns, quickly
+    f42-f48   the doors close
+    f46-f54   the rotor throws the next batch down the discharge chute into
+              the trough; they settle by f56 and sit there until f64 = f0
+
+Idle is frame 0: doors shut, ram home, cap parked with a slot at top dead
+centre, no chip anywhere (the chips are a working_visualisation and simply do
+not draw), no violet. Only the green status lamp.
 """
 import math
 
@@ -33,15 +37,13 @@ import bpy
 
 import quality_recycler_gen as gen
 import qr_layout as L
-import qr_rebuild as rb
 
 PREFIX = gen.PREFIX
 TAU = 2 * math.pi
 
 
 def _mat_key(name, socket, pairs):
-    """Keyframe one material socket. Emission lives on the material, so this is
-    how a glow pulses without any geometry moving."""
+    """Keyframe one material socket: emission pulses without geometry moving."""
     mat = bpy.data.materials.get(PREFIX + name)
     if not mat:
         print("[anim] no material %s" % name)
@@ -56,28 +58,39 @@ def _mat_key(name, socket, pairs):
         sock.keyframe_insert("default_value", frame=f)
 
 
-def animate(frames=64):
-    rotor_pitch = TAU / 14.0
-    gear_pitch = TAU / 20.0
-    roller_pitch = TAU / 9.0
-    fan_pitch = TAU / 5.0
+def _smooth(t):
+    """Ease in and out -- a hydraulic stroke, not a linear slide."""
+    return 0.5 - 0.5 * math.cos(math.pi * min(max(t, 0.0), 1.0))
 
-    # 1. THE HERO: the eddy rotor
+
+def ram_offset(f, frames=64):
+    """The pusher's y offset at frame f: out slowly over f2..f26, hold, back
+    quickly over f30..f42. Shared with the chips so they ride the head."""
+    if f < 2:
+        return 0.0
+    if f <= 26:
+        return L.RAM_STROKE * _smooth((f - 2) / 24.0)
+    if f <= 30:
+        return L.RAM_STROKE
+    if f <= 42:
+        return L.RAM_STROKE * (1.0 - _smooth((f - 30) / 12.0))
+    return 0.0
+
+
+def animate(frames=64):
+    rotor_pitch = TAU / L.POLES
+    roller_pitch = TAU / 9.0
+
+    # 1. THE HERO: the magnet ring, the copper retaining ring, the slotted cap
     piv = gen._pivot("piv-rotor", (L.ROTOR[0], L.ROTOR[1], L.ROTOR_Z))
-    gen._attach(piv, ("rotor-drum", "rotor-band", "rotor-ribs", "rotor-flange",
-                      "rotor-hub", "rotor-bolts", "rotor-cap"))
+    gen._attach(piv, ("rotor-poles-a", "rotor-poles-b", "rotor-ring",
+                      "rotor-cap-rim", "rotor-cap-outer", "rotor-cap-inner",
+                      "rotor-cap-groove", "rotor-cap-bolts")
+                + tuple("rotor-cap-web%d" % i for i in range(L.CAP_SLOTS)))
     gen._key(piv, "rotation_euler", [(0, 0.0), (frames, 2 * rotor_pitch)],
              index=2)
 
-    # 2. the drive wheel, counter to the rotor: the two halves are geared, and
-    #    that is the design's one mechanical statement about the seam
-    piv = gen._pivot("piv-gear", (L.GEAR[0], L.GEAR[1], 0.60))
-    gen._attach(piv, ("gear-disc", "gear-teeth"))
-    gen._key(piv, "rotation_euler", [(0, 0.0), (frames, -5 * gear_pitch)],
-             index=2)
-
-    # 3. the shredder rollers, counter-rotating. A shredder whose rollers all
-    #    turned the same way would feed material back out of its own mouth.
+    # 2. the shredder rollers, counter-rotating
     for i, z in enumerate(L.MAW_ROLLER_Z):
         piv = gen._pivot("piv-maw%d" % i,
                          (0.5 * (L.MAW[0] + L.MAW[1]), L.MAW_Y, z))
@@ -85,14 +98,7 @@ def animate(frames=64):
         turns = 4 * roller_pitch * (1 if i % 2 == 0 else -1)
         gen._key(piv, "rotation_euler", [(0, 0.0), (frames, turns)], index=0)
 
-    # 4. the cooling fan
-    piv = gen._pivot("piv-fan", (-0.80, -0.24, 1.13))
-    gen._attach(piv, ("fan-hub", "fan-blade"))
-    gen._key(piv, "rotation_euler", [(0, 0.0), (frames, 6 * fan_pitch)],
-             index=2)
-
-    # 5. the feeder ram: one stroke a loop, quick in and slow out. Keyed on the
-    #    objects rather than on a pivot because it travels rather than turns.
+    # 3. the feeder ram on the apron: one stroke, quick in and slow out
     stroke, q = 0.30, frames // 4
     for name in ("flap-ram", "flap-ram-head", "flap-ram-rod"):
         obj = bpy.data.objects.get(PREFIX + name)
@@ -102,53 +108,107 @@ def animate(frames=64):
                  [(0, 0.0), (q, stroke), (q + 2, stroke), (frames, 0.0)],
                  index=1, interp="BEZIER")
 
-    # 6. the fragments: one per quarter loop, on a ballistic arc from the
-    #    rotor's south rim into the single output chute. CONSTANT-interpolated
-    #    scale keys switch each chip on and off, so it exists only in flight --
-    #    and they live in QR_Fx, which is excluded from the shadow pass,
-    #    because a baked shadow of something in flight lands displaced from the
-    #    machine and then never moves.
-    launch = (L.ROTOR[0] - 0.08, L.ROTOR[1] - L.R_DISC + 0.04, 0.80)
-    land = (1.09, -1.55, 0.30)
-    flight = frames // 4 - 2
-    for i in range(4):
+    # 4. THE EJECTOR RAM, keyed every frame so the ease is exact
+    for name in ("ram-head", "ram-rod"):
+        obj = bpy.data.objects.get(PREFIX + name)
+        if obj is None:
+            print("[anim] missing %s" % name)
+            continue
+        gen._key(obj, "location",
+                 [(f, ram_offset(f, frames)) for f in range(frames + 1)],
+                 index=1, interp="LINEAR")
+
+    # 5. the doors part and close
+    travel = L.MOUTH_W + 0.01
+    for name, sgn in (("door-l", -1.0), ("door-r", 1.0)):
+        obj = bpy.data.objects.get(PREFIX + name)
+        if obj is None:
+            print("[anim] missing %s" % name)
+            continue
+        gen._key(obj, "location",
+                 [(0, 0.0), (22, 0.0), (28, sgn * travel), (42, sgn * travel),
+                  (48, 0.0), (frames, 0.0)],
+                 index=0, interp="BEZIER")
+
+    # 6. THE CHIPS. Three, keyed per frame through the whole cycle. They are
+    #    in QR_Fx (a working_visualisation) and excluded from the shadow pass.
+    rest = [(-0.36, 0.50), (-0.22, 0.56), (-0.29, 0.66)]      # x, y at rest
+    z_rest = L.TROUGH_Z + 0.045
+    trough_end = L.TROUGH_Y[1] + 0.02
+    throat_floor = 0.42 + 0.045
+    py1 = L.PORT_Y[1]
+    notch = (L.ROTOR[0] - L.R_STATOR_IN + 0.06, L.ROTOR[1], 0.92)
+    mouth_x = (-0.13, 0.0, 0.13)
+    for i in range(3):
         obj = bpy.data.objects.get(PREFIX + "frag%d" % i)
         if obj is None:
             continue
-        start = i * (frames // 4)
-        for step in range(flight + 1):
-            t = step / flight
-            obj.location = (launch[0] + (land[0] - launch[0]) * t,
-                            launch[1] + (land[1] - launch[1]) * t,
-                            launch[2] + (land[2] - launch[2]) * t
-                            + 0.34 * math.sin(math.pi * t))
-            obj.keyframe_insert("location", frame=(start + step) % frames)
-        for idx in (0, 1, 2):
-            gen._key(obj, "scale",
-                     [(0, 0.0), (start, 0.0), (start + 1, 1.0),
-                      (start + flight, 1.0), (start + flight + 1, 0.0)],
-                     index=idx, interp="CONSTANT")
+        rx, ry = rest[i]
+        dropped_at = None
+        for f in range(frames + 1):
+            vis = 1.0
+            if f <= 26:                                   # riding the ram
+                y = ry + ram_offset(f, frames)
+                z = z_rest
+                if y > trough_end:                        # ...and dropping
+                    if dropped_at is None:
+                        dropped_at = f
+                    z = max(throat_floor,
+                            z_rest - 0.03 * (f - dropped_at + 1) ** 2)
+                pos = (rx, y, z)
+            elif f <= 33:                                 # inside the hopper
+                pos = (rx, ry + L.RAM_STROKE, throat_floor)
+                vis = 0.0
+            elif f <= 42:                                 # out of the mouth
+                t = (f - 34) / 8.0
+                pos = (mouth_x[i], py1 + 0.02 + 0.30 * t,
+                       0.30 - 0.32 * t * t)
+                if f == 42:
+                    vis = 0.0
+            elif f < 46:
+                pos = (mouth_x[i], py1 + 0.34, -0.05)
+                vis = 0.0
+            elif f <= 54:                                 # down the chute
+                t = (f - 46) / 8.0
+                pos = (notch[0] + (rx - notch[0]) * t,
+                       notch[1] + (ry - notch[1]) * t,
+                       notch[2] + (z_rest - notch[2]) * t + 0.05 * math.sin(math.pi * t))
+            else:                                         # settled
+                pos = (rx, ry, z_rest)
+            obj.location = pos
+            obj.keyframe_insert("location", frame=f)
+            obj.scale = (vis, vis, vis)
+            obj.keyframe_insert("scale", frame=f)
+    _constant_scales()
 
-    # 7. the field glow, phase-locked to the rotor: two beats a loop. Peak 2.1,
-    #    because Standard clips hard and a violet past that turns white and
-    #    takes its hue with it.
+    # 7. the field ring and the discharge edge share `violet`: two beats a
+    #    loop, phase-locked to the rotor. Peak 2.1, because Standard clips
+    #    hard and a violet past that turns white and takes its hue with it.
     _mat_key("violet", "Emission Strength",
              [(0, 2.10), (frames // 4, 1.25), (frames // 2, 2.10),
               (3 * frames // 4, 1.25), (frames, 2.10)])
 
-    # 8. the arcs across the rotor contacts: irregular on purpose. A regular
-    #    flicker reads as a blinking lamp, and Fulgora's arcs are the opposite
-    #    of periodic. The pattern is fixed rather than random so the render is
-    #    reproducible, and it closes on `frames` like everything else.
-    pattern = [(0, 3), (7, 2), (11, 5), (21, 2), (26, 4), (33, 3), (39, 6),
-               (48, 2), (53, 4), (59, 3)]
-    for i in range(4):
+    # 8. the scanner lights as the batch passes under it (f8..f16)
+    _mat_key("violet2", "Emission Strength",
+             [(0, 0.35), (6, 0.35), (10, 2.0), (14, 2.0), (18, 0.35),
+              (frames, 0.35)])
+
+    # 9. the ejector lamp on the throat rim pulses as the batch drops in and
+    #    leaves (f20..f40)
+    _mat_key("violet3", "Emission Strength",
+             [(0, 0.30), (18, 0.30), (22, 2.0), (38, 2.0), (42, 0.30),
+              (frames, 0.30)])
+
+    # 10. two arcs across the field gap: irregular on purpose, fixed so the
+    #     render is reproducible, closing on `frames` like everything else
+    pattern = [(3, 3), (11, 2), (21, 4), (33, 2), (39, 5), (53, 3)]
+    for i in range(2):
         obj = bpy.data.objects.get(PREFIX + "arc%d" % i)
         if obj is None:
             continue
         keys = [(0, 0.0)]
         for j, (at, dur) in enumerate(pattern):
-            if j % 4 != i:
+            if j % 2 != i:
                 continue
             a = at % frames
             keys += [(a, 1.0), (min(a + dur, frames - 1), 1.0),
@@ -157,45 +217,34 @@ def animate(frames=64):
         for idx in (0, 1, 2):
             gen._key(obj, "scale", keys, index=idx, interp="CONSTANT")
 
-    # 9. THE GRADING SCAN: a bar crossing the window twice a loop, each lens
-    #    lighting as the bar reaches it. This is the one thing the entity does
-    #    that the vanilla recycler does not, and it is the only place the
-    #    quality colours are allowed to move.
-    scan = bpy.data.objects.get(PREFIX + "scan")
-    travel = 0.86
-    if scan is not None:
-        half = frames // 2
-        gen._key(scan, "location",
-                 [(0, 0.0), (half - 1, travel), (half, 0.0),
-                  (frames - 1, travel), (frames, 0.0)],
-                 index=0, interp="LINEAR")
-        # SCALE 0 AT FRAME 0, and this is not cosmetic. `scan` lives in
-        # QR_Base, so the static base sheet is rendered with it at frame 0 --
-        # which put a violet bar permanently at the left end of the grading
-        # window while the glow sheet swept a second one across it. Two violet
-        # marks, one of them frozen, on the feature whose whole job is to look
-        # like a scan. Keying it off at frame 0 removes it from the base sheet
-        # and makes "idle = not scanning" true as well.
-        for idx in (0, 1, 2):
-            gen._key(scan, "scale",
-                     [(0, 0.0), (1, 1.0), (half - 1, 1.0), (half, 0.0),
-                      (half + 1, 1.0), (frames - 1, 1.0), (frames, 0.0)],
-                     index=idx, interp="CONSTANT")
-    for i in range(5):
-        # the bar starts at x 0.20 and lens i sits at 0.26 + 0.22 i, so the bar
-        # reaches it at (0.06 + 0.22 i) / travel of each sweep
-        at = (0.06 + 0.22 * i) / travel
-        # 0.80 at the peak, not 1.70. The base sheet already carries each
-        # lens's true colour as a lit dielectric, and the glow sheet is ADDED
-        # over it -- at 1.70 the sum clipped and the row of five quality
-        # colours rendered as five white dots, which is the one feature on this
-        # machine whose entire job is to be five different colours.
-        pairs = {0: 0.10 * (rb.LENS_STRENGTH[i] if rb.LENS_STRENGTH else 1.0),
-             frames: 0.10 * (rb.LENS_STRENGTH[i] if rb.LENS_STRENGTH else 1.0)}
-        for sweep in range(2):
-            c = int((sweep + at) * frames / 2.0) % frames
-            peak = 0.42 * rb.LENS_STRENGTH[i] if rb.LENS_STRENGTH else 0.80
-            for f, v in ((max(c - 3, 1), 0.12 * peak), (c, peak),
-                         (min(c + 3, frames - 1), 0.12 * peak)):
-                pairs[f] = max(pairs.get(f, 0.0), v)
-        _mat_key("q%d" % i, "Emission Strength", sorted(pairs.items()))
+
+def _fcurves(obj):
+    """Blender 4.4+ slotted actions and the older flat ones alike."""
+    if obj.animation_data is None or obj.animation_data.action is None:
+        return []
+    act = obj.animation_data.action
+    if hasattr(act, "fcurves"):
+        return list(act.fcurves)
+    try:
+        slot = obj.animation_data.action_slot
+        for layer in act.layers:
+            for strip in layer.strips:
+                return list(strip.channelbag(slot).fcurves)
+    except Exception:
+        pass
+    return []
+
+
+def _constant_scales():
+    """The chips' visibility is a switch, not a fade: hold scale keys."""
+    for i in range(3):
+        obj = bpy.data.objects.get(PREFIX + "frag%d" % i)
+        if obj is None:
+            continue
+        for fc in _fcurves(obj):
+            if fc.data_path == "scale":
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "CONSTANT"
+            elif fc.data_path == "location":
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "LINEAR"

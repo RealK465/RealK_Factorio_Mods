@@ -12,6 +12,12 @@ Blender scene is `assets/quality-recycler/entity/quality-recycler/`, and the rep
 sheet is `prototype.png` beside this file. Three things in the sections below were changed by
 building them; each is marked **[built]** and carries the measurement that forced it.
 
+**Rebuilt twice since.** The 2026-09-11 rebuild (marked **[rebuilt 2026-09-11]**) put the
+rotor on the Z axis; the same day's second session (**v3**, the last section of this file)
+rebuilt the machine around the engine's real output position, redesigned the rotor as sealed
+magnetic hardware and added a composite panel family. Where an earlier section and the v3
+section disagree, v3 is current.
+
 ## Function & constraints
 
 Shreds items back into their components like the vanilla recycler, but grades what comes out —
@@ -721,3 +727,156 @@ from a 64-frame overlay of only the parts that move. Numbers per direction are i
   entity render exists.
 - **Sounds.** Not considered. The vanilla recycler has an elaborate working sound with
   frame-synced jaw and trash variations that would be worth studying rather than reusing blindly.
+
+## v3 — the ejection pass (2026-09-11, second session)
+
+**[rebuilt 2026-09-11, v3]** The v2 build above was photographed in the engine and the owner's
+brief on it was: nothing ejects, it is not futuristic yet, and it is busy without being rich.
+Each section below that v3 changes is marked; the reasoning for every change is here, the
+measurements in `docs/art/quality-recycler/LOG.md`. v2 is commit 57acdf1, with its later
+generator state in `assets/quality-recycler/entity/quality-recycler/versions/*-v2.py`.
+
+### Where the output actually is
+
+`vector_to_place_result = {0, -1.8}` on the prototype is a **direct-output position**, the
+same field a mining drill uses for its drop point: the tile past the machine's back edge,
+centred. The yellow alt-mode arrow leaves the footprint there, and the results appear there.
+v2's art had the output chute on the south-east and the arrow pointing out of the rotor
+housing. **v3 is laid out from that point backwards.** Blender's +y is north, so the port is
+at (0, +1.5) in the model. Nothing about the prototype value changed; the art agrees with it
+now.
+
+### The route, and why it is a ram
+
+Intake stays on the south wall (the maw), which is the side opposite the output. From there:
+three shredder rollers → a flanged transfer duct east across the seam into the rotor well →
+sorting at the rotor → a **discharge notch cut through the cowl's west side**, down a dark
+chute → a **collection trough running due north** along x −0.46..−0.10 at z 0.62..0.92 → a
+**hydraulic pusher ram** whose head travels 0.72 tiles north and takes the chips with it →
+off the trough's end into the port hood's **open throat** → out of the mouth on the north edge
+as two doors part → over a sill painted with hazard chevrons → onto the next tile.
+
+**A ram, not a flap, and the reason is the camera.** The view direction is (0, +y, −z), so
+the one motion this camera cannot see is a slope descending away from it — which is exactly
+what a top-hinged flap dropping out of a north-facing mouth would be: invisible in north, a
+line in east and west. A stroke along y is screen-vertical in north and south and
+screen-horizontal in east and west: visible in all four. The brief's other options (a shutter,
+a vibrating tray, a transfer arm) were weighed the same way; a Z-axis arm would also read in
+all four, but a straight ram along a straight trough is the simpler, stronger shape at
+gameplay zoom, and it lets the chips ride ahead of a single bright head.
+
+**The trough is raised** (z 0.62..0.92) because in east the rotor stands between it and the
+camera; at deck height it vanished behind the cowl, raised its top 0.36 tiles clear it.
+
+**The throat is what makes the port read from behind.** In north the mouth faces away and the
+hopper is behind the rotor. The hood's west half is left open — a dark rectangular well that
+the chips visibly drop into off the trough's end, rimmed in violet by the ejector lamp — and
+up-facing surfaces are the ones every rotation sees. The riser (the hopper's tall back, to
+z 0.99) carries the painted grade squares on its top for the same reason.
+
+**The sill owns the sprite's max-y extreme on purpose.** `audit()` hands an extreme's whole
+row band to every part within 0.06 of it, so a small low plate (0.44 × 0.15 × 0.06) standing
+0.12 clear of everything keeps that band tiny, and the apron's rows never share it in east or
+west. The apron lost its rails and moved 0.06 west for the same reason. In south a chest on
+the output tile draws over the sill; the throat and the doors carry the reading there.
+
+### The rotor, second redesign — sealed magnetic hardware
+
+**[rebuilt v3]** v2's rotor was fourteen tapered copper poles radiating from a hub in the
+open, and in the engine it read as a fan. v3's is, from the outside in: an armoured composite
+**cowl** (four arcs, R 0.50..0.72) with four **windows** onto twelve **copper winding
+bundles**; a thin **violet field gap** (R 0.478..0.498); a composite **end-cap** turning with
+the rotor — a solid outer and inner annulus with **six short curved vent slots** between them,
+a bolt circle, a polished rim — and under it twelve **blocky magnet segments** alternating
+gunmetal and worn bright steel in a copper retaining ring; a polished spindle through the
+middle with a copper collar. Two arcs flicker across the field gap.
+
+Three things were tried and rejected on the way, each by rendering: **polished segments**
+(a metal inside a bore has only the bore to reflect and came out as a dark annulus; worn
+steel at metallic 0.42 reads bright); **coils at the well floor** (4 px through the windows —
+at 45° a window 0.22 wide shows nothing 0.2 tiles below it; they sit 0.055 under the rim
+now); and **six radial slots in the cap** (a spoked wheel again; concentric slots are the
+vocabulary of a ventilated motor end-shield and stopped the reading at once).
+
+The rotor turns 60° per loop, which is two pole pitches and one slot pitch, so the twelve
+poles and the six slots close on the same frame.
+
+### Material zones, revised
+
+Zone 2 (the tempered bronze) is now the new half's *structure* — the plinth, the hopper body,
+the trough base, the coolant tank — and two new zones sit on top of it:
+
+7. **Composite, bright** — `#B6B5AB` lit, satin (roughness 0.34–0.54, metallic 0.10), cool
+   bone. On the rotor cap, the cowl, the port riser and hood only: the two hero zones.
+8. **Composite, dark** — `#7E8380`, the same family a step darker, on the trough fairing, the
+   port pockets, the feed collar, the armour plates and the power cabinet, each with a dark
+   seam groove.
+
+Both are cool against the warm olive and copper, which tells the two-technologies contrast
+through temperature as well as hue. The first v3 pass put the bright composite on everything
+new and measured mean luminance 87–98 against vanilla's 63–67 — white plastic; pulled back to
+the hero zones, the pale cowl is the brightest large form, which is the hierarchy the design
+wants. `polished` (metallic 0.55) is confined to small machined parts: the spindle, the ram
+cylinder, the cowl clamps and rim, the doors' frame.
+
+**The five quality colours are paint, not light.** v2's five lit lenses read as a row of
+indicator lights in the engine. v3 paints five matte squares — each grade mixed 45% toward a
+neutral, chipped at the edges — on a dark plate on the riser's top face, and the scan window
+is gone. Colour may name a grade as paint; light never claims one. Violet is the only light
+and it is on the route only: the field gap, the discharge edge, the scanner over the trough,
+the throat rim. The green status lamp stays.
+
+### Cut, moved, added
+
+- **Cut:** the drive gear in the slot, the cooling fan, the louvre bank, the gauge pods, the
+  capacitor bank and busbar, the lifting gantry, the north tie bracket, the scrap chute and
+  the two deck strips. Fewer, larger forms: 194 objects and 147 kinds against v2's 205.
+- **Moved:** the exhaust stack onto the olive crown where the fan was (the old machine had a
+  chimney; the retrofit kept it); the status lamp stays on the cap.
+- **Added:** the feed collar framing the maw in dark composite with rivet rows; armour plates
+  on the west skirt and the north wall; a power cabinet with two copper insulators hanging
+  past the west edge (the sprite's west extreme, replacing the scrap chute — a second chute
+  confused the route); a coolant tank on Z in the north-west with two thin grey hoses to the
+  cowl, ferruled; two power cables from the deck's junction box up onto the cowl and two more
+  across the seam into a junction box on the old hull — the new half plugging into the old.
+
+### State & animation, revised
+
+| # | Element | Per loop | Layer |
+|---|---|---|---|
+| 1 | magnet ring, retaining ring and vented cap, 60° | 2 pole pitches / 1 slot pitch | anim |
+| 2 | three shredder rollers, counter-rotating | 4 pitches | anim |
+| 3 | feeder ram on the apron | one stroke | anim |
+| 4 | **ejector ram**, 0.72 tiles north and back | out slowly f2–26, hold, back quickly f30–42 | anim |
+| 5 | **port doors** parting and closing | open f22–28, shut f42–48 | anim |
+| 6 | **three chips**: ride the ram, drop into the throat, leave the mouth, land on the sill, are thrown back down the discharge chute | one batch | fx |
+| 7 | violet field gap and discharge edge, two beats | phase-locked to the rotor | light |
+| 8 | scanner over the trough lights as the batch passes | f8–16 | light |
+| 9 | ejector lamp on the throat rim | f20–40 | light |
+| 10 | two arcs across the field gap, irregular | fixed pattern | light |
+| — | green status lamp | never | lamp |
+
+Idle is frame 0: doors shut, ram home, cap parked, no chip (the fx layer is a
+working_visualisation and does not draw), no violet. Only the green lamp.
+
+### After the engine (round 5)
+
+Photographed working in all eight orientations, a fresh-context review read the port as a
+latched steel chest — two bright door plates with a centre seam on a flat face — and could not
+tell working from idle in a single frame. Four changes, each with its reason:
+
+- **The mouth is a recess** in the body's north end, with a **violet strip inside it** that is
+  visible only while the doors are parted. Any frame with the doors open now shows a lit
+  throat; a shut one shows dark gunmetal shutters, not a lid. Bright doors were the chest.
+- **The field ring is dimmed in the base sheet** (the render driver sets the three violet
+  materials to 0.22 for the base pass only). The base is drawn in every state, so a ring lit
+  in it made an idle machine glow by day; the working-only glow sheet is the state cue now, by
+  day as it already was at night.
+- **A hydraulic power unit** — tank on Z, motor block, pressure hose to the cylinder's rear —
+  fills the south-east corner the review found bare, and it is the part the ram already
+  implied.
+- **Hazard plates on the pocket lids**, up-facing, so the output end carries hazard weight in
+  every rotation and the chevrons no longer point only at the intake. An eave band over the
+  mouth was tried and sat over the cone.
+
+Rejected: shortening the ground-level overhang (deliberate, see `deferred.md`).

@@ -77,9 +77,11 @@ data:extend({
       emissions_per_minute = { pollution = 4 }   -- chosen: recycler 2, EM plant 4
     },
 
-    -- Where the shredded output lands when a player mines the machine. The
-    -- vanilla recycler's {-0.35, -2.3} is measured against its own 2x4 body
-    -- and would drop items outside a 3x3.
+    -- Where the machine places its RESULTS: the tile past the north edge,
+    -- centred, exactly like a mining drill's drop position -- this is what
+    -- the yellow alt-mode arrow points at, and the art's output port is built
+    -- on it. The vanilla recycler's {-0.35, -2.3} is measured against its own
+    -- 2x4 body and would land outside a 3x3.
     vector_to_place_result = {0, -1.8},
 
     custom_input_slot_tooltip_key = "recycler-input-slot-tooltip",

@@ -1,47 +1,63 @@
-"""The rebuilt machine: masses, hero, junction, grading unit, tertiary hardware.
+"""v3: the machine built around where the game actually puts its output.
 
-Direction B from the Phase 1 look-dev, approved by the repo owner 2026-09-11.
-The hero is a VERTICAL-AXIS eddy rotor -- a copper-poled disc in a bronze well
-under a segmented guard ring -- and the reason is measured, not stylistic:
+`vector_to_place_result = {0, -1.8}` on the prototype is the tile north of the
+footprint, centred -- the yellow alt-mode arrow leaves the machine there, and
+v2 had nothing there but the rotor housing. Photographed in the engine
+2026-09-11 (four machines facing outward, chests on the output tiles): the
+arrow points straight out of the rotor cowl in every rotation. A recycler whose
+output appears from nowhere looks broken, so v3 is laid out from the port
+backwards.
 
-    set_direction() spins the model about Z. A ring about Y is a true circle
-    in north and south and an edge-on LINE in east and west. A ring about Z
-    is a true circle in all four. On a rotatable entity, a Z-axis rotor is
-    the only radial form that reads in every rotation.
+Coordinates: +y is north (screen up), +x east, z up; screen row is -(y + z).
+Factorio's {0, -1.8} is therefore Blender (0, +1.8): the mouth sits on the
+north edge at x = 0 and the chips leave through it.
 
-The shipped build's drum was on Y, which is why its east and west views lost
-the hero entirely and read as a striped box. `qr_rebuild` carries the
-projection arithmetic and the three variants this one was chosen from.
+## The route, south to north
 
-## The two size rules, and why they are not the same rule
+    maw (S wall, olive, hazard collar)  ->  three shredder rollers
+      -> transfer duct east across the seam  ->  the rotor (sorting, NE)
+      -> discharge notch through the cowl's WEST, down a dark chute
+      -> collection trough, north  ->  hydraulic pusher ram
+      -> the open throat in the port's hood (chips drop in, seen from above)
+      -> the mouth on the N edge, doors part  ->  sill  ->  the next tile.
 
-`cone_z()` bounds HEIGHT: `max(|x|, |y|) + z <= APEX`. At ground level it
-therefore allows a part to reach |x| or |y| = 2.25 -- three quarters of a tile
-outside the footprint -- and vanilla spends exactly that. The chemical plant's
-sprite is 145 screen px tall against a 96 px footprint, and it gets the extra
-from pipe stubs hanging south at z ~ 0.
+The trough runs due north along x -0.46..-0.10, so the pusher's stroke is a
+straight line in y -- screen-vertical in north and south, screen-horizontal
+in east and west. Horizontal model motion is visible in all four rotations;
+the only motion this camera cannot see is a slope descending away from it,
+and that is exactly what a flap dropping out of a north-facing mouth would
+be. So: a ram, not a flap.
 
-The design doc's separate rule, "no hull crosses +-1.32", is about the front
-elevation: height spent outside the footprint buys nothing and costs wall. Both
-rules are kept here. The HULL stays inside +-1.32; LOW hardware -- the loading
-apron, the scrap chute, the output chute -- hangs out to +-2.05 at z < 0.35,
-which is what takes this sprite from 86 x 112 screen px to roughly 102 x 131
-against the chemical plant's 100 x 145.
+## Why the port can be seen from behind
 
-## The silhouette guarantee
+In north the port is on the far side. Two things read from above, which is
+the one direction every rotation shares: the hood's open THROAT -- a dark
+rectangle with a violet rim that the chips visibly drop into -- and the
+riser's top face with the painted grade squares. Rows y + z of 2.13..2.23
+clear the cowl's north rim (1.76 at x 0, 2.06 at x 0.44).
 
-A row is full width only when the sprite's east and west extremes both fall in
-it, so the extremes must belong to parts whose row bands are disjoint -- and
-which parts those are changes with the rotation (`audit()` projects all four).
-Worked out here rather than discovered afterwards:
+## The two size rules, unchanged from v2
 
-    N  rows y+z   east x 1.32 rotor well+cage 0.58..1.39 | west x -1.86 scrap chute -0.88..-0.20
-    E  rows -x+z  max y 1.18 cage arcs 0.24..0.33        | min y -2.05 apron 0.46..1.28
-    S  rows -y+z  max x 1.32 rotor -0.34..0.47           | min x -1.86 scrap chute 0.62..1.30
-    W  rows x+z   max -y 2.05 apron -1.04..-0.22         | min -y -1.18 cage arcs 1.44..1.53
+`cone_z()` bounds HEIGHT (`max(|x|,|y|) + z <= APEX`), so low hardware may
+hang out to +-2.25 at ground level and vanilla spends exactly that; the hull
+itself stays inside +-1.32 for the front elevation. The port hopper hangs to
+y 1.74 at z < 0.50, the sill to 1.90 at z 0.10, the apron to y -2.05.
 
-Nothing else may come within 0.06 of x = +-1.32/-1.86 or y = 1.18/-2.05, or
-`audit()` hands that extreme's whole row span to the newcomer.
+## The silhouette guarantee, worked out for v3
+
+A row is full width only when both screen extremes fall in it, and `audit()`
+collects every vertex within 0.06 of an extreme into that extreme's row band:
+
+    N  rows y+z    east x 1.32 rotor cowl 0.66..1.62 | west x -1.85 cabinet -1.07..-0.36
+    E  rows -x+z   max y 1.90 sill -0.17..0.31       | min y -2.04 apron 0.50..1.28
+    S  rows -y+z   max x 1.32 cowl -0.26..0.71       | min x -1.85 cabinet 0.80..1.40
+    W  rows x+z    max -y 2.04 apron -1.15..-0.38    | min -y -1.90 sill -0.17..0.31
+
+The sill is a deliberately small, low, narrow plate standing 0.12 clear of
+everything else so that it -- and nothing wider -- owns max-y. The apron lost
+its rails and moved 0.06 west for the same reason: in west its rows had to
+stay under the sill's. The cabinet's feet sit at its south end because a foot
+at y -0.78 shared the cowl's rows in south.
 """
 import math
 
@@ -49,7 +65,7 @@ import bpy
 
 import quality_recycler_gen as gen
 import qr_rebuild as rb
-from qr_rebuild import barrel, radial_bars, ring, torus, wall_chevrons
+from qr_rebuild import radial_bars, ring, torus, wall_chevrons, yz_prism
 
 from factorio_render import parts
 
@@ -60,209 +76,595 @@ box, boxes, cyl, prism = gen.box, gen.boxes, gen.cyl, gen.prism
 # ---- the layout -----------------------------------------------------------
 
 ROTOR = (0.60, 0.46)
-R_OUT = 0.72                        # rotor well / guard outer radius
-R_DISC = 0.58                       # the poled disc
-ROTOR_Z = 0.70
+R_COWL = 0.72                       # armoured stator cowl, outer
+R_WELL = 0.70                       # tempered well wall, outer
+R_STATOR_IN = 0.50                  # the cowl's inner radius: the bore
+R_CAP = 0.47                        # the slotted rotor cap, outer
+R_HUB = 0.28
+ROTOR_Z = 0.80                      # centre height of the magnet ring
+POLES = 12
+CAP_SLOTS = 6                       # 60 deg symmetry = 2 pole pitches
+NOTCH = (170.0, 190.0)              # the discharge notch through the cowl
 
-GEAR = (-0.12, 0.40)                # the driven wheel that links the halves
-GEAR_R = 0.26
+HULL_E = -0.44                      # the olive hull's east face
+SHRED_E = -0.36                     # the skirt's east face
+DECK_W = -0.16                      # the plinth's west edge
 
-SHRED_E = -0.36                     # the shredder skirt's east face
-HULL_E = -0.44                      # the shredder hull's east face
-GAP = (SHRED_E, ROTOR[0] - R_OUT)   # 0.24 tiles of slot, 8 screen px
-
-MAW = (-1.14, -0.46, 0.18, 0.70)    # x0, x1, z0, z1 of the opening
-MAW_Y = -1.14                       # the roller axis, in the open recess
+MAW = (-1.14, -0.46, 0.18, 0.74)    # x0, x1, z0, z1 of the opening
+MAW_Y = -1.14
 MAW_ROLLER_Z = (0.25, 0.41, 0.57)
 MAW_ROLLER_R = 0.078
 
-GRADE_Z = 0.50
+TROUGH_X = (-0.46, -0.10)           # the collection trough, running north
+TROUGH_Y = (0.30, 1.16)
+TROUGH_Z = 0.62                     # floor top
+TROUGH_TOP = 0.92
+RAM_X = -0.28
+RAM_Z = 0.78
+RAM_STROKE = 0.72                   # the pusher's travel, 46 source px
+
+PORT_Y = (1.14, 1.70)               # the hopper, footprint edge at 1.50
+PORT_W = 0.44                       # half-width
+MOUTH_W = 0.30                      # half-width of the mouth
+THROAT = (-0.44, -0.06, 1.20, 1.50) # x0, x1, y0, y1 of the open throat
+SILL = (0.22, 1.75, 1.90)           # half-width, y0, y1 -- owns max-y
+
 QUALITY = rb.QUALITY
 
+# The tempering ramp radiates from the rotor; tell the generator where it is
+# before build_materials() bakes `heat_from` into the materials.
+gen.ROTOR_XY = ROTOR
 
-def _cone(label, x, y, z, quiet=True):
+# Parts that move. `organise()` sorts objects into collections by name prefix,
+# and the render driver draws QR_Moving as the anim sheet.
+gen.MOVING_KINDS = ("rotor-poles", "rotor-ring", "rotor-cap", "maw-roller",
+                    "maw-teeth", "flap-", "ram-head", "ram-rod", "door-")
+gen.FX_KINDS = ("frag", "arc")
+
+
+def _cone(label, x, y, z):
     v = max(abs(x), abs(y)) + z
     if v > gen.APEX + 1e-6:
         print("[layout] %-18s cone %.3f > APEX %.2f" % (label, v, gen.APEX))
-    elif not quiet:
-        print("[layout] %-18s cone %.3f" % (label, v))
     return v
+
+
+def rounded_rect(x0, y0, x1, y1, r, n=5):
+    """A rectangle with quarter-round corners, as a polygon for prism()."""
+    pts = []
+    corners = [((x1 - r, y1 - r), 0.0), ((x0 + r, y1 - r), 90.0),
+               ((x0 + r, y0 + r), 180.0), ((x1 - r, y0 + r), 270.0)]
+    for (cx, cy), a0 in corners:
+        for i in range(n + 1):
+            a = math.radians(a0 + 90.0 * i / n)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+# ---- materials the v3 look adds --------------------------------------------
+
+
+def v3_materials():
+    """The lighter panel family, in two values, and the machined metal.
+
+    `composite` is the bright skin -- the rotor cap, the cowl, the port riser
+    and hood: cool bone, satin, so it carries a soft broad highlight rather
+    than the matte plaster the first pass rendered. `compdark` is the same
+    family a step darker for the structural panels -- fairing, pockets, feed
+    collar, armour plates, cabinet -- so the bright value is reserved for the
+    two hero zones. Both are cool against the warm olive and copper, which is
+    the two-technologies contrast told through temperature as well as hue.
+    `polished` is the machined hub, the ram and the doors: metallic, smooth,
+    small areas only.
+    """
+    m = gen._MATS
+    m["composite"] = gen.worn_metal(
+        "composite", gen.srgb("#A9A89E"), gen.srgb("#484C49"), 0.10, 0.34,
+        0.54, grime=0.22, wear=0.10, rust=0.05, noise_scale=5.0)
+    m["compdark"] = gen.worn_metal(
+        "compdark", gen.srgb("#737874"), gen.srgb("#2A2E30"), 0.12, 0.36,
+        0.56, grime=0.26, wear=0.12, rust=0.06, noise_scale=6.0)
+    m["polished"] = gen.worn_metal(
+        "polished", gen.srgb("#C4BDAE"), gen.srgb("#4A443C"), 0.55, 0.20,
+        0.42, grime=0.10, wear=0.16, rust=0.04, scratch=0.55,
+        noise_scale=14.0)
+    m["seamdark"] = gen.plain("seamdark", gen.srgb("#17140F"), metallic=0.1,
+                              rough=0.85)
+    m["hose"] = gen.rubber("hose", color=gen.srgb("#3B3E44"))
+    # The five grades as PAINT: matte, chipped at the edges, on a dark plate.
+    # Colour may name a grade; light never does (FFF-339 discipline, and the
+    # design doc's own rule). Mixed half way toward a neutral so they read as
+    # painted squares rather than as UI chips.
+    grey = (0.16, 0.15, 0.13)
+    for i, hexcol in enumerate(QUALITY):
+        q = gen.srgb(hexcol)
+        lit = tuple(0.55 * a + 0.45 * b for a, b in zip(q, grey))
+        dark = tuple(v * 0.40 for v in lit)
+        m["paintq%d" % i] = gen.worn_metal(
+            "paintq%d" % i, lit, dark, 0.08, 0.62, 0.88, grime=0.18,
+            wear=0.30, rust=0.10, noise_scale=18.0)
+    # Two more violets, so the scanner and the ejector lamp can be keyed
+    # independently of the field ring.
+    for name, strength in (("violet2", 0.6), ("violet3", 0.6)):
+        m[name] = gen.plain(name, (0.02, 0.01, 0.03),
+                            emission=gen.VIOLET_EMIT, strength=strength)
+    return m
 
 
 # ---- 0. the pad -----------------------------------------------------------
 
 
 def pad():
-    """Octagonal, cut away on the gap and at the north-west, and kept INSIDE
-    the hardware that hangs off it.
-
-    Two jobs. A gap between two masses is only a gap if the sprite has alpha in
-    it, and the shipped build's gap sat over a continuous pad -- a dark seam on
-    a solid outline, which the eye reads as one block. And a pad that reaches
-    the sprite's own extremes owns both of them at once, which is the condition
-    for a full-width scanline; this one stops well short on every side.
-    """
-    poly = [(-1.24, -1.40), (-0.50, -1.40), (-0.40, -1.24), (0.04, -1.38),
-            (1.16, -1.38), (1.26, -1.24), (1.26, 1.00), (1.08, 1.20),
-            (0.06, 1.20), (-0.06, 0.96), (-0.34, 0.96), (-0.46, 0.72),
-            (-1.12, 0.72), (-1.24, 0.54)]
+    """Concrete, inside every extreme. Under the port hopper it reaches y 1.30
+    so the hopper stands on something; the hopper's far end hangs on feet."""
+    poly = [(-1.24, -1.40), (-0.50, -1.40), (-0.40, -1.26), (0.04, -1.38),
+            (1.14, -1.38), (1.24, -1.24), (1.24, 1.02), (1.06, 1.22),
+            (0.50, 1.22), (0.50, 1.30), (-0.50, 1.30), (-0.50, 1.20),
+            (-1.10, 1.20), (-1.24, 0.98), (-1.24, 0.54)]
     return prism("pad", poly, 0.0, DECK, mat="concrete", cuts=1, bevel=0.02)
 
 
-# ---- 1. HERO: the vertical eddy rotor -------------------------------------
+# ---- 1. the new half's plinth ---------------------------------------------
+
+
+def plinth(a):
+    """A rounded tempered-bronze slab the rotor stands in: big, clean, curved.
+
+    Corner radius 0.26 is 17 source px -- a real rounded shoulder at gameplay
+    zoom, not a chamfer. The slab is thin (0.28) so the rotor reads as sitting
+    IN it. Dark, so the pale cowl on top is the brightest large form.
+    """
+    out = []
+    out.append(prism("deck", rounded_rect(DECK_W, -0.64, 1.24, 1.10, 0.26),
+                     DECK - 0.01, 0.40, mat="tempers", cuts=1, bevel=0.035))
+    out.append(boxes("deck-seam",
+                     [((0.46, -0.62, 0.392), (0.49, -0.30, 0.404)),
+                      ((DECK_W + 0.06, -0.36, 0.392), (0.50, -0.33, 0.404))],
+                     mat="seamdark", cuts=0, bevel=0.003))
+    # human service: one inspection hatch with a handwheel
+    out.append(cyl("deck-hatch", (1.02, -0.50, 0.42), 0.11, 0.05,
+                   mat="polished", seg=20))
+    a.place("greeble:handwheel", at=(1.02, -0.50), z=0.45, size=0.13,
+            mat="copper", name="deck-wheel")
+    # power in: the junction box the looms leave from
+    a.place("greeble:junction_box", at=(0.24, -0.50), z=0.40, size=0.22,
+            mat="gunmetal", name="deck-jbox")
+    # heat out: the coolant's radiator on the east end of the strip
+    a.place("greeble:radiator", at=(0.74, -0.52), z=0.40, size=0.30,
+            mat="tempers", name="deck-rad")
+    return out
+
+
+# ---- 2. HERO: the sealed magnetic rotor -----------------------------------
+
+
+def _cowl_arcs():
+    """The four composite arcs, with the west one split round the notch."""
+    arcs = []
+    for i in range(4):
+        a0 = 56.0 + i * 90.0
+        a1 = a0 + 68.0
+        if a0 < NOTCH[0] < a1:
+            arcs.append((a0, NOTCH[0]))
+            arcs.append((NOTCH[1], a1))
+        else:
+            arcs.append((a0, a1))
+    return arcs
 
 
 def rotor(a):
-    """Built first, oversized, and it keeps the detail budget.
+    """Not a fan: a segmented ring of magnet poles turning under a slotted
+    composite cap, inside a stator of copper windings under an armoured cowl
+    with four windows, a thin violet field gap between cap and cowl, and a
+    machined spindle through the middle.
 
-    Screen diameter 2 * R_OUT = 1.44 tiles = 92 source px = 46 px at gameplay
-    zoom, in a sprite about 102 px wide. Nothing else is allowed near that.
-
-    The disc sits over an open bore rather than on a plate -- a dark cavity
-    behind the copper is what stops it reading as a wheel bolted to a wall.
+    The cap is what makes it SEALED. It turns with the rotor -- six slots, so
+    a 60 degree turn closes the loop exactly as the twelve poles do -- and
+    through the slots the alternating pole faces and the copper retaining
+    ring show. A ring of blocks around a hub under a lid is a rotor; tapered
+    blades from a hub in the open is a fan.
     """
     rx, ry = ROTOR
     out = []
-    # the well, and the bore under the disc
-    # `temper`, not `bronze`: it carries the heat ramp, and the well is the
-    # new half's largest curved surface. Putting the violet on a flat deck
-    # panel instead read as a purple carpet, which is the opposite of a
-    # tempering colour -- an oxide film belongs where the heat is.
-    out.append(ring("rotor-well", (rx, ry, 0.39), R_OUT, 0.56, 0.54,
-                    mat="temper", seg=44))
-    out.append(ring("rotor-well-lip", (rx, ry, 0.665), R_OUT + 0.025, 0.54,
-                    0.06, mat="temperv", seg=44))
-    out.append(cyl("rotor-bore", (rx, ry, 0.26), 0.555, 0.26, mat="cavity",
-                   seg=34))
-    out.append(ring("rotor-stator", (rx, ry, 0.30), 0.555, 0.475, 0.30,
-                    mat="gunmetal", seg=34))
-    # 18 stator slots inside the bore: visible through the gaps between poles,
-    # and they are what makes the cavity read as a machine rather than a hole
-    out.append(radial_bars("rotor-slot", (rx, ry, 0.34), 0.475, 0.552, 0.022,
-                           0.26, 18, mat="cavity"))
-    # the disc: 14 copper poles on a tempered carrier
-    out.append(cyl("rotor-drum", (rx, ry, ROTOR_Z - 0.06), 0.245, 0.30,
-                   mat="temper", seg=28))
-    out.append(radial_bars("rotor-hub", (rx, ry, ROTOR_Z), 0.225, R_DISC,
-                           0.070, 0.125, 14, mat="copper", taper=0.58))
-    out.append(ring("rotor-band", (rx, ry, ROTOR_Z - 0.02), R_DISC + 0.042,
-                    R_DISC - 0.030, 0.105, mat="copper", seg=38))
-    out.append(ring("rotor-ribs", (rx, ry, ROTOR_Z + 0.045), R_DISC + 0.046,
-                    R_DISC + 0.014, 0.05, mat="tempers", seg=38))
-    out.append(radial_bars("rotor-bolts", (rx, ry, ROTOR_Z + 0.085), 0.105,
-                           0.215, 0.032, 0.058, 7, mat="gunmetal", phase=12.0))
-    out.append(torus("rotor-flange", (rx, ry, ROTOR_Z + 0.15), 0.160, 0.052,
-                     mat="scoured", seg=24))
-    out.append(cyl("rotor-cap", (rx, ry, ROTOR_Z + 0.19), 0.088, 0.10,
-                   mat="scoured", seg=14))
-    # the guard: four arcs with daylight between them, so the disc shows
+    # the well: a thin tempered wall, heat-tinted, and a dark floor
+    out.append(ring("rotor-well", (rx, ry, 0.55), R_WELL, R_WELL - 0.045,
+                    0.34, mat="temper", seg=48))
+    out.append(cyl("rotor-floor", (rx, ry, 0.46), R_WELL - 0.03, 0.16,
+                   mat="cavity", seg=40))
+    # a shadow line under the cowl's overhang
+    out.append(ring("cowl-shade", (rx, ry, 0.705), R_COWL + 0.006, R_WELL - 0.04,
+                    0.02, mat="seamdark", seg=48, cuts=0, bevel=0.0))
+    # the stator: 12 copper winding bundles around the bore, under the cowl,
+    # rising to 0.055 under its rim so they show through the windows
+    out.append(radial_bars("stator-coil", (rx, ry, 0.72), 0.525, 0.685, 0.058,
+                           0.26, POLES, mat="copper", phase=15.0, taper=1.25))
+    out.append(ring("stator-band", (rx, ry, 0.56), 0.69, 0.51, 0.06,
+                    mat="gunmetal", seg=44))
+    # the armoured cowl: composite arcs, windows between them, and the
+    # discharge notch cut through the west arc
+    for i, (a0, a1) in enumerate(_cowl_arcs()):
+        out.append(ring("cowl-arc%d" % i, (rx, ry, 0.81), R_COWL, R_STATOR_IN,
+                        0.19, mat="composite", a0=a0, a1=a1, seg=52,
+                        bevel=0.012))
+    out.append(ring("cowl-rim", (rx, ry, 0.905), R_COWL + 0.005, R_COWL - 0.05,
+                    0.025, mat="polished", seg=52, cuts=0, bevel=0.004))
+    out.append(ring("cowl-bore", (rx, ry, 0.905), R_STATOR_IN + 0.045,
+                    R_STATOR_IN - 0.005, 0.025, mat="seamdark", seg=48, cuts=0,
+                    bevel=0.0))
     for i in range(4):
-        a0 = 17.0 + i * 90.0
-        out.append(ring("cage-arc%d" % i, (rx, ry, 0.88), R_OUT, R_OUT - 0.115,
-                        0.09, mat="steel", a0=a0, a1=a0 + 56.0))
-        ang = math.radians(-4.0 + i * 90.0)
-        px, py = rx + (R_OUT - 0.06) * math.cos(ang), ry + (R_OUT - 0.06) * math.sin(ang)
-        out.append(cyl("cage-post%d" % i, (px, py, 0.76), 0.050, 0.30,
-                       mat="steel", seg=10))
-        out.append(torus("cage-boss%d" % i, (px, py, 0.915), 0.068, 0.028,
-                         mat="gunmetal", seg=12, mseg=8))
-        a.place("greeble:bolt_ring", at=(px, py), z=0.695, size=0.16,
-                mat="gunmetal", name="cage-foot%d" % i)
-    # the field coil over the hub. Small radius, so its height is cheap on the
-    # cone, and it is a Z-axis circle so it survives every rotation.
-    out.append(torus("coil-outer", (rx, ry, 1.10), 0.345, 0.062, mat="bronze",
-                     seg=32))
-    out.append(torus("coil-inner", (rx, ry, 1.045), 0.240, 0.040, mat="bronze",
-                     seg=26))
-    for k in range(14):
-        ang = 2 * math.pi * k / 14
-        out.append(box("coil-wind%d" % k,
-                       (rx + 0.222 * math.cos(ang) - 0.033,
-                        ry + 0.222 * math.sin(ang) - 0.033, 1.010),
-                       (rx + 0.382 * math.cos(ang) + 0.033,
-                        ry + 0.382 * math.sin(ang) + 0.033, 1.135),
-                       mat="copper", cuts=1))
-    for i in range(3):
-        ang = math.radians(48.0 + i * 120.0)
-        out.append(cyl("coil-leg%d" % i,
-                       (rx + 0.340 * math.cos(ang), ry + 0.340 * math.sin(ang),
-                        0.92), 0.044, 0.42, mat="steel", seg=8))
-    # THE LIFTING GANTRY. The sprite's top edge is set by max(y + z) and sat
-    # at 2.08 where the cone allows 2.25 -- 11 source px of skyline going
-    # unused. A davit north of the rotor takes it, and it is the part that
-    # would actually be there: something has to lift the disc out for service.
-    out.append(cyl("gantry-post", (0.60, 1.02, 0.78), 0.052, 0.78,
-                   mat="scoured", seg=10))
-    out.append(cyl("gantry-arm", (0.60, 0.86, 1.15), 0.042, 0.34, axis="Y",
-                   mat="scoured", seg=8))
-    out.append(torus("gantry-eye", (0.60, 0.70, 1.14), 0.062, 0.024,
-                     mat="gunmetal", seg=12, mseg=8))
-    out.append(box("gantry-foot", (0.50, 0.92, 0.38), (0.70, 1.12, 0.46),
-                   mat="tempers"))
-    _cone("gantry", 0.60, 1.02, 1.19)
-    _cone("cage-arc east", rx + R_OUT, ry, 0.925)
-    _cone("coil", rx + 0.407, ry, 1.162)
+        ang = math.radians(90.0 + i * 90.0)
+        cx, cy = rx + 0.61 * math.cos(ang), ry + 0.61 * math.sin(ang)
+        out.append(box("cowl-clamp%d" % i, (cx - 0.07, cy - 0.09, 0.90),
+                       (cx + 0.07, cy + 0.09, 0.95), mat="polished",
+                       bevel=0.008))
+        a.place("greeble:bolt_ring", at=(cx, cy), z=0.95, size=0.09, count=4,
+                mat="gunmetal", name="cowl-lug%d" % i)
+        out.append(radial_bars("cowl-groove%d" % i, (rx, ry, 0.906),
+                               R_STATOR_IN + 0.05, R_COWL - 0.05, 0.012, 0.012,
+                               1, mat="seamdark", phase=68.0 + i * 90.0, cuts=0,
+                               bevel=0.0))
+    # the window sills: a dark frame under each window
+    for i in range(4):
+        a0 = 34.0 + i * 90.0
+        out.append(ring("cowl-window%d" % i, (rx, ry, 0.725), R_COWL - 0.01,
+                        R_STATOR_IN + 0.01, 0.025, mat="cavity", a0=a0,
+                        a1=a0 + 22.0, seg=52, cuts=0, bevel=0.0))
+    # THE FIELD GAP: a thin violet ring between the cap and the cowl
+    out.append(ring("field", (rx, ry, 0.865), 0.498, 0.478, 0.05, mat="violet",
+                    seg=48, cuts=0, bevel=0.0))
+    # the rotor: 12 magnet segments, alternating gunmetal and worn bright
+    # steel (NOT polished: a metal with only a dim world to reflect renders
+    # near-black inside a bore), in a copper retaining ring
+    out.append(radial_bars("rotor-poles-a", (rx, ry, ROTOR_Z), 0.30, 0.455,
+                           0.062, 0.12, POLES // 2, mat="gunmetal", phase=0.0,
+                           taper=1.5))
+    out.append(radial_bars("rotor-poles-b", (rx, ry, ROTOR_Z), 0.30, 0.455,
+                           0.062, 0.12, POLES // 2, mat="scoured",
+                           phase=360.0 / POLES, taper=1.5))
+    out.append(ring("rotor-ring", (rx, ry, ROTOR_Z + 0.01), 0.474, 0.452,
+                    0.14, mat="copper", seg=44))
+    # THE CAP: a motor end-cap, not a spoked disc. A solid outer annulus and
+    # a solid inner one, with six short CURVED vent slots between them --
+    # concentric dashes, the vocabulary of a ventilated end shield -- and a
+    # bolt circle. Radial slots read as spokes, which is the fan again.
+    pitch = 360.0 / CAP_SLOTS
+    out.append(ring("rotor-cap-outer", (rx, ry, 0.895), R_CAP, 0.405, 0.05,
+                    mat="composite", seg=48, bevel=0.006))
+    out.append(ring("rotor-cap-inner", (rx, ry, 0.895), 0.315, 0.12, 0.05,
+                    mat="composite", seg=40, bevel=0.006))
+    for i in range(CAP_SLOTS):
+        a0 = i * pitch + 15.0
+        out.append(ring("rotor-cap-web%d" % i, (rx, ry, 0.895), 0.41, 0.31, 0.05,
+                        mat="composite", a0=a0, a1=a0 + 30.0, seg=48,
+                        bevel=0.006))
+    out.append(ring("rotor-cap-rim", (rx, ry, 0.90), R_CAP + 0.004, R_CAP - 0.03,
+                    0.06, mat="polished", seg=48, cuts=0, bevel=0.004))
+    out.append(torus("rotor-cap-groove", (rx, ry, 0.921), 0.20, 0.008,
+                     mat="seamdark", seg=32, mseg=6))
+    a.place("greeble:bolt_ring", at=(rx, ry), z=0.92, size=0.86, count=6,
+            mat="gunmetal", name="rotor-cap-bolts")
+    # the machined spindle through the cap
+    out.append(cyl("hub", (rx, ry, 0.74), R_HUB + 0.01, 0.30, mat="polished",
+                   seg=32))
+    out.append(cyl("hub-cap", (rx, ry, 0.96), 0.085, 0.16, mat="polished",
+                   seg=18))
+    out.append(torus("hub-cap-ring", (rx, ry, 1.03), 0.07, 0.018, mat="copper",
+                     seg=18, mseg=8))
+    # THE DISCHARGE: a dark chute from the bore through the notch, down into
+    # the trough, with a violet edge on the cowl at the cut
+    nx = rx - R_STATOR_IN                       # 0.10, the bore's west edge
+    tx = TROUGH_X[1] - 0.20                     # -0.30, over the trough
+    out.append(gen.xz_prism("disc-chute",
+                            [[(nx + 0.02, 0.905), (nx + 0.02, 0.84),
+                              (tx, TROUGH_Z + 0.06), (tx, TROUGH_Z + 0.12)]],
+                            ry - 0.10, ry + 0.10, mat="pitch"))
+    out.append(boxes("disc-chute-wall",
+                     [((tx, ry - 0.13, TROUGH_Z), (nx + 0.02, ry - 0.10, 0.92)),
+                      ((tx, ry + 0.10, TROUGH_Z), (nx + 0.02, ry + 0.13, 0.92))],
+                     mat="compdark", bevel=0.006))
+    out.append(boxes("disc-edge",
+                     [((nx - 0.02, ry - 0.135, 0.905), (nx + 0.16, ry - 0.115, 0.915)),
+                      ((nx - 0.02, ry + 0.115, 0.905), (nx + 0.16, ry + 0.135, 0.915))],
+                     mat="violet", cuts=0, bevel=0.0))
+    # two arcs across the field gap, keyed on and off irregularly
+    for i, ang in enumerate((70.0, 250.0)):
+        out.append(radial_bars("arc%d" % i, (rx, ry, 0.875), 0.435, 0.515, 0.02,
+                               0.03, 1, mat="arcmat", phase=ang, cuts=0,
+                               bevel=0.0))
+    _cone("cowl east clamp", rx + 0.68, ry, 0.95)
+    _cone("hub cap", rx, ry, 1.05)
     return out
 
 
-def drive(a):
-    """The ring gear that links the salvaged half to the new one.
-
-    The design doc's one mechanical statement about the seam, and the shipped
-    build buried it inside a bearing wall. Here it stands in the slot between
-    the two masses at 36% of the hero's diameter, on Z like the rotor, so the
-    two wheels read as geared together in every rotation.
+def looms(a):
+    """Coolant and power arriving in neat runs, each with a fitting at both
+    ends and a ferrule mid-run. Two hoses from the coolant tank to the cowl;
+    two cables from the deck's junction box to the stator; two from the deck
+    box across the seam into the old hull -- the new half plugging into the
+    old. Thin and dark grey, not black: the loom must not out-contrast the
+    hero.
     """
-    gx, gy = GEAR
-    out = [cyl("gear-disc", (gx, gy, 0.60), GEAR_R - 0.055, 0.13,
-               mat="tempers", seg=24),
-           radial_bars("gear-teeth", (gx, gy, 0.60), GEAR_R - 0.060, GEAR_R,
-                       0.030, 0.125, 20, mat="scoured"),
-
-           cyl("gear-shaft", (gx, gy, 0.56), 0.052, 0.30, mat="steel", seg=12),
-           torus("gear-collar", (gx, gy, 0.70), 0.078, 0.030, mat="copper",
-                 seg=14)]
-    out.append(boxes("gear-pier", [((gx - 0.13, gy - 0.15, DECK),
-                                    (gx + 0.13, gy + 0.15, 0.50))],
-                     mat="bronze"))
-    a.place("greeble:bolt_ring", at=(gx, gy - 0.19), z=0.52, size=0.20,
-            mat="gunmetal", name="gear-bolts")
+    rx, ry = ROTOR
+    out = []
+    tx, ty = -1.02, 0.52
+    out.append(cyl("tank", (tx, ty, 0.42), 0.20, 0.60, mat="tempers", seg=28))
+    out.append(torus("tank-band", (tx, ty, 0.30), 0.205, 0.02, mat="gunmetal",
+                     seg=28, mseg=8))
+    out.append(cyl("tank-cap", (tx, ty, 0.73), 0.14, 0.04, mat="compdark",
+                   seg=24))
+    a.place("greeble:flange", at=(tx, ty), z=0.75, size=0.16, mat="copper",
+            name="tank-fit")
+    for k, (ang, mid) in enumerate(((128.0, [(-0.76, 0.84, 0.80),
+                                              (-0.50, 1.00, 0.96),
+                                              (-0.20, 1.04, 0.97)]),
+                                    (206.0, [(-0.74, 0.20, 0.80),
+                                             (-0.46, 0.06, 0.94),
+                                             (-0.20, 0.06, 0.97)]))):
+        ex = rx + 0.60 * math.cos(math.radians(ang))
+        ey = ry + 0.60 * math.sin(math.radians(ang))
+        a.run("greeble:pipe_run", [(tx, ty, 0.78)] + mid + [(ex, ey, 0.95)],
+              radius=0.022, flanges=False, mat="hose", name="hose%d" % k)
+        a.place("greeble:flange", at=(ex, ey), z=0.905, size=0.12,
+                mat="copper", name="hose%d-fit" % k)
+        fx, fy, fz = mid[1]
+        out.append(torus("hose%d-ferrule" % k, (fx, fy, fz), 0.028, 0.012,
+                         axis="X", mat="copper", seg=10, mseg=6))
+    # power: two cables from the deck junction box up onto the south cowl
+    a.run("greeble:cable", (0.26, -0.46, 0.60), (0.50, -0.20, 0.90), sag=0.05,
+          mat="rubber", name="loom0")
+    a.run("greeble:cable", (0.30, -0.50, 0.60), (0.66, -0.22, 0.90), sag=0.05,
+          mat="rubber", name="loom1")
+    # ...and two across the seam into the old hull's junction box, south of
+    # the ram cylinder and north of the duct, where the slot is clear
+    a.place("greeble:junction_box", at=(HULL_E + 0.04, -0.52), z=0.66,
+            size=0.18, mat="gunmetal", name="hull-jbox")
+    a.run("greeble:cable", (0.20, -0.46, 0.60), (HULL_E + 0.05, -0.50, 0.86),
+          sag=0.08, mat="rubber", name="seam-cable0")
+    a.run("greeble:cable", (0.16, -0.54, 0.58), (HULL_E + 0.05, -0.56, 0.84),
+          sag=0.10, mat="rubber", name="seam-cable1")
     return out
 
 
-# ---- 2. the salvaged olive half -------------------------------------------
+# ---- 3. material through: the transfer duct, the trough, the ejector ------
+
+
+def transfer(a):
+    """A fat flanged duct from the shredder's east face into the rotor well:
+    the one enclosed leg of the route, drawn as a duct so the eye can follow
+    it across the seam."""
+    out = []
+    out.append(box("gap-floor", (HULL_E, -0.90, DECK - 0.01),
+                   (DECK_W + 0.02, 0.30, 0.19), mat="cavity"))
+    a.run("greeble:pipe_run",
+          [(HULL_E - 0.02, -0.66, 0.60), (0.02, -0.66, 0.60),
+           (0.17, -0.22, 0.60)],
+          radius=0.10, mat="steel", name="duct")
+    return out
+
+
+def ejector(a):
+    """The trough, the pusher, the scanner and the port. Hero zone two.
+
+    The trough runs north from the discharge chute at z 0.62..0.92 -- raised,
+    so that in EAST, where the rotor stands between it and the camera, its top
+    0.36 tiles still show above the cowl. Its floor is dark: a channel, with a
+    bright ram head travelling along it. The ram is a hydraulic cylinder in
+    the seam slot, driven off the old half; its head travels RAM_STROKE north
+    and the chips go with it, off the trough's end and down into the throat.
+    """
+    x0, x1 = TROUGH_X
+    y0, y1 = TROUGH_Y
+    ry = ROTOR[1]
+    out = []
+    # the block the trough stands on, and the sweeping composite fairing that
+    # closes its west side -- an arc in the X-Z plane swept along Y, with two
+    # dark seam grooves round it
+    out.append(box("trough-base", (-0.80, y0, DECK - 0.01), (x0 + 0.02, y1, 0.63),
+                   mat="tempers", bevel=0.02))
+    out.append(ring("trough-fairing", (x0 - 0.02, 0.5 * (y0 + y1), TROUGH_Z),
+                    0.30, 0.255, y1 - y0, axis="Y", mat="compdark", a0=90.0,
+                    a1=180.0, seg=36, bevel=0.0))
+    for k, yy in enumerate((y0 + 0.28, y1 - 0.28)):
+        out.append(ring("fairing-seam%d" % k, (x0 - 0.02, yy, TROUGH_Z), 0.306,
+                        0.29, 0.02, axis="Y", mat="seamdark", a0=92.0, a1=178.0,
+                        seg=36, cuts=0, bevel=0.0))
+    out.append(box("trough-floor", (x0, y0, TROUGH_Z - 0.06), (x1, y1 + 0.02,
+                                                              TROUGH_Z),
+                   mat="cavity"))
+    # the east wall is two spans: the discharge chute lands through it
+    out.append(boxes("trough-wall",
+                     [((x0 - 0.04, y0, TROUGH_Z - 0.06), (x0, y1 + 0.02, TROUGH_TOP)),
+                      ((x1, y0, TROUGH_Z - 0.06), (x1 + 0.04, ry - 0.13, TROUGH_TOP)),
+                      ((x1, ry + 0.13, TROUGH_Z - 0.06), (x1 + 0.04, y1 + 0.02, TROUGH_TOP))],
+                     mat="steel"))
+    # the pusher: cylinder in the slot, gland, rod, head
+    out.append(cyl("ram-cyl", (RAM_X, -0.06, RAM_Z), 0.10, 0.76, axis="Y",
+                   mat="polished", seg=20))
+    out.append(ring("ram-gland", (RAM_X, 0.31, RAM_Z), 0.125, 0.05, 0.06,
+                    axis="Y", mat="gunmetal", seg=20))
+    out.append(cyl("ram-rear", (RAM_X, -0.43, RAM_Z), 0.115, 0.06, axis="Y",
+                   mat="gunmetal", seg=20))
+    out.append(boxes("ram-saddle",
+                     [((RAM_X - 0.12, -0.38, 0.18), (RAM_X + 0.12, -0.24, 0.70)),
+                      ((RAM_X - 0.12, 0.08, 0.18), (RAM_X + 0.12, 0.22, 0.70))],
+                     mat="gunmetal"))
+    a.place("greeble:bolt_ring", at=(RAM_X, -0.43), z=RAM_Z, size=0.17,
+            mat="gunmetal", name="ram-bolts", count=6)
+    out.append(cyl("ram-rod", (RAM_X, -0.04, RAM_Z), 0.045, 0.80, axis="Y",
+                   mat="polished", seg=12))
+    out.append(box("ram-head", (x0 + 0.005, y0 + 0.06, TROUGH_Z),
+                   (x1 - 0.005, y0 + 0.14, TROUGH_TOP - 0.02), mat="scoured"))
+    # the scanner: a bridge over the trough with an up-facing violet strip
+    out.append(box("scan-bridge", (x0 - 0.06, 0.70, TROUGH_TOP),
+                   (x1 + 0.06, 0.78, TROUGH_TOP + 0.08), mat="polished"))
+    out.append(box("scan-lamp", (x0 + 0.03, 0.725, TROUGH_TOP + 0.08),
+                   (x1 - 0.03, 0.755, TROUGH_TOP + 0.092), mat="violet2",
+                   cuts=0, bevel=0.0))
+    # THE PORT. A dark body on the pad, a pale riser at the back with the
+    # trough feeding through, a hood falling away to the mouth -- and the
+    # hood's west half OPEN: the throat, a dark well the chips drop into,
+    # rimmed in violet, which is what every rotation sees from above.
+    py0, py1 = PORT_Y
+    w = PORT_W
+    tx0, tx1, ty0, ty1 = THROAT
+    # The mouth is a real recess in the body's north end, not a dark plate on
+    # its face: two bright door plates over a flat face read as a steel chest
+    # with a latch in the final review. The recess holds a violet strip that
+    # shows only when the doors part -- an open-state cue in any frame.
+    out.append(boxes("port-body",
+                     [((tx1, py0, DECK - 0.01), (w, py1 - 0.12, TROUGH_Z - 0.02)),
+                      ((-w, py0, DECK - 0.01), (tx1, py1 - 0.12, 0.40)),
+                      ((-w, py1 - 0.14, DECK - 0.01), (-MOUTH_W - 0.02, py1 + 0.02, 0.48)),
+                      ((MOUTH_W + 0.02, py1 - 0.14, DECK - 0.01), (w, py1 + 0.02, 0.48)),
+                      ((-MOUTH_W - 0.02, py1 - 0.14, DECK - 0.01), (MOUTH_W + 0.02, py1 + 0.02, 0.14)),
+                      ((-MOUTH_W - 0.02, py1 - 0.14, 0.44), (MOUTH_W + 0.02, py1 + 0.02, 0.48))],
+                     mat="tempers", bevel=0.02))
+    out.append(box("throat-floor", (tx0, ty0 - 0.06, 0.40), (tx1, ty1, 0.42),
+                   mat="pitch", cuts=0, bevel=0.0))
+    # the riser: back step (y 1.14..1.24) to 0.99 carrying the grade paint,
+    # front step (1.24..1.32) to 0.92 on the east half only; the trough feeds
+    # through an opening in the back step's west half
+    out.append(boxes("port-riser",
+                     [((-w, py0, TROUGH_TOP - 0.02), (w, py0 + 0.10, 0.99)),
+                      ((x1 + 0.02, py0, TROUGH_Z - 0.04), (w, py0 + 0.10, TROUGH_TOP)),
+                      ((tx1, py0 + 0.10, TROUGH_Z - 0.04), (w, py0 + 0.18, 0.92))],
+                     mat="composite", bevel=0.015))
+    out.append(yz_prism("port-roof",
+                        [[(py0 + 0.17, 0.58), (py0 + 0.17, 0.92),
+                          (py1 + 0.02, 0.52), (py1 + 0.02, 0.46)]],
+                        tx1, w, mat="composite", bevel=0.015))
+    out.append(yz_prism("port-roof-seam",
+                        [[(1.44, 0.795), (1.44, 0.81), (1.47, 0.78), (1.47, 0.765)],
+                         [(1.58, 0.65), (1.58, 0.665), (1.61, 0.635), (1.61, 0.62)]],
+                        tx1 - 0.002, w + 0.002, mat="seamdark", cuts=0, bevel=0.0))
+    # the throat's own walls: west, and north (which is the hood's west end)
+    out.append(boxes("throat-wall",
+                     [((tx0 - 0.04, py0 + 0.08, 0.40), (tx0, ty1 + 0.06, 0.66)),
+                      ((tx0 - 0.04, ty1, 0.40), (tx1 + 0.02, ty1 + 0.06, 0.66))],
+                     mat="composite", bevel=0.01))
+    # the ejector lamp: violet along the throat's rim, pulsing with each batch
+    out.append(boxes("eject-lamp",
+                     [((tx0 - 0.03, ty1 + 0.02, 0.66), (tx1 + 0.01, ty1 + 0.05, 0.672)),
+                      ((tx0 - 0.03, py0 + 0.10, 0.66), (tx0, ty1 + 0.05, 0.672))],
+                     mat="violet3", cuts=0, bevel=0.0))
+    _cone("throat rim", tx0 - 0.03, ty1 + 0.05, 0.672)
+    out.append(box("port-mouth", (-MOUTH_W - 0.02, py1 - 0.14, 0.14),
+                   (MOUTH_W + 0.02, py1 - 0.12, 0.44), mat="pitch"))
+    out.append(box("mouth-glow", (-MOUTH_W + 0.04, py1 - 0.12, 0.22),
+                   (MOUTH_W - 0.04, py1 - 0.10, 0.36), mat="violet3", cuts=0,
+                   bevel=0.0))
+    out.append(box("door-l", (-MOUTH_W - 0.01, py1 + 0.006, 0.13),
+                   (-0.004, py1 + 0.034, 0.45), mat="gunmetal", bevel=0.005))
+    out.append(box("door-r", (0.004, py1 + 0.006, 0.13),
+                   (MOUTH_W + 0.01, py1 + 0.034, 0.45), mat="gunmetal",
+                   bevel=0.005))
+    # hazard on the OUTPUT end, where the review found the intake's chevrons
+    # were the only ones that read: a plate on each pocket lid (up-facing, so
+    # every rotation sees it) beside the sill's own. An eave band over the
+    # mouth was tried and sat over the cone at the footprint's far edge.
+    for sx in (-1.0, 1.0):
+        x0 = sx * (w + 0.03) if sx < 0 else sx * (w + 0.03)
+        lo, hi = (x0 - 0.18, x0) if sx < 0 else (x0, x0 + 0.18)
+        out.append(prism("pocket-chev-back%d" % (sx > 0),
+                         [(lo, py1 - 0.06), (hi, py1 - 0.06), (hi, py1 + 0.02), (lo, py1 + 0.02)],
+                         0.468, 0.474, mat="cavity", cuts=1, bevel=0.002))
+        for j in range(2):
+            xx = lo + 0.02 + j * 0.08
+            out.append(prism("pocket-chev%d%d" % (sx > 0, j),
+                             [(xx, py1 - 0.05), (xx + 0.035, py1 - 0.05),
+                              (xx + 0.07, py1 + 0.01), (xx + 0.035, py1 + 0.01)],
+                             0.472, 0.482, mat="hazard", cuts=0, bevel=0.002))
+    out.append(boxes("port-pocket",
+                     [((-w - 0.24, py1 - 0.08, 0.11), (-w, py1 + 0.04, 0.47)),
+                      ((w, py1 - 0.08, 0.11), (w + 0.24, py1 + 0.04, 0.47))],
+                     mat="compdark", bevel=0.01))
+    out.append(boxes("pocket-seam",
+                     [((-w - 0.245, py1 - 0.02, 0.13), (-w + 0.005, py1 - 0.005, 0.45)),
+                      ((w - 0.005, py1 - 0.02, 0.13), (w + 0.245, py1 - 0.005, 0.45))],
+                     mat="seamdark", cuts=0, bevel=0.0))
+    # the sill, with hazard chevrons painted on it: chevrons in, chevrons out.
+    # A bridge plate on two short legs with daylight under it, flanked by a
+    # guide post at each pocket corner: in SOUTH the port faces the camera as
+    # one compact block and the silhouette's raggedness fell to 0.93 against
+    # the 0.95 floor -- raggedness is bought with holes, not with parts.
+    out.append(box("port-sill", (-SILL[0], SILL[1], 0.09), (SILL[0], SILL[2], 0.13),
+                   mat="scoured"))
+    out.append(boxes("port-sill-legs",
+                     [((-0.20, SILL[1] + 0.02, 0.0), (-0.15, SILL[2] - 0.02, 0.10)),
+                      ((0.15, SILL[1] + 0.02, 0.0), (0.20, SILL[2] - 0.02, 0.10))],
+                     mat="gunmetal"))
+    out.append(prism("sill-chev-back", [(-0.18, SILL[1] + 0.02), (0.18, SILL[1] + 0.02),
+                                        (0.18, SILL[2] - 0.02), (-0.18, SILL[2] - 0.02)],
+                     0.128, 0.134, mat="cavity", cuts=1, bevel=0.003))
+    for j in range(3):
+        x = -0.16 + j * 0.115
+        out.append(prism("sill-chev%d" % j,
+                         [(x, SILL[1] + 0.03), (x + 0.05, SILL[1] + 0.03),
+                          (x + 0.105, SILL[2] - 0.03), (x + 0.055, SILL[2] - 0.03)],
+                         0.132, 0.142, mat="hazard", cuts=0, bevel=0.003))
+    out.append(boxes("port-bollard",
+                     [((-w - 0.22, py1 + 0.04, 0.10), (-w - 0.16, py1 + 0.10, 0.40)),
+                      ((w + 0.16, py1 + 0.04, 0.10), (w + 0.22, py1 + 0.10, 0.40))],
+                     mat="polished", bevel=0.006))
+    out.append(boxes("port-bollard-cap",
+                     [((-w - 0.23, py1 + 0.03, 0.40), (-w - 0.15, py1 + 0.11, 0.43)),
+                      ((w + 0.15, py1 + 0.03, 0.40), (w + 0.23, py1 + 0.11, 0.43))],
+                     mat="hazard", cuts=0, bevel=0.003))
+    a.run("greeble:skid_feet", [(-0.34, 1.60, 0.06), (0.34, 1.60, 0.06)],
+          mat="gunmetal", name="port-feet")
+    # the grade scale, as PAINT on the riser's top face: five squares on a
+    # dark plate, up-facing so every rotation sees them
+    out.append(box("grade-plate", (-0.40, py0 + 0.012, 0.99),
+                   (0.40, py0 + 0.088, 0.996), mat="seamdark", cuts=0,
+                   bevel=0.0))
+    for i in range(5):
+        x = -0.35 + i * 0.16
+        out.append(box("grade-paint%d" % i, (x, py0 + 0.02, 0.995),
+                       (x + 0.11, py0 + 0.08, 1.003), mat="paintq%d" % i,
+                       cuts=0, bevel=0.002))
+    # THE HYDRAULIC POWER UNIT that drives the ram, in the south-east corner
+    # the review found bare: a tank on Z (a circle in every rotation), a
+    # motor block, and a pressure hose to the cylinder's rear.
+    out.append(cyl("hpu-tank", (0.94, -1.08, 0.31), 0.15, 0.38, mat="tempers",
+                   seg=24))
+    out.append(torus("hpu-band", (0.94, -1.08, 0.24), 0.155, 0.018, mat="gunmetal",
+                     seg=24, mseg=8))
+    out.append(cyl("hpu-cap", (0.94, -1.08, 0.51), 0.10, 0.04, mat="polished",
+                   seg=20))
+    out.append(box("hpu-motor", (0.56, -1.20, DECK - 0.01), (0.78, -0.96, 0.36),
+                   mat="gunmetal", bevel=0.01))
+    out.append(cyl("hpu-shaft", (0.78, -1.08, 0.24), 0.05, 0.06, axis="X",
+                   mat="polished", seg=12))
+    a.run("greeble:pipe_run", [(0.94, -1.08, 0.53), (0.30, -1.02, 0.42),
+                               (-0.22, -0.84, 0.52), (RAM_X, -0.54, 0.70)],
+          radius=0.03, flanges=False, mat="hose", name="hpu-hose")
+    a.place("greeble:flange", at=(0.94, -1.08), z=0.53, size=0.12,
+            mat="copper", name="hpu-fit")
+    _cone("hpu", 1.09, -1.23, 0.55)
+    _cone("riser back", w, py0 + 0.10, 1.003)
+    _cone("roof mouth end", w, py1 + 0.02, 0.52)
+    _cone("pocket", w + 0.24, py1 + 0.04, 0.47)
+    return out
+
+
+# ---- 4. the salvaged olive half -------------------------------------------
 
 
 def shredder(a):
-    """Chunky, stepped, olive, and grounded in vanilla on purpose.
-
-    The brief's futurism gradient puts the refinement at the rotor end. This
-    half gets one curved primary form -- the intake hood -- cleaner steps, and
-    a maw 0.68 x 0.48 tiles, which is 22 x 15 px in game against the shipped
-    build's 13 x 6.
-    """
+    """The vanilla lineage: olive, hazard chevrons, the maw with its rollers
+    -- retrofitted. A composite feed collar frames the maw, armour plates are
+    bolted to two walls, and the old stack moved onto the crown."""
     out = []
     x0, x1, z0, z1 = MAW
-    # THE SKIRT IN THREE SPANS. One box stands in front of the maw and hides it
-    # completely -- the opening is at y -1.34..-1.00 and a skirt face at -1.36
-    # is nearer the camera. Invisible in the model, fatal in the sprite.
+    # THE SKIRT IN THREE SPANS, cut back from the maw so the collar has room
     out.append(boxes("shred-skirt",
-                     [((-1.30, -1.38, DECK), (x0 - 0.02, 0.14, 0.50)),
-                      ((x1 + 0.02, -1.38, DECK), (SHRED_E, 0.14, 0.50)),
+                     [((-1.30, -1.38, DECK), (x0 - 0.14, 0.14, 0.50)),
+                      ((x1 + 0.14, -1.38, DECK), (SHRED_E, 0.14, 0.50)),
                       ((-1.30, -1.02, DECK), (SHRED_E, 0.14, 0.50))],
                      mat="olived"))
-    # THE HULL IS BUILT AROUND THE MAW, not through it. A single box with a
-    # dark "cavity" block laid over the opening is a SOLID block, and the three
-    # rollers inside it drew exactly zero pixels in all four rotations -- the
-    # shredder's whole identity, invisible, with nothing in the render to say
-    # so. Five spans leave a genuine 0.22-tile recess instead.
-    #
-    # The recess depth is chosen against the camera: at 45 degrees a ray
-    # entering at the lintel drops one tile of z per tile of y, so a 0.22-deep
-    # recess under a 0.52-tall opening shows everything from the lintel down to
-    # z 0.47 at the back wall -- which is where all three rollers sit.
-    mx0, mx1 = MAW[0] - 0.06, MAW[1] + 0.06
-    mz0, mz1 = MAW[2] - 0.04, MAW[3] + 0.05
+    # THE HULL IS BUILT AROUND THE MAW, not through it (five spans)
+    mx0, mx1 = x0 - 0.06, x1 + 0.06
+    mz0, mz1 = z0 - 0.04, z1 + 0.05
     out.append(boxes("shred-hull",
                      [((-1.22, -1.26, DECK), (mx0, 0.06, 0.98)),
                       ((mx1, -1.26, DECK), (HULL_E, 0.06, 0.98)),
@@ -274,33 +676,27 @@ def shredder(a):
                    mat="olive"))
     out.append(box("shred-cap", (-1.10, -1.14, 1.06), (-0.50, -0.06, 1.13),
                    mat="scoured"))
-    # the intake hood: an arc swept along X, this half's one curved primary.
-    # 0.96 wide and crowning at 1.28 -- the cone allows 2.25 and the binding
-    # vertex is the hood's own west end at |x| 0.96.
+    # the intake hood: this half's one curved primary, kept from v2
     out.append(rb.hood("shred-hood", -0.96, -0.60, (-0.60, 1.08), 0.20,
                        mat="olive", thick=0.050, a0=-7.0, a1=187.0))
     for i, x in enumerate((-0.94, -0.62)):
         out.append(ring("shred-hood-rib%d" % i, (x, -0.60, 1.08), 0.225, 0.175,
                         0.045, axis="X", mat="steel", a0=-7.0, a1=187.0))
-    out.append(box("shred-hood-hatch", (-0.90, -0.74, 1.24), (-0.66, -0.46,
-                                                              1.30),
+    out.append(box("shred-hood-hatch", (-0.90, -0.74, 1.24), (-0.66, -0.46, 1.30),
                    mat="gunmetal"))
     a.place("greeble:handwheel", at=(-0.78, -0.60), z=1.30, size=0.12,
             mat="copper", name="shred-hood-wheel")
-    # THE COOLING FAN on the crown, north of the hood. A Z-axis fan, because a
-    # Y-axis one is edge-on in east and west -- the same rule that moved the
-    # hero. 5 blades, so one loop only has to cover 72 degrees.
-    out.append(ring("fan-ring", (-0.80, -0.24, 1.14), 0.190, 0.160, 0.07,
-                    mat="steel", seg=20))
-    out.append(cyl("fan-hub", (-0.80, -0.24, 1.13), 0.048, 0.07, mat="gunmetal",
-                   seg=12))
-    out.append(radial_bars("fan-blade", (-0.80, -0.24, 1.12), 0.048, 0.163,
-                           0.048, 0.030, 5, mat="steel", taper=1.6))
-    out.append(radial_bars("fan-grille", (-0.80, -0.24, 1.165), 0.050, 0.162,
-                           0.013, 0.022, 8, mat="gunmetal"))
-    # THE MAW: a back wall and a floor, with open air between them and the
-    # opening. The dark is the recess itself plus Cycles' own AO, which is what
-    # makes a mouth read as a mouth rather than as a painted black rectangle.
+    # THE STACK, on the crown where v2 had the fan. The old machine had a
+    # chimney; the retrofit kept it.
+    out.append(cyl("stack", (-0.64, -0.22, 1.26), 0.09, 0.36, mat="gunmetal",
+                   seg=16))
+    out.append(ring("stack-cowl", (-0.64, -0.22, 1.42), 0.13, 0.09, 0.08,
+                    mat="scoured", seg=16))
+    out.append(torus("stack-band", (-0.64, -0.22, 1.16), 0.105, 0.022,
+                     mat="bronze", seg=16, mseg=8))
+    _cone("stack cowl", -0.77, -0.22, 1.46)
+    # THE MAW: back wall and floor, open air in front, three toothed rollers.
+    # 0.56 tall so the top roller clears the lintel's 45-degree sight line.
     out.append(boxes("maw-cav",
                      [((x0, -1.08, z0 - 0.03), (x1, -1.04, z1 + 0.04)),
                       ((x0, -1.26, z0 - 0.03), (x1, -1.04, z0 + 0.02)),
@@ -320,382 +716,128 @@ def shredder(a):
                                MAW_ROLLER_R - 0.022, MAW_ROLLER_R + 0.028,
                                0.020, x1 - x0 - 0.10, 9, axis="X",
                                mat="scoured"))
-    # THE LOADING APRON, hanging 0.55 tiles south of the footprint at z < 0.25.
-    # This is where the sprite's height comes from: the cone bounds height, not
-    # reach, so low hardware outside the tiles is free. Vanilla's chemical
-    # plant spends 0.76 tiles the same way on its pipe stubs.
-    out.append(prism("apron", [(-1.12, -1.30), (-0.42, -1.30), (-0.52, -2.05),
-                               (-1.02, -2.05)], 0.06, 0.20, mat="gunmetal",
+    # THE FEED COLLAR: the retrofit, framing the maw in composite with a
+    # rivet row and a seam groove down each side. Proud of the skirt.
+    cw = 0.12
+    out.append(boxes("feed-collar",
+                     [((x0 - cw - 0.02, -1.40, DECK), (x0 - 0.02, -1.28, z1 + 0.12)),
+                      ((x1 + 0.02, -1.40, DECK), (x1 + cw + 0.02, -1.28, z1 + 0.12)),
+                      ((x0 - cw - 0.02, -1.40, z1 + 0.04), (x1 + cw + 0.02, -1.28, z1 + 0.12))],
+                     mat="compdark", bevel=0.012))
+    out.append(boxes("collar-seam",
+                     [((x0 - cw - 0.02, -1.405, 0.46), (x0 - 0.02, -1.395, 0.48)),
+                      ((x1 + 0.02, -1.405, 0.46), (x1 + cw + 0.02, -1.395, 0.48))],
+                     mat="seamdark", cuts=0, bevel=0.0))
+    a.run("greeble:rivet_row", (x0 - cw / 2 - 0.02, -1.405, 0.26),
+          (x0 - cw / 2 - 0.02, -1.405, z1 + 0.08), count=5, mat="gunmetal",
+          name="collar-rivets-w")
+    a.run("greeble:rivet_row", (x1 + cw / 2 + 0.02, -1.405, 0.26),
+          (x1 + cw / 2 + 0.02, -1.405, z1 + 0.08), count=5, mat="gunmetal",
+          name="collar-rivets-e")
+    # THE LOADING APRON, narrowed and moved west so its rows in the west view
+    # stay clear of the sill's (see the module docstring). No rails.
+    out.append(prism("apron", [(-1.18, -1.30), (-0.48, -1.30), (-0.58, -2.05),
+                               (-1.08, -2.05)], 0.06, 0.20, mat="gunmetal",
                      cuts=1))
-    out.append(boxes("apron-rail",
-                     [((-1.14, -1.96, 0.18), (-1.00, -1.30, 0.28)),
-                      ((-0.54, -1.96, 0.18), (-0.40, -1.30, 0.28))],
-                     mat="gunmetal"))
-    # a scoured wear track down the middle: the route material actually takes,
-    # told in value contrast, which is what survives gameplay zoom
-    out.append(prism("apron-track", [(-0.96, -1.32), (-0.58, -1.32),
-                                     (-0.64, -1.98), (-0.90, -1.98)],
+    out.append(prism("apron-track", [(-1.02, -1.32), (-0.64, -1.32),
+                                     (-0.70, -1.98), (-0.96, -1.98)],
                      0.195, 0.215, mat="scoured", cuts=1))
-    # Hazard stripes PAINTED ON THE APRON DECK, not standing on a south face.
-    # As a wall band they floated above the 0.20 deck and their backing plate
-    # reached max(|x|,|y|) + z = 2.34 against APEX 2.25 -- and fit_cone()
-    # answers an overrun by shrinking the whole machine, so a decal nobody
-    # would miss was costing every other part 3.6% of its size.
-    out.append(prism("apron-chev-back", [(-1.03, -2.00), (-0.59, -2.00),
-                                         (-0.53, -1.78), (-0.97, -1.78)],
+    out.append(prism("apron-chev-back", [(-1.09, -2.00), (-0.65, -2.00),
+                                         (-0.59, -1.78), (-1.03, -1.78)],
                      0.198, 0.206, mat="cavity", cuts=1, bevel=0.004))
     for j in range(4):
-        x = -1.00 + j * 0.098
+        x = -1.06 + j * 0.098
         out.append(prism("apron-chev%d" % j,
                          [(x, -1.98), (x + 0.046, -1.98),
                           (x + 0.098, -1.80), (x + 0.052, -1.80)],
                          0.204, 0.216, mat="hazard", cuts=0, bevel=0.004))
-    a.run("greeble:skid_feet", [(-1.04, -1.96, 0.02), (-0.50, -1.96, 0.02)],
+    a.run("greeble:skid_feet", [(-1.10, -1.96, 0.02), (-0.56, -1.96, 0.02)],
           mat="gunmetal", name="apron-feet")
-    # THE FEEDER RAM: the apron's reason to exist, and the machine's secondary
-    # mechanical motion. 0.30 x 0.24 tiles sliding 0.30 north into the maw and
-    # back -- 19 x 15 source px travelling 19, which reads at gameplay zoom
-    # where a flap inside the 0.24-tile slot would have been 15 px wide and
-    # invisible.
-    out.append(box("flap-ram", (-0.92, -1.84, 0.19), (-0.62, -1.60, 0.33),
+    # THE FEEDER RAM: the apron's reason to exist
+    out.append(box("flap-ram", (-0.98, -1.84, 0.19), (-0.68, -1.60, 0.33),
                    mat="gunmetal"))
     out.append(boxes("flap-ram-head",
-                     [((-0.95, -1.63, 0.18), (-0.59, -1.56, 0.37))],
+                     [((-1.01, -1.63, 0.18), (-0.65, -1.56, 0.35))],
                      mat="scoured"))
-    # y -1.86 with a 0.18 barrel, not -1.95 with 0.24: at 0.035 radius the
-    # rod reached max(|x|,|y|) + z = 2.36 against an APEX of 2.25, and
-    # fit_cone() answered by shrinking the ENTIRE MACHINE 4.5%. One 11 px rod
-    # is not worth 4.5% of every other part.
-    out.append(cyl("flap-ram-rod", (-0.77, -1.86, 0.24), 0.035, 0.18, axis="Y",
+    out.append(cyl("flap-ram-rod", (-0.83, -1.86, 0.24), 0.035, 0.18, axis="Y",
                    mat="steel", seg=10))
-    # THE SCRAP CHUTE, hanging west. Its row band is chosen to be disjoint from
-    # the rotor's in every rotation -- see the module docstring.
-    out.append(prism("chute-w", [(-1.24, -1.00), (-1.24, -0.50), (-1.86, -0.60),
-                                 (-1.86, -0.92)], 0.12, 0.30, mat="gunmetal",
-                     cuts=1))
-    out.append(box("chute-w-lip", (-1.90, -0.92, 0.10), (-1.76, -0.58, 0.34),
-                   mat="gunmetal"))
-    out.append(torus("chute-w-collar", (-1.22, -0.75, 0.32), 0.15, 0.042,
-                     axis="X", mat="copper", seg=16, mseg=8))
-    # hazard chevrons: the concept sheet's loudest feature, and the shipped
-    # build had none that survived. South wall AND west wall -- west is the
-    # front elevation once the machine faces east.
-    out += wall_chevrons("shred-chev-s", "S", -1.16, -0.44, 0.79, 0.96, -1.26,
+    # hazard chevrons on the south AND west walls
+    out += wall_chevrons("shred-chev-s", "S", -1.16, -0.44, 0.86, 0.94, -1.26,
                          count=5)
     out += wall_chevrons("shred-chev-w", "W", -1.14, -0.22, 0.54, 0.80, -1.22,
                          count=6)
+    # ARMOUR PLATES bolted on: a kick plate on the west skirt under the
+    # chevrons, and a plate on the north wall (the front elevation in south)
+    out.append(box("armour-w", (-1.34, -0.98, 0.14), (-1.29, -0.36, 0.50),
+                   mat="compdark", bevel=0.01))
+    a.run("greeble:rivet_row", (-1.345, -0.94, 0.44), (-1.345, -0.40, 0.44),
+          count=5, mat="gunmetal", name="armour-w-rivets")
+    out.append(box("armour-n", (-1.10, 0.05, 0.28), (-0.58, 0.12, 0.82),
+                   mat="compdark", bevel=0.01))
+    out.append(box("armour-n-seam", (-1.08, 0.12, 0.54), (-0.60, 0.125, 0.56),
+                   mat="seamdark", cuts=0, bevel=0.0))
+    a.run("greeble:rivet_row", (-1.06, 0.125, 0.76), (-0.62, 0.125, 0.76),
+          count=5, mat="gunmetal", name="armour-n-rivets")
     return out
 
 
-# ---- 3. the junction ------------------------------------------------------
+# ---- 5. power in: the west cabinet ----------------------------------------
 
 
-def junction(a):
-    """A machined coupling collar, swept conduits, and the slot itself.
-
-    Vanilla reads a join as a FITTING, not as a gap -- a uniform gap everywhere
-    is what makes assembled props look like props. The slot is 0.24 tiles of
-    dark floor with the drive shaft and two conduits crossing it.
-    """
-    jx = 0.5 * (GAP[0] + GAP[1])
+def cabinet(a):
+    """A low switch cabinet hanging past the west edge: the machine's power
+    inlet, and the sprite's west extreme -- its rows are disjoint from the
+    rotor's in north and south (see the module docstring)."""
     out = []
-    out.append(box("gap-floor", (GAP[0], -0.90, DECK), (GAP[1], 0.58, 0.19),
-                   mat="cavity"))
-    out.append(box("seam-plinth", (GAP[0] - 0.05, -0.80, DECK),
-                   (GAP[1] + 0.05, -0.34, 0.58), mat="bronze"))
-    out.append(torus("seam-collar", (jx, -0.57, 0.62), 0.235, 0.058,
-                     mat="copper", seg=28))
-    out.append(ring("seam-ring", (jx, -0.57, 0.50), 0.190, 0.122, 0.20,
-                    mat="tempers", seg=24))
-    out.append(radial_bars("seam-bolts", (jx, -0.57, 0.695), 0.075, 0.220,
-                           0.028, 0.05, 8, mat="gunmetal"))
-    # A BOLTED STRAP up the shredder's east face, which IS the seam plane. One
-    # collar at one y is a fitting; a strap running the height of the join is
-    # what says the two halves were bolted together -- and "no visible joint"
-    # was the standing criticism of every build so far.
-    out.append(boxes("seam-strap",
-                     [((HULL_E - 0.02, -1.10, 0.22), (HULL_E + 0.05, -0.94, 0.94)),
-                      ((HULL_E - 0.02, -0.30, 0.22), (HULL_E + 0.05, -0.14, 0.94)),
-                      ((HULL_E - 0.02, -1.12, 0.86), (HULL_E + 0.05, -0.12, 0.94))],
-                     mat="scoured"))
-    a.run("greeble:rivet_row", (HULL_E + 0.045, -1.06, 0.60),
-          (HULL_E + 0.045, -0.18, 0.60), mat="gunmetal", name="seam-rivets")
-    # swept conduits bridging the slot, with sag
-    a.run("greeble:pipe_run",
-          [(-0.40, -0.98, 0.84), (-0.10, -1.02, 0.76), (0.14, -0.96, 0.66),
-           (0.34, -0.86, 0.58)], radius=0.052, mat="bronze", name="seam-pipe0")
-    a.run("greeble:pipe_run",
-          [(-0.58, 0.26, 0.88), (-0.22, 0.34, 0.80), (0.16, 0.40, 0.66)],
-          radius=0.044, mat="tempers", name="seam-pipe1")
-    a.run("greeble:cable", (-0.52, -0.36, 0.92), (0.02, -0.30, 0.70),
-          sag=0.12, mat="rubber", name="seam-cable0")
-    a.run("greeble:cable", (-0.50, -0.18, 0.90), (0.04, -0.12, 0.66),
-          sag=0.14, mat="rubber", name="seam-cable1")
+    out.append(box("cabinet", (-1.86, -1.06, 0.08), (-1.26, -0.72, 0.36),
+                   mat="compdark", bevel=0.012))
+    out.append(box("cabinet-seam", (-1.865, -0.895, 0.10), (-1.255, -0.875, 0.34),
+                   mat="seamdark", cuts=0, bevel=0.0))
+    for i, x in enumerate((-1.70, -1.50)):
+        out.append(cyl("cabinet-ins%d" % i, (x, -0.82, 0.44), 0.035, 0.16,
+                       mat="copper", seg=10))
+        out.append(torus("cabinet-ins%d-ring" % i, (x, -0.82, 0.40), 0.045,
+                         0.014, mat="gunmetal", seg=10, mseg=6))
+    a.run("greeble:pipe_run", [(-1.50, -0.82, 0.52), (-1.36, -0.82, 0.58),
+                               (-1.26, -0.82, 0.58)],
+          radius=0.025, mat="steel", name="cabinet-conduit")
+    # feet at the cabinet's south end only: a foot at y -0.78 sat within 0.06
+    # of the west extreme and its rows collided with the cowl's in south
+    a.run("greeble:skid_feet", [(-1.76, -1.00, 0.0), (-1.62, -0.86, 0.0)],
+          mat="gunmetal", name="cabinet-feet")
+    _cone("cabinet insulator", -1.70, -0.82, 0.52)
     return out
 
 
-# ---- 4. the grading unit --------------------------------------------------
-
-
-def grading(a):
-    """Five up-facing lenses in the vanilla quality colours, on a tilted panel.
-
-    UP-facing is the whole design. An emissive on a wall is face-on in one
-    rotation, a bright streak in two and invisible in the fourth; the deck is
-    the one surface this camera always sees. Pitch 0.22 tiles = 14 source px =
-    7 px in game, comfortably over the ~3-4 px legibility floor.
-
-    The lenses are NOT emissive in the base sheet. An emission shader washes
-    its own hue toward white under this rig -- rare rendered cyan rather than
-    navy -- so the base carries the true colour as a lit dielectric and the
-    glow layer carries the light.
-    """
-    out = []
-    out.append(box("grade-body", (0.04, -1.34, DECK), (1.22, -0.66, 0.42),
-                   mat="steel"))
-    out.append(box("grade-face", (0.08, -1.30, 0.40), (1.18, -0.70, GRADE_Z),
-                   mat="gunmetal"))
-    out.append(box("grade-window", (0.16, -1.06, GRADE_Z - 0.015),
-                   (1.12, -0.84, GRADE_Z + 0.03), mat="cavity"))
-    out.append(boxes("grade-rail",
-                     [((0.12, -1.32, GRADE_Z - 0.02), (1.16, -1.28, GRADE_Z + 0.07)),
-                      ((0.12, -0.74, GRADE_Z - 0.02), (1.16, -0.70, GRADE_Z + 0.07))],
-                     mat="scoured"))
-    for i in range(5):
-        x = 0.26 + i * 0.22
-        out.append(ring("grade-bezel%d" % i, (x, -1.18, GRADE_Z + 0.02), 0.085,
-                        0.060, 0.08, mat="gunmetal", seg=16))
-        out.append(cyl("grade-lens%d" % i, (x, -1.18, GRADE_Z + 0.042), 0.061,
-                       0.05, mat="q%d" % i, seg=16))
-    # the single output: one chute, hanging south-east, so the five grades
-    # visibly leave by one door. The design doc's four bins implied four
-    # separately drawable outputs, which the entity does not have.
-    out.append(prism("chute-out", [(0.94, -1.30), (1.24, -1.30), (1.20, -1.92),
-                                   (0.98, -1.92)], 0.10, 0.34, mat="gunmetal",
-                     cuts=1))
-    out.append(box("chute-out-lip", (0.92, -1.96, 0.08), (1.26, -1.84, 0.26),
-                   mat="tempers"))
-    a.place("greeble:placard", at=(0.42, -1.36), z=0.30, size=0.20,
-            mat="hazard", name="grade-placard")
-    a.place("greeble:gauge_pod", at=(1.00, -0.80), z=GRADE_Z, size=0.115,
-            mat="steel", name="grade-gauge0")
-    return out
-
-
-# ---- 5. the quiet north-west, power in, heat out --------------------------
-
-
-def service(a):
-    """The north-west kept LOW, which is what makes the diagonal read.
-
-    A machine with all four quadrants at the same height is a block however the
-    detail is arranged. This corner carries the human-service and power-in
-    flows at ankle height.
-    """
-    out = []
-    out.append(box("nw-deck", (-1.10, 0.18, DECK), (-0.52, 0.68, 0.30),
-                   mat="steel"))
-    out.append(barrel("nw-drum", (-0.88, 0.44, 0.50), 0.19, 0.36, axis="Y",
-                      mat="gunmetal", bulge=0.012, seg=20))
-    out.append(ring("nw-drum-cheek", (-0.88, 0.25, 0.50), 0.205, 0.055, 0.05,
-                    axis="Y", mat="steel", seg=20))
-    out.append(box("nw-crate", (-0.66, 0.20, 0.28), (-0.54, 0.52, 0.46),
-                   mat="olive"))
-    a.place("greeble:junction_box", at=(-1.02, 0.26), z=0.30, size=0.19,
-            mat="gunmetal", name="nw-jbox")
-    a.run("greeble:cable", (-1.02, 0.26, 0.50), (-0.62, -0.02, 0.32),
-          sag=0.10, mat="rubber", name="nw-cable0")
-    a.run("greeble:ladder", (-1.20, -0.30, DECK), 0.86, mat="steel",
-          name="shred-ladder")
-    return out
-
-
-def power(a):
-    """Power in: a junction box on the rotor deck, a capacitor row, and cable
-    runs that go somewhere. The rotor draws hard and that should show."""
-    out = []
-    out.append(boxes("cap-bank", [((0.10, 0.86, 0.30), (0.52, 1.14, 0.36))],
-                     mat="gunmetal"))
-    for i in range(3):
-        x = 0.18 + i * 0.14
-        out.append(cyl("cap-can%d" % i, (x, 1.00, 0.50), 0.100, 0.30,
-                       mat="tempers", seg=16))
-        out.append(torus("cap-top%d" % i, (x, 1.00, 0.66), 0.082, 0.028,
-                         mat="copper", seg=14, mseg=8))
-    out.append(boxes("cap-bus", [((0.12, 0.96, 0.66), (0.50, 1.04, 0.705))],
-                     mat="copper"))
-    a.place("greeble:junction_box", at=(0.16, 0.72), z=0.38, size=0.26,
-            mat="gunmetal", name="rot-jbox")
-    a.run("greeble:cable", (0.20, 1.14, 0.44), (0.44, 1.12, 0.64), sag=0.07,
-          mat="rubber", name="rot-cable0")
-    a.run("greeble:cable", (0.52, 1.14, 0.66), (0.30, 1.16, 0.44), sag=0.07,
-          mat="rubber", name="rot-cable1")
-    a.run("greeble:cable", (1.06, 1.16, 0.44), (1.22, 0.86, 0.38), sag=0.08,
-          mat="rubber", name="rot-cable2")
-    return out
-
-
-def heat(a):
-    """Heat out. Earned rather than decorative: eddy currents genuinely make
-    heat, and this is the machine's stated reason for a tempered half."""
-    out = []
-    # Clear of the rotor bore: (0.86, -0.44) is 0.94 tiles from the rotor
-    # centre, outside R_OUT. The obvious spot inside the well would have put
-    # the whole radiator in the cavity, which is how the shipped build lost
-    # one entirely.
-    a.place("greeble:radiator", at=(0.98, 1.00), z=0.34, size=0.44, rot=90.0,
-            mat="tempers", name="rot-rad")
-    a.place("greeble:louvre_bank", at=(-0.80, 0.00), z=0.62, size=0.30,
-            mat="steel", name="shred-louvre")
-    # On the east apron's outward face, where the camera reaches it in the
-    # west rotation. The first cut lay flat in the rotor deck at z 0.40 with
-    # the deck's own step in front of it, and every fin drew zero pixels.
-    out.append(boxes("rot-vent", [((1.19, -0.34, 0.36), (1.27, 0.12, 0.54))],
-                     mat="cavity"))
-    for i in range(4):
-        y = -0.30 + i * 0.115
-        out.append(box("rot-vent-fin%d" % i, (1.18, y, 0.37), (1.28, y + 0.070,
-                                                               0.52),
-                       mat="gunmetal", cuts=1))
-    return out
-
-
-def stack(a):
-    """Exhaust, central. Height is free in the middle of the cone and costs
-    overhang at the edges, which is why it is not on the olive half."""
-    out = [cyl("stack", (-0.26, 0.50, 1.02), 0.102, 0.80, mat="gunmetal",
-               seg=16),
-           ring("stack-cowl", (-0.26, 0.50, 1.42), 0.162, 0.102, 0.11,
-                mat="scoured", seg=16),
-           torus("stack-band", (-0.26, 0.50, 0.98), 0.122, 0.026, mat="bronze",
-                 seg=16, mseg=8),
-           box("stack-foot", (-0.40, 0.34, 0.56), (-0.12, 0.66, 0.68),
-               mat="tempers"),
-           boxes("stack-stay", [((-0.62, 0.40, 0.86), (-0.28, 0.46, 0.92)),
-                                ((-0.62, 0.36, 0.30), (-0.54, 0.46, 0.90))],
-                 mat="steel")]
-    return out
-
-
-def rotor_deck(a):
-    """The plinth the hero stands on, stepped so the rotor is RAISED above the
-    olive half rather than beside it -- the diagonal is in height as well as in
-    plan."""
-    out = [prism("rot-deck", [(0.00, -0.62), (1.24, -0.62), (1.24, 0.98),
-                              (1.04, 1.18), (0.08, 1.18), (0.00, 0.94)],
-                 DECK, 0.28, mat="tempers", cuts=1),
-           prism("rot-step", [(0.06, -0.50), (1.18, -0.50), (1.18, 0.90),
-                              (0.98, 1.10), (0.14, 1.10), (0.06, 0.84)],
-                 0.28, 0.38, mat="tempers", cuts=1)]
-    # Panel seams on the step, because a 1.1 x 1.4-tile deck is the largest
-    # uninterrupted surface on the machine and the camera sees the deck more
-    # than any other face. Flat violet there read as a carpet.
-    out.append(boxes("rot-plate",
-                     [((0.12, -0.44, 0.38), (0.60, 0.24, 0.415)),
-                      ((0.12, 0.30, 0.38), (0.60, 0.80, 0.415))],
-                     mat="tempers", cuts=1))
-    out.append(boxes("rot-seam",
-                     [((0.62, -0.46, 0.38), (0.66, 0.84, 0.405)),
-                      ((0.10, 0.26, 0.38), (0.62, 0.29, 0.405))],
-                     mat="gunmetal", cuts=1))
-    a.run("greeble:rivet_row", (0.08, -0.58, 0.28), (1.18, -0.58, 0.28),
-          mat="steel", name="rot-rivets0")
-    return out
+# ---- 6. structure and service ---------------------------------------------
 
 
 def structure(a):
-    """Rivet rows, stiles and rails on all four walls, skid feet, placards.
-
-    ALL FOUR WALLS, not just the south one. This entity rotates, so the west
-    wall is the front elevation in east, the north wall in south and the east
-    apron in west; treating only the south wall left three rotations reading as
-    blank painted plates.
-    """
     out = []
-    # proud stiles on the shredder's south and west walls: real geometry, so
-    # the bevel catches a highlight and the seam has a dark line under it
     out.append(boxes("shred-stile-s",
-                     [((-1.24, -1.29, 0.50), (-1.14, -1.26, 0.98)),
-                      ((-0.56, -1.29, 0.50), (-0.46, -1.26, 0.98))],
+                     [((-1.24, -1.29, 0.50), (-1.18, -1.26, 0.98)),
+                      ((-0.50, -1.29, 0.50), (-0.44, -1.26, 0.98))],
                      mat="steel"))
     out.append(boxes("shred-stile-w",
                      [((-1.25, -1.20, 0.14), (-1.22, -1.08, 0.96)),
                       ((-1.25, -0.12, 0.14), (-1.22, 0.00, 0.96))],
                      mat="steel"))
-    out.append(boxes("shred-rail-n",
-                     [((-1.22, 0.02, 0.72), (-0.44, 0.09, 0.80)),
-                      ((-1.22, 0.02, 0.34), (-0.44, 0.09, 0.42))],
-                     mat="steel"))
-    a.run("greeble:rivet_row", (-1.20, 0.09, 0.88), (-0.46, 0.09, 0.88),
+    a.run("greeble:rivet_row", (-1.20, 0.09, 0.90), (-0.46, 0.09, 0.90),
           mat="steel", name="shred-rivets-n")
-    a.run("greeble:rivet_row", (-1.25, -1.02, 0.62), (-1.25, -0.02, 0.62),
-          mat="steel", name="shred-rivets-w")
     a.run("greeble:skid_feet", [(-1.18, -1.32, 0.0), (-0.50, -1.32, 0.0),
                                 (-1.18, 0.08, 0.0), (-0.50, 0.08, 0.0)],
           mat="gunmetal", name="shred-feet")
-    a.place("greeble:placard", at=(-1.24, -0.70), z=0.60, size=0.20,
-            mat="steel", name="shred-placard")
-    a.place("greeble:gauge_pod", at=(-0.60, -1.28), z=0.62, size=0.08,
-            mat="steel", name="shred-gauge")
-    # the east apron -- the front elevation in the west rotation
-    out.append(boxes("rot-apron",
-                     [((1.18, -0.40, 0.16), (1.26, 0.84, 0.34)),
-                      ((1.14, -0.44, 0.34), (1.26, -0.10, 0.52))],
-                     mat="tempers"))
-    # THE NORTH TIE BRACKET, and it exists for the silhouette as much as for
-    # the machine. `audit()` collects every vertex within 0.06 of an extreme
-    # into that extreme's row band, and the northernmost part was a 0.07-tile
-    # cage boss at y 1.12 -- which pulled in the rotor step, the capacitor bank
-    # and two cable runs and handed east a 0.96-tile band of full-width rows.
-    # One bracket standing 0.12 proud of everything else owns max-y alone, and
-    # its rows (-1.06..-0.75 in east) miss the apron's (0.43..1.38) entirely.
-    out.append(boxes("rot-tie",
-                     [((1.02, 1.16, 0.14), (1.20, 1.31, 0.30)),
-                      ((1.05, 1.19, 0.30), (1.17, 1.28, 0.38))],
-                     mat="tempers"))
-    a.place("greeble:bolt_ring", at=(1.11, 1.235), z=0.375, size=0.13,
-            mat="gunmetal", name="rot-tie-bolts")
-    a.place("greeble:gauge_pod", at=(1.22, -0.52), z=0.48, size=0.11,
-            mat="steel", name="rot-apron-gauge")
-    return out
-
-
-# ---- 6. emissives ---------------------------------------------------------
-
-
-def emissives(a):
-    """Small, local, and each one says something.
-
-    One emissive family for the rotor energy (violet, epic quality's 286 deg,
-    the only hue in the quality ramp no vanilla machine's emissive claims), the
-    five quality lenses, and one green status lamp. Nothing else.
-    """
-    rx, ry = ROTOR
-    out = []
-    # The field gap: TWO ARCS between the coil's inner and outer hoops, not a
-    # ring of separate boxes. Six discrete emitters read at gameplay zoom as
-    # exactly what the owner called them on the shipped build -- "scattered
-    # magenta dots that don't communicate what the machine is doing". A
-    # continuous arc reads as one energised gap, and it is still a Z-axis
-    # circle, so it survives every rotation.
-    for i, a0 in enumerate((28.0, 208.0)):
-        out.append(ring("field%d" % i, (rx, ry, 0.985), 0.320, 0.262, 0.05,
-                        mat="violet", a0=a0, a1=a0 + 104.0, seg=30))
-    # Arc contacts: a spark jumping RADIALLY from the disc rim to the guard,
-    # in the gaps between the guard arcs and 10 degrees clear of the posts.
-    #
-    # The first cut put them at radius 0.60 and z 0.79, directly under the
-    # guard arcs -- and the fx layer came back 51 frames out of 64 with almost
-    # nothing in it. Neither the render nor any gate says so; the object-ID
-    # pass and a strip of the raw frames do.
-    for i in range(4):
-        out.append(radial_bars("arc%d" % i, (rx, ry, 0.858), 0.520, 0.645,
-                               0.030, 0.052, 1, mat="arcmat",
-                               phase=6.0 + i * 90.0))
-    # the scan bar over the grading window
-    out.append(box("scan", (0.20, -1.02, GRADE_Z + 0.018),
-                   (0.30, -0.88, GRADE_Z + 0.042), mat="violet", cuts=1))
-    # status lamp: green, and it is the only thing lit when the machine is idle
+    a.run("greeble:ladder", (-1.20, -0.24, DECK), 0.86, mat="steel",
+          name="shred-ladder")
+    # the seam strap up the hull's east face: the join, made visible
+    out.append(boxes("seam-strap",
+                     [((HULL_E - 0.02, -1.10, 0.22), (HULL_E + 0.05, -0.94, 0.94)),
+                      ((HULL_E - 0.02, -1.12, 0.86), (HULL_E + 0.05, -0.12, 0.94))],
+                     mat="scoured"))
+    a.run("greeble:rivet_row", (HULL_E + 0.045, -1.06, 0.60),
+          (HULL_E + 0.045, -0.50, 0.60), count=5, mat="gunmetal",
+          name="seam-rivets")
+    # status lamp: green, the only thing lit when the machine is idle
     out.append(cyl("lamp", (-0.62, -0.96, 1.16), 0.058, 0.05, mat="led",
                    seg=12))
     out.append(ring("lamp-hood", (-0.62, -0.96, 1.150), 0.090, 0.058, 0.09,
@@ -705,18 +847,19 @@ def emissives(a):
     return out
 
 
-# ---- 7. the fragments the rotor throws ------------------------------------
+# ---- 7. the fragments -----------------------------------------------------
 
 
 def fragments():
-    """Four chips in flight across the slot into the output chute. They are the
-    only thing on the machine whose SILHOUETTE travels, which is why they go in
-    their own overlay and never into the shadow pass."""
+    """Three chips of neutral scrap. They sit in the trough, ride the ram to
+    its end, drop into the throat, come out of the mouth, and are thrown back
+    down the discharge chute by the rotor. The only things whose silhouette
+    travels, so they live in their own overlay and never in the shadow pass."""
     out = []
-    for i in range(4):
-        out.append(box("frag%d" % i, (-0.075, -0.062, -0.055),
-                       (0.075, 0.062, 0.055), mat="scoured", cuts=0,
-                       bevel=0.018))
+    for i in range(3):
+        out.append(box("frag%d" % i, (-0.065, -0.05, -0.045),
+                       (0.065, 0.05, 0.045), mat="scoured", cuts=0,
+                       bevel=0.014))
     return out
 
 
@@ -725,6 +868,10 @@ def fragments():
 
 def build(mats):
     rb.extra_materials()
+    v3_materials()
+    # build_materials() returns a COPY of its dict; the Assembly looks parts'
+    # materials up in what it was handed, so it has to see the v3 additions
+    mats.update(gen._MATS)
     a = parts.Assembly(PREFIX, mats)
     a.purge()
     for obj in [o for o in bpy.data.objects if o.name.startswith(PREFIX)]:
@@ -733,18 +880,14 @@ def build(mats):
         bpy.data.collections.remove(c)
 
     made = [pad()]
-    made += rotor_deck(a)
+    made += plinth(a)
     made += rotor(a)
-    made += drive(a)
+    made += looms(a)
+    made += transfer(a)
+    made += ejector(a)
     made += shredder(a)
-    made += junction(a)
-    made += grading(a)
-    made += service(a)
-    made += power(a)
-    made += heat(a)
-    made += stack(a)
+    made += cabinet(a)
     made += structure(a)
-    made += emissives(a)
     made += fragments()
     a.placed.extend([o for o in made if o])
     gen.organise()
