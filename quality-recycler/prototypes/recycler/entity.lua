@@ -52,27 +52,32 @@ data:extend({
     graphics_set_flipped = pictures.graphics_set_flipped,
 
     crafting_categories = {"recycling"},
-    crafting_speed = 1.0,                  -- 2x the vanilla recycler's 0.5
+    crafting_speed = 1.25,                 -- 2.5x the vanilla recycler's 0.5; assembler 3's
     source_inventory_size = 1,
     result_inventory_size = 12,
 
     -- The mechanic. `effect_receiver.base_effect.quality` is a permanent,
     -- module-free bonus -- the same field a quality module writes, carried by
     -- the machine itself. The electromagnetic plant does exactly this with
-    -- productivity 0.5.
+    -- productivity 0.5. 12% is what five normal quality module 3s give.
     -- 1.2, not main's 0.12: quality effect values are ten times larger in 2.0
     -- prototype definitions. Vanilla's own quality-module-1 is `quality = 0.1`
     -- here against `0.01` on 2.1, and both display 1%. Written at 0.12 this
     -- machine would load clean, dump clean, and hand out 1.2%.
     effect_receiver = { base_effect = { quality = 1.2 } },
-    module_slots = 4,
+    module_slots = 5,                      -- the electromagnetic plant's
     -- No productivity, matching the vanilla recycler: recycling returns a
     -- fraction of what went in, and a productivity bonus on that would be
     -- free matter.
     allowed_effects = {"consumption", "speed", "pollution", "quality"},
     fast_transfer_modules_into_module_slots_only = true,
 
-    energy_usage = "600kW",                -- chosen: recycler 180kW at half the speed
+    -- 800kW per unit of crafting speed. The vanilla recycler pays 360, the
+    -- foundry 625, the electromagnetic plant 1000 for its free productivity;
+    -- a free 12% quality sits with the plant. Per item recycled that is 2.2x
+    -- the recycler's electricity, against the plant's 3.3x over an
+    -- assembler 3. Numbers in `.ai-support/decisions.md`.
+    energy_usage = "1000kW",
     energy_source =
     {
       type = "electric",

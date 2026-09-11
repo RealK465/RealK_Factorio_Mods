@@ -12,14 +12,19 @@ all three candidates.
 
 ## Dependencies
 
-`["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "space-age >= 2.1.0"]`.
+`["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "? space-age"]`.
 
-**`space-age` was added 2026-09-10, resolving the conflict the design created.** The technology
-gate needs metallurgic, electromagnetic and agricultural science, and those three packs exist
-only with Space Age — so of the two things that had to move, the dependency is the one that
-moved. The alternative was changing a tech gate that had already been settled from the repo
-owner's own brief. It does narrow the audience: `recycler` and `quality` ship independently of
-`space-age`, so a player could have had the first two without the third.
+**`space-age` is optional since 2026-09-11** (the owner's balance brief: "balanced for space
+age and vanilla"). It had been hard from 2026-09-10 because the technology gate needs the three
+planetary science packs, which exist only with the expansion, and that narrowed the audience:
+`recycler` and `quality` ship independently of `space-age`. The mod now carries two recipes and
+two technology gates, chosen in `prototypes/recycler/item.lua` on `mods["space-age"]` — `mods`
+rather than a feature flag because the branch is about which *items and science packs* exist,
+which is exactly what `mods` answers (the flag route is for expansion-gated *properties*, see
+the `factorio-mod-development` skill's compatibility reference). The optional dependency
+carries no version: a version on an optional dependency disables the mod when the other is
+present at a lower one, and nothing here needs a particular Space Age version. Both branches
+validate: the default install, and the same install with `-Disable space-age`.
 
 `quality >= 2.1.0` alone would pull `recycler` in transitively on Factorio 2.1 — confirmed by
 reading the installed `data/quality/info.json`, which itself declares
@@ -62,25 +67,42 @@ to carry as open.
   quality modules a player adds on top.
 - **Crafting speed 1.0** — 2x the vanilla recycler's `crafting_speed = 0.5`
   (`data/recycler/data.lua:143`).
-- **3x3 footprint.** The vanilla recycler is actually **2x4**, not square
+- **4x4 footprint** (the owner's call, 2026-09-11; it was 3x3 from 2026-09-10 until then).
+  The vanilla recycler is actually **2x4**, not square
   (`collision_box = {{-0.7, -1.7}, {0.7, 1.7}}`, `data/recycler/data.lua:138`, matching the
-  `tile_width`/`tile_height` = 2/4 recorded against its corpse at lines 276-277) — 8 tiles. 3x3
-  is 9 tiles, so this is barely bigger by area; the real change is shape, square instead of a
-  2-wide slot. Worth knowing before "3x3" reads as a big jump — by tile count it isn't.
+  `tile_width`/`tile_height` = 2/4 recorded against its corpse at lines 276-277) — 8 tiles,
+  so 16 tiles is twice the vanilla machine's area, and the same footprint as the
+  electromagnetic plant, which is this entity's mechanical precedent. The art was rebuilt to
+  the new box in the same session — see `quality-recycler-design.md` → *v4*.
 
-**The rest of the numbers, chosen 2026-09-10 when the prototype was written.** None of them had
-a right answer waiting; each is placed between the vanilla recycler and the electromagnetic
-plant, which are the two machines this one sits between:
+- **Crafting speed 1.25** — 2.5x the vanilla recycler's `crafting_speed = 0.5`
+  (`data/recycler/data.lua`), the assembling machine 3's number. The owner's call on 2026-09-11
+  (it was 1.0 from 2026-09-10). The animation keeps its tempo: `pictures.lua` plays at 1.6
+  frames per tick, which the engine scales by the crafting speed to the recycler's own 2.
+- **Five module slots** — the electromagnetic plant's. The owner's call on 2026-09-11; until
+  then the register held 4 on the reasoning that a permanent bonus should not be compounded.
+  It is compounded now on purpose: this is the top tier, and the electricity pays for it.
+
+**The rest of the numbers, re-balanced 2026-09-11.** Each is placed between the vanilla recycler
+and the electromagnetic plant, which are the two machines this one sits between:
 
 | | this | vanilla recycler | EM plant |
 |---|---|---|---|
-| `energy_usage` | **600kW** | 180kW at half the speed | 2000kW |
+| `crafting_speed` | **1.25** | 0.5 | 2 |
+| `energy_usage` | **1000kW** | 180kW | 2000kW |
+| kW per unit of speed | **800** | 360 | 1000 |
+| `module_slots` | **5** | 4 | 5 |
+| free bonus | 12% quality | none | +50% productivity |
 | `max_health` | **400** | 300 | 350 |
-| `module_slots` | **4** | 4 | 5 |
 | pollution/min | **4** | 2 | 4 |
 
-Module slots stay at 4 rather than rising with the tier: the machine already carries a permanent
-quality bonus, and more slots on top would compound the one thing it exists to do.
+**Electricity is priced by the free bonus.** Per unit of crafting speed the assembling machine 3
+pays 300 kW, the vanilla recycler 360, the foundry 625, the cryogenic plant 750 and the
+electromagnetic plant 1000 — the plant's free +50% productivity is what the extra buys. A free
+12% quality is worth five normal quality module 3s (0.025 each, `data/quality/prototypes/item.lua`),
+so this machine sits with the plant: 1 MW at 1.25 is 800 kW per unit of speed. Per item
+recycled that is 2.2x the vanilla recycler's electricity (1000/1.25 against 180/0.5), where the
+plant charges 3.3x an assembler 3 for the same recipe. Drain is the default thirtieth.
 
 `allowed_effects` is the vanilla recycler's exactly — `consumption`, `speed`, `pollution`,
 `quality`, and **no productivity**. Recycling returns a fraction of what went in, so a
@@ -97,15 +119,32 @@ mean either moving that gate or unlocking this machine far too early. Prerequisi
 `recycling` plus the three science-pack technologies, which is what actually guarantees the
 player has all three planets.
 
-**The recipe eats a whole `recycler`**, plus tungsten plate (Vulcanus), supercapacitors
-(Fulgora), carbon fibre (Gleba) and processing units. That is the design's lore made mechanical:
-the machine is not new, it is a recycler that came back from three planets with half of it
-replaced, and the bill of materials says where it has been.
+**The recipe eats a whole `recycler` and two quality module 3s** — the lore made mechanical
+(the machine is not new, it is a recycler that came back with half of it replaced) and the
+"quality built in" as an ingredient. The rest depends on the game, re-balanced 2026-09-11:
+
+| | with Space Age | without |
+|---|---|---|
+| ingredients | recycler 1, quality module 3 x2, tungsten plate 30, supercapacitor 20, carbon fibre 30, processing unit 30 | recycler 1, quality module 3 x2, low-density structure 20, electric engine unit 10, processing unit 30 |
+| `energy_required` | 10 (the EM plant's) | 10 |
+
+With Space Age the planet materials say where the machine has been. The bill sits in the
+electromagnetic plant's class (150 holmium plate, 50 steel, 50 processing units) once the
+supercapacitors' holmium and the modules' circuits are counted, which is where a machine with
+the plant's slot count and power draw belongs. Without Space Age the low-density structures are
+the base game's own late-game material and the electric engines are the rotor's drive.
 
 ## The technology gate
 
 Settled 2026-09-10 from the repo owner's brief: **unlocked after the first three planets** —
-metallurgic + electromagnetic + agricultural science, no cryogenic pack.
+metallurgic + electromagnetic + agricultural science, no cryogenic pack. **Since 2026-09-11 that
+is the Space Age gate; without the expansion the gate is the base game's own late game — after
+`space-science-pack` (a technology in base as well as in Space Age; the expansion only changes
+its trigger) with `utility-science-pack` and `quality-module-3` as prerequisites, since the recipe
+uses the module.** Cost, both branches: 500 units of every pack the gate implies (seven with
+Space Age, six without) at 60 s each — re-balanced from 1000 x 7 x 60, which was a research wall
+for a single machine; `planet-discovery-aquilo`, the one vanilla technology at the Space Age
+gate's rung, costs 3000 x 9 x 60 and unlocks a planet.
 
 That is a real, singular rung rather than a vague late-game. Verified by scanning every
 `type = "technology"` in `data/space-age/prototypes/technology.lua` on 2026-09-10: exactly one
@@ -119,9 +158,9 @@ The vanilla recycler by contrast unlocks at `recycling`, which needs only produc
 (`data/recycler/data.lua:83`) — it is a Nauvis machine. This one is three planets later, and
 the art is built on that gap.
 
-**This creates a dependency problem the design did not have.** The three planet science packs
-only exist with Space Age, but `info.json` declares only `base`, `quality` and `recycler`. Either
-the dependency set or the gate has to move. Open in `deferred.md`.
+The dependency problem this once created — the planet science packs exist only with Space
+Age — is resolved the other way round since 2026-09-11: Space Age is optional and the gate has a
+base-game twin (*Dependencies* above).
 
 ## Art direction
 
@@ -136,10 +175,16 @@ code will need them before the art exists:
 - **Rotatable, four directions plus mirrored** — the full vanilla recycler treatment, chosen
   over the cheaper non-directional option that every vanilla 3x3 uses. This is the mod's largest
   art cost.
-- **`collision_box = {{-1.2,-1.2},{1.2,1.2}}`** for the 3x3, matching the vanilla 3x3 convention.
-  Measured 2026-09-10: chemical plant and biochamber both collide at 2.4 and round to 3x3. Note
-  the electromagnetic plant is **4x4**, not 3x3 — it collides at 3.4 — so it is this entity's
-  mechanical precedent (`effect_receiver.base_effect`) but not its size reference.
+- **`collision_box = {{-1.7,-1.7},{1.7,1.7}}`** for the 4x4, matching the vanilla 4x4
+  convention: the electromagnetic plant collides at 3.4 and rounds to 4x4, and it carries
+  `drawing_box_vertical_extension` for the same reason this entity now does (a sprite taller
+  than its box, framed in the entity tooltip). Until 2026-09-11 the box was the 3x3
+  convention's 2.4, measured off the chemical plant and the biochamber.
+- **`vector_to_place_result = {-0.15, -2.3}`.** A 4x4's centre is a tile corner, so a result
+  placed at x 0 would sit on the boundary between the two centre tiles past the north edge;
+  -0.15 lands inside the west one (the mirrored machine, the east one). The vanilla recycler's
+  own `{-0.35, -2.3}` exists for the same reason — it is 2 wide. The art's port is built on
+  that line, so the value and the sprite move together or not at all.
 
 ## Scaffold only, no Lua yet
 

@@ -5,8 +5,9 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 ## What the mod is
 
-A new recycler kind: **12% base quality chance built in (no modules needed), 2x the vanilla
-crafting speed, a 3x3 footprint, unlocked after the first three planets.** The verified mechanism
+A new recycler kind: **12% base quality chance built in (no modules needed), 2.5x the vanilla
+crafting speed, five module slots, a 4x4 footprint, unlocked after the first three planets with
+Space Age and after the rocket without it.** The verified mechanism
 and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **The entity,
 item, recipe and technology exist and the data stage loads clean** (2026-09-10). Nothing has been
 played yet, and the balance is a guess rather than a measurement — see `.ai-support/deferred.md`.
@@ -18,11 +19,24 @@ is no separate art-direction register. **The entity is modelled, animated and re
 in `../assets/quality-recycler/entity/quality-recycler/`, sheets in `graphics/entity/`, eight
 directions at **six** layers each, plus the item and technology icons. No `thumbnail.png` yet.
 
-**The art is built from the output position backwards.** `vector_to_place_result = {0, -1.8}`
-is a DIRECT-output position -- the tile past the back edge, centred, where the alt-mode arrow
-points and the results appear -- not where a mined machine drops its contents. The port, the
-trough and the pusher ram sit on that line; move the value and the art is wrong. Reasoning in
-`.ai-support/quality-recycler-design.md` -> *v3*.
+**The art is built from the output position backwards.** `vector_to_place_result =
+{-0.15, -2.3}` is a DIRECT-output position -- the tile past the back edge, where the alt-mode
+arrow points and the results appear -- not where a mined machine drops its contents. The port,
+the trough and the pusher ram sit on that line; move the value and the art is wrong. The x
+offset is not a style choice: a 4x4's centre is a tile corner, and x 0 would put the result on
+the boundary between two tiles. Reasoning in `.ai-support/quality-recycler-design.md` -> *v3*
+and *v4*.
+
+**Keep the output end LOW; a port's height belongs behind the mouth, not over it.** In east
+and west a part's height projects up-screen, perpendicular to the output axis, so a tall hood
+over the mouth draws the port's mass north of the arrow and reads as a misplaced ejector while
+the mouth is exactly on the output position. The roof falls toward the mouth and only the back
+step the trough feeds through keeps its height. Reasoning in
+`.ai-support/quality-recycler-design.md` → *v4, After play (round 7)*.
+
+**The item icon frames the whole machine, from 52 degrees.** Two icons cropped into the rotor
+and the owner rejected both. A flat machine's icon gets squarer as the camera goes UP, not
+down; the numbers are in `render_icon.py` beside the constants.
 
 **Moving parts translate along an axis or turn about Z; nothing swings about a horizontal
 axis.** The camera looks along (0, +y, -z), so a flap dropping out of a north-facing mouth
@@ -54,25 +68,34 @@ That is how `bronze` was caught rendering (113, 115, 78) -- green-dominant grey,
 hue 48, red-dominant khaki, where the vanilla recycler's own measures hue ~78.
 
 **The massing is a cone, and it has to stay one.** A rotatable entity has four north edges, so
-every vertex must satisfy `max(|x|,|y|) + z <= 2.27` or it draws over the machine behind it in
-some rotation — 0.77 tiles of overhang, the chemical plant's, which is vanilla's ceiling for a
-rotatable machine. `cone_z()` is the rule, `audit()` checks it on every build, and `fit_cone()`
-takes up the last couple of percent with one uniform scale. Reasoning in
-`.ai-support/quality-recycler-design.md` → *the rotation cone*.
+every vertex must satisfy `max(|x|,|y|) + z <= 2.75` (the 4x4's half-depth plus 0.75) or it
+draws over the machine behind it in some rotation — 0.77 tiles of overhang, the chemical
+plant's, which is vanilla's ceiling for a rotatable machine. `cone_z()` is the rule, `audit()`
+checks it on every build, and `fit_cone()` takes up the last couple of percent with one uniform
+scale. Reasoning in `.ai-support/quality-recycler-design.md` → *the rotation cone*.
+
+**The layout is written in the 3x3's units and scaled 1.2x on the root.** `qr_layout.py` kept
+its coordinates when the entity became 4x4; `quality_recycler_gen.BASE_SCALE` turns them into
+tiles the same way the cone fit is applied. A literal in the layout is therefore 1.2 tiles, the
+footprint edge is ±1.667 there, and the audit prints tiles. The note beside `BASE_SCALE` says
+why 1.2 and not 4/3.
 
 **Measure opaque pixels, never a declared sprite box.** The vanilla recycler's east sheet
 declares 0.86 tiles of overhang and fills 0.69; the other 0.17 is the packer's padding. Trusting
 the declared number pushed this entity's budget 0.05 past anything Wube ships.
 
 **But the cone is not what flattens a machine — leaving the footprint is.** At the footprint
-edge the cone still allows a 0.97-tile wall. Keep the **hull** inside ±1.32 and spend the height
-there; a wall hanging past its own tiles buys nothing and costs the front elevation.
+edge the cone still allows a 0.97-tile wall. Keep the **hull** inside ±1.32 layout units and
+spend the height there; a wall hanging past its own tiles buys nothing and costs the front
+elevation.
 
-**LOW hardware past the footprint is a different matter, and vanilla spends it.** The cone bounds
-height, not reach: at ground level it allows a part out to ±2.25. The chemical plant's sprite is
-145 screen px tall against a 96 px footprint and gets nearly all the excess from pipe stubs at
-z ≈ 0. This entity's loading apron, scrap chute and output chute hang to ±2.05 below z 0.35, which
-is what took the sprite from 86×112 screen px to 102×134.
+**Ground-level hardware stays INSIDE the footprint; only the output sill crosses the edge.** The
+cone bounds height, not reach, so nothing in the gates sees a low part hanging past the tiles —
+and in play it draws over whatever is placed beside the machine. The 3x3 shipped its cabinet
+0.36 tiles past the west edge and its apron 0.55 past the south, and the owner's screenshots
+of a row of machines showed both lying on the neighbour. Everything at ground level now sits
+inside ±1.95 tiles; the sill reaches 0.28 past the north edge because that tile is the output.
+Reasoning in `.ai-support/quality-recycler-design.md` → *v4*.
 
 **Two things the numeric gates cannot see, both of which shipped once.** They read the output
 PNG, so a sprite can be green on luminance, contrast, saturation and silhouette and still be
@@ -149,8 +172,8 @@ Since the 2026-09-11 rebuild they are split by job, and all of them import the f
 |---|---|
 | `quality_recycler_gen.py` | materials, geometry helpers, the cone rule, the direction transform, `audit()`, `fit_cone()` |
 | `qr_rebuild.py` | the curved primitives the above could not make -- `ring()`, `torus()`, `radial_bars()`, `barrel()`, `hood()`, `wall_chevrons()` -- plus the Phase 1 look-dev variants |
-| `qr_layout.py` | **the machine** (v3): plinth, sealed rotor, looms, transfer duct, trough and ejector, the olive half, the power cabinet, structure |
-| `qr_anim.py` | the ten working systems -- rotor, rollers, feeder ram, ejector ram, doors, chips, four violet lights -- and the idle |
+| `qr_layout.py` | **the machine** (v4): plinth and coolant step, sealed rotor, looms, the open feed trough with its spout and hood, trough and ejector, the olive half, the power cabinet, walkway and ladder, the operator console |
+| `qr_anim.py` | the twelve working systems -- rotor, rollers, feeder ram, ejector ram, doors, the ejected chips, the feed stream, five violet lights -- and the idle |
 | `render_entity.py` | headless bake, six layers x eight directions |
 | `lookdev.py` | one-frame look-dev at sprite density and 4x |
 | `swatch.py` / `measure_swatch.py` | every material as a lit block, and what it measures |
@@ -169,10 +192,13 @@ to fall into.
 
 ## Dependencies
 
-`["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "space-age >= 2.1.0"]`, and
-`quality_required: true`. Reasons — why `recycler` is declared explicitly rather than left as
-`quality`'s transitive dependency, why `expansion_required` is deliberately not set, and why
-`space-age` had to be added rather than moving the technology gate — are in
+`["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "? space-age"]`, and
+`quality_required: true`. Space Age is **optional**: `prototypes/recycler/item.lua` picks the
+recipe and the technology gate on `mods["space-age"]`, so the mod is two configurations and
+**both must validate** (`validate.ps1` plain, then with `-Disable space-age`). Reasons — why
+`recycler` is declared explicitly rather than left as `quality`'s transitive dependency, why
+`expansion_required` is deliberately not set, why the branch keys on `mods` rather than a
+feature flag, and why the optional dependency carries no version — are in
 `.ai-support/decisions.md`.
 
 ## Working here
@@ -210,18 +236,21 @@ to fall into.
   `recycler-quality` were the alternatives considered; all three were free on the mod portal.
 - Version starts at `0.1.0`, unpublished (`changelog.txt` carries `Date: ????`).
 - Dependencies and feature flags as above.
-- **The mechanic: `effect_receiver.base_effect.quality = 0.12`, `crafting_speed = 1.0`, a 3x3
-  footprint** at `collision_box = {{-1.2,-1.2},{1.2,1.2}}`. Verified mechanism and the
-  vanilla-recycler comparison in `.ai-support/decisions.md`.
+- **The mechanic: `effect_receiver.base_effect.quality = 0.12`, `crafting_speed = 1.25`, five
+  module slots, 1 MW, a 4x4 footprint** at `collision_box = {{-1.7,-1.7},{1.7,1.7}}` (3x3,
+  speed 1.0, four slots and 600 kW until 2026-09-11). Verified mechanism, the electricity
+  reasoning and the vanilla-recycler comparison in `.ai-support/decisions.md`.
 - **Unlocked after the first three planets** — metallurgic + electromagnetic + agricultural
-  science, no cryogenic. Reason and the verification in `.ai-support/decisions.md`.
+  science, no cryogenic — **with Space Age; after the rocket (space science) without it.**
+  Reason and the verification in `.ai-support/decisions.md`.
 - **Rotatable: four directions plus mirrored**, the full vanilla recycler treatment. This is the
   mod's largest art cost and it was chosen deliberately over the cheaper non-directional option.
 - **Art direction settled** — see `.ai-support/quality-recycler-design.md`.
 
-- **Prototype `quality-recycler`, its own technology `quality-recycling`**, 600kW / 400 health /
-  4 module slots / 4 pollution, recipe built on a whole `recycler` plus one material from each of
-  the three planets. All chosen 2026-09-10 — reasoning in `.ai-support/decisions.md`.
+- **Prototype `quality-recycler`, its own technology `quality-recycling`**, 1 MW / 400 health /
+  5 module slots / 4 pollution, recipe built on a whole `recycler` and two quality module 3s plus
+  one material from each of the three planets (low-density structures and electric engines
+  without Space Age). Re-balanced 2026-09-11 — reasoning in `.ai-support/decisions.md`.
 - **Built from scratch, not deep-copied from the vanilla recycler.** A deepcopy carries its 2x4
   collision box, circuit connectors, `vector_to_place_result` and frame-synced working sound,
   every one of them positioned for a different machine.

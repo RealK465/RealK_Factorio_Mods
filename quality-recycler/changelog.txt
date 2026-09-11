@@ -3,7 +3,10 @@ Version: 0.1.0
 Date: ????
   Major Features:
     - Initial release.
-    - Adds the quality recycler: a 3x3 recycler that scraps twice as fast as the normal one
-      and gives everything it returns a 12% chance at a higher quality, with no modules fitted.
-    - Unlocked by the new Quality recycling technology, once you have Vulcanus, Fulgora and
-      Gleba science. Built from a recycler plus parts from all three planets.
+    - Adds the quality recycler: a 4x4 recycler that scraps two and a half times as fast as the
+      normal one and gives everything it returns a 12% chance at a higher quality, with no
+      modules fitted. Five module slots, and it uses more power than a normal recycler.
+    - [space-age] Unlocked by the new Quality recycling technology once you have Vulcanus,
+      Fulgora and Gleba science. Built from a recycler plus parts from all three planets.
+    - Without Space Age, unlocked after the rocket with space science, and built from a recycler,
+      low-density structures and electric engines.
