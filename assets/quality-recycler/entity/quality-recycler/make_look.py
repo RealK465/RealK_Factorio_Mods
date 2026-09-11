@@ -65,8 +65,27 @@ def _skill_scripts(start=None):
 sys.path.insert(0, _skill_scripts())
 from factorio_render import gates, post, vanilla            # noqa: E402
 
-POST = dict(preset="entity", saturation=0.70, value=0.90, form_amount=0.30,
-            contrast_amount=1.35, crevice_amount=1.30)
+# 2026-09-11: contrast 1.35 -> 1.15 and crevice 1.30 -> 0.95. Measured at game
+# pixels, local 5 px luminance sd over body pixels came out 34.5-36.0 with 67%
+# of the body "busy" (sd > 25), against the vanilla recycler's 29.2 / 56% and
+# the chemical plant's 27.1 / 44%. The old settings were tuned on a flatter
+# model; this one carries its contrast in real geometry -- 206 objects and a
+# hero that is actually a wheel -- and does not need the synthetic kind on top.
+# form_amount goes the other way, 0.30 -> 0.35, because the budget freed here
+# belongs in the band vanilla is strongest in.
+# Swept against the render rather than guessed: crevice 0.95 -> 0.40 moves
+# local 5 px sd only 33.9 -> 31.3, so the excess noise is in the MODEL, not in
+# the paint-over, and pushing the knob further only flattens the sprite. 0.55 /
+# 1.05 / 0.55 is where the two curves cross -- local sd 32.1 against vanilla's
+# 27-29, luminance sd 47.5 inside the 43-56 band. The rest of the gap was paid
+# for by deleting the parts the object-ID pass measured at 1-6 px, which were
+# contributing grain and nothing else.
+# form_amount stays LOW despite what the local-sd sweep wanted. At 0.55 the
+# numbers were best and the sprite came out bleached: form_contrast has radius
+# 11, so pushing it lifts whole faces toward each other and the machine goes
+# milky. 0.32 is where it still separates hull from deck without hazing.
+POST = dict(preset="entity", saturation=0.70, value=0.92, form_amount=0.32,
+            contrast_amount=1.12, crevice_amount=0.75)
 
 # **form_amount 0.30, down from 1.70, and this is the measurement that turned
 # this sprite round.** Luminance sd was in band the whole time -- 45-51 against

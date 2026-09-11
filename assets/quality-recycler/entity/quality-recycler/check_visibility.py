@@ -28,7 +28,9 @@ import bpy
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import quality_recycler_gen as gen                             # noqa: E402
+import quality_recycler_gen as gen
+import qr_layout
+import qr_anim                             # noqa: E402
 
 sys.path.insert(0, gen._skill_scripts())
 from factorio_render import rig                                # noqa: E402
@@ -77,8 +79,9 @@ def main():
         dirs = argv[argv.index("--dirs") + 1].split(",")
 
     scene = rig.empty_scene()
-    a = gen.build(gen.build_materials())
-    gen.animate(frames=64)
+    a = qr_layout.build(gen.build_materials())
+    qr_anim.animate(frames=64)
+    pass  # animation comes from qr_anim, wired above
     gen.set_direction(0)
     gen._FIT[0] = gen.fit_cone()
 

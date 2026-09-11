@@ -23,42 +23,58 @@ technology are all settled — see `decisions.md`. What is left:
   `factorio-graphics` → *Remnants*, which is emphatic that a wreck follows almost none of the
   entity's rules.
 
-## Art — rendered, not yet wired
+## Art — rebuilt 2026-09-11
 
 Sources in `assets/quality-recycler/entity/quality-recycler/`, sheets in
 `quality-recycler/graphics/entity/quality-recycler/`. Eight directions —
-N/E/S/W plus the mirrored set for `use_mirroring` — at four layers each.
+N/E/S/W plus the mirrored set for `use_mirroring` — at **six** layers each:
+base, anim (64f), shadow, fx (64f), light (64f), lamp.
 
+- **In-engine photography.** Nothing has been seen in the renderer. Render-layer
+  order, `draw_as_glow` blending, `fadeout`, shadow compositing and the
+  `always_draw` status lamp only resolve there, and a rotation-specific fault is
+  invisible to an offline check — which is exactly the class of problem this
+  entity turned out to have. `scripts/screenshot/shoot.ps1` is the harness.
+- **The rotor's apparent speed is unverified in game.** `animation_speed = 2`
+  was chosen because a crafting machine's animation is scaled by crafting speed
+  unless `constant_speed` is set, and this machine runs at 1.0 against the
+  vanilla recycler's 0.5. The exact scaling law was not confirmed against a
+  running game; if the rotor reads frantic or sluggish beside a vanilla
+  recycler, this is the one number to change, and it needs no re-render.
+- **`thumbnail.png`.** Still not created.
+- **No dust puff at the maw.** The one element of the original seven never
+  built. Eight systems ship without it.
+- **Frozen layer for Aquilo.** Deliberately skipped, and the reason is now a
+  gameplay one: the patch only ever shows if the entity carries
+  `heating_energy`, which the vanilla recycler gets from Space Age's
+  `base-data-updates.lua` and this one does not. Adding it would make the
+  machine stop on Aquilo without heat — a balance change, not an art change.
+  At eight directions it is eight more sprites when it happens.
 - **The icon is serviceable, not vanilla-grade.** Rendered at elevation 34
   rather than the 46 in `references/icons.md` — that figure was tuned on
   vanilla's modules, which are small cubes, and this machine is squat enough
-  that 46 letterboxed it into a 64 px square and turned to mush at the 32 px it
-  is actually read at. It is legible now; it is not as strong as the vanilla
-  recycler's, which fills its frame. Cropping tighter on the rotor half — the
-  machine's identity — would probably beat showing the whole machine.
-- **`thumbnail.png`.** Still not created.
-- **No dust puff at the maw.** The last of the design's seven animated
-  elements, and the only one not built.
-- **The concept sheet's barrel lies east-west and this one stands north-south**,
-  and that gap does not close. An X-axis cylinder has every circular
-  cross-section edge-on at this rig, so it renders as a flat striped rectangle
-  with no roundness in its silhouette at all — built and measured, not assumed.
-  See `quality-recycler-design.md` → *Built*. Nothing to do here; recorded so it
-  is not re-attempted.
-- **Frozen layer for Aquilo.** Deliberately skipped. Nothing breaks; the entity
-  renders unfrosted beside vanilla entities that do freeze. At eight directions
-  it is eight more sprites later, not one.
-- **Skid feet render zero pixels**, hidden under the concrete pad. Kept because
-  they still matter to the shadow pass — but if the pad shrinks, they should
-  reappear at its corners where vanilla puts its anchors.
-- **The gear no longer visibly meshes with the drum.** It is half-buried in the
-  olive block's south wall and reads as a drive gear on the shredder, which is
-  honest, but the design's "ring-gear drive taken off the salvaged half, so the
-  seam is mechanical" wanted it engaging the rotor. On the Y axis the drum's
-  west edge sits at x -0.18 and the olive block's east face at -0.24, so there
-  is no gap between the halves to put a meshing gear in. A toothed ring band on
-  the drum itself would say the same thing and stay inside the cone.
-- **In-engine photography.** Nothing here has been seen in the renderer. Module
-  tint, `draw_as_light`, render-layer order and shadow blending only resolve
-  there, and a rotation-specific fault is invisible to an offline check — which
-  is exactly the class of problem this entity turned out to have.
+  that 46 letterboxed it. Cropping tighter on the rotor — the machine's
+  identity — would probably beat showing the whole machine.
+- **The east–west barrel the concept sheet draws is impossible and this is
+  settled.** Every circular cross-section of an X-axis cylinder is edge-on at
+  this rig. The rebuild went further and put the rotor on **Z**, because a
+  Y-axis one is edge-on in east and west once `set_direction()` has rotated the
+  model. Recorded so neither is re-attempted; see `quality-recycler-design.md`
+  → *The rotor axis*.
+- **Local 5 px luminance sd sits 3–5 points above vanilla** (32.6–34.4 against
+  the vanilla recycler's 29.2 and the chemical plant's 27.1). Measured, and the
+  paint-over cannot fix it — sweeping `crevice_amount` 0.95 → 0.40 moved it only
+  33.9 → 31.3. It is the cost of 205 objects on a 3×3. The next pass on this
+  entity should cut parts, not turn knobs.
+- **Two parts still draw nothing, and both are small.** The final object-ID
+  pass (2026-09-11, all four rotations) reports `cap-can1` and `gantry-foot`
+  invisible; `cap-can2` and `cap-top2` sit at 3 and 7 px. The capacitor bank is
+  three cans and one of them is behind the coil; the gantry's foot plate is
+  inside the rotor step. Neither is worth an 80-minute re-bake on its own —
+  fold them into the next pass on this entity. The other six the pass lists
+  (`arc1-3`, `frag1-3`) are keyed OFF at frame 0 and are artefacts of a
+  one-frame check.
+- **`scan` lives in QR_Base although it moves.** Harmless — it is keyed to
+  scale 0 at frame 0 so it is absent from the static base sheet, and the glow
+  sheet carries its sweep. Moving it to QR_Moving would be tidier and costs an
+  `anim` re-bake.

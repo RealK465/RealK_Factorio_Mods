@@ -2,6 +2,85 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-11 — the rebuild, and the axis nobody had tried
+
+The owner's verdict on the shipped art: "still very ugly and too far from what I
+expected." Dark, low-contrast, the two-technologies story gone, the silhouette a
+plain rectangle, the emissives scattered magenta dots. The audit confirmed every
+line of it and added measurements, and `check_sheets.py` reported **FAILURES:
+none** on the same sheets — contrast, clipping, full-width rows, fill,
+raggedness, shadow purity and overhang all green on a sprite its own author
+called unusable. That is the standing lesson of this mod restated: the gates read
+the output PNG and cannot see that it is the wrong machine.
+
+**The finding that changed the entity.** The design doc's rotor-axis analysis
+compared X against Y, proved the concept sheet's east–west barrel is flat at this
+projection, and settled on Y. It is correct and it is not sufficient. This rig
+scales world Y and world Z to the same 64 px in the row direction, so a ring
+about **Z** projects as a true circle too — and `set_direction()` rotates the
+model about Z, which turns a Y-axis ring into an X-axis one in east and west. A
+horizontal drum is round in two rotations and **edge-on in two**, which is
+exactly why the shipped east and west views had no hero in them. Three blockouts
+were built and rendered at gameplay zoom; at 1x the two horizontal-drum variants
+collapse into a pale ring round a dark hole and the vertical disc stays a spoked
+wheel. The owner approved the vertical rotor at the Phase 1 checkpoint.
+
+**The colour diagnosis was not the one the sprite looked like it had.** Measured
+against the shipped vanilla sheets, our value split was already near vanilla's —
+the problem was chroma. 41% of the sprite sat below saturation 0.18 against the
+vanilla recycler's 31% and the chemical plant's 12%, and the chroma that was
+there was spread evenly across olive, copper, bronze, violet and blue. Vanilla
+machines are **one colour with accents**: the share of chromatic pixels in the
+single dominant 15-degree hue band measures 44% on the recycler, 48% on the
+chemical plant and 54% on the electromagnetic plant, against 22% on ours. The
+fix was concentration, not saturation. Grey is now 14–17%.
+
+**`bronze` was rendering green, and had been for two builds.** Zone 2 stopped
+being verdigris when it became heat-tempered bronze, but `patina=0.52` stayed on
+the material — and patina is `#39685B`. On a lit swatch `bronze` measured
+(113, 115, 78): green-dominant grey, on the rotor well and the seam, which are
+two of the three largest curved surfaces in the sprite. The olive had the
+mirror-image problem: `rust=0.22` plus `grime=0.40` rendered it (73, 67, 45) at
+luminance 66 and hue 48 — red-dominant khaki, where the vanilla recycler's own
+olive-green measures (96, 106, 57) at luminance 101 and is green-dominant by ten
+points. Both were found by rendering every material as a lit stepped block and
+measuring it (`swatch.py` / `measure_swatch.py`), which is now the way to tune
+this palette.
+
+**The object-ID pass earned its keep again, and the headline is embarrassing.**
+**The shredder maw was a solid dark block with the rollers buried inside it.**
+`maw-cav` was a filled box laid over an opening in a solid hull, so all three
+rollers and all three tooth rings drew exactly zero pixels in all four rotations
+— the olive half's entire identity, invisible, and nothing in the render says so
+because a dark rectangle where a dark mouth belongs looks correct. The hull is
+five spans around the opening now. The same pass found the lintel cutting off the
+top roller (at 45 degrees a ray entering at the lintel drops one tile of z per
+tile of y, so a 0.12-deep recess shows only down to z 0.57 and the roller sat at
+0.58), the radiator and the deck vent inside the rotor deck, three cable runs
+buried, and all four arc emitters under the guard arcs. 52 of 204 objects on the
+first run; six on the second, all of them frame-0 false positives.
+
+**Two parts rendered with no material at all** — `rotor-flange` and `cage-boss` —
+and Blender's default grey is brighter than anything in this palette, so they
+read as four deliberate white bullseyes round the rotor. `_emit()` prints a
+warning now; nothing downstream can catch it.
+
+**What the numbers say afterwards.** Silhouette: 0% full-width rows in all four
+rotations and both mirrorings, worst margin 0.09 tiles, achieved by giving the
+max-y extreme to a single tie bracket standing 0.12 clear of everything else —
+`audit()` collects every vertex within 0.06 of an extreme into its row band, and
+one 0.07-tile cage boss had been pulling in a deck, a capacitor bank and two
+cable runs. Size 102 x 134 screen px against the chemical plant's 93 x 138,
+bought by hanging low hardware past the footprint the way vanilla's pipe stubs
+do — the cone bounds height, not reach. Eight animation systems, every loop's
+wrap step inside the distribution of its own adjacent steps.
+
+Two knobs that lied and are now documented in `docs/art/LESSONS.md`: the
+paint-over cannot take out model noise (sweeping `crevice_amount` 0.95 to 0.40
+moved local 5 px sd only 33.9 to 31.3), and `form_amount` improved every
+statistic while bleaching the sprite, because `form_contrast` has radius 11 and
+lifts whole faces toward each other.
+
 ## 2026-09-10 (third) — the content round, and the pass that should have run first
 
 The owner asked for more content. What the round actually turned into was

@@ -41,16 +41,34 @@ sys.path.insert(0, _skill_scripts())
 from factorio_render import rig as fr_rig                   # noqa: E402
 
 RES = 512
-ORTHO = 3.7          # the machine is ~3.5 tiles wide; icons run edge to edge
+# 2.9, not 3.7. Measured against the vanilla recycler's own icon: it fills
+# 60 x 62 of its 64 px square and 79% of the pixels are opaque, where this one
+# at 3.7 filled 64 x 51 and 47% -- a small dark lump with a margin round it,
+# which is what "serviceable, not vanilla-grade" meant. An icon is not on the
+# tile grid, so nothing forces it to show the whole footprint: cropping into
+# the rotor, which is the machine's identity, is worth more than fitting the
+# aprons in.
+ORTHO = 2.35
 # 34 degrees, not the 46 in references/icons.md. That figure was tuned on
 # vanilla's MODULES, which are small cubes; this machine is squat and wide, and
 # at 46 it rendered as a letterbox that lost most of a 64 px square to empty
 # margin and turned to mush at the 32 px it is actually read at. A lower
 # elevation shows more front elevation and less roof, which makes the
 # silhouette taller and closer to square.
-ELEVATION = 34.0
+# 37, back up from the 34 this shipped at and the 30 the tighter crop was first
+# tried with. Lowering the elevation makes the silhouette taller, which is what
+# a square icon wants -- but it also turns the rotor's face away from the light,
+# and at 30 the hero rendered as a dark ring with a violet centre and no copper
+# in it at all. 37 puts the pole pieces back in the light; the height comes from
+# the crop instead.
+ELEVATION = 37.0
 ROLL = -6.0
 MODEL_YAW = 38.0     # corner-on, so the top face is a rhombus not a rectangle
+# Aim at the ROTOR, not the machine's centre. It is the hero, it is the only
+# thing that says this is not the vanilla recycler, and at 32 px in a toolbar
+# the difference between "a green box" and "a green box with a copper wheel on
+# it" is the whole icon.
+AIM = (0.30, 0.16, 0.86)
 
 
 def look_at(obj, target):
@@ -67,9 +85,11 @@ def main():
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     import quality_recycler_gen as gen
+    import qr_layout
+    import qr_anim
     scene = bpy.context.scene
-    gen.build(gen.build_materials())
-    gen.animate(frames=64)
+    qr_layout.build(gen.build_materials())
+    qr_anim.animate(frames=64)
     gen.set_direction(MODEL_YAW)
     scene.frame_set(8)
 
@@ -81,7 +101,7 @@ def main():
     e = math.radians(ELEVATION)
     cam.location = (0.0, -r * math.cos(e), r * math.sin(e) + 0.5)
     scene.collection.objects.link(cam)
-    look_at(cam, (0, 0, 0.75))
+    look_at(cam, AIM)
     # roll about the camera's OWN axis, applied after aiming. Stuffing it into
     # rotation_euler[1] swings the aim off target and silently crops the model.
     cam.rotation_euler.rotate_axis("Z", math.radians(ROLL))

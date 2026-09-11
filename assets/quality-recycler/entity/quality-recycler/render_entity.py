@@ -1,16 +1,19 @@
 # Headless render driver for the Quality Recycler.
 #
-#   blender -b -P render_entity.py -- <out_dir> [--layers base,anim,glow,shadow]
-#                                     [--dirs N,E,S,W] [--frames N] [--only 0,8]
+#   blender -b -P render_entity.py -- <ABSOLUTE out_dir>
+#       [--layers base,anim,fx,glow,lamp,shadow] [--dirs N,E,S,W]
+#       [--frames N] [--only 0,8] [--samples 96]
 #
 # Writes <out_dir>/<DIR>/<layer>/f####.png. Static layers render frame 0 only.
+# ABSOLUTE path, always: Blender resolves a relative render.filepath against
+# its own working directory, not the script's, and writes the run to somewhere
+# like C:\renders without complaining.
 #
 # THE MODEL ROTATES, THE CAMERA DOES NOT. Factorio's light is world-fixed --
 # shadows fall the same screen direction whichever way a machine faces, which
 # is why Wube ship the oil refinery as four separate models rather than one
 # orbited one. Orbiting the camera would carry the shadow round with it and
 # every direction but north would be lit wrong.
-import math
 import os
 import sys
 
@@ -19,51 +22,49 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+import quality_recycler_gen as gen                          # noqa: E402
+import qr_layout                                            # noqa: E402
+import qr_anim                                              # noqa: E402
 
-def _skill_scripts(start=None):
-    d = os.path.abspath(start or globals().get("__file__") or os.getcwd())
-    if os.path.isfile(d):
-        d = os.path.dirname(d)
-    while True:
-        c = os.path.join(d, ".claude", "skills", "factorio-graphics", "scripts")
-        if os.path.isdir(c):
-            return c
-        parent = os.path.dirname(d)
-        if parent == d:
-            raise RuntimeError("factorio-graphics scripts not found")
-        d = parent
-
-
-sys.path.insert(0, _skill_scripts())
+sys.path.insert(0, gen._skill_scripts())
 from factorio_render import rig as fr_rig                   # noqa: E402
 
 # Factorio's north is the default orientation and rotating to east turns the
 # entity clockwise seen from above, which is NEGATIVE about Z in Blender.
-# Flagged for in-engine confirmation: the skill is explicit that a
-# rotation-specific fault is invisible to a one-rotation check, and no offline
-# composite can settle which sheet the engine actually draws for `east`.
 DIRECTIONS = {"N": 0.0, "E": -90.0, "S": 180.0, "W": 90.0}
 
-# Which collections each layer draws. `anim` deliberately keeps QR_Base in the
-# render as a HOLDOUT rather than hiding it: the anim sheet composites ABOVE
-# the base in game, so a moving part that ought to be hidden behind the hull
-# would otherwise be drawn straight over it. A holdout punches alpha-0 where
-# the hull is nearer the camera, which is exactly the occlusion the composite
-# needs and cannot work out for itself.
+# Which collections each layer draws.
+#
+# `anim` and `fx` deliberately keep the layers BELOW them in the render as
+# HOLDOUTS rather than hiding them: both composite ABOVE the base in game, so a
+# moving part that ought to be hidden behind the hull would otherwise be drawn
+# straight over it. A holdout punches alpha-0 where the nearer object is, which
+# is exactly the occlusion the composite cannot work out for itself.
+#
+# `fx` is separate from `anim` because the fragments must VANISH when the
+# machine stops. The anim sheet is a layer of `animation` and is drawn always
+# (frozen at frame 0 when idle); fx is a working_visualisation and is not. A
+# chip frozen in mid-air over an idle machine is the failure this split exists
+# to avoid.
 LAYERS = {
     "base":   dict(show=("QR_Base",), holdout=()),
-    "anim":   dict(show=("QR_Moving", "QR_Fx"), holdout=("QR_Base",)),
+    "anim":   dict(show=("QR_Moving",), holdout=("QR_Base",)),
+    "fx":     dict(show=("QR_Fx",), holdout=("QR_Base", "QR_Moving")),
     # Emission-only, with every light and the world switched off: what reaches
     # the film IS the emission, which is what an additive light sprite is.
-    # The whole machine is present so the static status lamp is in it too.
     "glow":   dict(show=("QR_Base", "QR_Moving", "QR_Fx"), holdout=()),
-    # Static silhouettes only. The drum, gear, rollers and auger all turn in
-    # place, so their outline never changes and they belong here; the flying
+    # The status lamp alone, always drawn, so an idle machine still glows at
+    # night. One frame, a few dozen pixels; the cheapest layer on the entity.
+    "lamp":   dict(show=("QR_Base", "QR_Moving", "QR_Fx"), holdout=(),
+                   only_prefix="lamp"),
+    # Static silhouettes only. The rotor, gear, rollers and fan all turn in
+    # place so their outline never changes and they belong here; the flying
     # fragments do not, and a baked shadow of something in flight lands
     # displaced from the machine and then never moves.
     "shadow": dict(show=("QR_Base", "QR_Moving"), holdout=()),
 }
-STATIC = {"base", "shadow"}
+STATIC = {"base", "shadow", "lamp"}
+EMISSION_ONLY = {"glow", "lamp"}
 ALL_COLLS = ("QR_Base", "QR_Moving", "QR_Fx")
 
 
@@ -72,7 +73,8 @@ def parse_args():
     if not argv:
         raise SystemExit("usage: blender -b -P render_entity.py -- <out_dir> "
                          "[--layers a,b] [--dirs N,E] [--frames N] [--only 0,8]")
-    out, layers, dirs, frames, only = argv[0], ["base"], ["N"], 64, None
+    out, layers, dirs = argv[0], ["base"], ["N"]
+    frames, only, samples = 64, None, 96
     i = 1
     while i < len(argv):
         if argv[i] == "--layers":
@@ -83,13 +85,16 @@ def parse_args():
             frames = int(argv[i + 1])
         elif argv[i] == "--only":
             only = [int(v) for v in argv[i + 1].split(",")]
+        elif argv[i] == "--samples":
+            samples = int(argv[i + 1])
         else:
             raise SystemExit("unknown arg: " + argv[i])
         i += 2
-    return out, layers, dirs, frames, only
+    return out, layers, dirs, frames, only, samples
 
 
 def show_only(spec):
+    keep = spec.get("only_prefix")
     for name in ALL_COLLS:
         c = bpy.data.collections.get(name)
         if c:
@@ -101,11 +106,14 @@ def show_only(spec):
         held = name in spec["holdout"]
         for obj in c.objects:
             obj.is_holdout = held
+            if keep:
+                obj.hide_render = not obj.name.startswith(gen.PREFIX + keep)
+            else:
+                obj.hide_render = False
 
 
 def render_shadow(scene, out_dir):
-    spec = LAYERS["shadow"]
-    show_only(spec)
+    show_only(LAYERS["shadow"])
     scene.frame_set(0)
     # 0.005 below ground, never level with it: a catcher plane exactly at the
     # model's ground level is coplanar with every foot plate, and two shells
@@ -115,7 +123,7 @@ def render_shadow(scene, out_dir):
     catcher.name = "QR_ShadowCatcher"
     catcher.is_shadow_catcher = True
     hidden = [o for o in bpy.data.objects
-              if o.name.startswith("QR_") and o is not catcher
+              if o.name.startswith(gen.PREFIX) and o is not catcher
               and o.type in ("MESH", "CURVE")]
     for o in hidden:
         o.visible_camera = False
@@ -127,11 +135,11 @@ def render_shadow(scene, out_dir):
     bpy.data.objects.remove(catcher, do_unlink=True)
 
 
-def render_layer(scene, layer, out_dir, frames, only):
+def render_layer(scene, layer, out_dir, frames, only, restore):
     spec = LAYERS[layer]
     show_only(spec)
     dark = []
-    if layer == "glow":
+    if layer in EMISSION_ONLY:
         for o in bpy.data.objects:
             if o.type == "LIGHT":
                 dark.append((o.data, o.data.energy))
@@ -152,29 +160,33 @@ def render_layer(scene, layer, out_dir, frames, only):
             holder.energy = value
         else:
             holder.default_value = value
+    if restore:
+        for o in bpy.data.objects:
+            o.hide_render = False
 
 
 def main():
-    out, layers, dirs, frames, only = parse_args()
+    out, layers, dirs, frames, only, samples = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    import quality_recycler_gen as gen
-
     scene = bpy.context.scene
-    gen.build(gen.build_materials())
-    gen.animate(frames=frames)
+
+    qr_layout.build(gen.build_materials())
+    qr_anim.animate(frames=frames)
     # Fit the model to the cone before posing it. Without this the driver
     # renders the UNFITTED geometry -- `_FIT` stays 1.0, because fit_cone()
     # lives in the generator's own main() and nothing here called it -- and the
-    # sheets come out at the raw 2.32 the fit exists to bring down. That shipped
-    # once: eight directions packed at 0.81-0.83 tiles of overhang against
-    # vanilla's 0.77 ceiling, while the generator's audit printed 0.77 and was
+    # sheets come out at the raw APEX the fit exists to bring down. That
+    # shipped once: eight directions packed at 0.81-0.83 tiles of overhang
+    # against vanilla's 0.77 ceiling, while the audit printed 0.77 and was
     # telling the truth about geometry nobody was rendering.
     gen.set_direction(0)
     gen._FIT[0] = gen.fit_cone()
     fr_rig.camera(scene, gen.CANVAS)
     fr_rig.lights(scene, key=gen.KEY, fill=gen.FILL, ambient=gen.AMBIENT)
     fr_rig.output(scene, gen.CANVAS)
-    fr_rig.cycles(scene, samples=96)
+    fr_rig.cycles(scene, samples=samples)
+    fr_rig.use_gpu(scene)
+    scene.render.use_persistent_data = True
 
     for d in dirs:
         mirror = d.startswith("flipped-")
@@ -184,7 +196,8 @@ def main():
             if layer == "shadow":
                 render_shadow(scene, target)
             else:
-                render_layer(scene, layer, target, frames, only)
+                render_layer(scene, layer, target, frames, only,
+                             restore=layer == "lamp")
             print("[render] %s/%s" % (d, layer))
     print("RENDER DONE:", ",".join(dirs), "x", ",".join(layers), "->", out)
 

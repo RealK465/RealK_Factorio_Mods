@@ -16,7 +16,27 @@ grafted on, hero an eddy-current sorting rotor. It lives in
 `.ai-support/quality-recycler-design.md`, and it also sets the mod's house art style, since there
 is no separate art-direction register. **The entity is modelled, animated and rendered** — sources
 in `../assets/quality-recycler/entity/quality-recycler/`, sheets in `graphics/entity/`, eight
-directions at four layers each, plus the item and technology icons. No `thumbnail.png` yet.
+directions at **six** layers each, plus the item and technology icons. No `thumbnail.png` yet.
+
+**The hero rotor turns about Z, and that is not a style choice.** This rig scales world Y and
+world Z to the same 64 px in the row direction, so a ring about Z *or* Y projects as a true circle
+-- but `set_direction()` rotates the model about Z, which turns a Y-axis ring into an X-axis one in
+east and west, and an X-axis circle projects to a LINE. A horizontal drum is round in two rotations
+and flat in two. **On a rotatable entity a Z-axis rotor is the only radial form that reads in all
+four**, and the first build's missing east and west hero is what that costs. Reasoning in
+`.ai-support/quality-recycler-design.md` -> *The rotor axis*.
+
+**A recess has to be built as a recess.** A dark box laid over an opening in a solid hull is still
+a solid box: the shredder maw shipped that way and all three rollers and all three tooth rings drew
+exactly zero pixels in every rotation. Build the hull as spans AROUND the opening, and size the
+opening against the depth -- at 45 degrees a ray entering at the lintel drops one tile of z per
+tile of y, so a 0.12-deep recess shows only the top 0.12 tiles of its back wall.
+
+**Tune the palette on rendered swatches, never on hex codes.** `swatch.py` renders every material
+as a lit stepped block through the entity's own rig and `measure_swatch.py` prints what it became.
+That is how `bronze` was caught rendering (113, 115, 78) -- green-dominant grey, because `patina`
+(`#39685B`) stayed at 0.52 after zone 2 stopped being verdigris -- and how the olive was caught at
+hue 48, red-dominant khaki, where the vanilla recycler's own measures hue ~78.
 
 **The massing is a cone, and it has to stay one.** A rotatable entity has four north edges, so
 every vertex must satisfy `max(|x|,|y|) + z <= 2.27` or it draws over the machine behind it in
@@ -30,8 +50,14 @@ declares 0.86 tiles of overhang and fills 0.69; the other 0.17 is the packer's p
 the declared number pushed this entity's budget 0.05 past anything Wube ships.
 
 **But the cone is not what flattens a machine — leaving the footprint is.** At the footprint
-edge the cone still allows a 0.97-tile wall. Keep the hull inside ±1.32 and spend the height
-there; a part hanging past its own tiles buys nothing and costs the front elevation.
+edge the cone still allows a 0.97-tile wall. Keep the **hull** inside ±1.32 and spend the height
+there; a wall hanging past its own tiles buys nothing and costs the front elevation.
+
+**LOW hardware past the footprint is a different matter, and vanilla spends it.** The cone bounds
+height, not reach: at ground level it allows a part out to ±2.25. The chemical plant's sprite is
+145 screen px tall against a 96 px footprint and gets nearly all the excess from pipe stubs at
+z ≈ 0. This entity's loading apron, scrap chute and output chute hang to ±2.05 below z 0.35, which
+is what took the sprite from 86×112 screen px to 102×134.
 
 **Two things the numeric gates cannot see, both of which shipped once.** They read the output
 PNG, so a sprite can be green on luminance, contrast, saturation and silhouette and still be
@@ -73,9 +99,10 @@ changelog.txt
 LICENSE
 README.md
 locale/en/quality-recycler.cfg
-graphics/entity/quality-recycler/  base, anim (64f), shadow and light per
-                            direction, for N/E/S/W and the mirrored set, each
-                            with the `.lua` sidecar util.sprite_load reads
+graphics/entity/quality-recycler/  base, anim (64f), shadow, fx (64f),
+                            light (64f) and lamp per direction, for N/E/S/W and
+                            the mirrored set, each with the `.lua` sidecar
+                            util.sprite_load reads
 graphics/icons/            item icon, 120x64 mipmap strip
 graphics/technology/       technology icon, 480x256 mipmap strip
 .ai-support/index.md       the map -- read it first
@@ -93,10 +120,26 @@ re-render never touches `prototypes/`. Two traps that cost a validate each:
 `util.sprite_load` reads only width/height/shift/line_length from the file and
 takes everything else from its options table.
 
-`assets/quality-recycler/entity/quality-recycler/` at the repo root holds the Blender sources -
-`quality_recycler_gen.py` (the model, rebuilt from source on every run), `make_look.py`
-(paint-over, gates, vanilla A/B) and `quality-recycler.blend`. Only exported PNGs land in
-`graphics/`. See the repo `CLAUDE.md` → *Asset sources*.
+`assets/quality-recycler/entity/quality-recycler/` at the repo root holds the Blender sources.
+Since the 2026-09-11 rebuild they are split by job, and all of them import the first:
+
+| file | what it is |
+|---|---|
+| `quality_recycler_gen.py` | materials, geometry helpers, the cone rule, the direction transform, `audit()`, `fit_cone()` |
+| `qr_rebuild.py` | the curved primitives the above could not make -- `ring()`, `torus()`, `radial_bars()`, `barrel()`, `hood()`, `wall_chevrons()` -- plus the Phase 1 look-dev variants |
+| `qr_layout.py` | **the machine**: masses, hero, junction, grading unit, tertiary hardware |
+| `qr_anim.py` | the eight working systems and the idle |
+| `render_entity.py` | headless bake, six layers x eight directions |
+| `lookdev.py` | one-frame look-dev at sprite density and 4x |
+| `swatch.py` / `measure_swatch.py` | every material as a lit block, and what it measures |
+| `show.py` | paint over a look-dev frame, composite on Nauvis, print the four numbers that move this sprite |
+| `make_sheets.py` | paint-over per frame, pack, write the sidecars and `sheet_numbers.txt` |
+| `make_look.py` | the settled paint-over `POST` dict -- every other tool imports it from here |
+| `preview_game.py` | composite the packed sheets the way the engine draws them, on real terrain, beside real vanilla machines, with night and looping GIFs |
+| `check_sheets.py` / `check_wear.py` / `check_visibility.py` | the gates, the edge-wear mask, the object-ID pass |
+| `versions/` | the untouched pre-rebuild `.blend` and generator |
+
+Only exported PNGs land in `graphics/`. See the repo `CLAUDE.md` → *Asset sources*.
 
 No `control.lua` is expected for a data-only entity. If the mechanic turns out to need runtime
 scripting, that is itself a decision to record in `decisions.md` before writing it, not something
@@ -125,8 +168,10 @@ to fall into.
   rear deck, the whole capacitor bank embedded in a 0.14-tile apron, and a fan "ring" built
   with `cyl()` lidding the hub it was meant to surround. **60 of 213 objects once drew nothing
   at all.** The design's *Built* section says what it found and the two ways the tool lies.
-- **`cyl()` makes a solid disc, not a ring.** An annulus has to be built from segments, like
-  `rotor-ribs` does. This is invisible in a render and obvious in the object-ID pass.
+- **`cyl()` makes a solid disc, not a ring** -- which is why `qr_rebuild.py` exists. It carries
+  `ring()` (a true annulus or arc on any axis), `torus()`, `radial_bars()`, `barrel()`, `hood()`
+  and `wall_chevrons()`. Reach for those rather than stacking `cyl()`s; the old failure mode was
+  invisible in a render and obvious only in the object-ID pass.
 - **A part the pass calls dead is not always a part to move.** Three here were deleted instead:
   in north the drum occludes them and in south the rear deck does, so no wall could be opened
   to reveal them. Check what the occluder actually is before rebuilding around it.

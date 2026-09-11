@@ -54,7 +54,8 @@ and it is what makes the palette legible instead of arbitrary. Two things worth 
 ## Hero & family
 
 **Hero: the eddy-current sorting rotor.** Modelled first, oversized, and it keeps the detail
-budget. It was chosen over a remelt crucible and an optical sorter because quality in Factorio is
+budget. **[rebuilt 2026-09-11] It turns about Z, not Y** — a vertical poled disc in a bronze well,
+not a horizontal drum. See *The rotor axis* below; the reason is the rotation cone, not taste. It was chosen over a remelt crucible and an optical sorter because quality in Factorio is
 *selection out of the same input*, not creation — a separator is honest about the mechanic where
 a crucible would imply transmutation the entity does not do.
 
@@ -120,6 +121,23 @@ Target: fill ~0.68, ragged ~1.7. Audited vanilla bands are fill 0.58-0.88 and ra
 two extremes' row bands 0.51 tiles apart at worst, so no scanline *can* cross. Fill came out
 **0.84**, in band.
 
+**[rebuilt 2026-09-11]** Still 0% full-width rows in all four rotations and both mirrorings, and
+fill came down to **0.65–0.76** against the chemical plant's 0.75 — a more broken outline than
+the first build's 0.83–0.87. Two things changed how it is achieved:
+
+- **The extremes are assigned deliberately, and one of them needed a part of its own.**
+  `audit()` collects every vertex within **0.06** of an extreme into that extreme's row band, so
+  the machine's northernmost part — a 0.07-tile cage boss at y 1.12 — was pulling in the rotor
+  step, the capacitor bank and two cable runs, and handing east a 0.96-tile band of full-width
+  rows. A tie bracket standing 0.12 clear of everything else owns max-y alone now, and its rows
+  (−1.06..−0.75 in east) miss the loading apron's (0.43..1.38) entirely. The four mappings are
+  worked out in `qr_layout.py`'s module docstring rather than discovered by rendering.
+- **The raggedness comes from hardware hanging PAST the footprint**, not from railings over the
+  pad. The cone bounds height, not reach: at ground level it allows ±2.25, and vanilla spends it
+  — the chemical plant's sprite is 145 screen px tall against a 96 px footprint, nearly all of the
+  excess in pipe stubs at z ≈ 0. The loading apron, the scrap chute and the output chute hang to
+  ±2.05 below z 0.35, which took the sprite from 86 × 112 screen px to **102 × 134**.
+
 **Raggedness is bought with holes, not with parts, and that is the opposite of the
 obvious move.** `gates.silhouette` measures `ragged` as **alpha perimeter over bounding-box
 perimeter**, so a hole counts twice — once for each side — and a solid block counts *against*
@@ -167,7 +185,17 @@ rotates, so the west wall is the front elevation in east, the north wall is in
 south, and the east apron is in west. Treating only the south wall left three
 rotations reading as blank painted plates.
 
-**The four bins are a deliberate accepted risk.** The entity has one output inventory (the
+**[rebuilt 2026-09-11] The four bins are gone; a grading unit replaced them.** One instrument pod
+on the south-east deck carries five up-facing lenses in the exact quality colours read out of
+`data/quality/prototypes/quality.lua` — normal `#B2B2B2`, uncommon `#2BA53D`, rare `#1968B2`, epic
+`#8900B2`, legendary `#B26800` — with a scan window a bar sweeps across, and one output chute
+beside it. UP-facing is the whole design: an emissive on a wall is face-on in one rotation, a
+bright streak in two and invisible in the fourth, where the deck is the one surface this camera
+always sees. Five rather than four, because the neutral tier is what makes the row read as a scale.
+This also retires the risk the paragraph below was spending, and the paragraph is kept for its
+reasoning.
+
+**The four bins were a deliberate accepted risk.** The entity has one output inventory (the
 vanilla recycler's `result_inventory_size = 12`), so four visible bins can imply four separately
 drawable outputs — the FFF-339 class of error, where a detail promises a mechanic the entity does
 not have. The repo owner chose them anyway for legibility, over a four-sight-glass manifold. The
@@ -269,15 +297,35 @@ No surface at 100% clean paint, and no uniform wear either.
 
 ## State & animation
 
-| Element | Per loop | Why it loops | built |
-|---|---|---|---|
-| Eddy rotor | one full turn, 14 copper poles | the hero doing the action | yes |
-| Fragments across the sorting gap | arc from rotor into bins, one per bin, evenly phased | shows separation happening | yes |
-| Violet field glow at the rotor gap | two pulses, 2.20 down to 1.35 emission | the only emissive; small and local | yes |
-| Ring-gear drive | two turns, counter to the rotor | ties the salvaged half to the new one | yes |
-| Jaw maw | three counter-rotating toothed rollers | quotes the vanilla recycler's own jaw | yes |
-| Auger | two turns, helical flights | the single output, visibly | yes |
-| Dust puff at the maw | on each bite | the shredding is dirty work | **no** |
+**[rebuilt 2026-09-11]** Nine working systems plus a designed idle, in `qr_anim.py`.
+
+| # | Element | Per loop | Layer | Why it loops |
+|---|---|---|---|---|
+| 1 | Eddy rotor, 14 poles | 2 pole pitches, 0.80 deg/frame | anim | the hero doing the action |
+| 2 | Drive wheel, 20 teeth, counter-rotating | 5 tooth pitches | anim | ties the salvaged half to the new one |
+| 3 | Three shredder rollers, 9 teeth, counter-rotating | 4 pitches | anim | quotes the vanilla recycler's own jaw |
+| 4 | Cooling fan, 5 blades | 6 pitches | anim | a second rhythm, so the machine is not one clock |
+| 5 | Feeder ram on the loading apron | one stroke, quick in and slow out | anim | mechanical effort, and the apron's reason to exist |
+| 6 | Four fragments in flight into the output chute | one per quarter loop | fx | shows separation happening |
+| 7 | Violet field pulse at the coil | two beats a loop, phase-locked to the rotor | light | the rotor's energy, small and local |
+| 8 | Four Fulgoran arcs at the rotor contacts | a fixed irregular pattern, not random | light | Fulgora is the opposite of periodic |
+| 9 | Grading scan sweep, five lenses lighting in sequence | two sweeps | light | makes "built-in quality" visible |
+| - | Green status lamp | never animates | lamp | `always_draw`, so idle reads as idle |
+
+No two systems share a period: the gear's 5 against the rotor's 2 and the fan's 6 are chosen so
+three parts never turn in lockstep, which would read as one mechanism rather than several.
+
+**`animation_speed = 2`, not the vanilla recycler's 4.** A crafting machine's animation is scaled
+by its crafting speed unless `constant_speed` is set, and this machine runs at 1.0 against the
+recycler's 0.5 — at 4 it would play at twice the recycler's apparent tempo standing next to one.
+Per-frame rotor rotation is then 0.80 degrees against a 25.7-degree pole pitch, well under the
+half-pitch limit, so it cannot wagon-wheel backwards.
+
+**Seamlessness is measured, not assumed.** For each animated layer, the wrap step |f63 -> f0| is
+compared against the distribution of the loop's own 63 other adjacent steps: `anim` wrap 0.135
+against a median of 0.129 and a max of 0.202, `fx` wrap 0.045 against a median of 0.067. Comparing
+the wrap to |f0 - f1| alone gives a false positive on a flicker layer, whose typical step *is* a
+discontinuity.
 
 **Every loop closes exactly on 64 frames**, and each rotation is a whole number
 of turns for that reason: a loop that does not close is the animation
@@ -309,9 +357,20 @@ reading as "gently harvesting" (FFF-350); nothing here should sweep gently.
 `assets/quality-recycler/entity/quality-recycler/` holds the sources — nothing there ships, and
 only exported PNGs go into the mod's `graphics/`:
 
+**[rebuilt 2026-09-11]** The generator was split by job. Everything still imports the first file,
+and the geometry helpers, materials, cone rule, direction transform and audit all live there
+unchanged.
+
 | file | what it does |
 |---|---|
-| `quality_recycler_gen.py` | the model, the materials, the animation rig and the direction transform. Idempotent, rebuilt from source every run |
+| `quality_recycler_gen.py` | materials, geometry helpers, the cone rule, `set_direction()`, `audit()`, `fit_cone()`. Idempotent, rebuilt from source every run |
+| `qr_rebuild.py` | the curved primitives the generator could not make — `ring()` (a true annulus or arc on any axis), `torus()`, `radial_bars()`, `barrel()`, `hood()`, `yz_prism()`, `wall_chevrons()` — plus the three Phase 1 look-dev variants and the quality-lens materials |
+| `qr_layout.py` | **the machine**: pad, rotor, drive wheel, shredder, junction, grading unit, service corner, power, heat, stack, structure, emissives, fragments |
+| `qr_anim.py` | the eight working systems and the idle |
+| `lookdev.py` | one-frame look-dev at sprite density and at 4x, with `audit()` on every build |
+| `swatch.py` / `measure_swatch.py` | every material as a lit stepped block through the entity's own rig, and what it measures. **This is how the palette is tuned** — a base colour is not what a material renders |
+| `show.py` | paint over a look-dev frame, composite on Nauvis and print the four numbers that actually move this sprite, each against its vanilla target |
+| `preview_game.py` | composite the packed sheets the way the ENGINE draws them — real terrain, night, the real vanilla recycler / EM plant / chemical plant beside ours at matched density, and looping GIFs |
 | `render_entity.py` | headless driver: `--layers base,anim,glow,shadow --dirs N,E,S,W --frames 64` |
 | `make_sheets.py` | paint-over per frame, pack to 8x8, write `sheet_numbers.txt` |
 | `make_look.py` | one-frame look-dev: paint-over, gates, the vanilla A/B |
@@ -337,9 +396,11 @@ under 0.1, so the moving parts are where any future budget has to come from:
 | layer | frames | prototype |
 |---|---|---|
 | `-<D>.png` | 1 | the body; `repeat_count = 64` to stay in step |
-| `-<D>-anim.png` | 64 | rotor, gear, rollers, auger, fragments |
+| `-<D>-anim.png` | 64 | rotor, drive wheel, rollers, fan, feeder ram. A LAYER of `animation`, so it is always drawn and merely stops advancing when the machine idles -- which is right for a rotor, whose parked pose is the idle design |
 | `-<D>-shadow.png` | 1 | `draw_as_shadow = true` |
-| `-<D>-light.png` | 64 | `draw_as_glow = true`, `blend_mode = "additive"`, half resolution at `scale = 1.0` |
+| `-<D>-fx.png` | 64 | **[added 2026-09-11]** the fragments in flight. A `working_visualisation`, so they VANISH when the machine stops; a chip frozen in mid-air over an idle machine is a bug you cannot un-see, and that is the whole reason this is not in `anim` |
+| `-<D>-light.png` | 64 | `draw_as_glow = true`, `blend_mode = "additive"`, `fadeout = true`, half resolution at `scale = 1.0` |
+| `-<D>-lamp.png` | 1 | **[added 2026-09-11]** the green status lamp alone, `always_draw = true`, so an idle machine still glows at night. 22x22 px -- the cheapest layer on the entity |
 
 The anim layer renders with the body present as a **holdout**, not hidden: the
 anim sheet composites *above* the base in game, so a moving part that ought to
@@ -349,6 +410,35 @@ composite cannot work out for itself.
 
 `sheet_numbers.txt` beside them carries every width/height/shift; the sprite
 sidecars are prototype work and are not written yet.
+
+## The rotor axis — Z, and why Y was not enough
+
+**[rebuilt 2026-09-11]** The section below is kept because its analysis is correct and still
+explains why the concept sheet's east–west barrel is impossible. What it missed is the third
+option. At this rig screen row is `-(y + z)` and screen column is `x`, so:
+
+| ring axis | north / south | east / west |
+|---|---|---|
+| **Z** | true circle | **true circle** |
+| Y | true circle | **edge-on line** |
+| X | edge-on line | true circle |
+
+`set_direction()` rotates the model about Z, which turns a Y-axis ring into an X-axis one in east
+and west. So a horizontal drum is round in two rotations and **flat in two** — which is exactly
+what the first build's east and west views were, and no amount of banding or material work fixed
+them. **On a rotatable entity, a Z-axis rotor is the only radial form that reads in all four.**
+
+The hero is therefore a vertical disc: fourteen copper pole pieces radiating from a tempered hub,
+over an open bore with an eighteen-slot stator visible through the gaps, inside a bronze well,
+under four guard arcs with daylight between them and a toroidal field coil above. It projects as a
+circle with spokes from every side.
+
+The lore survives intact — a vertical eddy rotor is still an induction separator, and the fragments
+still fly off it radially into the output. What is lost is the literal horizontal barrel, and the
+repo owner approved that trade at the Phase 1 checkpoint after seeing all three options at
+gameplay zoom.
+
+### The original Y-versus-X analysis, which stands
 
 **The drum turns about Y, north-south — and this was built the other way once, to
 check.** The concept sheet draws its bands wrapping an east-west barrel. Swinging the
@@ -374,25 +464,37 @@ it. That is a limit of Factorio's projection, not a choice still open.
 
 | | measured | vanilla reference |
 |---|---|---|
-Measured on the packed sheets, **all eight directions**, 2026-09-10:
+Measured on the packed sheets, **all eight directions**, 2026-09-11:
 
 | | measured | vanilla reference |
 |---|---|---|
 | Overhang, worst of eight | **0.77 tiles** | chemical plant 0.77, recycler 0.69 |
-| Overhang, N / E / S / W | 0.77 / 0.73 / 0.77 / 0.73 | chem 0.77 / 0.61 / 0.38 / 0.30 |
-| Full-width rows | 0% in all eight | 0% across every shipped machine sprite |
-| Fill | 0.83 - 0.87 | chem 0.78 - 0.82, recycler 0.72 - 0.84 |
-| Ragged | 0.98 - 1.30 | chem 0.98 - 1.24, recycler 1.03 - 1.16 |
-| Luminance sd | 49.9 - 53.4 | `gates.contrast` band 43-56 |
-| Form / grain ratio | 0.57 | recycler 0.61, chem 1.08 |
-| Luminance mean / saturation | 60.2 / 0.28 | recycler 67.0 / 0.31 |
-| Distinct kinds of detail | 186 over 241 objects | audited vanilla band 8-15 kinds |
-| Objects drawing zero pixels | 16 of 241, all of them legitimate | was 60 of 213 before the object-ID pass was runnable |
-| Edge-wear mask | 2.9% bright | `gates.wear_mask` flood threshold |
-| Luminance mean (look frame) | 65 | chemical plant 63, recycler 67 |
-| Saturation (look frame) | 0.47 | chemical plant 0.47, recycler 0.31 |
+| Overhang, N / E / S / W | 0.72 / 0.75 / 0.75 / 0.77 | chem 0.77 / 0.61 / 0.38 / 0.30 |
+| Full-width rows | **0% in all eight** | 0% across every shipped machine sprite |
+| Fill | 0.65 - 0.76 | chem 0.75, recycler 0.79 |
+| Ragged | 0.96 - 1.31 | chem 0.98 - 1.24, recycler 1.03 - 1.16 |
+| Luminance sd | 46.3 - 48.0 | `gates.contrast` band 43-56 |
+| Neutral grey (sat < 0.18) | **13 - 17%** | recycler 31%, chem plant 12% |
+| Top-quarter minus bottom-quarter luminance | E/S/W 27.8 - 30.5, **N 10.4** | recycler 27.7, chem plant 48.5 |
+| Local 5 px luminance sd, at game pixels | 31.2 - 33.4 | recycler 29.2, chem plant 27.1 |
+| Sprite size, screen px | **102 x 134** | chem plant 93 x 138, recycler 70 x 144 |
 | Clipped pixels | 0.00% | gate allows 0.05% |
-| Shadow | 100% pure black, 12-17% soft edge | gate allows 8% soft |
+| Shadow | 100% pure black, 16-27% soft edge | gate allows 8% soft |
+| Edge-wear mask | 9.7% bright, 20.0% survive | `gates.wear_mask` band 20-35 |
+| Distinct kinds of detail | 139 over 205 objects | audited vanilla band 8-15 kinds |
+| Objects drawing zero pixels | 6 of 205, all keyed OFF at frame 0 | - |
+| VRAM, 48 PNGs | **100.9 MB** | recycler 253.2, foundry 151.8, EM plant 147.7, cryo 36.8, chem 16.1 |
+
+**North's top-to-bottom spread is the weak direction at 10.4** against the other three's
+27.8-30.5 and the vanilla recycler's 27.7. In north the loading apron, the hazard chevrons and the
+grading pod all fall in the bottom quarter and none of them is dark, so the gradient flattens. It
+is one rotation of four and it is not visible as a fault; it is recorded because it is the number
+that would move first if this entity gets another pass.
+
+Local 5 px sd is the other number outside vanilla's band, and it is understood rather than
+unexplained: it is the cost of 205 objects on a 3x3, and the paint-over cannot take it out --
+sweeping `crevice_amount` 0.95 to 0.40 moved it only 33.9 to 31.3 while flattening the sprite.
+The next pass on this entity should cut parts, not turn knobs.
 
 **The raggedness floor had to be measured per direction rather than taken from
 the gate.** `gates.silhouette` floors it at 1.05, and this machine's east view
