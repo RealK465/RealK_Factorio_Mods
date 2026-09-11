@@ -135,10 +135,45 @@ def render_shadow(scene, out_dir):
     bpy.data.objects.remove(catcher, do_unlink=True)
 
 
+VIOLETS = ("violet", "violet2", "violet3")
+
+
+def _dim_violets(strength):
+    """The base sheet is drawn in every state, so a field ring lit in it makes
+    an IDLE machine glow by day. The glow sheet is the working-only layer;
+    the base carries the ring as a dull painted gap. Materials with keyframed
+    emission get their action detached for the pass and restored after."""
+    saved = []
+    for name in VIOLETS:
+        mat = bpy.data.materials.get(gen.PREFIX + name)
+        if not mat or not mat.node_tree:
+            continue
+        ad = mat.node_tree.animation_data
+        action = ad.action if ad else None
+        if ad:
+            ad.action = None
+        bsdf = next((n for n in mat.node_tree.nodes
+                     if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None:
+            continue
+        sock = bsdf.inputs["Emission Strength"]
+        saved.append((mat, action, sock, sock.default_value))
+        sock.default_value = strength
+    return saved
+
+
+def _restore_violets(saved):
+    for mat, action, sock, value in saved:
+        sock.default_value = value
+        if action is not None and mat.node_tree.animation_data:
+            mat.node_tree.animation_data.action = action
+
+
 def render_layer(scene, layer, out_dir, frames, only, restore):
     spec = LAYERS[layer]
     show_only(spec)
     dark = []
+    dimmed = _dim_violets(0.22) if layer == "base" else []
     if layer in EMISSION_ONLY:
         for o in bpy.data.objects:
             if o.type == "LIGHT":
@@ -160,6 +195,7 @@ def render_layer(scene, layer, out_dir, frames, only, restore):
             holder.energy = value
         else:
             holder.default_value = value
+    _restore_violets(dimmed)
     if restore:
         for o in bpy.data.objects:
             o.hide_render = False

@@ -2,6 +2,74 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-11 (second session) — v3: the machine agrees with its own arrow
+
+The owner put v2 in the game and came back with three things, in order: nothing
+ejects, it is not futuristic yet, and it is busy without being rich. The
+screenshots the brief named were never on disk, so the rig was photographed
+here -- which needed the screenshot harness fixed three ways first (Direct3D
+finds no display output with the monitor asleep, so `--force-opengl` and
+windowed mode; and the probe never inserted anything, so every crafting machine
+it had ever shot was idle).
+
+**The finding that re-laid the machine.** `vector_to_place_result = {0, -1.8}`
+is a direct-output position, the same field a mining drill uses for its drop
+point: the tile past the back edge, centred. The prototype comment called it
+where a mined machine drops its contents, and v2's output chute sat on the
+south-east while the yellow arrow left the north edge straight out of the rotor
+cowl. v3 is laid out from that point backwards: maw on the south wall, a duct
+across the seam, the rotor, a discharge notch through its cowl into a dark
+trough running due north, a hydraulic pusher ram, an open throat in the port's
+hood that the chips visibly drop into, the mouth with two doors, a sill painted
+with chevrons -- chevrons in, chevrons out.
+
+**A ram, not a flap, because of the camera.** The view direction is
+(0, +y, -z), so the one motion it cannot see is a slope descending away from
+it -- exactly a top-hinged flap dropping out of a north-facing mouth. A stroke
+along y is visible in all four rotations. This is now a rule in `CLAUDE.md`.
+
+**The rotor was redesigned a second time**, from an open spoked disc to sealed
+magnetic hardware: a composite cowl with four windows onto copper windings, a
+violet field gap, a vented end-cap turning with twelve blocky magnet segments
+under it, a polished spindle. Three things were tried and rejected by
+rendering: polished segments (a metal inside a bore reflects the bore, and
+rendered as a dark annulus), coils at the well floor (4 px through the
+windows), and six radial slots in the cap (a spoked wheel again -- concentric
+slots are a motor end-shield, radial ones are a fan).
+
+**The composite family went wrong first and was pulled back.** Put on every
+new surface it measured mean luminance 87-98 against vanilla's 63-67 and read
+as white plastic. Two values now, the bright one only on the cap, the cowl and
+the port hood, the darker one on structure, all cool against the warm olive
+and copper.
+
+**The five lit quality lenses became paint.** In the engine they were a row of
+indicator lights. Five matte squares on a dark plate on the riser's top face
+now; violet is the only light and it is on the route only.
+
+**A fresh-context reviewer saw the look-dev before the checkpoint.** Five
+findings taken (open rotor face, invisible rotor-to-port link, no top-face cue
+on the port, plaster-like composite, loud hoses), two rejected with reasons
+(dropping the painted grade squares -- the owner's rule allows colour as paint;
+shortening the riser -- its height is what shows the port behind the rotor).
+The owner approved the checkpoint and the production pass followed: 194
+objects and 147 kinds against v2's 205, silhouette clear in all four rotations
+and both mirrorings, overhang 0.75, nothing drawing zero pixels.
+
+**Then the engine said the machines had never been working.** A tick sequence
+showed the rotor cap in the same place across 28 ticks; logging each machine's
+status gave `no_power` -- the probe's one big pole 24 tiles from the rig
+supplies a 4x4 area. Every screenshot the harness had ever taken, v2's
+included, was of an idle machine with the arrow drawn. With research, power
+and status logging in the probe, v3 was photographed working in all eight
+orientations: the arrow on the port, the ram cycling, the doors parting, the
+field ring and the route lights glowing at midnight, the idle machine shut
+with only its green lamp.
+
+The art log carries the numbers per phase; `docs/art/LESSONS.md` gained six
+entries, including the profile-wide file search that hydrated OneDrive and
+must never be repeated.
+
 ## 2026-09-11 — the rebuild, and the axis nobody had tried
 
 The owner's verdict on the shipped art: "still very ugly and too far from what I

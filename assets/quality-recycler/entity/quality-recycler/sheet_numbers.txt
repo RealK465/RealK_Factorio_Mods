@@ -1,48 +1,48 @@
-N base: width=212 height=274 shift=util.by_pixel(-8.5, -3.5)
-N shadow: width=256 height=222 shift=util.by_pixel(5.0, 11.5)
-N anim: width=152 height=230 shift=util.by_pixel(1.5, -1.0) frames=64 line_length=8 sheet=1216x1840
-N fx: width=86 height=176 shift=util.by_pixel(19.0, -2.5) frames=64 line_length=8 sheet=688x1408
-N lamp: width=22 height=20 shift=util.by_pixel(-19.5, -7.0)
-N light: width=67 height=88 shift=util.by_pixel(8.5, -19.0) frames=64 line_length=8 scale=1.0 sheet=536x704
-E base: width=218 height=228 shift=util.by_pixel(-11.5, -16.0)
-E shadow: width=264 height=174 shift=util.by_pixel(0.0, 0.0)
-E anim: width=196 height=172 shift=util.by_pixel(-14.0, -24.5) frames=64 line_length=8 sheet=1568x1376
-E fx: width=178 height=84 shift=util.by_pixel(-8.0, 7.0) frames=64 line_length=8 sheet=1424x672
-E lamp: width=20 height=20 shift=util.by_pixel(-30.5, -57.0)
-E light: width=80 height=87 shift=util.by_pixel(-2.5, -18.5) frames=64 line_length=8 scale=1.0 sheet=640x696
-S base: width=212 height=224 shift=util.by_pixel(9.0, -17.0)
-S shadow: width=226 height=216 shift=util.by_pixel(15.0, -10.5)
-S anim: width=144 height=126 shift=util.by_pixel(-4.0, -18.0) frames=64 line_length=8 sheet=1152x1008
-S fx: width=86 height=148 shift=util.by_pixel(-19.0, -26.5) frames=64 line_length=8 sheet=688x1184
-S lamp: width=20 height=20 shift=util.by_pixel(19.5, -68.0)
-S light: width=68 height=86 shift=util.by_pixel(-9.0, -30.0) frames=64 line_length=8 scale=1.0 sheet=544x688
-W base: width=218 height=264 shift=util.by_pixel(11.5, -7.5)
-W shadow: width=224 height=208 shift=util.by_pixel(16.5, 10.0)
-W anim: width=198 height=176 shift=util.by_pixel(14.0, -19.0) frames=64 line_length=8 sheet=1584x1408
-W fx: width=178 height=70 shift=util.by_pixel(8.5, -41.0) frames=64 line_length=8 sheet=1424x560
+N base: width=208 height=278 shift=util.by_pixel(-8.5, -3.5)
+N shadow: width=258 height=256 shift=util.by_pixel(4.0, 3.5)
+N anim: width=144 height=246 shift=util.by_pixel(-0.5, -5.0) frames=64 line_length=8 sheet=1152x1968
+N fx: width=42 height=46 shift=util.by_pixel(-2.0, -51.0) frames=64 line_length=8 sheet=336x368
+N lamp: width=22 height=22 shift=util.by_pixel(-19.5, -7.0)
+N light: width=64 height=72 shift=util.by_pixel(7.0, -37.5) frames=64 line_length=8 scale=1.0 sheet=512x576
+E base: width=258 height=228 shift=util.by_pixel(-2.0, -16.5)
+E shadow: width=274 height=174 shift=util.by_pixel(2.5, -1.0)
+E anim: width=240 height=104 shift=util.by_pixel(-3.5, -18.5) frames=64 line_length=8 sheet=1920x832
+E fx: width=136 height=88 shift=util.by_pixel(32.5, -15.0) frames=64 line_length=8 sheet=1088x704
+E lamp: width=22 height=22 shift=util.by_pixel(-30.5, -57.0)
+E light: width=95 height=72 shift=util.by_pixel(11.5, -26.5) frames=64 line_length=8 scale=1.0 sheet=760x576
+S base: width=208 height=270 shift=util.by_pixel(8.5, -6.0)
+S shadow: width=224 height=248 shift=util.by_pixel(15.0, 0.5)
+S anim: width=104 height=168 shift=util.by_pixel(-9.5, 10.5) frames=64 line_length=8 sheet=832x1344
+S fx: width=48 height=168 shift=util.by_pixel(3.5, 23.5) frames=64 line_length=8 sheet=384x1344
+S lamp: width=22 height=22 shift=util.by_pixel(20.0, -68.0)
+S light: width=64 height=131 shift=util.by_pixel(-6.5, -8.0) frames=64 line_length=8 scale=1.0 sheet=512x1048
+W base: width=258 height=264 shift=util.by_pixel(2.5, -6.5)
+W shadow: width=268 height=204 shift=util.by_pixel(5.5, 10.5)
+W anim: width=240 height=184 shift=util.by_pixel(3.5, -19.0) frames=64 line_length=8 sheet=1920x1472
+W fx: width=134 height=122 shift=util.by_pixel(-32.5, -23.5) frames=64 line_length=8 sheet=1072x976
 W lamp: width=20 height=20 shift=util.by_pixel(30.5, -18.0)
-W light: width=82 height=56 shift=util.by_pixel(2.0, -41.0) frames=64 line_length=8 scale=1.0 sheet=656x448
-flipped-N base: width=212 height=274 shift=util.by_pixel(9.0, -3.5)
-flipped-N shadow: width=226 height=216 shift=util.by_pixel(15.0, 13.5)
-flipped-N anim: width=152 height=230 shift=util.by_pixel(-1.5, -1.0) frames=64 line_length=8 sheet=1216x1840
-flipped-N fx: width=86 height=176 shift=util.by_pixel(-19.0, -2.5) frames=64 line_length=8 sheet=688x1408
-flipped-N lamp: width=20 height=22 shift=util.by_pixel(19.5, -7.0)
-flipped-N light: width=67 height=88 shift=util.by_pixel(-8.5, -19.0) frames=64 line_length=8 scale=1.0 sheet=536x704
-flipped-E base: width=218 height=264 shift=util.by_pixel(-11.5, -7.5)
-flipped-E shadow: width=264 height=214 shift=util.by_pixel(0.0, 9.0)
-flipped-E anim: width=198 height=176 shift=util.by_pixel(-13.5, -19.0) frames=64 line_length=8 sheet=1584x1408
-flipped-E fx: width=178 height=70 shift=util.by_pixel(-8.0, -41.0) frames=64 line_length=8 sheet=1424x560
-flipped-E lamp: width=22 height=20 shift=util.by_pixel(-30.0, -18.0)
-flipped-E light: width=82 height=56 shift=util.by_pixel(-1.5, -41.0) frames=64 line_length=8 scale=1.0 sheet=656x448
-flipped-S base: width=212 height=224 shift=util.by_pixel(-8.5, -17.0)
-flipped-S shadow: width=256 height=216 shift=util.by_pixel(5.0, -11.0)
-flipped-S anim: width=144 height=126 shift=util.by_pixel(4.5, -18.0) frames=64 line_length=8 sheet=1152x1008
-flipped-S fx: width=86 height=146 shift=util.by_pixel(19.0, -27.0) frames=64 line_length=8 sheet=688x1168
-flipped-S lamp: width=20 height=20 shift=util.by_pixel(-19.5, -68.0)
-flipped-S light: width=68 height=86 shift=util.by_pixel(9.5, -30.0) frames=64 line_length=8 scale=1.0 sheet=544x688
-flipped-W base: width=218 height=228 shift=util.by_pixel(11.5, -16.0)
-flipped-W shadow: width=224 height=174 shift=util.by_pixel(16.5, 0.0)
-flipped-W anim: width=196 height=172 shift=util.by_pixel(14.0, -24.5) frames=64 line_length=8 sheet=1568x1376
-flipped-W fx: width=178 height=84 shift=util.by_pixel(8.5, 7.0) frames=64 line_length=8 sheet=1424x672
-flipped-W lamp: width=20 height=20 shift=util.by_pixel(30.5, -57.0)
-flipped-W light: width=80 height=87 shift=util.by_pixel(3.0, -18.5) frames=64 line_length=8 scale=1.0 sheet=640x696
+W light: width=94 height=68 shift=util.by_pixel(-11.0, -31.5) frames=64 line_length=8 scale=1.0 sheet=752x544
+flipped-N base: width=208 height=278 shift=util.by_pixel(8.5, -3.5)
+flipped-N shadow: width=224 height=256 shift=util.by_pixel(15.0, 3.5)
+flipped-N anim: width=144 height=246 shift=util.by_pixel(0.5, -5.0) frames=64 line_length=8 sheet=1152x1968
+flipped-N fx: width=42 height=46 shift=util.by_pixel(2.0, -51.0) frames=64 line_length=8 sheet=336x368
+flipped-N lamp: width=22 height=22 shift=util.by_pixel(20.0, -7.0)
+flipped-N light: width=64 height=72 shift=util.by_pixel(-6.5, -37.5) frames=64 line_length=8 scale=1.0 sheet=512x576
+flipped-E base: width=258 height=266 shift=util.by_pixel(-2.0, -6.0)
+flipped-E shadow: width=274 height=214 shift=util.by_pixel(2.5, 7.5)
+flipped-E anim: width=240 height=184 shift=util.by_pixel(-3.5, -19.0) frames=64 line_length=8 sheet=1920x1472
+flipped-E fx: width=134 height=124 shift=util.by_pixel(32.5, -23.5) frames=64 line_length=8 sheet=1072x992
+flipped-E lamp: width=20 height=20 shift=util.by_pixel(-30.5, -18.0)
+flipped-E light: width=95 height=70 shift=util.by_pixel(11.5, -30.5) frames=64 line_length=8 scale=1.0 sheet=760x560
+flipped-S base: width=208 height=270 shift=util.by_pixel(-8.5, -6.0)
+flipped-S shadow: width=254 height=222 shift=util.by_pixel(5.0, 7.0)
+flipped-S anim: width=104 height=168 shift=util.by_pixel(10.0, 10.5) frames=64 line_length=8 sheet=832x1344
+flipped-S fx: width=48 height=168 shift=util.by_pixel(-3.0, 23.5) frames=64 line_length=8 sheet=384x1344
+flipped-S lamp: width=22 height=22 shift=util.by_pixel(-19.5, -68.0)
+flipped-S light: width=64 height=132 shift=util.by_pixel(7.0, -7.5) frames=64 line_length=8 scale=1.0 sheet=512x1056
+flipped-W base: width=258 height=228 shift=util.by_pixel(2.5, -16.0)
+flipped-W shadow: width=268 height=174 shift=util.by_pixel(5.5, -1.0)
+flipped-W anim: width=240 height=104 shift=util.by_pixel(3.5, -18.5) frames=64 line_length=8 sheet=1920x832
+flipped-W fx: width=136 height=88 shift=util.by_pixel(-32.0, -15.0) frames=64 line_length=8 sheet=1088x704
+flipped-W lamp: width=22 height=22 shift=util.by_pixel(30.5, -57.0)
+flipped-W light: width=95 height=73 shift=util.by_pixel(-11.5, -26.5) frames=64 line_length=8 scale=1.0 sheet=760x584

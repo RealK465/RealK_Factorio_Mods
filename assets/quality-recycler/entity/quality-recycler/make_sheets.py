@@ -99,10 +99,14 @@ def light_bloom(img):
     # `draw_as_glow` is additive and is drawn in daylight too, so a generous
     # halo that looks right on a dark test background reads as a magenta wash
     # over the hero in play. The vanilla recycler's own lights sheet is subtle.
+    # v3: 0.26 / 0.44 -> 0.34 / 0.58. Photographed at midnight beside a working
+    # vanilla recycler, the field ring read as a faint arc; the engine weights
+    # an additive sprite by its alpha, and the halo carried most of the ring's
+    # presence. Daylight checked in the same run: no magenta wash on the cowl.
     wide = img.filter(ImageFilter.GaussianBlur(5.0))
-    wide.putalpha(wide.getchannel("A").point(lambda v: int(v * 0.26)))
+    wide.putalpha(wide.getchannel("A").point(lambda v: int(v * 0.34)))
     near = img.filter(ImageFilter.GaussianBlur(1.8))
-    near.putalpha(near.getchannel("A").point(lambda v: int(v * 0.44)))
+    near.putalpha(near.getchannel("A").point(lambda v: int(v * 0.58)))
     return Image.alpha_composite(Image.alpha_composite(wide, near), img)
 
 

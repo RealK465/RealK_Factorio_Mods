@@ -137,3 +137,52 @@ albedo lands the rendered pixel on a dark saturated target. Paint the albedo pre
 that floor, and set the *emission* to the true colour — the glow sheet is added over the base, so
 the sum is what the player sees and the emission is the half that survives the lighting unchanged.
 
+## The one motion this camera cannot see is a slope descending away from it
+
+The view direction is (0, +y, -z) at 45 degrees, so a part moving north while dropping at the
+same rate stays on the same screen row: a flap hinged at the top of a north-facing mouth,
+swinging down and out, is invisible in the north rotation and a line in east and west. Any
+purely horizontal motion (along x or y) is visible in all four rotations, because it is
+screen-horizontal in two and screen-vertical in the other two. Ejectors, feeders and shutters
+should therefore translate along an axis of the machine, or rotate about Z, never swing about a
+horizontal axis. Learned designing the Quality Recycler's ejector: a pusher ram along the
+trough, not a flap.
+
+## Radial slots are a fan; concentric slots are a motor
+
+A pale disc with six radial slots reads as a spoked wheel however it is lit, and so does a ring
+of tapered blades. The same disc with six short curved slots following the circumference reads
+as a ventilated motor end-cap. On the Quality Recycler's rotor cap both were rendered at
+gameplay zoom in the same session; only the second stopped the "fan" reading.
+
+## A metallic material inside a bore renders near-black, whatever its albedo
+
+A polished (metallic 0.55) material for the magnet segments came out as a dark annulus under a
+cowl, because a metal reflects the world and the world inside a bore is the bore. Worn bright
+steel at metallic 0.42 with roughness 0.30-0.52 read as bright segments in the same spot. Put
+metallic materials where the sky can reach them; use a diffuse-leaning bright material anywhere
+sunk into the machine.
+
+## A screenshot of a machine is not a screenshot of a WORKING machine
+
+Three separate things kept the probe's machines idle while every shot looked plausible: the
+recipes were locked (a fresh map has researched nothing), nothing had been inserted, and the
+power was a big pole 24 tiles away whose supply area is 4x4. The tell was a tick sequence in
+which the rotor never moved. The probe now researches everything, inserts a slow item, powers
+each group from a substation at its centre, and logs `status working` per machine before it
+shoots. Read that line before believing a working-state screenshot; and shoot a tick sequence,
+never one frame, to judge motion. The benchmark renderer produces a new frame only every few
+ticks, so sample eight ticks apart across a loop rather than expecting per-tick samples.
+
+## The screenshot harness needs a display, and a sleeping monitor is not one
+
+`--benchmark-graphics` on the Direct3D path dies at adapter-output enumeration when no display
+output is attached to the session (monitor asleep, or a remote session), and then spins forever
+trying to go fullscreen. `--force-opengl` plus `[graphics] full-screen=false` in the scratch
+config renders the same screenshots.
+
+## A profile-wide file search hydrates OneDrive
+
+`find` over the user's profile root walked into the OneDrive folder and Files On-Demand began
+downloading the whole cloud, even with stat-only predicates. Search the repo, the dev installs,
+Downloads and the scratchpad; if a named file is not there, it is missing -- say so.

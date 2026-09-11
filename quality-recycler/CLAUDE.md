@@ -18,6 +18,21 @@ is no separate art-direction register. **The entity is modelled, animated and re
 in `../assets/quality-recycler/entity/quality-recycler/`, sheets in `graphics/entity/`, eight
 directions at **six** layers each, plus the item and technology icons. No `thumbnail.png` yet.
 
+**The art is built from the output position backwards.** `vector_to_place_result = {0, -1.8}`
+is a DIRECT-output position -- the tile past the back edge, centred, where the alt-mode arrow
+points and the results appear -- not where a mined machine drops its contents. The port, the
+trough and the pusher ram sit on that line; move the value and the art is wrong. Reasoning in
+`.ai-support/quality-recycler-design.md` -> *v3*.
+
+**Moving parts translate along an axis or turn about Z; nothing swings about a horizontal
+axis.** The camera looks along (0, +y, -z), so a flap dropping out of a north-facing mouth
+moves along the view ray and is invisible in north. Horizontal motion is visible in all four
+rotations. Reasoning in the design doc -> *v3, The route*.
+
+**Radial slots are a fan; concentric slots are a motor.** The rotor cap has six short curved
+vent slots for that reason, and its bright magnet segments are worn steel, not `polished` --
+a metallic material inside a bore has only the bore to reflect and renders near-black.
+
 **The hero rotor turns about Z, and that is not a style choice.** This rig scales world Y and
 world Z to the same 64 px in the row direction, so a ring about Z *or* Y projects as a true circle
 -- but `set_direction()` rotates the model about Z, which turns a Y-axis ring into an X-axis one in
@@ -69,8 +84,9 @@ air) and *lost* by adding solid parts.
 12 px against contrast below 3 px: vanilla carries its at ratio 0.61 (recycler) to 1.08 (chem
 plant), and raising `form_amount` to hit an sd target buys the number by *smoothing* the
 machine. This entity sat inside the sd band through two rejected builds at ratio 1.25.
-Settled: `form_amount` 0.30 with `contrast_amount` 1.35 and `crevice_amount` 1.30. Reasoning in
-`.ai-support/quality-recycler-design.md` → *Built*.
+Settled for v3: `form_amount` 0.28 with `contrast_amount` 0.75 and `crevice_amount` 0.45 --
+the v3 palette's raw render already measures sd 39-43, so the pass only sharpens. Reasoning in
+`.ai-support/quality-recycler-design.md` → *Built* and the art log.
 
 **This entity rotates, so it has four front elevations.** "A side wall renders as a one-pixel
 line" is a fixed-entity rule. The west wall is the front in east, the north wall in south, the
@@ -81,6 +97,12 @@ rotations read as blank painted plates.
 The rear deck tops out at 1.06 where `cone_z` allows 1.07, so a cooler on it measured 2.48 and
 `fit_cone()` refused rather than shrink the machine 9% to hide it. A recessed louvre bank reads
 the same at 30 px and costs no height.
+
+**An emissive lit in the base sheet lights the IDLE machine.** The base is drawn in every
+state; only the glow sheet is working-only. `render_entity.py` therefore dims the violet
+materials to 0.22 for the base pass, and any new light goes in the glow layer, never as a
+bright emissive in the base. Reasoning in `.ai-support/quality-recycler-design.md` → *v3,
+After the engine*.
 
 **Check the glow sheet separately — it hides faults the base sheet cannot show.** Three shipped
 at once here: a beacon clipped to pure white (keep colour x strength near 1.0), and a violet
@@ -127,8 +149,8 @@ Since the 2026-09-11 rebuild they are split by job, and all of them import the f
 |---|---|
 | `quality_recycler_gen.py` | materials, geometry helpers, the cone rule, the direction transform, `audit()`, `fit_cone()` |
 | `qr_rebuild.py` | the curved primitives the above could not make -- `ring()`, `torus()`, `radial_bars()`, `barrel()`, `hood()`, `wall_chevrons()` -- plus the Phase 1 look-dev variants |
-| `qr_layout.py` | **the machine**: masses, hero, junction, grading unit, tertiary hardware |
-| `qr_anim.py` | the eight working systems and the idle |
+| `qr_layout.py` | **the machine** (v3): plinth, sealed rotor, looms, transfer duct, trough and ejector, the olive half, the power cabinet, structure |
+| `qr_anim.py` | the ten working systems -- rotor, rollers, feeder ram, ejector ram, doors, chips, four violet lights -- and the idle |
 | `render_entity.py` | headless bake, six layers x eight directions |
 | `lookdev.py` | one-frame look-dev at sprite density and 4x |
 | `swatch.py` / `measure_swatch.py` | every material as a lit block, and what it measures |
@@ -137,7 +159,7 @@ Since the 2026-09-11 rebuild they are split by job, and all of them import the f
 | `make_look.py` | the settled paint-over `POST` dict -- every other tool imports it from here |
 | `preview_game.py` | composite the packed sheets the way the engine draws them, on real terrain, beside real vanilla machines, with night and looping GIFs |
 | `check_sheets.py` / `check_wear.py` / `check_visibility.py` | the gates, the edge-wear mask, the object-ID pass |
-| `versions/` | the untouched pre-rebuild `.blend` and generator |
+| `versions/` | the pre-rebuild v0 generator and the v2 generators that differ from commit 57acdf1; no `.blend`, they regenerate it |
 
 Only exported PNGs land in `graphics/`. See the repo `CLAUDE.md` → *Asset sources*.
 
@@ -175,9 +197,12 @@ to fall into.
 - **A part the pass calls dead is not always a part to move.** Three here were deleted instead:
   in north the drum occludes them and in south the rear deck does, so no wall could be opened
   to reveal them. Check what the occluder actually is before rebuilding around it.
-- The next step is to **put it on a real map**. The data stage loads clean, which says nothing
-  about whether the machine is worth building, how the animation reads at gameplay zoom, or
-  whether any rotation has a fault an offline check cannot see.
+- **Photograph it in the engine after any art change** -- `scripts/screenshot/shoot.ps1` with
+  `-ExtraArgs '--force-opengl'` on this machine, a spec that inserts items so the machines
+  WORK, and alt-mode on so the output arrow shows. It is the only check that sees where the
+  results actually appear; v2 shipped with its output art on the wrong side of the machine and
+  every offline gate green.
+- **Balance is still a guess.** Nothing has been played for more than a screenshot.
 
 ## Decided
 

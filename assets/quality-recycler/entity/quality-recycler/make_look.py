@@ -84,8 +84,14 @@ from factorio_render import gates, post, vanilla            # noqa: E402
 # numbers were best and the sprite came out bleached: form_contrast has radius
 # 11, so pushing it lifts whole faces toward each other and the machine goes
 # milky. 0.32 is where it still separates hull from deck without hazing.
-POST = dict(preset="entity", saturation=0.70, value=0.92, form_amount=0.32,
-            contrast_amount=1.12, crevice_amount=0.75)
+# v3 (2026-09-11): contrast 1.12 -> 0.75, crevice 0.75 -> 0.45, value 0.92 ->
+# 0.88, form 0.32 -> 0.28. The v3 palette carries a pale composite family
+# against dark cavities, so the RAW render already measures luminance sd 39-43
+# where v2's measured 30; the old settings pushed the painted frames to 62-67
+# against a 43-56 band. Swept on the four look-dev frames: these land 53-58
+# at the pack stage, the rest is the model's own range.
+POST = dict(preset="entity", saturation=0.70, value=0.88, form_amount=0.28,
+            contrast_amount=0.75, crevice_amount=0.45)
 
 # **form_amount 0.30, down from 1.70, and this is the measurement that turned
 # this sprite round.** Luminance sd was in band the whole time -- 45-51 against
