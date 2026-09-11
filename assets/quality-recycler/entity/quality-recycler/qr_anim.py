@@ -9,7 +9,7 @@ The engine scales a crafting machine's animation by its crafting speed unless
 recycler's 0.5, so the prototype uses `animation_speed = 2`. Per-frame
 rotation stays well under half the symmetry step:
 
-    rotor    12 poles / 6 cap slots, 60 deg per loop -> 0.94 deg/frame
+    rotor    12 poles / 6 cap slots, 120 deg per loop -> 1.9 deg/frame
     rollers   9 teeth,  4 pitches/loop               -> 2.50
 
 ## The ejection cycle, one batch per loop
@@ -87,7 +87,10 @@ def animate(frames=64):
                       "rotor-cap-rim", "rotor-cap-outer", "rotor-cap-inner",
                       "rotor-cap-groove", "rotor-cap-bolts")
                 + tuple("rotor-cap-web%d" % i for i in range(L.CAP_SLOTS)))
-    gen._key(piv, "rotation_euler", [(0, 0.0), (frames, 2 * rotor_pitch)],
+    # 4 pole pitches a loop (120 degrees): at 2 the cap's slots crept and the
+    # hero read as idling. 1.9 degrees a frame against a 30-degree pitch still
+    # cannot wagon-wheel backwards.
+    gen._key(piv, "rotation_euler", [(0, 0.0), (frames, 4 * rotor_pitch)],
              index=2)
 
     # 2. the shredder rollers, counter-rotating
@@ -98,8 +101,10 @@ def animate(frames=64):
         turns = 4 * roller_pitch * (1 if i % 2 == 0 else -1)
         gen._key(piv, "rotation_euler", [(0, 0.0), (frames, turns)], index=0)
 
-    # 3. the feeder ram on the apron: one stroke, quick in and slow out
-    stroke, q = 0.30, frames // 4
+    # 3. the feeder ram on the apron: one stroke, quick in and slow out.
+    #    0.11: the apron is inside the footprint now and the head stops just
+    #    short of the bottom roller
+    stroke, q = 0.11, frames // 4
     for name in ("flap-ram", "flap-ram-head", "flap-ram-rod"):
         obj = bpy.data.objects.get(PREFIX + name)
         if obj is None:
@@ -130,23 +135,27 @@ def animate(frames=64):
                   (48, 0.0), (frames, 0.0)],
                  index=0, interp="BEZIER")
 
-    # 6. THE CHIPS. Three, keyed per frame through the whole cycle. They are
+    # 6. THE CHIPS. Five, keyed per frame through the whole cycle. They are
     #    in QR_Fx (a working_visualisation) and excluded from the shadow pass.
-    rest = [(-0.36, 0.50), (-0.22, 0.56), (-0.29, 0.66)]      # x, y at rest
+    #    Each tumbles as it flies out of the mouth and again down the chute.
+    rest = [(-0.36, 0.50), (-0.22, 0.56), (-0.29, 0.66), (-0.38, 0.62),
+            (-0.19, 0.69)]                                    # x, y at rest
     z_rest = L.TROUGH_Z + 0.045
     trough_end = L.TROUGH_Y[1] + 0.02
     throat_floor = 0.42 + 0.045
     py1 = L.PORT_Y[1]
     notch = (L.ROTOR[0] - L.R_STATOR_IN + 0.06, L.ROTOR[1], 0.92)
-    mouth_x = (-0.13, 0.0, 0.13)
-    for i in range(3):
+    mouth_x = tuple(L.PORT_X + v for v in (-0.13, 0.0, 0.13, -0.22, 0.22))
+    for i in range(5):
         obj = bpy.data.objects.get(PREFIX + "frag%d" % i)
         if obj is None:
             continue
         rx, ry = rest[i]
+        base_rot = math.radians(25.0 * i)
         dropped_at = None
         for f in range(frames + 1):
             vis = 1.0
+            rot = base_rot
             if f <= 26:                                   # riding the ram
                 y = ry + ram_offset(f, frames)
                 z = z_rest
@@ -163,6 +172,7 @@ def animate(frames=64):
                 t = (f - 34) / 8.0
                 pos = (mouth_x[i], py1 + 0.02 + 0.30 * t,
                        0.30 - 0.32 * t * t)
+                rot = base_rot + (1.0 + 0.4 * i) * t
                 if f == 42:
                     vis = 0.0
             elif f < 46:
@@ -173,12 +183,37 @@ def animate(frames=64):
                 pos = (notch[0] + (rx - notch[0]) * t,
                        notch[1] + (ry - notch[1]) * t,
                        notch[2] + (z_rest - notch[2]) * t + 0.05 * math.sin(math.pi * t))
+                rot = base_rot + (0.8 + 0.3 * i) * (1.0 - t)
             else:                                         # settled
                 pos = (rx, ry, z_rest)
             obj.location = pos
             obj.keyframe_insert("location", frame=f)
+            obj.rotation_euler = (0.0, 0.0, rot)
+            obj.keyframe_insert("rotation_euler", index=2, frame=f)
             obj.scale = (vis, vis, vis)
             obj.keyframe_insert("scale", frame=f)
+
+    # 6b. THE FEED STREAM: six more chips along the open trough from the
+    #     shredder's spout to the rotor's inlet hood, a sixth of a length
+    #     apart and one full length per loop, so frame 64 is frame 0 exactly.
+    #     Each starts inside the spout and ends inside the hood -- both solid,
+    #     and the fx layer holds the base out -- so the wrap happens out of
+    #     sight.
+    lateral = (-0.03, 0.025, -0.01, 0.035, 0.005, -0.04)
+    for i in range(6):
+        obj = bpy.data.objects.get(PREFIX + "frag%d" % (5 + i))
+        if obj is None:
+            print("[anim] missing frag%d" % (5 + i))
+            continue
+        base = math.radians(20.0 + 37.0 * i)
+        for f in range(frames + 1):
+            t = ((f / float(frames)) + i / 6.0) % 1.0
+            obj.location = L.stream_point(t, lateral[i], 0.048)
+            obj.keyframe_insert("location", frame=f)
+            # a slow tumble over the run, as a chip on a vibrating tray does;
+            # the 60-degree mismatch at the wrap happens inside the hood
+            obj.rotation_euler = (0.0, 0.0, base + math.radians(60.0) * t)
+            obj.keyframe_insert("rotation_euler", index=2, frame=f)
     _constant_scales()
 
     # 7. the field ring and the discharge edge share `violet`: two beats a
@@ -198,6 +233,13 @@ def animate(frames=64):
     _mat_key("violet3", "Emission Strength",
              [(0, 0.30), (18, 0.30), (22, 2.0), (38, 2.0), (42, 0.30),
               (frames, 0.30)])
+
+    # 9b. the console screen: a slow two-beat breathe, the quietest light on
+    #     the machine, so the pad reads as attended without competing with
+    #     the hero
+    _mat_key("violet4", "Emission Strength",
+             [(0, 0.6), (frames // 4, 1.2), (frames // 2, 0.6),
+              (3 * frames // 4, 1.2), (frames, 0.6)])
 
     # 10. two arcs across the field gap: irregular on purpose, fixed so the
     #     render is reproducible, closing on `frames` like everything else
@@ -237,7 +279,7 @@ def _fcurves(obj):
 
 def _constant_scales():
     """The chips' visibility is a switch, not a fade: hold scale keys."""
-    for i in range(3):
+    for i in range(11):
         obj = bpy.data.objects.get(PREFIX + "frag%d" % i)
         if obj is None:
             continue
@@ -245,6 +287,6 @@ def _constant_scales():
             if fc.data_path == "scale":
                 for kp in fc.keyframe_points:
                     kp.interpolation = "CONSTANT"
-            elif fc.data_path == "location":
+            elif fc.data_path in ("location", "rotation_euler"):
                 for kp in fc.keyframe_points:
                     kp.interpolation = "LINEAR"

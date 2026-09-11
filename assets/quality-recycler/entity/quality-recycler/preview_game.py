@@ -50,7 +50,7 @@ DIRS = ("N", "E", "S", "W", "flipped-N", "flipped-E", "flipped-S", "flipped-W")
 PANEL = 448            # source px == 7 tiles; the game halves this to 224
 AB_PANEL = 576         # the electromagnetic plant is 4x4 and throws a long shadow
 PX_PER_TILE = 64       # source px per tile, i.e. a scale 0.5 sheet at 1:1
-FOOTPRINT = (3, 3)
+FOOTPRINT = (4, 4)
 SHADOW_ALPHA = 0.55    # shadow sheets are stored pure black at full alpha and
                        # the engine draws them well short of that; ours and
                        # vanilla's get the same factor or the A/B lies

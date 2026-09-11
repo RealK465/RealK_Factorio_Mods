@@ -31,7 +31,7 @@ sys.path.insert(0, _skill_scripts())
 from factorio_render import gates                           # noqa: E402
 
 DIRS = ("N", "E", "S", "W", "flipped-N", "flipped-E", "flipped-S", "flipped-W")
-FOOTPRINT = 3
+FOOTPRINT = 4
 PX_PER_TILE = 64
 
 # Measured off the shipped 2.1 sprites, per direction, 2026-09-10, from the

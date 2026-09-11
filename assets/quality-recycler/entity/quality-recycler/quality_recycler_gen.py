@@ -19,8 +19,8 @@ import bpy
 from mathutils import Matrix, Vector
 
 PREFIX = "QR_"
-FOOTPRINT = (3, 3)
-CANVAS = (320, 384)                 # ortho_scale 5.0 -> 64 px/tile
+FOOTPRINT = (4, 4)
+CANVAS = (384, 448)                 # ortho_scale 6.0 -> 64 px/tile, 6x7 tiles
 REPO_ROOT = Path(__file__).resolve().parents[4]
 POLYHAVEN_DIR = REPO_ROOT / "assets" / "third-party" / "polyhaven"
 
@@ -90,7 +90,10 @@ from factorio_render import rig, parts, greeble          # noqa: E402
 # sheets, a fitted 2.27 lands the SOUTH view at 0.781 -- a hair over the ceiling,
 # because the cone bounds vertices and the gate counts antialiased pixels. 2.25
 # puts every one of the eight directions under 0.77 with room to spare.
-APEX = 2.25
+#
+# 2.75 since the footprint became 4x4 (2026-09-11, the owner's call): the same
+# 0.77 past a half-depth of 2.0, less the same 0.02 for the antialiasing.
+APEX = 2.75
 
 
 # Lighting. The rig's validated set is key 5.2 / fill 1.2 / ambient 0.22,
@@ -894,6 +897,16 @@ COLL_NAMES = ("QR_Base", "QR_Moving", "QR_Fx")
 # A list so both can reach it without a `global`; see fit_cone() for why one
 # scale beats trimming the parts individually.
 _FIT = [1.0]
+
+# The layout is written in the 3x3 machine's units and the 4x4 entity is that
+# machine at 1.2x: one uniform scale on the root, exactly as the cone fit is
+# applied, so every literal in qr_layout.py and every keyed animation offset
+# grows together. 1.2 rather than 4/3 because the cone binds: at 4/3 the cowl
+# rim and the riser back both land past APEX 2.75, and a machine that fills
+# its tiles to the edge at height is what covers the machine behind it. The
+# 0.4-tile margin the scale leaves is spent on the ground hardware that used to
+# hang past the 3x3 -- the cabinet and the apron -- which is what moved it.
+BASE_SCALE = 1.2
 
 # The heat ramp reads WORLD position, so it has to be told where the rotor is
 # once the machine is rotated for east/south/west. Every other term in the
@@ -2298,7 +2311,7 @@ def set_direction(deg, mirror=False):
             obj.parent = root
             obj.matrix_parent_inverse = root.matrix_world.inverted()
     root.rotation_euler = (0, 0, math.radians(deg))
-    f = _FIT[0]
+    f = _FIT[0] * BASE_SCALE
     # `use_mirroring` needs real mirrored art, not a flipped sprite: the light
     # is world-fixed, so flipping the PNG would carry the highlights to the
     # wrong side. Scaling the model instead keeps the key upper-left, which is
@@ -2307,8 +2320,8 @@ def set_direction(deg, mirror=False):
     # and move the heat source with it, or the tempering ramp stays pointing
     # at wherever the rotor used to be
     c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
-    hx = ROTOR_XY[0] * c - ROTOR_XY[1] * s
-    hy = ROTOR_XY[0] * s + ROTOR_XY[1] * c
+    hx = (ROTOR_XY[0] * c - ROTOR_XY[1] * s) * f
+    hy = (ROTOR_XY[0] * s + ROTOR_XY[1] * c) * f
     for sock in _HEAT_NODES:
         sock.default_value = (-hx if mirror else hx, hy, 0.0)
     bpy.context.view_layer.update()

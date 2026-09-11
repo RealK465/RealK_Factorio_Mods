@@ -41,34 +41,29 @@ sys.path.insert(0, _skill_scripts())
 from factorio_render import rig as fr_rig                   # noqa: E402
 
 RES = 512
-# 2.9, not 3.7. Measured against the vanilla recycler's own icon: it fills
-# 60 x 62 of its 64 px square and 79% of the pixels are opaque, where this one
-# at 3.7 filled 64 x 51 and 47% -- a small dark lump with a margin round it,
-# which is what "serviceable, not vanilla-grade" meant. An icon is not on the
-# tile grid, so nothing forces it to show the whole footprint: cropping into
-# the rotor, which is the machine's identity, is worth more than fitting the
-# aprons in.
-ORTHO = 2.35
-# 34 degrees, not the 46 in references/icons.md. That figure was tuned on
-# vanilla's MODULES, which are small cubes; this machine is squat and wide, and
-# at 46 it rendered as a letterbox that lost most of a 64 px square to empty
-# margin and turned to mush at the 32 px it is actually read at. A lower
-# elevation shows more front elevation and less roof, which makes the
-# silhouette taller and closer to square.
-# 37, back up from the 34 this shipped at and the 30 the tighter crop was first
-# tried with. Lowering the elevation makes the silhouette taller, which is what
-# a square icon wants -- but it also turns the rotor's face away from the light,
-# and at 30 the hero rendered as a dark ring with a violet centre and no copper
-# in it at all. 37 puts the pole pieces back in the light; the height comes from
-# the crop instead.
-ELEVATION = 37.0
+# THE WHOLE MACHINE, framed the way vanilla frames its machine icons: the
+# electromagnetic plant's shows the plant edge to edge in its 64 px square.
+# Two earlier icons cropped into the rotor (ortho 2.35, aimed at the hub) on
+# the reasoning that the hero is the identity; the owner read the result as
+# "it doesn't show the totality of the machine", which is the verdict that
+# counts. 5.2 units of ortho covers the 4x4's corner-on extent -- the sill
+# past one edge and the apron past the other -- and make_icons.py trims to the
+# subject anyway, so the ortho only sets how many render pixels it gets.
+ORTHO = 5.2
+# 52 degrees. Measured against vanilla's machine icons (recycler, EM plant,
+# foundry): their subjects fill a near-square 60x63 of the 64 px box, where
+# this machine trimmed to 62x50 at 40 degrees and 62x46 at 33 -- wide and
+# flat, a third of the box empty. Those are tall machines; this one is 1.2
+# tiles high on a 5.4-tile corner-on footprint, so LOWERING the camera makes
+# it flatter, not taller. Its projected height is 5.4 sin(e) + 1.2 cos(e), and
+# that reaches the width near 52 -- which also looks down on the rotor the way
+# the game does, so the icon resembles the sprite.
+ELEVATION = 52.0
 ROLL = -6.0
 MODEL_YAW = 38.0     # corner-on, so the top face is a rhombus not a rectangle
-# Aim at the ROTOR, not the machine's centre. It is the hero, it is the only
-# thing that says this is not the vanilla recycler, and at 32 px in a toolbar
-# the difference between "a green box" and "a green box with a copper wheel on
-# it" is the whole icon.
-AIM = (0.30, 0.16, 0.86)
+# Aim at the machine's centre, a little above the pad, so the frame is the
+# machine and not the ground in front of it.
+AIM = (0.0, 0.0, 0.50)
 
 
 def look_at(obj, target):
@@ -108,9 +103,9 @@ def main():
     scene.camera = cam
 
     for name, loc, energy, colour in (
-            ("Key",  (-3.0, -1.6, 4.6), 3.0, (1.0, 0.97, 0.92)),
-            ("Fill", (2.8, -3.6, 0.7), 0.25, (1.0, 1.0, 1.0)),
-            ("Rim",  (1.6, 3.4, 2.6), 0.45, (0.78, 0.86, 1.0))):
+            ("Key",  (-3.0, -1.6, 4.6), 5.4, (1.0, 0.97, 0.92)),
+            ("Fill", (2.8, -3.6, 0.7), 1.00, (1.0, 1.0, 1.0)),
+            ("Rim",  (1.6, 3.4, 2.6), 0.60, (0.78, 0.86, 1.0))):
         d = bpy.data.lights.new("QR_Icon" + name, "SUN")
         d.energy = energy
         d.color = colour
@@ -123,7 +118,7 @@ def main():
     world.use_nodes = True
     bg = world.node_tree.nodes["Background"]
     bg.inputs["Color"].default_value = (1, 1, 1, 1)
-    bg.inputs["Strength"].default_value = 0.05
+    bg.inputs["Strength"].default_value = 0.12
     scene.world = world
 
     scene.render.resolution_x = scene.render.resolution_y = RES

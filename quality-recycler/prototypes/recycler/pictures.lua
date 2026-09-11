@@ -31,13 +31,14 @@
 
 local PATH = "__quality-recycler__/graphics/entity/quality-recycler/quality-recycler-"
 
--- 2, where the vanilla recycler uses 4. A crafting machine's animation is
+-- 1.6, where the vanilla recycler uses 4. A crafting machine's animation is
 -- scaled by its crafting speed unless `constant_speed` is set, and this machine
--- runs at 1.0 against the recycler's 0.5. At 4 it would play at twice the
--- recycler's apparent tempo standing next to one; at 2 they read alike.
--- Per-frame rotor rotation is then 0.80 degrees against a 25.7-degree pole
--- pitch, so it cannot wagon-wheel backwards.
-local animation_speed = 2
+-- runs at 1.25 against the recycler's 0.5: 1.6 x 1.25 = 2 frames a tick, the
+-- recycler's own 4 x 0.5, so the two read at the same tempo standing side by
+-- side and one loop of 64 frames is 32 ticks. Per-frame rotor rotation is
+-- then 0.94 degrees against a 30-degree pole pitch, so it cannot wagon-wheel
+-- backwards.
+local animation_speed = 1.6
 
 local function direction(key)
   return

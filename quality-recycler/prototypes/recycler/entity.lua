@@ -31,10 +31,13 @@ data:extend({
     impact_category = "metal",
     fast_replaceable_group = "quality-recycler",
 
-    -- 3x3. collision 2.4 is the vanilla 3x3 convention -- chemical plant and
-    -- biochamber both measure it.
-    collision_box = {{-1.2, -1.2}, {1.2, 1.2}},
-    selection_box = {{-1.5, -1.5}, {1.5, 1.5}},
+    -- 4x4. collision 3.4 is the vanilla 4x4 convention -- the electromagnetic
+    -- plant measures it. The drawing-box extension is what the entity tooltip
+    -- and info GUI use to frame a sprite taller than its box; 0.8 covers the
+    -- art's 0.77 tiles of north overhang, as the EM plant's 0.7 covers its own.
+    collision_box = {{-1.7, -1.7}, {1.7, 1.7}},
+    selection_box = {{-2, -2}, {2, 2}},
+    drawing_box_vertical_extension = 0.8,
     damaged_trigger_effect = hit_effects.entity(),
 
     -- Rotatable, four directions plus mirrored: the full vanilla recycler
@@ -78,11 +81,12 @@ data:extend({
     },
 
     -- Where the machine places its RESULTS: the tile past the north edge,
-    -- centred, exactly like a mining drill's drop position -- this is what
-    -- the yellow alt-mode arrow points at, and the art's output port is built
-    -- on it. The vanilla recycler's {-0.35, -2.3} is measured against its own
-    -- 2x4 body and would land outside a 3x3.
-    vector_to_place_result = {0, -1.8},
+    -- exactly like a mining drill's drop position -- this is what the yellow
+    -- alt-mode arrow points at, and the art's output port is built on it. A
+    -- 4x4's centre is a tile corner, so x 0 would sit on the boundary between
+    -- the two centre tiles; -0.15 lands inside the west one (mirrored, the
+    -- east one), which is what the vanilla recycler's own -0.35 is for.
+    vector_to_place_result = {-0.15, -2.3},
 
     custom_input_slot_tooltip_key = "recycler-input-slot-tooltip",
     cant_insert_at_source_message_key = "inventory-restriction.cant-be-recycled",

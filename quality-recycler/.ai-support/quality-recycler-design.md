@@ -1,6 +1,6 @@
 # Quality Recycler entity — design notes
 
-The mod's one entity: a recycler with quality built in, 3x3, unlocked after the first three
+The mod's one entity: a recycler with quality built in, 4x4, unlocked after the first three
 planets. This file is the visual record — what it is, what it looks like, and why each choice
 was made. The numbers it must satisfy live in `decisions.md`; open questions in `deferred.md`.
 
@@ -25,7 +25,7 @@ Shreds items back into their components like the vanilla recycler, but grades wh
 
 | | |
 |---|---|
-| Footprint | 3x3. `collision_box = {{-1.2,-1.2},{1.2,1.2}}` is the vanilla 3x3 convention (chemical plant, biochamber both measure 2.4) |
+| Footprint | **4x4 since 2026-09-11** (the owner's call; 3x3 before). `collision_box = {{-1.7,-1.7},{1.7,1.7}}` is the vanilla 4x4 convention (the electromagnetic plant measures 3.4). Everything below this table that says 3x3 describes the machine as first built; the *v4* section says what the larger box changed |
 | Fluid connections | none — it is a `furnace`, deep-copied from `data.raw["furnace"]["recycler"]` |
 | Rotatable | **yes, four directions plus mirrored** — the full vanilla recycler treatment. Direction reads off the maw and the west scrap chute |
 | Module slots | not decided; vanilla recycler has 4. See *Not settled* |
@@ -880,3 +880,195 @@ tell working from idle in a single frame. Four changes, each with its reason:
   mouth was tried and sat over the cone.
 
 Rejected: shortening the ground-level overhang (deliberate, see `deferred.md`).
+
+## v4 — the 4x4, inside its own tiles (2026-09-11, third session)
+
+**[rebuilt 2026-09-11, v4]** The owner put v3 in the game beside its neighbours and came back
+with three things: two zones of the sprite sit outside the placement area and overlap the
+entities next to it; the pad in front of the plinth barely has any content and the animation
+could do more; and, mid-session, the entity is to be **4x4**. The reasoning for each change is
+here, the measurements in `docs/art/quality-recycler/LOG.md`. v3 is commit 59d9c7f.
+
+### The two zones, and the rule they became
+
+The zones circled in the owner's screenshots are the v3 power cabinet and the loading apron.
+Both were placed on purpose: the cone bounds height, not reach, and the 3x3 spent the same
+reach on low hardware that vanilla spends on pipe stubs (the cabinet to 0.36 tiles past the
+west edge, the apron to 0.55 past the south). What the offline gates cannot see is that a
+neighbour is drawn in that space too. Placed in a row, each machine's apron lay across the
+next machine's wall, and beside a vanilla recycler the cabinet lay on the recycler's body.
+
+**Ground-level hardware stays inside the footprint.** Everything at or near ground level now
+sits inside ±1.95 tiles. The one exception is deliberate: the sill under the mouth reaches
+0.28 tiles past the north edge, because that tile is the output and the sill is what the chips
+land on. The sill is 0.20 layout units wide instead of 0.22 (see the silhouette below).
+
+### 4x4, and how the machine grew
+
+A 4x4 was the owner's call. Two ways to fill it were weighed:
+
+- **Re-lay the machine at 1:1 with more and bigger sub-machines.** The right answer for a
+  hero asset with unlimited time; every literal in a 900-line layout moves, and the v3 forms
+  that already work — the rotor, the port, the olive half — would be rebuilt for no gain in
+  legibility.
+- **Scale the v3 machine uniformly and spend the margin on the two zones.** One number on the
+  root, exactly as `fit_cone()` is applied, so every part and every keyed animation offset
+  grows together. Chosen.
+
+The scale is **1.2, not 4/3**, and the cone decides it: the 4x4's APEX is 2.75 (half-depth 2.0
+plus the same 0.75), and at 4/3 the cowl rim and the riser back both land past it — the
+machine would fill its tiles to the edge at height and cover the one behind it. At 1.2 the
+worst cone value is 2.72, no fit is needed, and 0.4 tiles of margin remain on every side at
+ground level. That margin is what the cabinet and the apron moved into.
+
+The layout file therefore still speaks the 3x3's units: 1 unit = 1.2 tiles, the footprint
+edge is ±1.667 there, and the audit prints tiles. `quality_recycler_gen.BASE_SCALE` carries it.
+
+**The output moved 0.15 tiles west.** A 4x4's centre is a tile corner, so a result placed at
+x 0 would sit on the boundary between the two centre tiles past the north edge — the vanilla
+recycler, which is 2 wide, offsets its own to −0.35 for exactly this reason. The prototype
+now says `{-0.15, -2.3}` and the whole port (body, riser, roof, mouth, doors, pockets, sill,
+feet, grade paint) sits on `PORT_X = -0.12` units. Not further west: the sill's rows in east
+and west move with it, and past −0.12 they cross the apron's and the silhouette guarantee
+fails (the apron's east edge moved from −0.48 to −0.56 for the same reason).
+
+### The pad, filled: the route's second leg made visible
+
+v3 drew the shredder-to-rotor leg as a closed duct, and the pad in front of the plinth —
+the front of the machine's east half in north — was concrete with a hose across it. It now
+carries the route:
+
+- **A spout** on the hull's east face, a dark opening in a composite frame.
+- **An open feed trough** on two legs from the spout across the pad and up onto the plinth,
+  rising 0.21 units over its run, with a dark bed between two low walls.
+- **An inlet hood** bolted to the cowl at 250°, its outer face carrying the dark opening the
+  trough runs into.
+- **Four more chips** streaming along the trough, a quarter length apart, one full length per
+  loop, each tumbling 60° over the run. They start inside the spout and end inside the hood,
+  both solid and both held out of the fx layer, so the wrap from t 0.98 to t 0 happens out of
+  sight. That is the animation the owner asked for: the shredder's discharge visibly travels
+  to the sorter in every rotation, because the trough is up-facing.
+- **An operator console** on the pad facing the intake (human service): composite, a sloped
+  top with a bezel and a **violet status strip** that breathes on a slow two-beat in the glow
+  sheet, a label plate on its face, a conduit into the plinth. The first pass drew the screen
+  at 0.19 × 0.15 units and it read as a purple slab; it is a lit line now, and in the base
+  sheet it is dimmed to 0.06 (the other violets stay at 0.22) so an idle machine shows dark
+  glass rather than a purple sticker.
+- **A pressure gauge** on the hydraulic unit's motor block.
+
+Knock-on moves, each for a collision: the deck junction box east to (0.36, −0.55) and its
+seam east of the hood; the two seam cables became bridged conduits rising over the trough
+(a sagging cable at trough height would lie across the chips); the pressure hose runs low
+across the pad and passes under the trough; the seam rivets rose above the spout.
+
+### The west wall and the east margin
+
+- **A walkway with a handrail** along the west skirt's foot, and **a ladder up the west wall**
+  from it, built by hand because the library's ladder lies in the X-Z plane and this one
+  climbs a wall that faces west. The walkway is where the v3 kick plate was; the open rail
+  and rungs are what the silhouette's raggedness is made of in north and south.
+- **The power cabinet** moved from past the west edge to the pad against the skirt, at the
+  south-west, and lost its feet (it stands on the pad). Its rows in north and south still
+  clear the cowl's, which is what lets it stay the west extreme.
+- **A low coolant step** east of the plinth under the cowl's overhang, with two radiators and
+  a return pipe off the cowl. It fills the 0.4 tiles the scale left inside the east edge, and
+  it is the sprite's east extreme now: its rows in north (−0.22..1.58) and south (−1.08..0.71)
+  stay clear of the cabinet's, which is what lets it be wider than the cowl. Its south end
+  stops at y −0.30 units for exactly that reason — at −0.40 the two bands touched.
+- **The pad** first grew to ±1.55 units on the west and south, and that cost the silhouette:
+  raggedness fell to 0.87–0.91 in five of the eight directions against the 0.95 floor. The
+  reason is worth keeping. `ragged` is alpha perimeter over box perimeter, and it is bought
+  with holes — but a hole only counts when the *ground* shows through it. The walkway's rail,
+  the space under the apron and the space under the coolant step all looked onto concrete
+  once the pad reached under them, and the sprite's outline became the pad's own straight
+  edges. So the three platforms now stand on short legs with daylight under them — the same
+  construction as the sill — and the pad stops at the skirt on the west, is notched out under
+  the apron, and ends 0.16 short of the coolant step. The same eight base frames then measure
+  1.10–1.18, inside vanilla's 0.98–1.24. The pad is still 0.07 inside every extreme, so it
+  never owns an edge and never makes a row full width.
+
+### After the engine (round 6)
+
+A fresh-context review of the engine shots passed the two zones, the pad, the states and the
+grounds, and found three things worth a static re-render: the east side still left 0.3 tiles
+of dirt inside the edge (the coolant step widened to 1.82 tiles, its rows unchanged); the
+pad's south-east corner was plain slab in north (two coolant drums); and in south the rotor
+well's drum wall was a dark undetailed mass under the pale port blocks (two bands, a seam and
+a nameplate). Rejected: the green lamp lit when idle — it is the idle cue by design — and a
+visible mouth in east and west, which the camera cannot give a face that is edge-on to it;
+the sill and the pocket plates mark the output there.
+
+
+### After play (round 7): the port in east and west, the icon, the loop
+
+The owner placed the 4x4 in all four directions and circled the port in east and west: the
+arrow sat at the bottom of the port block, where in north and south it sat at its centre.
+Measured against this session's own engine shots, whose placement geometry is known, **the
+arrow was on the mouth in every direction** — the port was not misplaced. What moved was the
+port's *bulk*: in east and west a part's height projects up-screen, so the 1.19-tile riser and
+the hood over the mouth drew their pale mass 0.6–0.9 tiles north of the mouth on the ground,
+and in east the port's own 0.15-tile offset west added to it. North and south hide the same
+projection because there height and distance stack along the output axis, where the port
+already reads as "behind" or "in front". Two changes, both geometric:
+
+- **The port is on the machine's centre line** (`PORT_X = 0`). The result still lands at
+  x −0.15 tiles, inside the west centre tile; 0.15 tiles is 5 px at gameplay zoom and the
+  mouth is 0.7 tiles wide, so the arrow is inside it either way. Centred, east and west are
+  symmetric, and the sill could grow to 0.6 units wide with five chevrons.
+- **The port is low at the mouth end.** The roof falls from 0.68 at the riser to 0.55 at the
+  mouth (it was 0.92 to 0.52), the riser's front step is 0.66, the throat walls 0.60, the
+  body under the roof 0.48; only the back step the trough feeds through keeps its height
+  (0.94, just over the trough's top), and the grade paint rides on it. The port's visual
+  centre in east moved from about 0.75 tiles north of the arrow to about 0.3 — the rest is
+  the mouth's own doors and lintel, which stand 0.15–0.5 tiles high and must.
+
+The rule this leaves: **keep the output end low; the tall part of a port belongs behind the
+mouth, not over it**, because a rotatable machine shows that height perpendicular to the
+output axis in two of its four rotations. It is what vanilla's recycler does — its output end
+is its low end.
+
+**The icon shows the whole machine now.** Two earlier icons cropped into the rotor on the
+reasoning that the hero is the identity; the owner read the result as not showing the
+machine, which is the verdict that counts. Measured against vanilla's machine icons (recycler,
+electromagnetic plant, foundry: subjects 60x63 of the 64 px box, 61–76% opaque, luminance
+mean 79–100 with sd 57–64, saturation 0.41–0.60), the whole machine at the old 40-degree
+elevation trimmed to 62x50 and measured 49 / 29 / 0.31 — wide, flat, dark. Lowering the camera
+made it *flatter* (62x46 at 33 degrees): those are tall machines and this one is 1.2 tiles high
+on a 5.4-tile corner-on footprint, so its projected height is 5.4 sin(e) + 1.2 cos(e) and only
+reaches its width near 52 degrees. At 52 with the key at 5.4, the fill at 1.0 and the entity
+paint-over applied to the icon (saturation 1.3, value 1.06) it measures 62x56, 54% opaque,
+83.5 / 54.7 / 0.40, 0.4% clipped — inside the band on everything but opacity, which a machine
+with a stepped outline cannot match against a box-shaped one.
+
+**The loop is busier and reads as a working machine.** The rotor turns 120 degrees a loop
+instead of 60 (1.9 degrees a frame against a 30-degree pole pitch, so it still cannot
+wagon-wheel); five chips ride the ejector instead of three and tumble as they fly out of the
+mouth and again down the discharge chute; six chips stream along the feed trough instead of
+four.
+
+**Measured after the round.** 256 objects, 184 kinds, cone 2.72 under 2.75, silhouette margins 0.19-0.33. Gates on the packed sheets, all eight directions: contrast sd 48.7-51.3, clipping 0%, full-width rows 0%, fill 0.71-0.80, ragged 1.08-1.18, shadow 100% pure black, north overhang 0.70-0.73; `FAILURES: none`. 154 MB of VRAM. Data stage clean on 2.1.17. Photographed working in the engine (every quality recycler `status working`): the arrow sits on the mouth in all eight orientations, and in east and west the sill, pockets and roof now sit around it with only the thin riser back step above -- the geometry cannot do better than that, because the mouth's own doors and lintel stand 0.15-0.5 tiles high. The abutting row still shows ground between every pair of machines.
+
+### State & animation, revised
+
+| # | Element | Per loop | Layer |
+|---|---|---|---|
+| 1 | magnet ring, retaining ring and vented cap, 120° | 4 pole pitches / 2 slot pitches | anim |
+| 2 | three shredder rollers, counter-rotating | 4 pitches | anim |
+| 3 | feeder ram on the apron, 0.11 units (the head stops short of the bottom roller) | one stroke | anim |
+| 4 | ejector ram, 0.72 units north and back | out slowly f2–26, hold, back quickly f30–42 | anim |
+| 5 | port doors parting and closing | open f22–28, shut f42–48 | anim |
+| 6 | five chips: ride the ram, drop into the throat, tumble out of the mouth onto the sill, are thrown tumbling back down the discharge chute | one batch | fx |
+| 7 | **six chips streaming along the feed trough**, spout to hood, tumbling | one trough length | fx |
+| 8 | violet field gap and discharge edge, two beats | phase-locked to the rotor | light |
+| 9 | scanner over the trough lights as the batch passes | f8–16 | light |
+| 10 | ejector lamp on the throat rim | f20–40 | light |
+| 11 | **console status strip**, a slow breathe | two beats | light |
+| 12 | two arcs across the field gap, irregular | fixed pattern | light |
+| — | green status lamp | never | lamp |
+
+Idle is frame 0: doors shut, both rams home, cap parked, no chip anywhere, the console's
+strip dark glass. Only the green lamp.
+
+### Measured
+
+250 objects, 184 distinct kinds. Cone worst 2.72 against APEX 2.75 (no fit applied), north overhang 0.70 on the geometry. Gates on the packed sheets, all eight directions: contrast sd 48.3-51.4, clipping 0.00%, full-width rows 0% everywhere, fill 0.72-0.81, ragged 1.09-1.19 (vanilla 0.98-1.24), shadow 100% pure black, north overhang 0.70-0.73 tiles against vanilla's 0.77 ceiling; `FAILURES: none`. Edge-wear mask 11.4% bright, survive 22.2% inside the 20-35 band. Object-ID pass: 186-202 of 238 objects drew per direction before the review round's additions, nothing dead. 96 files, 12 MB on disk, **151 MB of VRAM** (v3's 99 MB times the 1.44 area of a 1.2x sprite; the vanilla recycler is 253). Data stage clean on 2.1.17. Photographed working in the engine in all eight orientations (every machine logged `status working`): the arrow lands on the port in each, the results land in the chest on the tile the offset predicts and in the other tile for the mirrored set; a row of three abutting machines beside a vanilla recycler and an electromagnetic plant shows an unbroken strip of ground between every pair and nothing on a neighbour; idle machines are dark with the green lamp only; at midnight the console strip is quieter than the field ring; Fulgoran dust and Aquilo snow read as well as Nauvis. The icons were re-rendered from the v4 model.

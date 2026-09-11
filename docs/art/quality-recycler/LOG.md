@@ -12,18 +12,19 @@ working record of the rebuild.
 
 ## Status
 
-**v3 complete (2026-09-11, second session).** Built from the engine's real output position:
-an ejector port on the back edge with a pusher ram, a sealed magnetic rotor under a vented
-cap, a composite panel family. 48 sheets packed, every gate green in all eight directions,
-data stage clean, **photographed working in the engine in all eight orientations** with the
-arrow on the port — and the icons re-rendered. Not committed: the owner decides that. The v3
-log is the last two sections of this file; the v2 log below it is history.
+**v4 complete (2026-09-11, third session).** The entity is 4x4 now, the v3 machine at 1.2x
+with every piece of ground hardware inside its own tiles, the transfer leg an open trough with
+a chip stream, a console on the once-bare pad, a walkway and ladder on the west wall and a
+coolant step on the east. 96 sheets packed, every gate green in all eight directions (ragged 1.09-1.19 after the platforms went on legs), data stage clean, photographed working in the engine with the arrow on the port in all eight orientations and nothing on a neighbour in an abutting row, icons re-rendered. Not committed: the owner decides that. The v4
+log is the last section of this file; v3 and v2 below it are history.
 
-Deliverables: previews in `docs/art/quality-recycler/previews/` (the checkpoint sheet, the
-1x/2x sheet, the hero frame, the terrain grids, the vanilla A/Bs, the night composite, two
-loop GIFs and the engine study sheets), sources in
-`assets/quality-recycler/entity/quality-recycler/`. v2 is commit 57acdf1; `versions/` keeps
-the v0 generator and the v2 generators that differ from that commit, no `.blend`.
+Deliverables: previews in `docs/art/quality-recycler/previews/` -- for v4 the 1x/2x sheet,
+the hero frame, the abutting-row check, the refreshed terrain grid, vanilla A/Bs, night
+composite and loop GIFs, and three engine study sheets (`v4-ingame-z2.jpg`,
+`v4-ingame-row-z2.jpg`, `v4-ingame-grounds-z2.jpg`); the v3 sheets stay as history --
+sources in `assets/quality-recycler/entity/quality-recycler/`. v3 is commit 59d9c7f and v2
+is 57acdf1; `versions/` keeps the v0 generator and the v2 generators that differ from that
+commit, no `.blend`.
 
 ---
 
@@ -702,3 +703,112 @@ front half less so; it holds on Fulgoran dust and at midnight.
 
 Object count after the round: 214 and 163 kinds. Silhouette unchanged (margins 0.09–1.02),
 cone worst 2.25 after the eave band was removed.
+
+
+---
+
+## v4 — the 4x4, and the two zones (2026-09-11, third session)
+
+The owner's three screenshots (`zone to remove.jpg`, `zone to remove 2.jpg`, `content to
+add.jpg`, in Downloads): a row of three v3 machines beside a vanilla recycler with each
+machine's cabinet and apron circled where they lie on the next entity; the same two zones on a
+selected north-facing machine, outside its selection box on the west and south; and the pad in
+front of the plinth circled on two machines as the zone with barely any content. Then, after
+the layout was read: the entity is to be 4x4.
+
+### Decisions
+
+| # | decision | reason |
+|---|---|---|
+| D22 | **4x4 footprint**, `collision_box` ±1.7, `selection_box` ±2, `drawing_box_vertical_extension` 0.8 | the owner's call; the EM plant's convention |
+| D23 | **The 4x4 is the v3 machine at 1.2x on the root** (`BASE_SCALE`), the layout still in the 3x3's units | one number grows every part and every keyed offset together, as `fit_cone()` already does; 4/3 puts the cowl rim and riser back past APEX 2.75, 1.2 lands the worst cone at 2.72 with 0.4 tiles of ground margin to spend |
+| D24 | **Ground hardware inside ±1.95 tiles; only the sill crosses the edge** | the two circled zones; the cone bounds height, not reach, and a neighbour is drawn in the reach |
+| D25 | `vector_to_place_result = {-0.15, -2.3}`, the port on `PORT_X = -0.12` units | a 4x4's centre is a tile corner; x 0 is a tile boundary; vanilla's 2-wide recycler uses −0.35 for the same reason. Further west and the sill's rows in east and west cross the apron's |
+| D26 | **The transfer leg is an open trough with a chip stream**, spout on the hull, inlet hood on the cowl | the bare pad, and the owner's ask for more animation; up-facing, so the motion reads in all four rotations |
+| D27 | **An operator console with a violet status strip** (base dim 0.06, its own beat in the glow sheet) | human service on the pad; at 0.19×0.15 units the screen read as a purple slab, at base dim 0.22 as a sticker on the idle machine |
+| D28 | **Walkway, handrail and wall ladder** along the west skirt; the kick plate cut | the west margin, and raggedness bought with holes rather than parts |
+| D29 | **A low coolant step with two radiators as the east extreme**, stopping at y −0.30 units | fills the east margin the scale left; its rows in north and south clear the cabinet's, which the deck slab's could not, so it may be wider than the cowl |
+| D30 | **The pad stops at the skirt on the west, is notched under the apron and ends short of the coolant step**; 0.07 inside every extreme | a pad that reached under the platforms filled every silhouette hole with concrete: ragged 0.87–0.91 on the first pack |
+| D31 | **Apron, walkway and coolant step on short legs with daylight under them** | the sill's construction, applied three more times; the raw base frames went from 0.87–0.99 to 1.10–1.18 |
+| D32 | **The coolant step widened to x 1.52 units (1.82 tiles)** | the review still saw a 0.3-tile seam of dirt between abutting machines on the east where the EM plant reads solid; the step's rows are unchanged so it stays the east extreme |
+| D33 | **Two coolant drums in the pad's south-east corner** | the one patch of plain slab left in the north view, per the review; the hydraulic unit's family |
+| D34 | **Two bands, a seam and a nameplate on the rotor well's drum wall** | the front elevation in south read as a plain dark mass under the pale port blocks |
+| D35 | **The port on the machine's centre line**, `PORT_X = 0`, the sill 0.6 units wide | in east the port's 0.15-tile offset added to its height's up-screen projection; the arrow lands inside the 0.7-tile mouth either way |
+| D36 | **The port low at the mouth end** (roof 0.68→0.55, front step 0.66, throat walls 0.60, body 0.48; the back step 0.94) | a part's height projects up-screen in east and west, so a tall hood over the mouth read as a block north of the arrow |
+| D37 | **The icon frames the whole machine**, corner-on at 52 degrees, key 5.4, the entity paint-over on the icon | the owner: "it doesn't show the totality of the machine"; measured against vanilla's machine icons |
+| D38 | **Rotor 120 degrees a loop, five tumbling ejected chips, six stream chips** | the owner's ask for more and better animation; a slow cap read as idling |
+
+### The silhouette guarantee, re-derived (tiles, from the audit)
+
+```
+N  east +1.74 east step rows -0.22..1.58 | west -1.95 cabinet rows -1.30..-0.54   ok by 0.32
+E  max y +2.28 sill rows -0.07..0.53     | min y -1.94 apron rows 0.72..1.58      ok by 0.19
+S  max x +1.95 cabinet rows 1.17..1.94   | min x -1.74 east step rows -1.08..0.71 ok by 0.46
+W  max -y +1.94 apron rows -1.36..-0.51  | min -y -2.28 sill rows -0.35..0.25     ok by 0.15
+```
+
+The sill narrowed from 0.22 to 0.20 units and the apron's east edge moved from −0.48 to −0.56
+because the port moved west with the output. The east step's south end was cut back from
+−0.40 to −0.30 because at −0.40 its north band touched the cabinet's by 0.01.
+
+### Look-dev (two rounds, one frame, four directions, 4x hero)
+
+Round 1 found the console screen a purple slab and a bare 0.4-tile strip along the east side
+between the cowl and the footprint edge (a row of three abutting machines showed 0.57 tiles
+of ground between each cowl and the next machine's walkway). Round 2, with the coolant step
+and the smaller strip, closed the row to a few pixels. 238 objects, 174 distinct kinds, cone
+2.72, north overhang 0.70. Object-ID pass: 186–202 of 238 objects draw in each direction;
+everything under the 12 px floor is a bolt, a ferrule, or a part hidden by design at frame 0
+(the mouth strip behind the doors, the first stream chip inside the spout).
+
+### Production
+
+**The bake.** 8 directions x 6 layers, 64 frames, 96 samples, GPU: 1,560 frames in about 70 minutes, then the eight base frames again for the console strip's own base dim, then base and shadow again (16 frames) for the platforms on legs, and once more after the review round.
+
+**Gates, on the packed sheets, all eight directions (final):** contrast sd 48.3-51.4, clipping 0.00%, full-width rows 0% everywhere, fill 0.72-0.81, ragged 1.09-1.19, shadow 100% pure black, worst north overhang 0.73 tiles against vanilla's 0.77. **The first pack failed raggedness in N, E, W and their mirrors** (0.87-0.91 against the 0.95 floor) with every other gate green. The pad had grown to +-1.55 units to fill the 4x4 and reached under the apron, the walkway and the coolant step; a hole in the silhouette only counts where the ground shows through, and every one of those looked onto concrete. The three platforms went onto short legs (the sill's construction) and the pad stopped at the skirt on the west, was notched under the apron and ends short of the step: the raw base frames went from 0.87-0.99 to 1.10-1.18 and the packed sheets measure 1.09-1.19. `FAILURES: none`. Edge-wear mask 11.4% bright, survive 22.2%, inside the band. Object-ID pass: 186-202 of 238 objects draw per direction; everything under the 12 px floor is a bolt, a ferrule, or a part hidden by design at frame 0.
+
+**Sheets.** 96 files, 12 MB on disk, **151 MB of VRAM** -- v3's 99.4 MB times the 1.44 area a 1.2x sprite carries, against the vanilla recycler's 253.2. The canvas is 384x448 (6x7 tiles) at the same 64 px/tile.
+
+**The console strip in the base sheet.** At the shared 0.22 dim a ten-pixel patch read as a purple sticker on the idle machine in the first base frames; the render driver now dims per material (`BASE_DIM`), the strip at 0.06.
+
+**Validation.** `validate.ps1 -ModPath quality-recycler` -> exit 0 on 2.1.17 with the 4x4 box, the offset output vector and the new sidecars.
+
+**In the engine.** Three runs of the harness with `--force-opengl`. The first: four machines facing outward with a chest on BOTH candidate output tiles, working and idle, the mirrored set, Fulgoran dust and Aquilo snow, noon and midnight, alt-mode -- every working machine logged `status working`. The arrow lands on the port in all eight orientations; the results land in the chest on the tile the -0.15 offset predicts (west of the centre line in north, and the mirrored set in the other tile). Idle machines are dark with the green lamp; at midnight the console strip is a small light on the pad, quieter than the field ring, the mouth strip and the scanner. The second: the owner's own scenario, a row of three abutting machines facing north beside a vanilla recycler and a row facing south beside an electromagnetic plant -- an unbroken strip of ground between every pair, nothing on a neighbour, the vanilla recycler unobstructed -- and the idle group again on forced dirt because the first map had put it on water. The third, after the review round, the row and the working set again with the final sheets. `previews/v4-ingame-z2.jpg`, `v4-ingame-row-z2.jpg` and `v4-ingame-grounds-z2.jpg` are the study sheets; the full-size shots are `ingame-v4-*.png` beside the design doc, git-ignored like the v2 and v3 sets.
+
+**The icons** were re-rendered from the v4 model with the same rig.
+
+### Critique round 6 (the v4 engine shots) — findings, verdicts, actions
+
+A fresh-context reviewer was given the two owner screenshots of the v3 zones, the v4 engine
+shots (the abutting row, working, mirrored, idle, midnight, Fulgoran dust, Aquilo snow), the
+offline grid and A/B, the hero frame and the 1x/2x sheet, plus a seven-point checklist. Its
+verdicts: the two zones are gone (an unbroken strip of dirt between every pair of abutting
+machines); the pad carries purposeful content; working and idle are distinguishable with no
+violet when idle; it sits beside vanilla on all three grounds; nothing reads as a mistake.
+
+| finding | verdict | action |
+|---|---|---|
+| The east side still shows ~0.3 tiles of dirt inside the edge, so abutting machines show a seam where the EM plant reads as a solid block | Fair — the fix overshot on that side | The coolant step widened from 1.42 to 1.52 units; the margin is 0.18 tiles now, the same as the south |
+| The pad's bottom-right corner in north is about a tile of plain slab | Fair | Two coolant drums there, in the hydraulic unit's family |
+| In south the front is a large dark undetailed drum (the rotor well) under pale blocks | Fair | Two gunmetal bands, a vertical seam and a scoured nameplate on the well wall |
+| The green lamp stays lit when idle, contradicting the dark violet | **Rejected** | It is the deliberate idle cue: a powered, ready machine shows its green lamp so it is findable at night when nothing else is lit; the violet is the working cue. Recorded in the design doc's state table since v3 |
+| In east and west the tile under the arrow is a flat wall with a violet strip, no visible mouth | **Accepted as a limit of the camera**, no action | A mouth on a face perpendicular to the view plane is edge-on; the sill with chevrons past the edge and the up-facing pocket plates are what mark the output there (design doc, v3, *why the port can be seen from behind*) |
+
+Object count after the round: 250 and 184 kinds. Cone 2.72; silhouette margins 0.15–0.33.
+
+### Round 7 (the owner's placement test) — the port in east and west, the icon, the loop
+
+Two owner screenshots (`not aligned.jpg`, `icon not good.jpg`, in Downloads): the four
+directions placed, with the port circled red in east and west and green in north and south;
+and the item icon in the recipe tooltip.
+
+| finding | verdict | action |
+|---|---|---|
+| "The ejectors are not aligned when rotated to east/west" | **The arrow is on the mouth in every direction** (measured against this session's own engine shots with known placement); what reads as misplaced is the port's tall bulk, which projects up-screen in east and west by its height, plus the port's 0.15-tile offset in east | D35 the port on the centre line, `PORT_X = 0`, sill 0.6 units wide with five chevrons; D36 the port low at the mouth end: roof 0.68→0.55, front step 0.66, throat walls 0.60, body 0.48, the back step 0.94 keeps the trough opening and the grade paint |
+| "The icon doesn't show the totality of the machine" | Fair — two icons had cropped into the rotor on purpose | D37 the whole machine, corner-on at 52 degrees (the only elevation at which this flat machine's projected height reaches its width), key 5.4 / fill 1.0, the entity paint-over on the icon; measured 62x56, 83.5 / 54.7 / 0.40 against vanilla's 60x63, 79–100 / 57–64 / 0.41–0.60 |
+| "More and better animations" | — | D38 rotor 120 degrees a loop (was 60); five ejected chips (was three) that tumble out of the mouth and down the chute; six stream chips (was four) |
+
+Audit after the round: 256 objects, 184 kinds, cone 2.72, silhouette margins 0.19–0.33 (the
+wider sill improved west from 0.15 to 0.19).
+
+**Production after the round.** The full bake again (the port moved and grew lower, so every layer): 1,560 frames in about 60 minutes, packed, gates green in all eight directions -- contrast sd 48.7-51.3, ragged 1.08-1.18, no full-width rows, north overhang 0.70-0.73, 154 MB of VRAM. Data stage clean. The engine run photographed the working set, the mirrored set and the abutting row at noon and midnight, every quality recycler logging `status working`; crops of the four directions with the entity centre lines drawn show the arrow on the mouth in each, with the port's low end around it in east and west. The icon strips were rebuilt from the whole-machine render; the study sheets, previews, the `.blend` and the full-size shots beside the design doc were refreshed.
