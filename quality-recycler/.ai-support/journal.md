@@ -2,6 +2,96 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-11 (third session, latest) — the port in east and west, the icon, the loop
+
+The owner placed the 4x4 in all four directions and found the port "not at
+centre" in east and west, the icon "not showing the totality of the machine",
+and asked for more and better animation.
+
+**The port was on the arrow all along; its height was not.** Measured
+against this session's own engine shots, the mouth sat on the output position
+in every direction. In east and west a part's height projects up-screen,
+perpendicular to the output axis, so the tall riser and hood drew the port's
+mass 0.6-0.9 tiles north of the mouth, and in east the port's 0.15-tile
+westward offset added to that. The port is on the machine's centre line now
+and low at the mouth end -- roof 0.68 falling to 0.55, only the back step the
+trough feeds through keeping its height -- and the sill is twice as wide. The
+rule went into `CLAUDE.md`: keep the output end low.
+
+**The icon shows the whole machine.** Measured against vanilla's machine
+icons, the whole machine at the old camera was wide, flat and dark; lowering
+the camera made it flatter, because a flat machine's projected height grows
+with elevation. 52 degrees, a hotter key and the entity paint-over on the icon
+put it inside vanilla's band.
+
+**The loop:** the rotor turns twice as far a loop, five ejected chips tumble
+out of the mouth and down the chute, six stream along the feed trough.
+
+**Measured.** 256 objects; every gate green in all eight directions (contrast 48.7-51.3, ragged 1.08-1.18, overhang 0.70-0.73), 154 MB of VRAM, data stage clean; in the engine the arrow is on the mouth in all eight orientations with the port's low end around it, and the icon measures 62x56, luminance 83.5, sd 54.7, saturation 0.40 against vanilla's 60x63, 79-100, 57-64, 0.41-0.60.
+
+Not committed.
+
+## 2026-09-11 (third session, later) — the balance pass
+
+The owner asked for the recipe, technology and entity to be balanced "for
+space age and vanilla", with crafting speed 1.25, the 12% built in and five
+module slots. Entity: 1.25, five slots, 1 MW (800 kW per unit of speed, priced
+like the electromagnetic plant's free productivity; 2.2x a recycler's power per
+item). Recipe: a recycler and two quality module 3s in both games, then the
+three planets' materials with Space Age or low-density structures and electric
+engines without. Technology: the three-planet gate with Space Age, the rocket
+(space plus utility science) without, 500 units at 60 s either way. Space Age
+became an optional dependency for that; `item.lua` forks on `mods["space-age"]`
+and both branches validate. The animation speed in `pictures.lua` dropped to
+1.6 so the engine's crafting-speed scaling lands the loop at the same 32 ticks.
+Not committed.
+
+## 2026-09-11 (third session) — v4: 4x4, and nothing on the neighbours
+
+The owner placed v3 in a row beside a vanilla recycler and circled two zones
+that lay outside the placement area on the neighbouring machines -- the power
+cabinet hanging 0.36 tiles past the west edge and the loading apron 0.55 past
+the south -- and a bare quadrant on the pad in front of the plinth, asking for
+slightly more content there and more animation. Mid-session: the entity is to
+be **4x4**.
+
+**Both zones were the cone rule working as designed.** It bounds height and
+not reach, so low hardware may hang past the tiles, and vanilla spends the same
+reach on pipe stubs. What no offline gate sees is that the neighbour is drawn
+in that space. The rule is now the other way round for this entity: ground
+hardware stays inside the footprint; only the sill, which is the output,
+crosses the edge (`CLAUDE.md`).
+
+**The 4x4 is the v3 machine at 1.2x, on the root.** One uniform scale, applied
+the way the cone fit already is, so every literal in the layout and every keyed
+animation offset grows together. 1.2 and not 4/3 because at 4/3 the cowl rim
+and the riser back both pass the 4x4's APEX of 2.75; at 1.2 the worst cone
+value is 2.72 with no fit, and the 0.4-tile margin left on every side is what
+the cabinet and the apron moved into. The layout still speaks the 3x3's units
+(1 unit = 1.2 tiles); `BASE_SCALE` in the generator carries the difference.
+
+**The output moved 0.15 tiles west**, because a 4x4's centre is a tile corner
+and x 0 is the boundary between two tiles -- the vanilla recycler's own -0.35
+exists for the same reason. `vector_to_place_result = {-0.15, -2.3}` and the
+whole port sits on that line. It could not go further west: the sill's rows in
+east and west move with it and would cross the apron's.
+
+**The pad carries the route's second leg now.** The closed transfer duct
+became an open trough on legs from a spout on the hull to an inlet hood on the
+cowl, with four chips streaming along it every loop -- up-facing, so every
+rotation sees them move -- plus an operator console with a lit strip, a gauge
+on the hydraulic unit, a walkway with a handrail and a ladder up the west
+wall, and a low coolant step with two radiators filling the east margin. The
+console's screen was drawn twice: at 0.19 x 0.15 units it was a purple slab,
+and at 0.22 base dim it was a purple sticker on the idle machine; it is a lit
+line at 0.06 in the base now.
+
+**Measured.** 250 objects and 184 kinds; cone 2.72 under 2.75 with no fit; every gate green in all eight directions -- contrast 48.3-51.4, ragged 1.09-1.19, no full-width rows, north overhang 0.70-0.73; 151 MB of VRAM against the vanilla recycler's 253. The first pack failed raggedness in five directions (0.87-0.91): the wider pad had filled every silhouette hole with concrete. The apron, the walkway and the coolant step went onto short legs and the pad stopped short of all three, and the same frames measured 1.10-1.18. Photographed working in the engine in all eight orientations with the arrow on the port and the results in the predicted chest; a row of abutting machines beside a vanilla recycler and an EM plant with nothing on a neighbour; idle dark; three grounds; noon and midnight. A fresh-context review then widened the coolant step, added two drums to the bare corner and dressed the well's drum wall; its two other findings are logged as rejected in the art log.
+
+Not committed: the owner decides that. The 2.0 track has not been touched;
+the collision box, the output vector and the sheets all belong in the next
+port.
+
 ## 2026-09-11 (second session) — v3: the machine agrees with its own arrow
 
 The owner put v2 in the game and came back with three things, in order: nothing
