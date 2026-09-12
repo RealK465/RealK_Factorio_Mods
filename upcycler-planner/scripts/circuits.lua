@@ -27,6 +27,21 @@
 -- panel spelling out running / done / paused (a C of 0: the combinator off, or a player
 -- who edited C to 0 expecting "no limit" -- it stops the loop, the description says so).
 --
+-- NETWORK MODE (opts.network, 2026-09-12, a portal request): the cap counted across the
+-- player's whole logistic network instead of the output chest -- the engine's own "connect
+-- to logistic network" condition on every machine and recycler, `product@target < max`,
+-- evaluated by the entity against the network it stands in, no wire involved. Three things
+-- follow, all measured (analysis/api.md S34). A logistic condition compares against a
+-- CONSTANT -- the network carries items only, so no combinator row can reach it -- which is
+-- why the max is baked into each gated entity and changed by re-planning and stamping over
+-- the loop (the engine updates the entities in place). The wire condition beside it becomes
+-- the pause alone, `C > 0`: a circuit and a logistic condition AND together, so the switch
+-- and a C of 0 still stop the loop, while the C row now only DISPLAYS the planned max. And
+-- an entity outside any logistic network is disabled outright whatever the numbers, so the
+-- description says the loop needs roboport range. The lamps take the same logistic
+-- condition; the panel cannot (no such surface on it), so it keeps the paused row alone and
+-- shows the product icon otherwise. The reserves are untouched: a floor is a local reading.
+--
 -- What stays combinator-free is the LOGIC: the layout already separates what the conditions
 -- need -- the stock chests hold exactly one tier's product each, the output chest alone holds
 -- the target's, and a wire signal is distinct per quality -- so every rule is one comparison,
@@ -67,6 +82,11 @@ local DESCRIPTION_CAPPED = "Upcycler limits. C = maximum in the output chest (0 
 local DESCRIPTION_UNCAPPED = "Upcycler limits. M = minimum kept of that quality plus one "
   .. "inserter hand per column (no row = no reserve). Keep it switched on: off removes every "
   .. "reserve."
+-- Network mode's own, since C no longer retunes anything there -- see the header.
+local DESCRIPTION_NETWORK = "Upcycler limits. The maximum is counted across the logistic network "
+  .. "and set on each machine and recycler: plan again and place the blueprint over the loop to "
+  .. "change it. C at 0, or the switch off, pauses the loop. M = minimum kept of that quality "
+  .. "plus one inserter hand per column (no row = no reserve). Only runs inside roboport range."
 local COLOR_DONE = { r = 0, g = 1, b = 0, a = 1 }
 local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
 local ICON_DONE = { type = "virtual", name = "signal-check" }
@@ -106,6 +126,28 @@ local function gate(product, quality, comparator, threshold)
       second_signal = threshold,
     },
   }
+end
+
+-- The logistic network's own on/off: the entity evaluates it against the network it stands
+-- in, where nothing but items exists -- so a constant, never a signal (api.md S34).
+local function logistic_gate(product, quality, comparator, constant)
+  return {
+    connect_to_logistic_network = true,
+    logistic_condition = {
+      comparator = comparator,
+      first_signal = product_signal(product, quality),
+      constant = constant,
+    },
+  }
+end
+
+-- Network mode's gate for what both runs and pauses: the cap on the network, the pause on
+-- the wire, the two ANDed by the engine.
+local function network_gate(product, quality, maximum, cap)
+  local behaviour = logistic_gate(product, quality, "<", maximum)
+  behaviour.circuit_enabled = true
+  behaviour.circuit_condition = { comparator = ">", first_signal = cap, constant = 0 }
+  return behaviour
 end
 
 -- The combinator's rows, chain order so two identical plans decorate identically: signal-M
@@ -149,8 +191,10 @@ end
 -- reserve and its inserter stays out of the network; maximum -- the cap counted in the
 -- output chest at the TARGET quality, gating every machine and recycler, or nil for no cap
 -- at all (they then stay ungated, and the layout stood no lamps or panel); paused -- ship
--- the combinator switched off; product -- the item the conditions count; hand -- items per
--- swing of the reserve inserters: every M row is the minimum plus it per column and every
+-- the combinator switched off; network -- the header's network mode, the cap counted across
+-- the logistic network, ignored without a maximum; product -- the item the conditions
+-- count; hand -- items per swing of the reserve inserters: every M row is the minimum plus
+-- it per column and every
 -- reserved inserter is pinned to it, required whenever a minimum is set (api.md S33);
 -- reach -- tiles, the shortest circuit wire distance among the wired prototypes, since a
 -- wire is refused past its shorter end.
@@ -314,14 +358,19 @@ function circuits.decorate(entities, opts)
   end
 
   -- Conditions, on what is heard. Machines and recyclers all stop at the one cap; each
-  -- reserve inserter holds its own tier's floor.
+  -- reserve inserter holds its own tier's floor. In network mode the cap is the network's
+  -- count against the planned max and the wire carries the pause alone; an unheard entity
+  -- is still left bare, since "runs without limits" is what the warning promises.
   local unlinked = 0
   local cap = capped and threshold_signal(SIGNAL_CAP, target) or nil
+  local network = capped and opts.network == true
   if capped then
     for _, set in pairs({ machines, recyclers }) do
       for _, index in pairs(set) do
         if heard[index] then
-          entities[index].control_behavior = gate(opts.product, target, "<", cap)
+          entities[index].control_behavior = network
+            and network_gate(opts.product, target, opts.maximum, cap)
+            or gate(opts.product, target, "<", cap)
         else
           unlinked = unlinked + 1
         end
@@ -363,7 +412,8 @@ function circuits.decorate(entities, opts)
     sections = { sections = { { index = 1, filters = rows_of(tiers, minimums, opts.maximum, hand) } } },
   }
   if opts.paused then combinator.control_behavior.is_on = false end
-  combinator.player_description = capped and DESCRIPTION_CAPPED or DESCRIPTION_UNCAPPED
+  combinator.player_description = capped and (network and DESCRIPTION_NETWORK or DESCRIPTION_CAPPED)
+    or DESCRIPTION_UNCAPPED
 
   -- The indicators, capped plans only: the lamps split on the one comparison the machines
   -- make, and the panel asks "paused" first because a C of 0 would read as done for any
@@ -377,25 +427,39 @@ function circuits.decorate(entities, opts)
     if heard[stack.lamp_done] then
       done.color = COLOR_DONE
       done.always_on = true
-      done.control_behavior = gate(opts.product, target, ">=", cap)
+      -- Network mode: done is the network's count, paused or not, so the lamp needs no wire
+      -- condition and hears the combinator only as a relay.
+      done.control_behavior = network
+        and logistic_gate(opts.product, target, ">=", opts.maximum)
+        or gate(opts.product, target, ">=", cap)
     end
     if heard[stack.lamp_running] then
       running.color = COLOR_RUNNING
       running.always_on = true
-      running.control_behavior = gate(opts.product, target, "<", cap)
+      running.control_behavior = network
+        and network_gate(opts.product, target, opts.maximum, cap)
+        or gate(opts.product, target, "<", cap)
     end
     if heard[stack.panel] then
       board.icon = product_signal(opts.product, target)
-      board.text = "Running"
       board.always_show = true
       board.show_in_chart = true
-      board.control_behavior = { parameters = {
-        { condition = { comparator = "=", first_signal = cap, constant = 0 },
-          icon = ICON_PAUSED, text = "Paused" },
-        { condition = { comparator = ">=", first_signal = product_signal(opts.product, target),
-            second_signal = cap },
-          icon = ICON_DONE, text = "Done" },
-      } }
+      local paused_row = { condition = { comparator = "=", first_signal = cap, constant = 0 },
+        icon = ICON_PAUSED, text = "Paused" }
+      if network then
+        -- A display panel has no logistic condition (api.md S34), so in network mode it
+        -- cannot tell done from running: the paused row alone, and the product icon
+        -- otherwise -- never words it cannot stand behind. The green lamp says done.
+        board.control_behavior = { parameters = { paused_row } }
+      else
+        board.text = "Running"
+        board.control_behavior = { parameters = {
+          paused_row,
+          { condition = { comparator = ">=", first_signal = product_signal(opts.product, target),
+              second_signal = cap },
+            icon = ICON_DONE, text = "Done" },
+        } }
+      end
     end
   end
 

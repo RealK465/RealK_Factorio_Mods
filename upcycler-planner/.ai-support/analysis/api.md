@@ -1,6 +1,6 @@
 ---
 verified_against: 2.1.17
-verified: 2026-09-09
+verified: 2026-09-12
 ---
 # Verified API reference
 
@@ -1535,3 +1535,77 @@ default..."). The fix that stands on it: `../decisions.md` → *Hand size*.
   floor (one chest at 5, the other empty). The per-column hand closes a real breach, not a
   theoretical one. What it does NOT hold is a per-chest floor: the reading is the sum, so
   one chest can empty while another carries the whole minimum (`../deferred.md`).
+
+## 34. Logistic conditions on crafters and lamps, their blueprint shape, and the restamp — measured 2026-09-12
+
+Measured on 2.1.17 through a throwaway probe mod (`upl-probe`: two spec files run with the
+`factorio-testing` runner from the session scratchpad, deleted after; the findings grep as
+`UPL-PROBE` in that run's log), then pinned permanently by `tests/loop_spec.lua` ("a
+logistic-network cap on a live machine"), `tests/blueprint_spec.lua` ("network mode survives
+the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stands on it:
+`../decisions.md` → *Count the whole logistic network*.
+
+- **`connect_to_logistic_network` + `logistic_condition` are honoured by assembling machines
+  and furnaces (the recycler)**, not only by inserters and lamps. Inside a network holding 100
+  gears (a powered roboport, a passive provider), a machine and a recycler conditioned
+  `gear < 50` sat at `defines.entity_status.disabled_by_control_behavior` with
+  `products_finished == 0` over 300 ticks while unconditioned twins crafted (7 and 50); a fast
+  inserter moved nothing and a small lamp went dark; `LuaGenericOnOffControlBehavior.disabled`
+  read `true` on each. The pair is accepted by `LuaAssemblingMachineControlBehavior`,
+  `LuaFurnaceControlBehavior`, `LuaInserterControlBehavior`, `LuaLampControlBehavior` and
+  `LuaMiningDrillControlBehavior` (all `LuaGenericOnOffControlBehavior`, §4);
+  `LuaConstantCombinatorControlBehavior`, `LuaDisplayPanelControlBehavior` and
+  `LuaRoboportControlBehavior` throw *doesn't contain key connect_to_logistic_network*. So
+  the display panel can never read the network; a roboport WRITES the network onto a wire
+  instead (`LuaRoboportControlBehavior.read_items_mode = logistics`), the unbuilt alternative
+  in `../deferred.md`.
+- **Outside any logistic network the entity is disabled outright, whatever the condition.**
+  Two machines and two recyclers 200 tiles from the only roboport, conditioned `gear < 50` and
+  `gear > 50`, all read `disabled_by_control_behavior` with zero crafts and
+  `LuaEntity.logistic_network == nil`. Not "every signal reads zero" — the `< 50` pair would
+  have run. This is why network mode's text says the loop only runs inside roboport range and
+  why the box is off by default. No dedicated status exists for it:
+  `defines.entity_status.out_of_logistic_network` is documented for logistic containers only.
+- **A circuit condition and a logistic condition AND together.** Wired to a combinator emitting
+  `C = 1`: circuit `C > 0` (true) with logistic `gear < 50` (false) → disabled; circuit `C > 5`
+  (false) with logistic `gear > 50` (true) → disabled. The controls: circuit false alone →
+  disabled (so the wire was live), logistic true alone → `working`, 7 crafts. Network mode
+  leans on it — the cap on the network, the pause (`C > 0`) on the wire.
+- **The condition compares against a constant.** `logistic_condition` is a `CircuitCondition`
+  and `second_signal` is legal in the shape, but the network carries items only, so a virtual
+  signal there can only read 0 — the documented surface (§4), not separately measured, since
+  the constant form is what the mod writes. The cap is therefore baked per entity, which is
+  what costs the combinator its retune of the maximum.
+- **Blueprint shape, both directions.** `create_blueprint` over a conditioned machine, recycler,
+  inserter and lamp captured `control_behavior = { connect_to_logistic_network = true,
+  logistic_condition = { comparator = "<", constant = 50, first_signal = { name =
+  "iron-gear-wheel" } } }` — item `type` and normal quality omitted on read-back as everywhere;
+  `set_blueprint_entities` with the same table kept it verbatim, `build_blueprint` put it on
+  the ghosts (`get_or_create_control_behavior()` on a ghost reads `connect_to_logistic_network
+  == true` and the condition, plus a read-only `fulfilled`), and `silent_revive` carried it
+  onto the entities. **No rename in this pair**: blueprint and runtime both spell
+  `connect_to_logistic_network` / `logistic_condition`, unlike `circuit_enabled` /
+  `circuit_enable_disable` beside them. `ComparatorString` canonicalises here too (§33).
+- **A blueprint stamped over the live loop retunes the baked constant in place.** The four
+  entities built at constant 50; a blueprint of the same positions at constant 70 through
+  `build_blueprint` in `defines.build_mode.normal` returned 0 ghosts and every entity read
+  `constant == 70` five ticks later; a third at 90 in `defines.build_mode.forced` read 90, no
+  ghost left on the surface. That is the FAQ's "set it in the planner and place the blueprint
+  over the loop".
+- **The prototype-level opt-out.** 2.1.7 added the `EntityPrototypeFlag`
+  `"no-logistic-connection"` (*"For entities with control behavior that supports logistic
+  connection, if this flag is set then entity will not be able to connect to logistic
+  network"*, `prototype-api.json`) and removed 2.0's
+  `AssemblingMachinePrototype::enable_logistic_control_behavior` (default `true` in the 2.0.77
+  `prototype-api.json`). Vanilla sets the flag on exactly one crafter, the captive biter
+  spawner (`data/space-age/prototypes/entity/entities.lua:1568`; 2.0 sets the old switch
+  `false` on the same entity, its line 1573). Read at runtime through
+  `LuaEntityPrototype.has_flag("no-logistic-connection")`, which `planner.validate` refuses on
+  in network mode — **2.1 only**: the flag name is absent from the 2.0.77 `runtime-api.json`,
+  and so is any runtime read of the old switch (`factorio-2.0.md`).
+- **The GUI side is not measured here.** The wiki's Circuit network page lists "Crafting
+  machines" among the entities with a Logistic network section (community, current revision),
+  and 2.0.15's own changelog line *"Fixed captive biter spawner was able to connect to
+  logistic network"* only makes sense if that section shows on assembling machines; furnaces
+  gained circuit connection in 2.0.35 (`data/changelog.txt`). A screenshot of a stamped loop's
+  machine GUI is the one check left.

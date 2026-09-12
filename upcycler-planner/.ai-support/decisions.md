@@ -1046,6 +1046,45 @@ per-release approval.
   because the switch only pauses anything through the cap — an uncapped reserve reads
   `count >= 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
   every loop paused (a dead loop for whoever does not open the combinator).
+- **Count the whole logistic network: the cap read off the logistic network, opt-in per plan**
+  (2026-09-12, the owner's calls on yopoke's portal request `6aa368194915925bf804753f` —
+  *"an option to switch to logistic network limit instead of circuit limit"*; four options
+  were put and every recommendation taken). A checkbox at the foot of the Limits wizard,
+  above Start paused — one of the limits, like it — `choices.circuit_network`, off by default
+  and greyed without a cap, since the cap is all it changes. Ticked, every machine and
+  recycler carries the engine's own logistic condition `product@target < max`
+  (`connect_to_logistic_network`), which the entity evaluates against the network it stands
+  in: the loop stops once the player's whole network — providers, storage, buffer chests, the
+  output chest among them — holds the maximum, which a bot-drained output chest could never
+  signal. **Max only**: the reserves stay local wire readings of each tier's stock chest (the
+  owner's call; a network-wide floor is a different feature, `deferred.md`). Three engine
+  facts shape the rest (`analysis/api.md` §34). The condition compares against a CONSTANT —
+  the network carries items, no `signal-C` can reach it — so the max is baked into each gated
+  entity and **the combinator no longer retunes it**: the C row still shows the planned max,
+  and the wire condition beside the logistic one becomes the pause alone, `C > 0` (a circuit
+  and a logistic condition AND together, measured), so the switch, a C of 0 and Start paused
+  all still work; changing the max is "plan again and place the blueprint over the loop",
+  which the engine applies to the standing entities in place (measured, normal and forced
+  build both). An entity outside any logistic network is disabled outright whatever its
+  numbers, so the box is off by default and the tooltip, the combinator's description (a
+  third constant), the README and the FAQ all say the loop only runs inside roboport range —
+  no status-line warning: the planner cannot know where a blueprint will land, and vanilla's
+  own checkbox warns no more. The lamps take the same logistic condition (green: done on the
+  network alone, paused or not; blue: network below the max AND the switch on); the display
+  panel has no logistic surface at all, so in this mode it keeps its Paused row alone and
+  shows the product icon otherwise — chosen over dropping the panel (the map marker goes) or
+  a Done row reading the output chest (wrong whenever bots drain it). `planner.validate`
+  refuses network mode when the machine or recycler prototype carries
+  `no-logistic-connection` (2.1's flag; vanilla's captive biter spawner is the one case),
+  because the engine would ignore the condition without a word; the 2.0 build has no such
+  read and skips the guard. Rejected: keeping today's chest cap on the wire beside the
+  network one (two caps, the lower of them silent); dropping the C row in network mode (no
+  pause left); a roboport of the mod's own reading the network onto the green wire, which
+  would have kept C retunable — a 4x4 in the layout, power and a network to merge with, for a
+  request the vanilla checkbox answers (parked, `deferred.md`). Nothing else moves — wiring,
+  reach, M rows, the pole memo's presence token, footprint: the pure spec pins a network-mode
+  plan against the wire-mode one field for field outside the gated crafters and indicators,
+  and the flag without a cap is inert exactly like Start paused.
 - **Hand size: every minimum is raised by the reserve inserter's hand, and the inserter is
   pinned to it** (2026-09-07, the owner's call on Chatastroph's portal report
   `6a9ab547b795dcac42f8323c` — *"if I configure to keep 20 and I'm using bulk inserters, it

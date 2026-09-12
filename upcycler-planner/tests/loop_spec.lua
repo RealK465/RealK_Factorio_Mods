@@ -443,3 +443,86 @@ describe("a circuit limit on a live machine", function()
     end)
   end)
 end)
+
+describe("a logistic-network cap on a live machine", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  -- Network mode's three engine facts, measured through a throwaway probe (analysis/api.md
+  -- S34) and pinned here: a crafter's logistic condition stops it once the network holds the
+  -- count, the wire's pause ANDs with it, and a crafter outside any network is stopped
+  -- outright whatever its numbers -- the fact behind the roboport-range warning.
+  test("stops at the network's count, pauses on the wire, and stands dead outside any network", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+
+    local gear = { type = "item", name = "iron-gear-wheel", quality = "normal" }
+    local cap = { type = "virtual", name = "signal-C", quality = "rare" }
+
+    -- A network holding 100 gears: a roboport under the substation and a provider beside it.
+    local roboport = s.create_entity({ name = "roboport", position = { 14, 10 }, force = f })
+    local provider = s.create_entity({
+      name = "passive-provider-chest", position = { 4.5, 6.5 }, force = f,
+    })
+    provider.insert({ name = "iron-gear-wheel", count = 100, quality = "normal" })
+
+    local combinator = s.create_entity({
+      name = "constant-combinator", position = { 4.5, 3.5 }, force = f,
+    })
+    local section = combinator.get_or_create_control_behavior().get_section(1)
+    section.set_slot(1, { value = cap, min = 50 })
+
+    -- The shape circuits.lua writes in network mode: the cap as the logistic condition, the
+    -- pause as the wire condition, here through the runtime names.
+    local function gated_machine(position, wired)
+      local machine = s.create_entity({
+        name = "assembling-machine-2", position = position, force = f,
+      })
+      machine.set_recipe("iron-gear-wheel", "normal")
+      machine.get_inventory(defines.inventory.crafter_input)
+        .insert({ name = "iron-plate", count = 100, quality = "normal" })
+      local cb = machine.get_or_create_control_behavior()
+      cb.connect_to_logistic_network = true
+      cb.logistic_condition = { comparator = "<", first_signal = gear, constant = 50 }
+      if wired then
+        cb.circuit_enable_disable = true
+        cb.circuit_condition = { comparator = ">", first_signal = cap, constant = 0 }
+        machine.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+          .connect_to(combinator.get_wire_connector(defines.wire_connector_id.circuit_green, true))
+      end
+      return machine
+    end
+    local inside = gated_machine({ 1.5, 1.5 }, true)
+    -- Far past the roboport's logistic range, on a power island of its own.
+    s.create_entity({ name = "electric-energy-interface", position = { 212, 204 }, force = f })
+    s.create_entity({ name = "substation", position = { 208, 204 }, force = f })
+    local outside = gated_machine({ 201.5, 201.5 }, false)
+
+    local gated = defines.entity_status.disabled_by_control_behavior
+    after_ticks(240, function()
+      assert(roboport.logistic_network and inside.logistic_network,
+        "the rig stood no logistic network")
+      assert(inside.products_finished == 0 and inside.status == gated,
+        "the machine crafted " .. inside.products_finished .. " with the network at the cap")
+      assert(outside.logistic_network == nil, "the far machine found a network")
+      assert(outside.products_finished == 0 and outside.status == gated,
+        "outside any network the machine crafted " .. outside.products_finished
+        .. " -- the roboport-range warning would be a lie")
+
+      -- Draw the network under the cap: the machine resumes.
+      provider.get_inventory(defines.inventory.chest).clear()
+      after_ticks(240, function()
+        assert(inside.products_finished > 0, "the machine never resumed once the network drained")
+        -- The wire still pauses it: switched off, C reads 0 and the AND fails.
+        local before = inside.products_finished
+        combinator.get_control_behavior().enabled = false
+        after_ticks(240, function()
+          assert(inside.products_finished - before <= 1,
+            "the machine crafted " .. (inside.products_finished - before) .. " with the combinator off")
+          assert(inside.status == gated, "switched off, the machine reads " .. tostring(inside.status))
+        end)
+      end)
+    end)
+  end)
+end)

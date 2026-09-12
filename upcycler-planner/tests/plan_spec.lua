@@ -750,6 +750,52 @@ describe("planner.plan", function()
       assert(stack_of(uncapped).limits.control_behavior.is_on == nil,
         "Start paused switched off a combinator that carries no cap")
     end)
+
+    test("Count the logistic network: the cap becomes each crafter's logistic condition, the wire the pause, nothing else moves", function()
+      local base = { circuit_enabled = true, circuit_max_rare = 123, circuit_min_uncommon = 25 }
+      local plain = planner.plan(force(), choices_with(base))
+      local plan = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 123, circuit_min_uncommon = 25,
+        circuit_network = true,
+      }))
+      assert(plan.width == plain.width and plan.height == plain.height
+        and #plan.entities == #plain.entities,
+        "network mode changed the footprint or the entity count")
+      assert(plan.circuit_unlinked == nil, "unlinked " .. tostring(plan.circuit_unlinked))
+      for index, e in pairs(plan.entities) do
+        local p = plain.entities[index]
+        assert(e.circuit_wire_to == p.circuit_wire_to, e.name .. " was rewired by network mode")
+        if e.circuit_role == "machine" or e.circuit_role == "recycler" then
+          local cb = e.control_behavior
+          assert(cb.connect_to_logistic_network == true and cb.logistic_condition.constant == 123
+            and cb.logistic_condition.first_signal.quality == "rare"
+            and cb.circuit_condition.first_signal.name == "signal-C"
+            and cb.circuit_condition.comparator == ">" and cb.circuit_condition.constant == 0,
+            e.circuit_role .. " gates on " .. serpent.line(cb))
+        elseif e.circuit_role == "reserve" or e.circuit_role == "census" then
+          assert(deep_equal(e.control_behavior, p.control_behavior)
+            and deep_equal(e.requests, p.requests),
+            e.circuit_role .. " changed under network mode")
+        end
+      end
+      local stack = stack_of(plan)
+      assert(deep_equal(stack.limits.control_behavior, stack_of(plain).limits.control_behavior),
+        "the combinator's rows moved under network mode")
+      assert(stack.panel.text == nil and #stack.panel.control_behavior.parameters == 1,
+        "the panel still claims running or done: " .. serpent.line(stack.panel.control_behavior))
+      assert(stack.lamp_done.control_behavior.logistic_condition.constant == 123
+        and stack.lamp_done.control_behavior.circuit_enabled == nil
+        and stack.lamp_running.control_behavior.logistic_condition.constant == 123
+        and stack.lamp_running.control_behavior.circuit_enabled == true,
+        "the lamps do not read the network")
+      -- Without a cap the box is inert, like Start paused: the reserve-only plan, field for field.
+      local uncapped = { circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25 }
+      local uncapped_network = { circuit_enabled = true, circuit_max_rare = 0,
+        circuit_min_uncommon = 25, circuit_network = true }
+      assert(deep_equal(planner.plan(force(), choices_with(uncapped)),
+          planner.plan(force(), choices_with(uncapped_network))),
+        "network mode without a cap changed the plan")
+    end)
   end)
 
   describe("columns per tier", function()

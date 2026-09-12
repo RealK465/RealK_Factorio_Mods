@@ -2312,6 +2312,9 @@ function planner.plan(force, choices, gathered)
       circuit = {
         minimums = minimums, maximum = maximum, capped = maximum ~= nil,
         paused = maximum ~= nil and choices.circuit_paused == true,
+        -- The cap counted across the logistic network (circuits.lua, network mode): only
+        -- ever with a cap, and pure decoration -- the stack stands the same either way.
+        network = maximum ~= nil and choices.circuit_network == true,
         hand = planner.circuit_hand(force, choices, r.inserter.name),
       }
     end
@@ -2421,6 +2424,7 @@ function planner.plan(force, choices, gathered)
       minimums = circuit.minimums,
       maximum = circuit.maximum,
       paused = circuit.paused,
+      network = circuit.network,
       hand = circuit.hand,
       product = product.name,
       reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),

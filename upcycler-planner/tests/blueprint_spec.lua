@@ -504,6 +504,51 @@ describe("stamping the blueprint", function()
     end
   end)
 
+  test("network mode survives the stamp: the cap on each crafter as its logistic condition, the pause on the wire", function()
+    -- connect_to_logistic_network / logistic_condition read back off a ghost under the SAME
+    -- names as the blueprint wrote them -- this family's one pair without a rename (api.md
+    -- S34) -- with the comparator canonicalised like every other.
+    stamp(gear_plan({ circuit_enabled = true, circuit_max_rare = 77, circuit_network = true }))
+    local gated = 0
+    for _, name in pairs({ "assembling-machine-3", "recycler" }) do
+      for _, ghost in pairs(ghosts_of(nauvis(), name)) do
+        local cb = ghost.get_control_behavior()
+        assert(cb and cb.connect_to_logistic_network == true,
+          "a " .. name .. " ghost is off the logistic network")
+        local l = cb.logistic_condition
+        assert(l.comparator == "<" and l.constant == 77 and l.first_signal.name == "iron-gear-wheel"
+          and l.first_signal.quality == "rare" and l.second_signal == nil,
+          name .. " logistic condition " .. serpent.line(l))
+        local c = cb.circuit_condition
+        assert(cb.circuit_enable_disable == true and c.comparator == ">" and c.constant == 0
+          and c.first_signal.name == "signal-C" and c.first_signal.quality == "rare",
+          name .. " wire condition " .. serpent.line(c))
+        gated = gated + 1
+      end
+    end
+    assert(gated == 5, gated .. " gated ghosts, expected three machines and two recyclers")
+
+    -- The lamps: done on the network alone, running on the network AND the switch.
+    local green, blue = 0, 0
+    for _, ghost in pairs(ghosts_of(nauvis(), "small-lamp")) do
+      local cb = ghost.get_control_behavior()
+      assert(cb.connect_to_logistic_network == true, "a lamp ghost is off the logistic network")
+      local l = cb.logistic_condition
+      assert(l.constant == 77 and l.first_signal.quality == "rare",
+        "lamp logistic condition " .. serpent.line(l))
+      if l.comparator == "\226\137\165" then
+        green = green + 1
+        assert(cb.circuit_enable_disable == false, "the done lamp still waits on the wire")
+      elseif l.comparator == "<" then
+        blue = blue + 1
+        assert(cb.circuit_enable_disable == true
+          and cb.circuit_condition.first_signal.name == "signal-C",
+          "the running lamp ignores the switch")
+      end
+    end
+    assert(green == 1 and blue == 1, green .. " done and " .. blue .. " running lamps")
+  end)
+
   test("the circuit stack survives the stamp: colours, words, the switch and the description", function()
     -- Read back off REVIVED entities rather than ghosts: a lamp's colour and a combinator's
     -- description are entity fields the ghost route was never measured for (api.md S32),

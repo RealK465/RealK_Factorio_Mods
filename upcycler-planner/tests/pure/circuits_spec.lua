@@ -56,6 +56,7 @@ local function decorated(overrides, opts)
     minimums = minimums,
     maximum = maximum,
     paused = opts.paused,
+    network = opts.network,
     hand = hand,
     product = "iron-gear-wheel",
     reach = opts.reach or 9,
@@ -289,6 +290,88 @@ describe("circuits.decorate conditions", function()
           (e.circuit_role or e.name) .. " grew a control_behavior it must not have")
       end
     end
+  end)
+end)
+
+-- Network mode: the cap counted across the logistic network (circuits.lua's header). The
+-- engine's own logistic condition on every gated crafter and on the lamps, a constant since
+-- the network carries no signal, with the wire condition reduced to the pause -- and the
+-- rest of the decoration byte-identical to wire mode, which the second test pins.
+describe("circuits.decorate network mode", function()
+  local PRODUCT_AT_TARGET = { type = "item", name = "iron-gear-wheel", quality = "rare" }
+
+  test("every machine and recycler carries the cap as the network's own condition, and the pause on the wire", function()
+    local built, unlinked = decorated(nil, { network = true })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    local gated = 0
+    for _, role in pairs({ "machine", "recycler" }) do
+      for _, entry in pairs(by_role(built, role)) do
+        local cb = entry.entity.control_behavior
+        assert(cb and cb.connect_to_logistic_network == true,
+          role .. " " .. entry.index .. " does not connect to the logistic network")
+        local l = cb.logistic_condition
+        assert(l and l.comparator == "<" and l.constant == MAXIMUM and l.second_signal == nil
+          and same_signal(l.first_signal, PRODUCT_AT_TARGET),
+          role .. " logistic condition compares " .. tostring(l and l.comparator)
+          .. " against " .. tostring(l and l.constant))
+        local c = cb.circuit_condition
+        assert(cb.circuit_enabled == true and c and c.comparator == ">" and c.constant == 0
+          and c.second_signal == nil and same_signal(c.first_signal, CAP),
+          role .. " wire condition is not the pause: " .. tostring(c and c.comparator)
+          .. " " .. tostring(c and c.constant))
+        gated = gated + 1
+      end
+    end
+    assert(gated == 5, "gated machines+recyclers " .. gated)
+  end)
+
+  test("the reserves, the wiring and the combinator's rows are exactly wire mode's", function()
+    local plain = decorated()
+    local built = decorated(nil, { network = true })
+    for index, e in pairs(plain.entities) do
+      local n = built.entities[index]
+      assert(e.circuit_wire_to == n.circuit_wire_to, "network mode rewired entity " .. index)
+      if e.circuit_role == "reserve" or e.circuit_role == "census" then
+        assert(deep_equal(e.control_behavior, n.control_behavior)
+          and e.override_stack_size == n.override_stack_size
+          and deep_equal(e.requests, n.requests),
+          "network mode changed the " .. e.circuit_role .. " at " .. index)
+      end
+    end
+    assert(deep_equal(rows_of(plain), rows_of(built)), "network mode changed the combinator rows")
+    local description = one(built, "limits").entity.player_description
+    assert(description:find("network", 1, true) and description:find("roboport", 1, true)
+      and not description:find("output chest", 1, true),
+      "the network description reads: " .. description)
+  end)
+
+  test("the lamps read the network -- done alone, running with the pause -- and the panel keeps only its paused row", function()
+    local built = decorated(nil, { network = true })
+    local done = one(built, "lamp_done").entity.control_behavior
+    assert(done.connect_to_logistic_network == true and done.logistic_condition.comparator == ">="
+      and done.logistic_condition.constant == MAXIMUM and done.circuit_enabled == nil,
+      "the done lamp does not light on the network's count alone")
+    local running = one(built, "lamp_running").entity.control_behavior
+    assert(running.connect_to_logistic_network == true
+      and running.logistic_condition.comparator == "<"
+      and running.logistic_condition.constant == MAXIMUM and running.circuit_enabled == true
+      and same_signal(running.circuit_condition.first_signal, CAP),
+      "the running lamp does not need both the network and the switch")
+
+    local panel = one(built, "panel").entity
+    assert(panel.text == nil, "the panel claims " .. tostring(panel.text) .. ", which it cannot know")
+    assert(panel.show_in_chart == true and panel.always_show == true
+      and same_signal(panel.icon, PRODUCT_AT_TARGET), "the panel lost its icon or its map marker")
+    local rows = panel.control_behavior.parameters
+    assert(#rows == 1 and rows[1].text == "Paused"
+      and same_signal(rows[1].condition.first_signal, CAP) and rows[1].condition.constant == 0,
+      "the panel's one row is not the paused test")
+  end)
+
+  test("without a cap the flag means nothing: the plan is the reserve-only one", function()
+    assert(deep_equal(decorated(nil, { maximum = false }).entities,
+        decorated(nil, { maximum = false, network = true }).entities),
+      "network mode without a cap changed the plan")
   end)
 end)
 
