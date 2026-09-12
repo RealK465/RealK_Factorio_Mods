@@ -165,6 +165,22 @@ wizard) and the expected-output display (the status line's yield figure, from th
 solve). `decisions.md` → the module-mix bullets own what is settled; `analysis/api.md` §30
 the engine facts.
 
+### Pipes in a category the machine cannot join
+**Status:** the machine side is guarded (2026-09-12); the pipe side is not.
+
+The rotation rule counts only machine inputs sharing a connection category with the run's
+pipe (`analysis/api.md` §14.7). The pipe side is still category-blind in two places:
+`planner.pipes()` offers every `pipe`-type entity, so Muluna's data cable
+(`muluna-data-cable`, category `"data"`, volume 2) sits in the pipe picker beside the pipe —
+never the default, since `planner.pipe()` scores by volume, but pickable, and a plan built
+from it reaches the machine's data port and never its fluid input; and
+`planner.pipe_to_ground_for()`'s fallback takes the longest-reaching pipe-to-ground of any
+family, so a modded underground in another category could end a run it cannot join. Both
+want the test the machine side got — intersect categories with the machine's real input —
+as a picker filter or a validate message. Deferred because nobody has picked a data cable
+for lubricant yet, and the picker filter needs the machine in hand where the candidate lists
+are machine-free today.
+
 ### Self-recycling items
 Steel and friends have no ingredient-reversal recipe, only the lossy 25%-of-itself fallback. A
 recycler-only loop needs thousands of inputs per legendary, so these are refused. The

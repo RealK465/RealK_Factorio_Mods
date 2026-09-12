@@ -505,6 +505,30 @@ full research, real entities and ticks) plus the installed `prototype-api.json` 
    `direction = west` plus `set_recipe("battery")` reads back facing west — and a placed
    battery plan revived whole crafts from an outside tap on one stub, which pins the
    planner→layout→blueprint chain end to end.
+7. **`connection_category` reads back as an array on every normal connection, `{"default"}`
+   when the author wrote none** (measured 2026-09-12 on 2.1.17; the 2.0.77 runtime JSON
+   lists the same field). The engine joins two connections only when they share a category,
+   and a foreign category is how a modded port hides in plain sight: **Muluna**
+   (`planet-muluna` 2.7.22, `prototypes/final-fixes/data-cells.lua`) copies the two fluid
+   boxes of every assembling-machine-3-class machine as `"data"` ports on the other faces —
+   input turned north→east, output south→west, each behind 28 dummy `linked` boxes,
+   `use_mirroring` on — with their production type kept. Read as an input, the east copy
+   satisfied the west test at rotation south, and the machine stood with its lubricant input
+   at the bottom (portal thread `6aa5301e3f44270ff33f555a`).
+   `planner.machine_fluid_orientation(entity, pipe_name)` now counts only connections that
+   share a category with the run's pipe; `tests/fixtures/data-port-assembler.lua` stands the
+   pattern in the suite.
+8. **A foreign-category copy is merged into the same live box, and a plain pipe against it
+   carries nothing** (measured 2026-09-12): the fixture under a fluid recipe reads
+   `fluids_count == 1`, that one box exposing the vanilla input, the 28 linked dummies and the
+   `"data"` copy together. With the reporter's geometry — a pipe run on the west face fed by
+   an infinity pipe of lubricant — facing south (data copy at the run) reads 0 lubricant in
+   the machine; facing west (real input at the run) fills it.
+9. **A machine whose fluid boxes exist only under a fluid recipe drops the `direction` it was
+   created with when created bare** (measured 2026-09-12): `create_entity{direction = west}`
+   on the fixture, then `set_recipe`, reads back facing north. Pass `recipe` to
+   `create_entity` and the direction holds. Blueprints set both at once, which is why the
+   plan never meets this.
 
 ## 15. Quality on inserters and chests, and what a picker may offer — measured 2026-08-17
 

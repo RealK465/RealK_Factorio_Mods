@@ -774,21 +774,49 @@ function planner.recycler_orientation(entity)
   return nil
 end
 
+-- The connection categories a pipe run built from `pipe_name` can offer, as a set. The engine
+-- joins two pipe connections only when they share a category (an array at runtime, {"default"}
+-- when the author wrote none -- measured 2.1.17, api.md §14), so a machine port in a category
+-- the pipe is not in is no fluid face at all, however it is authored. Nothing picked, or a
+-- name that is not a pipe, stands for the default category, which every vanilla pipe is in.
+local function pipe_categories(pipe_name)
+  local categories = {}
+  local pipe = pipe_name and pipe_candidates()[pipe_name]
+  for _, box in pairs(pipe and pipe.fluidbox_prototypes or {}) do
+    for _, connection in pairs(box.pipe_connections) do
+      for _, category in pairs(connection.connection_category) do categories[category] = true end
+    end
+  end
+  if not next(categories) then categories.default = true end
+  return categories
+end
+
+local function joins(connection, categories)
+  for _, category in pairs(connection.connection_category) do
+    if categories[category] then return true end
+  end
+  return false
+end
+
 -- How a machine must be rotated so its fluid input meets the pipe run on the utility column
 -- to its west. Same shape as recycler_orientation: per-prototype, computed, nil when nothing
 -- works. The rule is pure direction arithmetic, measured on 2.1.14 (api.md §14): a connection
 -- authored pointing `dir` points `(dir + rotation) % 16` once the entity is rotated, and the
 -- engine merges every input box a recipe needs into one live box exposing ALL their
 -- connection points, any one of which feeds the machine -- so one west-pointing input
--- connection is enough. North is tried first, so a machine that already has one (the
--- electromagnetic plant, inputs on opposite flanks) is not rotated needlessly. The vertical
--- run spans the machine's full height, which is why no row test is needed here.
-function planner.machine_fluid_orientation(entity)
+-- connection is enough, provided the run's pipe can join it: Muluna copies an assembling
+-- machine's input to its EAST face as a "data" port, and counting that copy stood the
+-- machine facing south with its real input at the bottom (portal thread
+-- 6aa5301e3f44270ff33f555a, 2026-09-12). North is tried first, so a machine that already
+-- has one (the electromagnetic plant, inputs on opposite flanks) is not rotated needlessly.
+-- The vertical run spans the machine's full height, which is why no row test is needed here.
+function planner.machine_fluid_orientation(entity, pipe_name)
+  local categories = pipe_categories(pipe_name)
   local input_directions = {}
   for _, box in pairs(entity.fluidbox_prototypes or {}) do
     if box.production_type == "input" or box.production_type == "input-output" then
       for _, connection in pairs(box.pipe_connections) do
-        if connection.connection_type == "normal" then
+        if connection.connection_type == "normal" and joins(connection, categories) then
           input_directions[#input_directions + 1] = connection.direction
         end
       end
@@ -829,7 +857,9 @@ function planner.max_beacon_count(choices, beacon)
   if not orientation then return 0 end
   local machine_height = machine.tile_height
   if planner.needs_pipe(recipe) then
-    local fluid_orientation = planner.machine_fluid_orientation(machine)
+    -- The pipe as picked: the modal defaults it before this is ever asked, and a stale or
+    -- empty pick reads as the default category, which is every vanilla pipe's answer.
+    local fluid_orientation = planner.machine_fluid_orientation(machine, choices.pipe)
     if not fluid_orientation then return 0 end
     machine_height = fluid_orientation.height
   end
@@ -2147,11 +2177,21 @@ function planner.plan(force, choices, gathered)
   -- vanilla two-fluid recipe's product is already covered by a one-fluid recipe.
   local ingredients, fluids = planner.item_ingredients(recipe)
   if #fluids > 1 then return nil end
-  -- A fluid recipe rotates the machine so an input connection meets the pipe run, and the
-  -- rotated width is what every later width test has to use.
+
+  -- The building materials, gathered ahead of the fluid rotation because that rotation
+  -- depends on which pipe the run is built from.
+  local r = gathered or resources(force, recipe, machine, choices)
+  if not (r.inserter and r.belt and r.container and r.requester and r.stock and r.provider
+    and r.quality_module) then
+    return nil
+  end
+  if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
+
+  -- A fluid recipe rotates the machine so an input connection the pipe can join meets the
+  -- pipe run, and the rotated width is what every later width test has to use.
   local fluid_orientation
   if #fluids == 1 then
-    fluid_orientation = planner.machine_fluid_orientation(machine)
+    fluid_orientation = planner.machine_fluid_orientation(machine, r.pipe)
     if not fluid_orientation then return nil end
   end
   local machine_width = fluid_orientation and fluid_orientation.width or machine.tile_width
@@ -2178,13 +2218,6 @@ function planner.plan(force, choices, gathered)
   for _, ingredient in pairs(ingredients) do
     requests[ingredient.name] = chosen_request(choices, ingredient, recipe, minutes)
   end
-
-  local r = gathered or resources(force, recipe, machine, choices)
-  if not (r.inserter and r.belt and r.container and r.requester and r.stock and r.provider
-    and r.quality_module) then
-    return nil
-  end
-  if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
 
   -- Everything the loop rolls ABOVE the target leaves through the tap in the terminal column.
   -- Both halves need it: a moduled machine rolls the PRODUCT past the target, and a moduled
@@ -2474,13 +2507,18 @@ function planner.validate(force, choices)
     return false, { "upl-message.no-machine-available" }
   end
 
+  -- The building materials the layout is made of, gathered here because the fluid rotation
+  -- just below depends on which pipe the run is built from; each is judged, with its own
+  -- message, once the recycler has passed too.
+  local r = resources(force, recipe, machine, choices)
+
   -- A fluid recipe adds one machine requirement of its own: some rotation must land a fluid
-  -- input connection against the pipe run. Computed per prototype like the recycler's eject,
-  -- and refused by name when nothing works -- piping a machine wrong is the reference
-  -- blueprints' own defect, and the one thing this feature must never reproduce.
+  -- input connection the pipe can join against the pipe run. Computed per prototype like the
+  -- recycler's eject, and refused by name when nothing works -- piping a machine wrong is the
+  -- reference blueprints' own defect, and the one thing this feature must never reproduce.
   local machine_width, machine_height = machine.tile_width, machine.tile_height
   if #fluids == 1 then
-    local fluid_orientation = planner.machine_fluid_orientation(machine)
+    local fluid_orientation = planner.machine_fluid_orientation(machine, r.pipe)
     if not fluid_orientation then
       return false, { "upl-message.machine-no-fluid-face", machine.localised_name }
     end
@@ -2527,10 +2565,9 @@ function planner.validate(force, choices)
     return false, { "upl-gui.pick-a-recipe" }
   end
 
-  -- The building materials the layout is made of. Each is a real research gate, so each gets
-  -- its own message rather than one vague "something is missing". The gathered table rides on
-  -- every ok return so plan() can reuse it instead of re-running the same scans.
-  local r = resources(force, recipe, machine, choices)
+  -- Each building material is a real research gate, so each gets its own message rather than
+  -- one vague "something is missing". The gathered table rides on every ok return so plan()
+  -- can reuse it instead of re-running the same scans.
   if not r.inserter then
     -- Order matters. When nothing available has enough filter slots for even the larger
     -- share of a split the RECIPE is the problem whatever was picked, and naming the pick
