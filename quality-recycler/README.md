@@ -11,8 +11,6 @@ built from a recycler plus parts from all three planets. Without Space Age it un
 rocket and is built from a recycler, low-density structures and electric engines. Either way it
 needs the Quality mod.
 
-This mod is early in development and its balance has not been played yet.
-
 ## AI-Assisted Development
 
 The development of this mod was done with help of AI coding assistants.
