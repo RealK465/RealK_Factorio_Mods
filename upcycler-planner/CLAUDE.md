@@ -101,11 +101,13 @@ recipes, and the chest picker takes only real `logistic-container`s. Story and e
 **5. Fluid geometry is direction arithmetic on measured facts.** A pipe connection authored
 pointing `dir` points `(dir + rotation) % 16` once the entity rotates, `positions[]` is the
 [N,E,S,W] rotation orbit, and the engine merges every input box a recipe needs into ONE live
-box that ANY touching pipe feeds — so `planner.machine_fluid_orientation()` only has to land
-one input connection facing west, onto the utility column's pipe run. Foundry and cryo plant
-author inputs on their SOUTH face (they stand facing east); the EM plant needs no rotation at
-all. All measured, all guarded by `tests/fluid_spec.lua`; evidence in
-`.ai-support/analysis/api.md` §14.
+box that ANY touching pipe in a shared connection category feeds — so
+`planner.machine_fluid_orientation()` only has to land one input connection the run's pipe
+can join facing west, onto the utility column's pipe run. A port in another category is no
+fluid face, however it is authored (Muluna's data port). Foundry and cryo plant author inputs
+on their SOUTH face (they stand facing east); the EM plant needs no rotation at all. All
+measured, all guarded by `tests/fluid_spec.lua`; evidence in `.ai-support/analysis/api.md`
+§14.
 
 **`.ai-support/` is this mod's local context — start at its `index.md`.** `decisions.md` holds
 what is settled and why, `deferred.md` the parked work, `journal.md` what happened, and

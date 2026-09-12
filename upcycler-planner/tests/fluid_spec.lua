@@ -2,10 +2,11 @@
 -- the measured facts the geometry stands on (analysis/api.md §14), each pinned so a change in
 -- engine behaviour is a release-visible event rather than a silently disconnected pipe.
 --
--- Three layers: the prototype premises (the positions orbit and connection directions the
+-- Four layers: the prototype premises (the positions orbit and connection directions the
 -- orientation arithmetic reads), the stub mechanism live (a player's underground pipe outside
--- the ring tapping the run through the belt), and the whole pipeline -- planner, layout,
--- blueprint -- revived into real entities that must actually craft.
+-- the ring tapping the run through the belt), the whole pipeline -- planner, layout,
+-- blueprint -- revived into real entities that must actually craft, and a modded data port
+-- beside the input (the connection-category rule, at the foot of the file).
 
 local planner = require("scripts.planner")
 local research = require("tests.support.research")
@@ -180,6 +181,87 @@ describe("the fluid mechanisms live", function()
         "no acid reached the tier-0 plant: the planned pipe geometry does not connect")
       assert(tier_zero.products_finished > 0,
         "the revived loop's tier-0 plant never crafted")
+    end)
+  end)
+end)
+
+-- Muluna's data port, stood as a test-only clone of the assembling machine 3
+-- (tests/fixtures/data-port-assembler.lua): a copy of the fluid input on the EAST face in
+-- connection category "data", which the engine never joins to a plain pipe. The rotation rule
+-- read it as a fluid input and stood the machine facing south -- lubricant port at the bottom,
+-- nothing at the pipe run (portal thread 6aa5301e3f44270ff33f555a, 2026-09-12).
+local DATA_PORT = "upl-test-data-port-assembler"
+
+describe("a modded data port beside the fluid input", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  local function normal_inputs(machine)
+    local inputs = {}
+    for _, box in pairs(machine.fluidbox_prototypes) do
+      if box.production_type == "input" then
+        for _, connection in pairs(box.pipe_connections) do
+          if connection.connection_type == "normal" then inputs[#inputs + 1] = connection end
+        end
+      end
+    end
+    return inputs
+  end
+
+  test("connection categories read back as arrays, and the fixture carries the port", function()
+    -- The premises the category test reads: a connection authored with no category reads
+    -- back {"default"}, and the fixture's east copy reads back {"data"}.
+    local pipe = prototypes.entity["pipe"].fluidbox_prototypes[1].pipe_connections[1]
+    assert(type(pipe.connection_category) == "table" and #pipe.connection_category == 1
+      and pipe.connection_category[1] == "default",
+      "pipe category read back as " .. serpent.line(pipe.connection_category))
+    local inputs = normal_inputs(prototypes.entity[DATA_PORT])
+    assert(#inputs == 2, "expected the vanilla input plus one copy, got " .. #inputs)
+    local category = {}
+    for _, connection in pairs(inputs) do
+      category[connection.direction] = connection.connection_category[1]
+    end
+    assert(category[defines.direction.north] == "default", "north input lost its default category")
+    assert(category[defines.direction.east] == "data", "east copy is not in the data category")
+  end)
+
+  test("the rotation rule ignores a port the pipe cannot join", function()
+    local orientation = planner.machine_fluid_orientation(prototypes.entity[DATA_PORT], "pipe")
+    assert(orientation, "no orientation for the data-port assembler")
+    assert(orientation.direction == defines.direction.west,
+      "data-port assembler stood facing " .. orientation.direction .. ", expected west (12)")
+    -- The vanilla machine answers the same with and without a pipe named.
+    local am3 = prototypes.entity["assembling-machine-3"]
+    assert(planner.machine_fluid_orientation(am3).direction == defines.direction.west)
+    assert(planner.machine_fluid_orientation(am3, "pipe").direction == defines.direction.west)
+  end)
+
+  test("a plain pipe at the data port carries nothing; at the real input it fills the machine", function()
+    -- The engine fact the fix rests on, measured with the reporter's geometry: a pipe run on
+    -- the west face. Facing south -- the old answer -- puts the data copy against the run and
+    -- the lubricant input at the bottom; facing west puts the real input against it.
+    local s, f = nauvis(), force()
+    local function rig(x0, direction)
+      local infinity = s.create_entity({ name = "infinity-pipe", position = { x0 + 0.5, 0.5 }, force = f })
+      infinity.set_infinity_pipe_filter({ name = "lubricant", percentage = 100 })
+      for y = 1, 5 do
+        s.create_entity({ name = "pipe", position = { x0 + 0.5, y + 0.5 }, force = f })
+      end
+      -- The recipe rides on create_entity: a machine whose fluid boxes only exist under a
+      -- fluid recipe has nothing to rotate when created bare, and reads back facing north
+      -- whatever direction was asked for (measured 2.1.17). Blueprints set both at once.
+      local machine = s.create_entity({ name = DATA_PORT, position = { x0 + 2.5, 3.5 },
+        direction = direction, recipe = "electric-engine-unit", force = f })
+      assert(machine.direction == direction, "rig " .. x0 .. " stood facing " .. machine.direction)
+      return machine
+    end
+    local south = rig(0, defines.direction.south)
+    local west = rig(10, defines.direction.west)
+    after_ticks(120, function()
+      assert(south.get_fluid_count("lubricant") == 0,
+        "a plain pipe joined the data port: the category rule is not what keeps them apart")
+      assert(west.get_fluid_count("lubricant") > 0,
+        "no lubricant reached the west-facing data-port assembler through its real input")
     end)
   end)
 end)

@@ -9,6 +9,31 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-12 - The data port: a rotation fooled by a foreign connection category
+
+fuhnert reported on the portal (`6aa5301e3f44270ff33f555a`) that electric engine loops stood
+their assembling machines 3 "incorrectly rotated such that the fluid input does not touch the
+pipes"; the owner could not reproduce it, K2SO's machines included. The machine's history
+tooltip in the reporter's screenshot listed Krastorio 2, Krastorio 2 Spaced Out, Maraxsis and
+**Muluna, Moon of Nauvis**, and K2SO's own Muluna compatibility file
+(`exemples/krastorio2/Krastorio2-spaced-out/prototypes/compatibility/planets/muluna.lua`)
+showed the pattern, confirmed in Muluna's source: `data-cells.lua` copies the assembling
+machine 3's input and output boxes as `"data"`-category ports turned to the east and west
+faces, production type kept. `machine_fluid_orientation` read the east copy as an input, and
+south is the first rotation that points it west — so the machine stood facing south, real
+input at the bottom, exactly the green lubricant icon under each machine in the screenshot.
+
+Reproduced before fixing: `tests/fixtures/data-port-assembler.lua` clones the assembling
+machine 3 with Muluna's pattern, loaded from `data.lua` behind a `mods["factorio-test"]`
+guard (the data-stage twin of control.lua's), and a new `fluid_spec` describe measured the
+rest — categories read back as arrays, the copy is merged into the one live box, a plain pipe
+at the `"data"` connection carries nothing, and the old rule answered south. The fix: the
+orientation takes the run's pipe name and counts only connections sharing a category with it;
+`plan()` and `validate()` gather resources first so the pipe is known. One rig lesson on the
+way: a bare `create_entity` on a machine whose boxes exist only under a fluid recipe drops its
+direction — pass `recipe` at creation. `analysis/api.md` §14.7–9. The pipe side (Muluna's
+data cable is a `pipe`, so it sits in the pipe picker) is deferred, not fixed.
+
 ## 2026-09-12 - Count the whole logistic network: the cap read off the logistic network (1.3.0 / 1.3.1 opened)
 
 yopoke asked on the portal for "an option to switch to logistic network limit instead of

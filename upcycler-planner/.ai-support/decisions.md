@@ -869,9 +869,12 @@ per-release approval.
   never refuses.
 - **Fluid recipes are planned in** (2026-08-17, the promised 0.2.0 feature): a pipe run down
   each utility column's east edge, spanning the full interior height, with every machine
-  rotated per prototype so a fluid input connection meets it
+  rotated per prototype so a fluid input connection the run's pipe can join meets it
   (`planner.machine_fluid_orientation`, the recycler-orientation lesson again; measured rule
-  and the merged-fluid-box behaviour in `analysis/api.md` §14). Each run ends in underground
+  and the merged-fluid-box behaviour in `analysis/api.md` §14). A port in another connection
+  category is no fluid face, however it is authored (2026-09-12): Muluna's `"data"` copy of
+  the assembling machine 3's input, on the east face, was counted and stood the machine
+  facing south with its real input away from the run. Each run ends in underground
   stubs beneath the top and bottom ring belts; the player taps any column from either side
   with an underground pipe of their own and wires the columns together however they like.
   Nothing requests fluid by bots.
@@ -1156,10 +1159,11 @@ per-release approval.
   recipe, so the cost is zero items. Fluid PRODUCTS stay excluded by the single-item-product
   gate — the quantum processor returns hot fluoroketone beside the item and would need a drain
   network, a separate decision.
-- **A fluid machine with no rotation that lands an input connection on the pipe run**, refused
-  naming the machine. Unreachable in vanilla — the merged-box rule covers even the EM plant's
-  opposite-flank inputs — so this is the modded-machine guard, and the alternative was piping
-  it wrong: the reference book's own defect.
+- **A fluid machine with no rotation that lands an input connection the run's pipe can join
+  on the pipe run**, refused naming the machine. Unreachable in vanilla — the merged-box rule
+  covers even the EM plant's opposite-flank inputs — so this is the modded-machine guard, and
+  the alternative was piping it wrong: the reference book's own defect. Connections in a
+  category the pipe is not in do not count (2026-09-12, `analysis/api.md` §14.7).
 - **Self-recycling items** (steel and friends). A recycler-only loop needs thousands of inputs
   per legendary; the few shared designs that wash self-recyclers are a different architecture
   (recycler walls with no crafting stage — `analysis/blueprints.md` §9) with the same dire
