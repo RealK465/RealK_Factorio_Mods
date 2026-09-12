@@ -8,9 +8,11 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 A new recycler kind: **12% base quality chance built in (no modules needed), 2.5x the vanilla
 crafting speed, five module slots, a 4x4 footprint, unlocked after the first three planets with
 Space Age and after the rocket without it.** The verified mechanism
-and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **The entity,
-item, recipe and technology exist and the data stage loads clean** (2026-09-10). Nothing has been
-played yet, and the balance is a guess rather than a measurement — see `.ai-support/deferred.md`.
+and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **Published
+since 2026-09-12 on both tracks** — 0.1.0 for Factorio 2.1 from `main`, 0.1.1 for Factorio 2.0
+from `legacy/2.0`; run the `factorio-release` skill's "Published or open?" check rather than
+trusting a number written here. The balance is a guess rather than a measurement — see
+`.ai-support/deferred.md`.
 
 The entity's visual design is settled — a salvaged vanilla recycler with planet-tier sorting gear
 grafted on, hero an eddy-current sorting rotor. It lives in
@@ -266,7 +268,11 @@ feature flag, and why the optional dependency carries no version — are in
 
 - Name `quality-recycler`, title "Quality Recycler". `embedded-quality-recycler` and
   `recycler-quality` were the alternatives considered; all three were free on the mod portal.
-- Version starts at `0.1.0`, unpublished (`changelog.txt` carries `Date: ????`).
+- Versions are drawn from one sequence shared by both tracks: 0.1.0 shipped for Factorio 2.1
+  and 0.1.1 for Factorio 2.0, both on 2026-09-12. The next release takes the next free number
+  whichever game it is for — `factorio-multiversion` → Version numbering.
+- **`package.ignore` needs `images/**`, not `images`.** A bare folder name matches nothing and
+  the gallery would ship in the zip; verified by listing the zip on the first release.
 - Dependencies and feature flags as above.
 - **The mechanic: `effect_receiver.base_effect.quality = 0.12`, `crafting_speed = 1.25`, five
   module slots, 1 MW, a 4x4 footprint** at `collision_box = {{-1.7,-1.7},{1.7,1.7}}` (3x3,

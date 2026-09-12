@@ -2,6 +2,25 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-12 (fourth session, later) — the first release
+
+Published at the owner's ask, both tracks the same day: 0.1.0 for Factorio
+2.1 through the first-publish API (`init_publish` then the upload URL --
+`fmtk upload` cannot create a mod), then 0.1.1 for Factorio 2.0 through the
+ordinary `fmtk upload`. Both zips listed before upload: 109 entries, the 96
+sheets, thumbnail and LICENSE in, no `images/`, no `CLAUDE.md`. The
+`package.ignore` entry had to become `images/**` first -- the bare `images`
+written earlier matched nothing, exactly as the release skill warns. The
+portal page was then set in the same session: licence `default_gnugplv3` and
+category `content` (a new mod defaults to MIT and no category), the README as
+the description through `fmtk details --readme`, and the two gallery shots
+through `images/add` with each returned id checked against the file's sha1
+before `images/edit` set the order. Read back with a cache-buster: two
+releases, the right game on each, licence, category, two images, the
+description, and the thumbnail taken from the zip. Tagged
+`quality-recycler_0.1.0` on `main` and `quality-recycler_0.1.1` on
+`legacy/2.0`.
+
 ## 2026-09-12 (fourth session) — the port on the output tile
 
 The owner played the machine facing south with a steel chest on each of the
