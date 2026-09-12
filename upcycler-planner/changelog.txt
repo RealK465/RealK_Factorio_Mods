@@ -1,15 +1,13 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.3.1
-Date: ????
+Version: 1.2.5
+Date: 2026-09-12
   Changes:
-    - Version 1.3.0, ported to Factorio 2.0.
+    - Version 1.2.4, ported to Factorio 2.0.
 ---------------------------------------------------------------------------------------------------
-Version: 1.3.0
-Date: ????
+Version: 1.2.4
+Date: 2026-09-12
   Features:
-    - The Limits window has a Count the whole logistic network checkbox. With it ticked, the
-      maximum counts every item at the target quality in your logistic network, not just the
-      output chest, and the loop only runs inside roboport range.
+    - The max limit can now work in the whole logistic network.
   Bugfixes:
     - Fixed that machines with an extra fluid port from another mod, such as Muluna's data
       port, could be placed with their fluid input away from the pipes.
