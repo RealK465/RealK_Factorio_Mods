@@ -180,11 +180,39 @@ code will need them before the art exists:
   `drawing_box_vertical_extension` for the same reason this entity now does (a sprite taller
   than its box, framed in the entity tooltip). Until 2026-09-11 the box was the 3x3
   convention's 2.4, measured off the chemical plant and the biochamber.
-- **`vector_to_place_result = {-0.15, -2.3}`.** A 4x4's centre is a tile corner, so a result
-  placed at x 0 would sit on the boundary between the two centre tiles past the north edge;
-  -0.15 lands inside the west one (the mirrored machine, the east one). The vanilla recycler's
-  own `{-0.35, -2.3}` exists for the same reason — it is 2 wide. The art's port is built on
-  that line, so the value and the sprite move together or not at all.
+- **`result_inventory_size` is 25 in the prototype and sized in `data-final-fixes.lua` from
+  the recipes.** 25 is the owner's floor (2026-09-12), against the vanilla recycler's 12 for
+  scrap recycling's twelve results, and the final-fixes stage raises it to the largest result
+  count of any recipe in the machine's crafting categories, never lowering it. A furnace cannot craft a recipe with more products
+  than result slots, and the failure is silent: an inserter holding the ingredient simply
+  never inserts. Krastorio 2 Spaced Out inserts `kr-electronic-components` as a 13th scrap
+  result in its data-updates and sets the VANILLA recycler's slots to the new count in its
+  final-fixes, leaving every other recycler at 12 — which is what the owner saw on
+  2026-09-12: inserters would not feed the quality recycler Fulgora scrap while the vanilla
+  one beside it ran. Read off the recipes rather than hard-coded, so any mod that adds
+  results is covered; the count is taken in final-fixes because that is the last stage
+  other mods write recipes in, and a mod whose final-fixes runs after this one could still
+  add a result past it — accepted, since the vanilla recycler carries the same exposure.
+  Recipes are read in both the 2.1 plural `categories` and the 2.0 singular `category`
+  form, which keeps the file identical on both branches. Verified on the owner's mod set:
+  13 slots after the fix against 12 before, and 25 once the floor went in.
+- **The direct output stacks on belts, and nothing in the prototype decides that.**
+  `CraftingMachinePrototype` has no belt-stacking field -- `max_belt_stack_size` belongs to
+  inserters and loaders, `drops_full_belt_stacks` to mining drills -- so the answer had to be
+  measured: the screenshot probe's `belt_report` reads every belt lane's contents through
+  `LuaTransportLine.get_detailed_contents()`. With low-density structures recycled onto a
+  three-tile dead-end belt for ten seconds (every technology researched, so the belt stack
+  bonus is at its full 4), both this machine and the vanilla recycler beside it filled every
+  belt tile with stacks of 4. So the engine stacks a `vector_to_place_result` drop like an
+  inserter drop, up to the force's bonus, and there is nothing to set. Measured 2.1.17,
+  2026-09-12.
+- **`vector_to_place_result = {-0.35, -2.3}`** — the vanilla recycler's own value, kept
+  because it solves the same problem: a 4x4's centre is a tile corner (a 2x4's too), so a
+  result placed at x 0 would sit on the boundary between the two centre tiles past the north
+  edge, and -0.35 lands well inside the west one (the mirrored machine, the east one). It was
+  -0.15 until 2026-09-12: the right tile, but 5 px from the seam, and the owner's screenshot
+  of a chest on each centre tile showed the arrow on the seam between them. The art's port is
+  built on that line, so the value and the sprite move together or not at all.
 
 ## Scaffold only, no Lua yet
 

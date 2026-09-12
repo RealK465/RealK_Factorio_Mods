@@ -2,6 +2,96 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-12 (fourth session) — the port on the output tile
+
+The owner played the machine facing south with a steel chest on each of the
+two centre tiles past the mouth and sent a screenshot titled "confusing
+ejector": the alt-mode arrow sat on the seam between the two chests and the
+port was symmetric about it. Nothing said which chest the machine fed.
+
+**The result moves to vanilla's own x.** `vector_to_place_result` is
+`{-0.35, -2.3}` now, the vanilla recycler's value for the same even-width
+problem, instead of `{-0.15, -2.3}`: the round-7 reasoning that 5 px off the
+seam is still inside the mouth was true and was the problem, because the
+mouth straddled the seam. **The port follows it** (`PORT_X = -0.29` units),
+with the throat centred over the mouth between two hood shoulders, since the
+trough discharges at x -0.46..-0.10 and the throat cannot go further west.
+The sill narrowed to 0.44 units and the apron's east edge moved from -0.56
+to -0.70 so the sill's rows still clear the apron's in east and west.
+
+Beside it, the user-facing text pass: the README's description paragraph and
+the changelog's two feature entries were shortened to plain sentences by the
+`user-facing-text` agent; the locale and the `info.json` tagline were left as
+they were.
+
+**Measured.** 257 objects, 186 kinds, cone 2.72 under 2.75 with no fit, worst
+silhouette margin 0.14 tiles (west; 0.19 before). Every object of the port
+draws in every direction. Gates on the packed sheets, all eight directions:
+contrast sd 48.7-51.6, clipping 0%, full-width rows 0%, fill 0.71-0.81, ragged
+1.11-1.20, shadow 100% pure black, north overhang 0.70-0.73; `FAILURES: none`.
+Data stage clean on 2.1.17 with and without Space Age. Photographed working in
+the engine (every machine `status working`): four rotations and the mirrored
+four, each with a chest on both candidate tiles -- the arrow sits inside one
+chest in all eight, that chest holds the results, and the mouth is over it;
+a row of two beside a vanilla recycler shows the same convention on both. The
+shots are `ingame-r8-*.png` and the owner's screenshot is
+`owner-r8-confusing-ejector.jpg`, both git-ignored.
+
+**Then east and west.** Two more owner screenshots: the port block north of
+the arrow in both. Measured on the engine shots, the block's centre sat 0.7
+tiles (east) and 0.4 tiles (west) north of the arrow, because in those two
+rotations height and cross-axis width both project up-screen and the arrow
+is a ground position at the port's foot. No geometry fixes both at once, so
+**the port is posed per direction**: for the E/W renders its raised parts
+slide 0.25 units screen-south through a `set_direction()` hook, the sill
+stays on the drop point, and the ejected chips follow only while out of
+sight. The four E/W sheets were re-baked; north and south are byte-identical.
+
+**Then the seam again, and it was the save.** A third owner screenshot, south
+and west with a chest pair each, showed the arrow 0.17 tiles from the seam
+where every engine shot of this session measures 0.34. The game had loaded
+the exact files validated here (same checksum), so the difference had to be
+elsewhere: both machines' sprite centres measure 0.55 tiles off the chest
+grid, where this morning's machine sat on it. A 4x4 stands at whole tiles; a
+3x3 at tile centres; the engine keeps an entity where it was when its box
+grows. So those two were placed before the 4x4 change, or from a blueprint
+made then, and their output tile is half a tile off with them. Reproduced
+the other way: the probe now logs the engine's position and grid, and under
+the owner's full mod set (24 mods, Krastorio 2 included) it reports
+`grid 4x4` and snaps a half-tile placement to whole tiles. Nothing to fix in
+the mod; the rule went into `CLAUDE.md`.
+
+**A thumbnail, at the owner's ask.** The icon was re-rendered from the
+current model (the raw in `renders/icon/` was a day stale, from before the
+sealed rotor) and the item and technology icons re-cut from it, then
+`assets/quality-recycler/thumbnail/make_thumbnail.py` set the same render,
+with the icon's own paint-over, over a dark panel with a violet cast and the
+title in Titillium Web Bold -- the Pure Modules recipe with the machine icon
+as the hero instead of a screenshot. Hero 0.74 of the width, centred at 0.37
+of the height, so the title clears the skirt.
+
+**Inserters would not feed it scrap.** The prototype matches the vanilla
+recycler field for field on everything an inserter cares about, so the
+difference had to be in the owner's mod set: a `--dump-data` under all of it
+shows scrap recycling with 13 results (Krastorio 2 Spaced Out's electronic
+components), the vanilla recycler widened to 13 slots by that mod's own
+final-fixes, and this machine still at 12 -- a furnace cannot run a recipe
+with more products than slots, and the inserter just never inserts. Fixed
+with a `data-final-fixes.lua` that sizes the result inventory to the widest
+recipe in the machine's categories; 13 under the owner's set, 12 in a plain
+game, clean on both tracks. Also asked: does the output stack on belts? No
+prototype field exists for a crafting machine's direct output -- belt
+stacking belongs to inserters, loaders and mining drills -- so nothing could
+be set. Then measured rather than assumed, at the owner's "make sure": the
+probe grew a `belt_report` that reads every belt lane's stacks, and with
+low-density structures recycled onto a dead-end belt for ten seconds both
+this machine and the vanilla recycler filled the belt with stacks of 4. The
+direct output stacks; the earlier "single items" line above was wrong. The
+result inventory floor went to 25 at the same ask, with the final-fixes read
+still raising it past that when a recipe needs more.
+Ported to `legacy/2.0` the same session: the prototype edit by hand,
+everything else verbatim.
+
 ## 2026-09-11 (third session, latest) — the port in east and west, the icon, the loop
 
 The owner placed the 4x4 in all four directions and found the port "not at

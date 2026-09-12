@@ -15,7 +15,8 @@
   "package": {
     "ignore": [
       "CLAUDE.md",
-      "CLAUDE.local.md"
+      "CLAUDE.local.md",
+      "images"
     ]
   }
 }

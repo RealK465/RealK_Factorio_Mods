@@ -924,13 +924,15 @@ ground level. That margin is what the cabinet and the apron moved into.
 The layout file therefore still speaks the 3x3's units: 1 unit = 1.2 tiles, the footprint
 edge is ±1.667 there, and the audit prints tiles. `quality_recycler_gen.BASE_SCALE` carries it.
 
-**The output moved 0.15 tiles west.** A 4x4's centre is a tile corner, so a result placed at
-x 0 would sit on the boundary between the two centre tiles past the north edge — the vanilla
-recycler, which is 2 wide, offsets its own to −0.35 for exactly this reason. The prototype
-now says `{-0.15, -2.3}` and the whole port (body, riser, roof, mouth, doors, pockets, sill,
-feet, grade paint) sits on `PORT_X = -0.12` units. Not further west: the sill's rows in east
-and west move with it, and past −0.12 they cross the apron's and the silhouette guarantee
-fails (the apron's east edge moved from −0.48 to −0.56 for the same reason).
+**The output is on the west centre tile, and so is the port.** A 4x4's centre is a tile
+corner, so a result placed at x 0 would sit on the boundary between the two centre tiles past
+the north edge — the vanilla recycler, which is 2 wide, offsets its own to −0.35 for exactly
+this reason. The prototype says the same `{-0.35, -2.3}` and the whole port (body, riser,
+roof, throat, mouth, doors, pockets, sill, feet, grade paint) sits on `PORT_X = -0.29` units,
+which is that offset in the layout's units. Two intermediate values were tried and are the
+reason the number is worth not touching again: −0.12 units for one build, then 0 for one, and
+what each cost is under *round 7* and *round 8* below. The sill's rows in east and west move
+with the port, and the apron's east edge sits at −0.70 so they still clear its rows.
 
 ### The pad, filled: the route's second leg made visible
 
@@ -1011,10 +1013,10 @@ and in east the port's own 0.15-tile offset west added to it. North and south hi
 projection because there height and distance stack along the output axis, where the port
 already reads as "behind" or "in front". Two changes, both geometric:
 
-- **The port is on the machine's centre line** (`PORT_X = 0`). The result still lands at
-  x −0.15 tiles, inside the west centre tile; 0.15 tiles is 5 px at gameplay zoom and the
-  mouth is 0.7 tiles wide, so the arrow is inside it either way. Centred, east and west are
-  symmetric, and the sill could grow to 0.6 units wide with five chevrons.
+- **The port was centred on the machine** (`PORT_X = 0`), with the result left at
+  x −0.15 tiles on the reasoning that 5 px from the seam is still inside a 0.7-tile mouth.
+  It was, and that is exactly what round 8 undid: the mouth straddled the seam, so nothing
+  told a player which of the two tiles under it was the output.
 - **The port is low at the mouth end.** The roof falls from 0.68 at the riser to 0.55 at the
   mouth (it was 0.92 to 0.52), the riser's front step is 0.66, the throat walls 0.60, the
   body under the roof 0.48; only the back step the trough feeds through keeps its height
@@ -1047,6 +1049,71 @@ mouth and again down the discharge chute; six chips stream along the feed trough
 four.
 
 **Measured after the round.** 256 objects, 184 kinds, cone 2.72 under 2.75, silhouette margins 0.19-0.33. Gates on the packed sheets, all eight directions: contrast sd 48.7-51.3, clipping 0%, full-width rows 0%, fill 0.71-0.80, ragged 1.08-1.18, shadow 100% pure black, north overhang 0.70-0.73; `FAILURES: none`. 154 MB of VRAM. Data stage clean on 2.1.17. Photographed working in the engine (every quality recycler `status working`): the arrow sits on the mouth in all eight orientations, and in east and west the sill, pockets and roof now sit around it with only the thin riser back step above -- the geometry cannot do better than that, because the mouth's own doors and lintel stand 0.15-0.5 tiles high. The abutting row still shows ground between every pair of machines.
+
+### After play (round 8): the port on the output tile (2026-09-12)
+
+The owner played the machine facing south with a steel chest on each of the two centre tiles
+past the mouth and sent a screenshot: the alt-mode arrow sat on the seam between the chests,
+and the port's mouth, doors, sill and hazard pockets were symmetric about that seam. Nothing
+in the picture said which chest would fill. The round-7 argument — the arrow is inside the
+mouth either way — was true and beside the point: the mouth was in both tiles.
+
+Two changes, made together because the art is built from the output position:
+
+- **The result is at `{-0.35, -2.3}`**, the vanilla recycler's own x for an even-width
+  machine. 0.35 tiles from the seam is 11 px at gameplay zoom, and the arrow sprite, about
+  half a tile wide, now sits entirely inside the west tile.
+- **The port moved to that line** (`PORT_X = -0.29` units), and its **throat is centred over
+  the mouth** rather than being the hood's west half: the trough discharges at x −0.46..−0.10
+  and the throat cannot follow the port further west, so the port has a hood shoulder on each
+  side of a central well instead of a solid east half. Body, riser, roof, mouth, doors,
+  pockets, bollards, feet, sill and grade paint all followed. The seam between the two
+  centre tiles now falls beside the port rather than through it.
+
+What the move cost, and how it was paid: the sill owns the sprite's max-y extreme, so in east
+and west its rows must stay clear of the apron's. It is **0.44 units wide** now (four
+chevrons, the outer legs inboard) instead of 0.60, and the **apron's east edge moved from
+−0.56 to −0.70** with its track, legs, chevrons and the feeder ram following; the worst
+silhouette margin is 0.14 tiles (west), against 0.19 before. The round-7 worry — that an
+offset port reads north of the arrow in east — did not come back, because the round-7 fix
+that actually mattered was the low mouth end, which stayed: in east the offset projects
+up-screen, but so does the output tile, by the same amount.
+
+**East and west: the port is posed per direction.** The owner then sent two more screenshots,
+east and west, with the port block plainly north of the arrow. Measured on this session's own
+engine shots: in east the port's parts spread from 0.2 to 1.7 tiles north of the machine's
+centre with the arrow at 0.35, the block's centre 0.7 tiles north of it; in west the block's
+centre sat 0.4 tiles north of the arrow. The cause is the projection, not the layout. Screen
+row is `-x + z` in east and `x + z` in west, so a part's height *and* its extent across the
+output axis both become screen height, and the arrow -- a ground position -- is at the port's
+foot in both. Round 7's low mouth end helped and could not finish it: the port is 1.6 tiles
+wide across the axis and up to 0.94 high, and everything with height draws above its own
+ground. No single geometry centres the block on the arrow in east *and* west, because the
+height term has the same sign in both while the port's offset flips.
+
+So the port is posed per direction, the way vanilla's oil refinery is four models: for the
+east and west renders (and their mirrors) the raised parts of the port -- body, riser, roof
+shoulders, throat, doors, mouth, pockets, bollards, feet, grade paint -- slide `PORT_EW_SHIFT`
+= 0.25 units (0.3 tiles) screen-south via `delta_location`, which stacks on the doors' keyed
+travel. The five ejected chips are keyed to follow only on frames 27..45 (inside the hopper and
+flying out of the mouth), with both jumps landing on frames where the chip is scaled to
+nothing; they ride the unmoved trough before and tumble down the unmoved chute after. **The
+sill, its legs and its chevrons do not move**: they are the drop point at ground level, and
+the sill owns the sprite's max-y extreme, whose rows in west would otherwise slide into the
+apron's and break the silhouette guarantee. The mouth's ground line ends up 0.3 tiles south of
+the arrow in east, straddling the seam; the sill still sits inside the output tile, and it is
+the sill a player reads at ground level. `qr_layout.port_shift()` is registered on
+`gen.DIRECTION_HOOKS` and runs from `set_direction()`, so every driver -- render, look-dev,
+object-ID pass -- poses the same way; north and south get a zero shift, and the audit, which
+reads the model at north, is unaffected.
+
+**Measured after the round.** 257 objects, 186 kinds, cone 2.72 under 2.75. Gates on the
+packed sheets, all eight directions: contrast sd 48.7–51.6, clipping 0%, full-width rows 0%,
+fill 0.71–0.81, ragged 1.11–1.20, shadow 100% pure black, north overhang 0.70–0.73;
+`FAILURES: none`. Data stage clean on 2.1.17 with and without Space Age. In the engine, every
+machine working, a chest on both candidate tiles in all eight orientations: the arrow sits
+inside one chest, that chest receives the results, and the mouth, doors and sill are over it.
+Beside a vanilla recycler with the same chest pair, both machines feed the west tile.
 
 ### State & animation, revised
 

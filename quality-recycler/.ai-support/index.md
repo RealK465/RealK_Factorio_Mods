@@ -27,5 +27,17 @@ Read this first. One line per file: what is in it, and when to read it.
   the engine, the same rig as the v3 set with a chest on both candidate output tiles, plus the
   owner's own scenario: a row of abutting machines beside a vanilla recycler and an EM plant.
   Read beside the design doc's v4 section. Git-ignored like the rest.
+- **`owner-r8-confusing-ejector.jpg`, `owner-r8-confusing-ejector-east.jpg`,
+  `owner-r8-confusing-ejector-west.jpg`** — the owner's own screenshots that opened round 8:
+  facing south with a chest on each centre tile and the arrow on the seam between them; then
+  east and west with the port block plainly north of the arrow.
+  **`owner-r8-confusing-ejector-oldsave.jpg`** — the seam again after both fixes: two machines
+  from a save older than the 4x4 change, standing half a tile off the grid. Read with the
+  `CLAUDE.md` rule on old saves; nothing in the mod was wrong.
+  **`ingame-r8-cross-altmode.png`, `ingame-r8-mirrored-altmode.png`,
+  `ingame-r8-row-altmode.png`** — round 8 in the engine: four machines facing outward and
+  the mirrored four, each with a chest on both candidate tiles, working, zoom 2, alt-mode; and
+  two in a row beside a vanilla recycler with the same chest pairs. Read beside the design
+  doc's *round 8* section. Git-ignored like the rest.
 - **`deferred.md`** — open design questions and parked work. Read before the first prototype.
 - **`journal.md`** — dated sessions, newest first. Read to catch up on what happened and why.

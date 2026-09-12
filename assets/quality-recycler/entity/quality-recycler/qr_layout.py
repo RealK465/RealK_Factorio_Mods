@@ -31,12 +31,15 @@ Two things the larger box changed in the layout itself, both from play:
   with a handrail and a wall ladder run along the west skirt; a low coolant
   step with two radiators fills the east margin the 1.2 scale left.
 
-The port sits on the machine's centre line (PORT_X = 0) and LOW at the mouth
+The port sits ON THE OUTPUT TILE (PORT_X = -0.29 units, -0.35 tiles: the
+vanilla recycler's own offset for an even-width machine) and LOW at the mouth
 end: in east and west a part's height projects up-screen, so a tall hood over
-the mouth read as a block north of the output arrow. The prototype's
-{-0.15, -2.3} lands inside the west centre tile (a 4x4's centre is a tile
-corner, so x 0 would sit on a boundary); 0.15 tiles is 5 px at gameplay zoom
-and the mouth is 0.7 tiles wide, so the arrow is inside it either way.
+the mouth read as a block north of the output arrow. It was centred for one
+build with the result placed 0.15 tiles off the seam, and a player with a
+chest on each of the two centre tiles could not tell which one the machine
+fed. Now the mouth, the doors, the sill and the arrow all sit on one tile,
+the throat is centred over the mouth with a hood shoulder either side, and
+the seam between the two tiles falls beside the port, not through it.
 
 ## The route, south to north
 
@@ -81,8 +84,8 @@ In tiles, from the audit of the v4 build:
 
 Worst margin 0.19 tiles (west). The sill is a deliberately low plate standing
 clear of everything else so that it -- and nothing wider -- owns max-y; on the
-machine's centre line it can be 0.6 units wide and its rows in east and west
-still clear the apron's, whose east edge is at -0.56 for that reason. The
+output tile it is 0.44 units wide and its rows in east and west still clear
+the apron's, whose east edge is at -0.70 for that reason. The
 cabinet is the west extreme and the coolant step the east one; both keep their
 rows clear of the other's in north and south, which is what lets the step be
 wider than the cowl.
@@ -135,17 +138,31 @@ RAM_STROKE = 0.72                   # the pusher's travel, 46 source px
 PORT_Y = (1.14, 1.70)               # the hopper, footprint edge at 1.50
 PORT_W = 0.44                       # half-width
 MOUTH_W = 0.30                      # half-width of the mouth
-THROAT = (-0.44, -0.06, 1.20, 1.50) # x0, x1, y0, y1 of the open throat
-SILL = (0.30, 1.75, 1.90)           # half-width, y0, y1 -- owns max-y
-# The port's centre line: the machine's own. The prototype places the result
-# at {-0.15, -2.3} (inside the west centre tile -- a 4x4's centre is a tile
-# corner, so x 0 would sit on a boundary), and 0.15 tiles is 5 px at gameplay
-# zoom: the arrow lands inside the 0.7-tile mouth either way. It was -0.12
-# units for one build; in EAST that offset added to the port's own height
-# (which projects up-screen in east and west) and the whole port read as
-# sitting north of the arrow. Centred, and with the port low at the mouth end
-# (below), the mouth is where the arrow is in every rotation.
-PORT_X = 0.0
+SILL = (0.22, 1.75, 1.90)           # half-width, y0, y1 -- owns max-y
+# The port's centre line is the OUTPUT TILE's, not the machine's. The
+# prototype places the result at {-0.35, -2.3} -- the vanilla recycler's own
+# x for the same even-width problem -- and -0.29 units is that in tiles. A
+# 4x4's centre is a tile corner; centred, the mouth straddled the seam and
+# the arrow sat 5 px from it, and a player with a chest on each centre tile
+# could not tell which one fed. In EAST the offset projects up-screen, but
+# so does the output tile, by the same amount: the mouth stays on the arrow.
+# The sill is narrower than the 0.6 it grew to when centred, so its rows in
+# east and west still clear the apron's (module docstring).
+PORT_X = -0.29
+# The throat, centred over the mouth. The trough (x -0.46..-0.10) discharges
+# into it, so it cannot follow the port further west than this; the port
+# has a hood shoulder on each side of it instead of a solid east half.
+THROAT = (PORT_X - 0.19, PORT_X + 0.19, 1.20, 1.50)  # x0, x1, y0, y1
+# THE PORT IN EAST AND WEST IS POSED PER DIRECTION -- see port_shift() at the
+# end of this file. In those two rotations a part's height and its extent
+# across the output axis both project up-screen, so the port's block (1.6
+# tiles wide, up to 0.94 high) drew 0.6-1.4 tiles north of the arrow while its
+# foot sat exactly on it. No geometry fixes that: the arrow marks ground, and
+# everything with height draws above ground. For the E and W renders only,
+# the raised parts of the port slide this many units screen-south, which puts
+# the block's centre on the arrow; the sill, its legs and its chevrons stay
+# where the results actually land. North and south are untouched.
+PORT_EW_SHIFT = 0.25
 # The open feed trough from the shredder's spout to the rotor's inlet hood:
 # its start and end, in the machine's units. The chips that ride it are keyed
 # between the two by the animation, through stream_point().
@@ -686,9 +703,13 @@ def ejector(a):
     # with a latch in the final review. The recess holds a violet strip that
     # shows only when the doors part -- an open-state cue in any frame.
     mw0, mw1 = px - MOUTH_W, px + MOUTH_W
+    # Two full-height blocks flank the throat and the low slab under it;
+    # the west block stops 0.004 short of the throat wall, since two shells
+    # sharing an exactly coplanar face render opaque black in Cycles.
     out.append(boxes("port-body",
                      [((tx1, py0, DECK - 0.01), (px + w, py1 - 0.12, 0.48)),
-                      ((px - w, py0, DECK - 0.01), (tx1, py1 - 0.12, 0.40)),
+                      ((px - w, py0, DECK - 0.01), (tx0 - 0.044, py1 - 0.12, 0.48)),
+                      ((tx0 - 0.044, py0, DECK - 0.01), (tx1, py1 - 0.12, 0.40)),
                       ((px - w, py1 - 0.14, DECK - 0.01), (mw0 - 0.02, py1 + 0.02, 0.48)),
                       ((mw1 + 0.02, py1 - 0.14, DECK - 0.01), (px + w, py1 + 0.02, 0.48)),
                       ((mw0 - 0.02, py1 - 0.14, DECK - 0.01), (mw1 + 0.02, py1 + 0.02, 0.14)),
@@ -706,16 +727,18 @@ def ejector(a):
     out.append(boxes("port-riser",
                      [((px - w, py0, TROUGH_TOP - 0.02), (px + w, py0 + 0.10, 0.94)),
                       ((x1 + 0.02, py0, TROUGH_Z - 0.04), (px + w, py0 + 0.10, TROUGH_TOP)),
-                      ((tx1, py0 + 0.10, TROUGH_Z - 0.04), (px + w, py0 + 0.18, 0.66))],
+                      ((px - w, py0, TROUGH_Z - 0.04), (x0 - 0.06, py0 + 0.10, TROUGH_TOP)),
+                      ((tx1, py0 + 0.10, TROUGH_Z - 0.04), (px + w, py0 + 0.18, 0.66)),
+                      ((px - w, py0 + 0.10, TROUGH_Z - 0.04), (tx0 - 0.044, py0 + 0.18, 0.66))],
                      mat="composite", bevel=0.015))
-    out.append(yz_prism("port-roof",
-                        [[(py0 + 0.17, 0.56), (py0 + 0.17, 0.68),
-                          (py1 + 0.02, 0.55), (py1 + 0.02, 0.49)]],
-                        tx1, px + w, mat="composite", bevel=0.015))
-    out.append(yz_prism("port-roof-seam",
-                        [[(1.44, 0.632), (1.44, 0.647), (1.47, 0.637), (1.47, 0.622)],
-                         [(1.58, 0.587), (1.58, 0.602), (1.61, 0.592), (1.61, 0.577)]],
-                        tx1 - 0.002, px + w + 0.002, mat="seamdark", cuts=0, bevel=0.0))
+    roof = [(py0 + 0.17, 0.56), (py0 + 0.17, 0.68), (py1 + 0.02, 0.55), (py1 + 0.02, 0.49)]
+    seams = [[(1.44, 0.632), (1.44, 0.647), (1.47, 0.637), (1.47, 0.622)],
+             [(1.58, 0.587), (1.58, 0.602), (1.61, 0.592), (1.61, 0.577)]]
+    for tag, rx0, rx1 in (("e", tx1, px + w), ("w", px - w, tx0 - 0.044)):
+        out.append(yz_prism("port-roof-" + tag, [roof], rx0, rx1,
+                            mat="composite", bevel=0.015))
+        out.append(yz_prism("port-roof-seam-" + tag, seams, rx0 - 0.002, rx1 + 0.002,
+                            mat="seamdark", cuts=0, bevel=0.0))
     # the throat's own walls: west, and north (which is the hood's west end)
     out.append(boxes("throat-wall",
                      [((tx0 - 0.04, py0 + 0.08, 0.40), (tx0, ty1 + 0.06, 0.60)),
@@ -769,15 +792,15 @@ def ejector(a):
     out.append(box("port-sill", (px - SILL[0], SILL[1], 0.09), (px + SILL[0], SILL[2], 0.13),
                    mat="scoured"))
     out.append(boxes("port-sill-legs",
-                     [((px - 0.27, SILL[1] + 0.02, 0.0), (px - 0.22, SILL[2] - 0.02, 0.10)),
+                     [((px - 0.16, SILL[1] + 0.02, 0.0), (px - 0.11, SILL[2] - 0.02, 0.10)),
                       ((px - 0.025, SILL[1] + 0.02, 0.0), (px + 0.025, SILL[2] - 0.02, 0.10)),
-                      ((px + 0.22, SILL[1] + 0.02, 0.0), (px + 0.27, SILL[2] - 0.02, 0.10))],
+                      ((px + 0.11, SILL[1] + 0.02, 0.0), (px + 0.16, SILL[2] - 0.02, 0.10))],
                      mat="gunmetal"))
-    out.append(prism("sill-chev-back", [(px - 0.27, SILL[1] + 0.02), (px + 0.27, SILL[1] + 0.02),
-                                        (px + 0.27, SILL[2] - 0.02), (px - 0.27, SILL[2] - 0.02)],
+    out.append(prism("sill-chev-back", [(px - 0.19, SILL[1] + 0.02), (px + 0.19, SILL[1] + 0.02),
+                                        (px + 0.19, SILL[2] - 0.02), (px - 0.19, SILL[2] - 0.02)],
                      0.128, 0.134, mat="cavity", cuts=1, bevel=0.003))
-    for j in range(5):
-        x = px - 0.26 + j * 0.105
+    for j in range(4):
+        x = px - 0.19 + j * 0.093
         out.append(prism("sill-chev%d" % j,
                          [(x, SILL[1] + 0.03), (x + 0.045, SILL[1] + 0.03),
                           (x + 0.095, SILL[2] - 0.03), (x + 0.05, SILL[2] - 0.03)],
@@ -922,35 +945,36 @@ def shredder(a):
           name="collar-rivets-e")
     # THE LOADING APRON, inside the footprint since the 4x4 (it hung 0.55
     # tiles past the 3x3 and drew over whatever was placed there), and
-    # narrowed on the east so its rows in the west view stay clear of the
-    # sill's (see the module docstring). No rails.
-    out.append(prism("apron", [(-1.18, -1.30), (-0.56, -1.30), (-0.62, -1.62),
+    # narrowed on the east so its rows in the east and west views stay clear
+    # of the sill's, which moved 0.29 west with the port (module docstring).
+    # No rails.
+    out.append(prism("apron", [(-1.18, -1.30), (-0.70, -1.30), (-0.76, -1.62),
                                (-1.12, -1.62)], 0.10, 0.20, mat="gunmetal",
                      cuts=1))
     out.append(boxes("apron-legs",
                      [((-1.12, -1.58, 0.0), (-1.04, -1.46, 0.11)),
-                      ((-0.70, -1.58, 0.0), (-0.62, -1.46, 0.11)),
-                      ((-0.90, -1.40, 0.0), (-0.84, -1.34, 0.11))],
+                      ((-0.84, -1.58, 0.0), (-0.76, -1.46, 0.11)),
+                      ((-0.94, -1.40, 0.0), (-0.88, -1.34, 0.11))],
                      mat="gunmetal", cuts=0))
-    out.append(prism("apron-track", [(-1.02, -1.32), (-0.70, -1.32),
-                                     (-0.74, -1.56), (-0.98, -1.56)],
+    out.append(prism("apron-track", [(-1.04, -1.32), (-0.80, -1.32),
+                                     (-0.84, -1.56), (-1.00, -1.56)],
                      0.195, 0.215, mat="scoured", cuts=1))
     # hazard on the apron's lip, the last 0.08 before the footprint edge
-    out.append(prism("apron-chev-back", [(-1.10, -1.605), (-0.64, -1.605),
-                                         (-0.62, -1.525), (-1.08, -1.525)],
+    out.append(prism("apron-chev-back", [(-1.10, -1.605), (-0.78, -1.605),
+                                         (-0.76, -1.525), (-1.08, -1.525)],
                      0.198, 0.206, mat="cavity", cuts=1, bevel=0.004))
     for j in range(4):
-        x = -1.07 + j * 0.105
+        x = -1.09 + j * 0.075
         out.append(prism("apron-chev%d" % j,
                          [(x, -1.595), (x + 0.05, -1.595),
                           (x + 0.085, -1.535), (x + 0.035, -1.535)],
                          0.204, 0.216, mat="hazard", cuts=0, bevel=0.004))
     # THE FEEDER RAM: the apron's reason to exist. A shorter stroke than
     # v3's (0.11, not 0.30): the head stops just short of the bottom roller.
-    out.append(box("flap-ram", (-0.98, -1.52, 0.19), (-0.68, -1.40, 0.33),
+    out.append(box("flap-ram", (-1.08, -1.52, 0.19), (-0.78, -1.40, 0.33),
                    mat="gunmetal"))
     out.append(boxes("flap-ram-head",
-                     [((-1.01, -1.42, 0.18), (-0.65, -1.36, 0.35))],
+                     [((-1.11, -1.42, 0.18), (-0.75, -1.36, 0.35))],
                      mat="scoured"))
     # hazard chevrons on the south AND west walls
     out += wall_chevrons("shred-chev-s", "S", -1.16, -0.44, 0.86, 0.94, -1.26,
@@ -1118,6 +1142,47 @@ def fragments():
 
 
 # ---- assembly -------------------------------------------------------------
+
+
+def port_shift(deg, mirror):
+    """Slide the port's raised parts screen-south in east and west.
+
+    Screen row is -x + z in east and x + z in west (audit MAPS), and the
+    mirror negates model x before the rotation, so which way is south flips
+    with both. The delta goes on `delta_location`, which adds to an animated
+    location: the doors are keyed on x and must keep their travel. The five
+    ejected chips ride the trough (unmoved) and tumble down the chute
+    (unmoved) and are only shifted while inside the hopper and flying out of
+    the mouth -- frames 27..45 -- with the jumps landing on frames where the
+    chip is scaled to nothing. The audit reads the model at north, where the
+    shift is zero.
+    """
+    if abs(abs(deg) - 90.0) > 1e-6:
+        s = 0.0
+    else:
+        s = PORT_EW_SHIFT if (deg < 0) != bool(mirror) else -PORT_EW_SHIFT
+    pre = gen.PREFIX
+    shifted = ("port-", "pocket-", "throat-", "door-", "mouth-", "eject-lamp",
+               "grade-")
+    for obj in bpy.data.objects:
+        if not obj.name.startswith(pre):
+            continue
+        base = obj.name[len(pre):]
+        if base.startswith("port-sill"):
+            continue
+        if base.startswith(shifted):
+            obj.delta_location.x = s
+    for i in range(5):
+        obj = bpy.data.objects.get(pre + "frag%d" % i)
+        if obj is None:
+            continue
+        gen._key(obj, "delta_location",
+                 [(0, 0.0), (26, 0.0), (27, s), (45, s), (46, 0.0), (64, 0.0)],
+                 index=0, interp="CONSTANT")
+
+
+if port_shift not in gen.DIRECTION_HOOKS:
+    gen.DIRECTION_HOOKS.append(port_shift)
 
 
 def build(mats):

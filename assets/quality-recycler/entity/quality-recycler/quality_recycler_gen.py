@@ -897,6 +897,10 @@ COLL_NAMES = ("QR_Base", "QR_Moving", "QR_Fx")
 # A list so both can reach it without a `global`; see fit_cone() for why one
 # scale beats trimming the parts individually.
 _FIT = [1.0]
+# Callables (deg, mirror) run at the end of set_direction(): how a layout
+# applies a per-direction pose, the way vanilla ships the oil refinery as
+# four models. The layout registers its own; see qr_layout.port_shift.
+DIRECTION_HOOKS = []
 
 # The layout is written in the 3x3 machine's units and the 4x4 entity is that
 # machine at 1.2x: one uniform scale on the root, exactly as the cone fit is
@@ -2324,6 +2328,8 @@ def set_direction(deg, mirror=False):
     hy = (ROTOR_XY[0] * s + ROTOR_XY[1] * c) * f
     for sock in _HEAT_NODES:
         sock.default_value = (-hx if mirror else hx, hy, 0.0)
+    for hook in DIRECTION_HOOKS:
+        hook(deg, mirror)
     bpy.context.view_layer.update()
     return root
 
