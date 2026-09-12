@@ -293,7 +293,14 @@ produces a new frame only every few ticks; sample eight apart). The probe resear
 technology, powers each group from a substation at its centre, and logs every machine's
 `status` before each shot — read for `status working`, because a locked recipe, an empty
 input or an out-of-range pole all photograph as a plausible idle machine (measured 2026-09-11:
-every shot before that day was of an unpowered machine). On a machine whose monitor is asleep
+every shot before that day was of an unpowered machine). It also logs where the engine
+actually put each entity and on what grid (`-> engine position 7,1 (grid 4x4)`), because
+`create_entity` snaps a building to its tile grid and a spec position off that grid lands
+somewhere else without a word -- and because an owner's save can hold machines placed
+under an older, smaller box, half a tile off the grid the current prototype snaps to. A group
+with `belt_report = true` also logs every belt lane's item count and largest stack at each
+shot, which is how "does the direct output stack on a belt" was answered (it does, to the
+force's bonus) when the prototype API had no field to read. On a machine whose monitor is asleep
 or whose session has no display output, pass `-ExtraArgs '--force-opengl'`; the harness
 already writes windowed mode into its scratch config.
 
