@@ -9,6 +9,31 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-12 - 1.2.4 and 1.2.5 ship: the network cap and the data-port fix, both tracks
+
+Released on the owner's ask ("commit and push ... release and publish in mod portal") in the
+same session as the data-port fix: **1.2.4 for Factorio 2.1** from `main`, then **1.2.5 for
+Factorio 2.0** from `legacy/2.0`, the 1.2.x shape again -- the 2.1 section carrying the
+entries, the 2.0 one the port pointer. The pair had been opened as 1.3.0 / 1.3.1 and the
+owner re-graded it by hand in the working tree to 1.2.4 / 1.2.5, with the feature entry in
+their own words; the release commits carried that renumbering and aligned `info.json` on
+each branch. The fix went in first as its own commit on each branch (`b5f3c77` on main,
+`8da329d` on legacy, the planner hunks applied by hand since `scripts/planner.lua` is
+forked). `fmtk datestamp` stamped 1.2.4 (it keys on `info.json`), the 1.2.5 pointer was
+dated by hand, and the identical file went to the worktree before packaging.
+
+Gate: static clean, pure 117/117, headless 382/382 and graphics 382/382 on 2.1.17; static
+clean, pure 117/117, headless 381/381 and graphics 381/381 on 2.0.77; the data stage loaded
+clean on both installs without the test framework, which is what keeps the data-port fixture
+out of a player's game. Both zips read before upload (22 and 23 files, nothing from
+`CLAUDE.md`, `tests/`, `images/` or `.ai-support/`, no `????` left).
+
+Uploads at 19:06:24 and 19:07:05 local, each followed by its release commit (`dfb5f4e`,
+`ece6691`) and annotated tag, each branch pushed with its tag. The portal's recorded sha1 of
+each release equals the local zip's (`73f45aa3c192...` for 1.2.4, `eca5a78a65fd...` for
+1.2.5), and a cache-busted read lists 1.2.5 as newest. `fmtk details` was not run: README
+and FAQ did not change this session, and a portal-text resync stays outside what was asked.
+
 ## 2026-09-12 - The data port: a rotation fooled by a foreign connection category
 
 fuhnert reported on the portal (`6aa5301e3f44270ff33f555a`) that electric engine loops stood
