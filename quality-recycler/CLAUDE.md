@@ -17,15 +17,17 @@ grafted on, hero an eddy-current sorting rotor. It lives in
 `.ai-support/quality-recycler-design.md`, and it also sets the mod's house art style, since there
 is no separate art-direction register. **The entity is modelled, animated and rendered** — sources
 in `../assets/quality-recycler/entity/quality-recycler/`, sheets in `graphics/entity/`, eight
-directions at **six** layers each, plus the item and technology icons. No `thumbnail.png` yet.
+directions at **six** layers each, plus the item and technology icons, and a `thumbnail.png`
+built from the icon render (below).
 
 **The art is built from the output position backwards.** `vector_to_place_result =
-{-0.15, -2.3}` is a DIRECT-output position -- the tile past the back edge, where the alt-mode
-arrow points and the results appear -- not where a mined machine drops its contents. The port,
-the trough and the pusher ram sit on that line; move the value and the art is wrong. The x
-offset is not a style choice: a 4x4's centre is a tile corner, and x 0 would put the result on
-the boundary between two tiles. Reasoning in `.ai-support/quality-recycler-design.md` -> *v3*
-and *v4*.
+{-0.35, -2.3}` is a DIRECT-output position -- the tile past the back edge, where the alt-mode
+arrow points and the results appear -- not where a mined machine drops its contents. The port
+sits on that line (`PORT_X = -0.29` units); move the value and the art is wrong. The x offset
+is the vanilla recycler's own and not a style choice: a 4x4's centre is a tile corner, x 0
+would put the result on the seam between two tiles, and -0.15 put the arrow 5 px from it -- a
+player with a chest on each tile could not tell which one fed. Reasoning in
+`.ai-support/quality-recycler-design.md` -> *v3*, *v4* and *round 8*.
 
 **Keep the output end LOW; a port's height belongs behind the mouth, not over it.** In east
 and west a part's height projects up-screen, perpendicular to the output axis, so a tall hood
@@ -33,6 +35,16 @@ over the mouth draws the port's mass north of the arrow and reads as a misplaced
 the mouth is exactly on the output position. The roof falls toward the mouth and only the back
 step the trough feeds through keeps its height. Reasoning in
 `.ai-support/quality-recycler-design.md` → *v4, After play (round 7)*.
+
+**The port is POSED per direction: in east and west its raised parts slide 0.25 units
+screen-south.** In those two rotations a part's height and its extent across the output axis
+both project up-screen, so the port's block drew 0.6-1.4 tiles north of the arrow while its
+foot sat exactly on it, and no geometry fixes that -- the arrow marks ground. It is what
+vanilla does with the oil refinery's four models. `qr_layout.port_shift()` runs from
+`set_direction()` for every driver, moves everything on the port but the sill, and keys the
+ejected chips only while they are out of sight; north and south are untouched, and so is the
+audit, which reads the model at north. Do not "fix" the E/W sheets by editing geometry that
+looks right in north. Reasoning in `.ai-support/quality-recycler-design.md` → *round 8*.
 
 **The item icon frames the whole machine, from 52 degrees.** Two icons cropped into the rotor
 and the owner rejected both. A flat machine's icon gets squarer as the camera goes UP, not
@@ -137,6 +149,8 @@ per-channel maxima per direction, not by eye.
 ```
 info.json                  base, quality, recycler, space-age
 data.lua                   requires the two prototype files, in order
+data-final-fixes.lua       sizes the result inventory to the widest recycling recipe, after
+                           every mod has had its say (see Decided)
 prototypes/recycler/entity.lua    the furnace, built from scratch (see Decided)
 prototypes/recycler/item.lua      item, recipe and technology
 prototypes/recycler/pictures.lua  graphics_set and graphics_set_flipped
@@ -150,6 +164,10 @@ graphics/entity/quality-recycler/  base, anim (64f), shadow, fx (64f),
                             util.sprite_load reads
 graphics/icons/            item icon, 120x64 mipmap strip
 graphics/technology/       technology icon, 480x256 mipmap strip
+thumbnail.png              144x144, portal and in-game mod browser -- the icon render over
+                           a dark panel with the title in Titillium Web Bold, built by
+                           ../assets/quality-recycler/thumbnail/make_thumbnail.py from
+                           renders/icon/icon-raw.png; regenerate, never edit the PNG
 .ai-support/index.md       the map -- read it first
 .ai-support/decisions.md   what is settled, and why
 .ai-support/quality-recycler-design.md   the entity's visual design -- read before any art
@@ -183,6 +201,13 @@ Since the 2026-09-11 rebuild they are split by job, and all of them import the f
 | `preview_game.py` | composite the packed sheets the way the engine draws them, on real terrain, beside real vanilla machines, with night and looping GIFs |
 | `check_sheets.py` / `check_wear.py` / `check_visibility.py` | the gates, the edge-wear mask, the object-ID pass |
 | `versions/` | the pre-rebuild v0 generator and the v2 generators that differ from commit 57acdf1; no `.blend`, they regenerate it |
+
+`assets/quality-recycler/thumbnail/make_thumbnail.py` builds `thumbnail.png` (`--preview`
+writes a 4x blowup beside its 512 master): the same icon render and the same paint-over the
+item icon gets, so the two match, over a dark panel with a violet cast and the title set in
+the game's own Titillium Web Bold, the way Pure Modules' is built. **Re-render the icon
+first after any model change** -- `render_icon.py` into `renders/icon/`, then `make_icons.py`
+-- since the thumbnail reads that raw render and the shipped icon is cut from it.
 
 Only exported PNGs land in `graphics/`. See the repo `CLAUDE.md` → *Asset sources*.
 
@@ -229,6 +254,13 @@ feature flag, and why the optional dependency carries no version — are in
   results actually appear; v2 shipped with its output art on the wrong side of the machine and
   every offline gate green.
 - **Balance is still a guess.** Nothing has been played for more than a screenshot.
+- **A machine from a save older than 2026-09-11 stands half a tile off the grid.** It was
+  placed as a 3x3, at a tile centre; the engine keeps an entity's position when its box
+  grows, so the 4x4 now sits at x.5 and its output tile, arrow and mouth are half a tile off
+  the chest grid -- the seam-straddling picture all over again, with nothing wrong in the
+  mod. Measured 2026-09-12 on the owner's test save, and reproduced the other way round:
+  under the owner's full mod set the engine reports `grid 4x4` and snaps a fresh placement
+  to whole tiles. Mine and re-place before judging the port on an old save.
 
 ## Decided
 
@@ -254,6 +286,15 @@ feature flag, and why the optional dependency carries no version — are in
 - **Built from scratch, not deep-copied from the vanilla recycler.** A deepcopy carries its 2x4
   collision box, circuit connectors, `vector_to_place_result` and frame-synced working sound,
   every one of them positioned for a different machine.
+- **`result_inventory_size` is 25 in the prototype -- the owner's floor -- and re-read in
+  `data-final-fixes.lua` as the widest recipe in the machine's categories, never lower.** A
+  furnace cannot run a recipe with more
+  products than it has result slots, and an inserter then silently refuses the ingredient.
+  Krastorio 2 Spaced Out adds a 13th result to scrap recycling and widens only the vanilla
+  recycler; measured 2026-09-12 in the owner's game as "inserters will not feed it scrap".
+  The reason is in `.ai-support/decisions.md`. **Direct output onto a belt stacks**, up to
+  the force's belt stack size, exactly as the vanilla recycler's does -- measured in the
+  engine, not assumed, since the prototype API has no field for it (`decisions.md`).
 
 Balance is unmeasured, and sounds, `water_reflection`, a circuit connector and a real remnant are
 still open. See `.ai-support/deferred.md`.

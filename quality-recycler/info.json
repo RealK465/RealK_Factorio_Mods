@@ -8,5 +8,5 @@
   "description": "A new recycler with quality built right in.",
   "dependencies": ["base >= 2.1.0", "quality >= 2.1.0", "recycler >= 2.1.0", "? space-age"],
   "quality_required": true,
-  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md"] }
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images"] }
 }

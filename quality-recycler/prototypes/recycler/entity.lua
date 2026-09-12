@@ -49,7 +49,10 @@ data:extend({
     crafting_categories = {"recycling"},
     crafting_speed = 1.25,                 -- 2.5x the vanilla recycler's 0.5; assembler 3's
     source_inventory_size = 1,
-    result_inventory_size = 12,
+    -- 25 output slots, not the vanilla recycler's 12: the owner's floor, and
+    -- data-final-fixes.lua raises it further to the widest recycling recipe
+    -- another mod defines (Krastorio 2 Spaced Out makes scrap 13 results).
+    result_inventory_size = 25,
 
     -- The mechanic. `effect_receiver.base_effect.quality` is a permanent,
     -- module-free bonus -- the same field a quality module writes, carried by
@@ -80,9 +83,11 @@ data:extend({
     -- exactly like a mining drill's drop position -- this is what the yellow
     -- alt-mode arrow points at, and the art's output port is built on it. A
     -- 4x4's centre is a tile corner, so x 0 would sit on the boundary between
-    -- the two centre tiles; -0.15 lands inside the west one (mirrored, the
-    -- east one), which is what the vanilla recycler's own -0.35 is for.
-    vector_to_place_result = {-0.15, -2.3},
+    -- the two centre tiles. -0.35 is the vanilla recycler's own offset for the
+    -- same problem: inside the west tile (mirrored, the east one), and far
+    -- enough off the seam that the arrow reads on one tile. -0.15 was tried
+    -- and a player with a chest on each tile could not tell which one.
+    vector_to_place_result = {-0.35, -2.3},
 
     custom_input_slot_tooltip_key = "recycler-input-slot-tooltip",
     cant_insert_at_source_message_key = "inventory-restriction.cant-be-recycled",
