@@ -128,6 +128,25 @@ over-keeping by the unresearched difference; or the surplus-sized hand (`analysi
 §33), which needs no number at all but puts each minimum on the combinator as a negative
 item row.
 
+### Network mode: a network-wide floor, and a roboport that would keep C retunable
+**Status:** two shapes passed over when the logistic-network cap landed (2026-09-12,
+`decisions.md` → *Count the whole logistic network*), recorded so neither is re-derived.
+
+The **Min reserves stay local** in network mode — the owner's call, Max only. A network-wide
+floor would put the same logistic condition on each tier's reserve inserter,
+`product@tier >= min`, stopping a tier's recycling once the whole network (the loop's own
+buffer chests included, since buffer contents count) holds fewer than the minimum. It would
+make the M rows, the hand pin and the per-column sum moot for that mode, and it carries the
+same roboport-range caveat. Revisit if a player asks for "keep N rare in my network".
+
+**A roboport of the mod's own** with `read_items_mode = logistics` on the green wire would put
+the network's counts where every existing condition already reads — C stays retunable, the
+panel's Done row keeps working, nothing is baked. Passed over because it is a 4x4 entity in
+the layout (the `### Roboports` machinery below), needs power and a network to merge with
+(isolated, it reads the loop's own chests: today's behaviour), and the vanilla checkbox
+answers the request as asked. If the lost retune ever matters more than the footprint, this
+is the shape; `analysis/api.md` §34 has the surface.
+
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short

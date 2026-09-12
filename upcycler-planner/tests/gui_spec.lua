@@ -1136,6 +1136,49 @@ describe("the modal", function()
     assert(circuits_panel() == nil, "unticking the limits left the wizard open")
   end)
 
+  test("Count the logistic network lives above Start paused: armed by the cap, stored on the tick, dead under a zero cap", function()
+    open_with_gears()
+    choices().circuit_enabled = true
+    gui.open_circuits(player())
+    local content = circuits_panel()["upl-circuits-content"]
+    local network = content["upl-circuit-network"]
+    assert(network, "the network box is not in the wizard")
+    assert(network.state == false and network.enabled == true,
+      "the network box must open unticked and armed by the backfilled cap")
+    -- The two share the foot, the cap's own option first.
+    local order = {}
+    for index, child in pairs(content.children) do order[child.name] = index end
+    assert(order["upl-circuit-network"] < order["upl-circuit-paused"],
+      "the network box is not above Start paused")
+
+    network.state = true
+    fire(network, defines.events.on_gui_checked_state_changed)
+    assert(choices().circuit_network == true, "the tick did not reach the choices")
+    assert(network.valid, "the tick rebuilt the wizard under the cursor")
+
+    -- Nothing to count without a cap: zeroing the Max greys it in place, a cap typed back
+    -- arms it again, and the stored tick survives both.
+    local field = circuit_field("legendary")
+    field.text = "0"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(network.valid and network.enabled == false, "the network box stayed armed under a zero cap")
+    assert(choices().circuit_network == true, "greying the box must not forget the choice")
+    field.text = "20"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(network.enabled == true, "the network box did not re-arm with the cap")
+
+    -- One of the limits, not a build option.
+    assert(widget({ "upl-options", "upl-circuits-strip" })["upl-circuit-network"] == nil,
+      "the network box is on the Circuits row")
+    network.state = false
+    fire(network, defines.events.on_gui_checked_state_changed)
+    assert(choices().circuit_network == false, "the untick did not reach the choices")
+    local box = widget({ "upl-options", "upl-circuits-strip", "upl-circuit-enabled" })
+    box.state = false
+    fire(box, defines.events.on_gui_checked_state_changed)
+    assert(circuits_panel() == nil, "unticking the limits left the wizard open")
+  end)
+
   test("typing commits without a rebuild; Enter snaps the text to what holds", function()
     open_with_gears()
     choices().circuit_enabled = true

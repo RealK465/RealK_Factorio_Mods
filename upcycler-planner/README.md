@@ -14,7 +14,7 @@ Some configuration options are:
 - You can **configure every entity** you want to use (assembling machine, recycler, modules, poles, inserters, chests...)
 - Supports **beaconed layouts (enable "Show All Build Options" setting)** (useful for modded beacons like Maraxis quality beacon)
 - Supports **recipes with fluids**
-- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network. The limits sit on a **constant combinator** you can edit in place, and **lamps** show when the loop is done.
+- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network. The limits sit on a **constant combinator** you can edit in place, and **lamps** show when the loop is done. The maximum can also count your whole logistic network.
 - Automatically proposes the **best ratio of modules** (considering modded machines/modules), see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
 - You can **configure the number of columns** for each quality tier to boost output
 
@@ -75,6 +75,8 @@ and also a maximum amount for the target quality item that stops the loop after 
 The numbers live on a constant combinator inside the loop, so you can change them in place without a new blueprint.
 Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on.
 Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full or the loop is paused, and the panel's icon is visible on the map.
+
+A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, set it in the planner and place the new blueprint over the loop: the game updates the machines in place. The combinator still pauses: switch it off, or set its C row to 0. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 

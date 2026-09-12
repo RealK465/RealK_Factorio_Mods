@@ -1114,4 +1114,17 @@ describe("column counts move the pace", function()
       "extra columns did not move the pace: " .. paced.seconds
       .. " vs " .. untouched.seconds)
   end)
+
+  test("the no-logistic-connection flag reads off a prototype, and vanilla sets it on one machine only", function()
+    -- Network mode's validate guard rests on has_flag: the captive biter spawner is the one
+    -- vanilla crafter the engine bars from a logistic network (space-age entities.lua), and
+    -- every machine the planner can pick must read false, or the guard would refuse them all.
+    assert(prototypes.entity["captive-biter-spawner"].has_flag("no-logistic-connection"),
+      "the spawner no longer carries the flag the guard was written against")
+    for _, name in pairs({ "assembling-machine-3", "recycler", "foundry",
+      "electromagnetic-plant", "cryogenic-plant", "biochamber" }) do
+      assert(not prototypes.entity[name].has_flag("no-logistic-connection"),
+        name .. " refuses a logistic network -- network mode would refuse it")
+    end
+  end)
 end)

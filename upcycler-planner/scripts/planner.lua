@@ -2268,6 +2268,9 @@ function planner.plan(force, choices, gathered)
       circuit = {
         minimums = minimums, maximum = maximum, capped = maximum ~= nil,
         paused = maximum ~= nil and choices.circuit_paused == true,
+        -- The cap counted across the logistic network (circuits.lua, network mode): only
+        -- ever with a cap, and pure decoration -- the stack stands the same either way.
+        network = maximum ~= nil and choices.circuit_network == true,
         hand = planner.circuit_hand(force, choices, r.inserter.name),
       }
     end
@@ -2377,6 +2380,7 @@ function planner.plan(force, choices, gathered)
       minimums = circuit.minimums,
       maximum = circuit.maximum,
       paused = circuit.paused,
+      network = circuit.network,
       hand = circuit.hand,
       product = product.name,
       reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),
@@ -2595,6 +2599,24 @@ function planner.validate(force, choices)
     if beacon_module then
       local beacon_refusal = module_refusal(prototypes.item[beacon_module], { beacon }, nil)
       if beacon_refusal then return false, beacon_refusal end
+    end
+  end
+
+  -- Network mode puts the cap on each machine and recycler as the engine's own logistic
+  -- condition, which a prototype flagged no-logistic-connection ignores without a word --
+  -- the loop would never stop. Vanilla's one such machine is the captive biter spawner;
+  -- modded ones can follow it, so the pick is refused rather than silently uncapped. A
+  -- refusal, so it sits ABOVE the warnings: each of those returns on its own, and a loop
+  -- planned ahead of its research would otherwise sail past this check.
+  if choices.circuit_enabled and choices.circuit_network then
+    local _, maximum =
+      planner.circuit_limits(choices, recipe, planner.tiers_up_to(choices.quality))
+    if maximum then
+      for _, holder in pairs({ machine, recycler }) do
+        if holder.has_flag("no-logistic-connection") then
+          return false, { "upl-message.no-logistic-connection", holder.localised_name }
+        end
+      end
     end
   end
 

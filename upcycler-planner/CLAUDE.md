@@ -24,7 +24,7 @@ panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fift
 2026-08-28 — per-tier column counts; both rows moved down from
 the MAKES block the same day, and the balanced-columns hint the panel first carried was
 removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
-2026-08-26, a Start paused checkbox at its foot since 2026-09-07), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
+2026-08-26, a Start paused checkbox at its foot since 2026-09-07 and a Count the whole logistic network checkbox above it since 2026-09-12), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
 (until show-all or an actual pick), and the five chests, so a vanilla game
@@ -39,7 +39,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (370 tests on both tracks as of 2026-09-09) — planner, layout, poles,
+suite under `tests/` (379 tests on `main`, 378 on `legacy/2.0`, as of 2026-09-12) — planner, layout, poles,
 circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
 beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -386,7 +386,14 @@ re-opening any of these, and don't restate a reason here.
   combinator off pauses a capped loop (and lifts every reserve: the description says which,
   per case); a *Start paused* checkbox at the foot of the Limits wizard ships it switched
   off. A cap also stands two lamps (blue running, green done) and a display panel (paused /
-  done / running, on the map too) below it, each wired to the combinator alone. Fixed
+  done / running, on the map too) below it, each wired to the combinator alone.
+  **Count the whole logistic network** (2026-09-12), a checkbox above Start paused, makes
+  the cap the engine's own logistic condition on every machine and recycler —
+  `product@target < max`, a constant baked per entity — with the wire keeping only the pause
+  (`C > 0`); the lamps follow it, the panel keeps its Paused row alone, validate refuses a
+  `no-logistic-connection` machine (2.1 only), and the loop then only runs inside roboport
+  range. Max only; the reasons and rejected shapes in `decisions.md`, the engine facts in
+  `analysis/api.md` §34. Fixed
   prototypes, no research gate, one green network, footprint unchanged. The
   planner normalises the thresholds once (`planner.circuit_limits`) BEFORE the layout, and
   the pole memo keys on circuit presence, never the numbers — typing a threshold re-solves

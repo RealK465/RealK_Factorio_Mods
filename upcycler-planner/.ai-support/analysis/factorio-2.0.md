@@ -1,6 +1,6 @@
 ---
 verified_against: 2.0.77
-verified: 2026-08-28
+verified: 2026-09-12
 ---
 # Factorio 2.0 — the API surface this mod touches
 
@@ -245,6 +245,34 @@ stage loads clean (exit 0, checksum line), and the whole suite (the same count a
 passes from the legacy worktree — the island left ungated and counted, the stack's link
 shape, the raised rows per column and the empty-pick regression — with the pure tier green
 and the static tier clean against the 2.0.77 typedefs.
+
+## Network mode ports unchanged, minus the flag guard — measured 2026-09-12
+
+The logistic-network cap (`../decisions.md` → *Count the whole logistic network*; the 2.1
+measurements in `api.md` §34) rests on `connect_to_logistic_network` / `logistic_condition`,
+which 2.0.77 carries on the same classes — `LuaFurnaceControlBehavior` and
+`LuaAssemblingMachineControlBehavior` both parent `LuaGenericOnOffControlBehavior` here too,
+and `FurnaceBlueprintControlBehavior` / `AssemblingMachineBlueprintControlBehavior` carry the
+pair in the blueprint shape (2.0.77 `runtime-api.json`). `circuits.lua` is therefore shared
+unchanged, and `planner.lua` / `gui.lua` took the same edits by hand: the `network` flag on
+the circuit table and in the decorate opts, the checkbox, its handler, the repaint line.
+
+**What differs: the prototype-level opt-out has no runtime read on 2.0.** 2.1.7's
+`"no-logistic-connection"` `EntityPrototypeFlag` does not exist on 2.0.77 — the name is absent
+from its `runtime-api.json`, so `has_flag("no-logistic-connection")` is not a valid call
+there — and its predecessor, `AssemblingMachinePrototype::enable_logistic_control_behavior`
+(default `true`; vanilla sets it `false` on the captive biter spawner alone,
+`data/space-age/prototypes/entity/entities.lua:1573`), is a data-stage field with no runtime
+mirror either. The legacy `planner.validate` therefore carries **no** `no-logistic-connection`
+refusal, and `tests/planner_spec.lua`'s flag test is main-only. A 2.0 player picking a modded
+machine that opts out would get a loop whose cap is silently ignored — accepted: no such
+machine is known, and the vanilla switch defaults to on.
+
+Measured on 2.0.77, not inferred: the whole suite passes from the legacy worktree — 378 to
+main's 379, the flag test being the one difference — the new specs included: the pure
+network-mode shapes, the plan-level flag, the ghost read-back of the pair (the same names on
+both sides, as on 2.1), the live machine stopped by the network's count and dead outside any
+network, and the wizard's checkbox. Static clean against the 2.0.77 typedefs, pure 117/117.
 
 ## UNVERIFIED on 2.0
 

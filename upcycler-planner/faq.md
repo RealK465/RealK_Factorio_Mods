@@ -30,9 +30,13 @@ Look at the constant combinator under the last machine. If it's switched off, a 
 
 If the combinator is on and the loop still sits idle, check its **C** row: 0 stops the loop rather than lifting the cap.
 
+If you ticked **Count the whole logistic network** in the Limits window, every machine and recycler must stand inside roboport range. A machine outside any logistic network is switched off completely.
+
 ## How do I change the limits after building?
 
 Open the same combinator. The **M** rows are the minimum kept of each quality plus the inserter's hand size for every column of that quality, so a full hand never dips below your minimum: keep 20 with a 12-item hand and one column, and M reads 32. **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. To lift the maximum, type a big number: a C at 0 stops the loop. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
+
+With **Count the whole logistic network** ticked, the maximum is set on each machine, not on the combinator. To change it, set the new number in the planner and place the blueprint over the loop: the game updates the machines in place. The combinator's **C** row still pauses: set C to 0 or switch it off.
 
 ## Why is my fluid recipe refused?
 

@@ -9,6 +9,53 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-09-12 - Count the whole logistic network: the cap read off the logistic network (1.3.0 / 1.3.1 opened)
+
+yopoke asked on the portal for "an option to switch to logistic network limit instead of
+circuit limit" (`6aa368194915925bf804753f`; the owner had answered "next patch"), and the
+owner opened the session with the shape: a checkbox in the Limits window making the maximum
+read the whole logistic network instead of the local wire.
+
+Measured before designing, with a throwaway probe mod run through the `factorio-testing`
+runner (`upl-probe`, two spec files in the session scratchpad, deleted after): assembling
+machines and furnaces honour `connect_to_logistic_network` + `logistic_condition` exactly as
+inserters and lamps do (`disabled_by_control_behavior`, zero crafts); an entity outside any
+network is disabled outright whatever its condition; a circuit and a logistic condition AND
+together; the pair round-trips a blueprint under the same names on both sides; and a
+blueprint stamped over the live entities updates the baked constant in place. The install's
+changelog supplied the prototype side: 2.1.7's `no-logistic-connection` flag replacing 2.0's
+`enable_logistic_control_behavior` (default true), vanilla setting either on the captive
+biter spawner alone. Constant combinators, display panels and roboports have no such
+surface. `analysis/api.md` §34 has the numbers.
+
+The tension the measurements exposed: a logistic condition compares against a constant, so
+the cap can no longer live on the combinator -- the very thing the 2026-09-07 combinator
+move bought. Four calls were put to the owner and the recommendations taken: Max only (the
+reserves stay local); the combinator stays the pause switch with the M rows while the max is
+baked into each machine (wire condition `C > 0` beside the logistic one); the panel keeps only
+its Paused row (it cannot read the network; the green lamp says done); and the box sits at
+the foot of the Limits window above Start paused. Retuning the max is "plan again and stamp
+over the loop", which the restamp measurement made an honest FAQ answer.
+
+Built as a decoration flag: `circuits.decorate` grew `opts.network`, a `logistic_gate()`
+beside `gate()` and a `network_gate()` carrying both, a third description constant and the
+panel and lamp forks; `planner.plan` resolves `circuit.network` only with a cap;
+`planner.validate` refuses network mode on a `no-logistic-connection` machine or recycler
+(main only -- 2.0 has no runtime read of either switch); `gui.lua` gained the checkbox, its
+handler (Start paused's twin) and one repaint line. Nothing in `layout.lua`, `poles.lua`,
+`blueprint.lua` or `state.lua` changed. Nine specs joined (pure 4, plan, blueprint, loop,
+gui, planner): static clean, pure 117/117, headless 379/379 on 2.1.17. The `user-facing-text`
+agent wrote the locale keys, the README paragraph and the two FAQ additions; the three
+output-chest tooltips were loosened so they stay true in either mode. 1.3.0 opened on `main`
+and 1.3.1 on `legacy/2.0`, the port applied by hand in the same session.
+
+The three-reviewer pass caught one real defect: the flag refusal first landed BELOW
+validate's "warnings from here" boundary, where any earlier warning -- an unresearched
+quality, the commonest planning-ahead case -- returns first and the refusal never fires; it
+now sits last among the refusals (`deferred.md` records the same ordering trap once before,
+under the terminal-module refusal). The other two passes asked for nothing beyond naming the
+repeated `maximum ~= nil` in the wizard repaint.
+
 ## 2026-09-09 - 1.2.2 and 1.2.3 ship: the Minutes release, both tracks, on a timer
 
 Released on the owner's ask -- "prepare the release but do not publish it right now,

@@ -514,10 +514,14 @@ function gui.refresh(player)
   if wizard then
     local minimums, maximum = circuit_limits_of(choices)
     local content = wizard["upl-circuits-content"]
+    local capped, reserved = maximum ~= nil, next(minimums) ~= nil
     local paused = content["upl-circuit-paused"]
-    if paused.enabled ~= (maximum ~= nil) then paused.enabled = maximum ~= nil end
+    if paused.enabled ~= capped then paused.enabled = capped end
+    -- The network box follows the Max the same way: the cap is the only thing it counts.
+    local network = content["upl-circuit-network"]
+    if network.enabled ~= capped then network.enabled = capped end
     local hand = content["upl-circuit-hand-row"]["upl-circuit-hand"]
-    if hand.enabled ~= (next(minimums) ~= nil) then hand.enabled = next(minimums) ~= nil end
+    if hand.enabled ~= reserved then hand.enabled = reserved end
     -- An untouched Hand size keeps following the inserter pick and the research, which plan()
     -- already reads live: the text and the default in the tags move together, or Enter on
     -- the shown number would freeze it as an override (override_count's rule).
@@ -813,6 +817,21 @@ local function build_circuits_panel(player, frame)
   })
   hand_field.style.width = 60
   hand_field.enabled = next(minimums) ~= nil
+
+  -- Count the whole logistic network (2026-09-12, a portal request): the Max counted across
+  -- the player's logistic network rather than the output chest -- the engine's own logistic
+  -- condition on every machine and recycler, the mechanics in circuits.lua's header. One of
+  -- the limits like Start paused below, so it lives here; dead without a maximum for the
+  -- same reason, and repainted by gui.refresh as the Max field changes. Off by default: a
+  -- loop outside roboport range would otherwise never run.
+  local network_box = content.add({
+    type = "checkbox", name = "upl-circuit-network", state = choices.circuit_network == true,
+    caption = { "upl-gui.circuit-network" },
+    tooltip = { "upl-gui.circuit-network-tooltip" },
+    tags = dispatch.tags("circuit-network"),
+  })
+  network_box.style.top_margin = 8
+  network_box.enabled = maximum ~= nil
 
   -- Start paused, at the foot of the rows -- the owner's placement (2026-09-07): it is one
   -- of the limits, not a build option. The combinator ships switched off, so a half-built
@@ -2483,6 +2502,17 @@ dispatch.register("circuit-paused", function(event)
   -- refresh, behind the same double-fire guard as every checkbox.
   local settled = settled_on(choices, "circuit_paused")
   choices.circuit_paused = event.element.state
+  if settled() then return end
+  gui.refresh(player)
+end)
+
+dispatch.register("circuit-network", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  -- Start paused's twin: the conditions change shape, the geometry does not -- the stack
+  -- stands the same either way -- so a plain refresh behind the double-fire guard.
+  local settled = settled_on(choices, "circuit_network")
+  choices.circuit_network = event.element.state
   if settled() then return end
   gui.refresh(player)
 end)
