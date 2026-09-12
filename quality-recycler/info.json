@@ -16,7 +16,7 @@
     "ignore": [
       "CLAUDE.md",
       "CLAUDE.local.md",
-      "images"
+      "images/**"
     ]
   }
 }
