@@ -153,7 +153,13 @@ local function build(group)
       -- LuaEntity.minable is read-only in 2.1; nothing here needs it anyway,
       -- the run lasts a couple of hundred ticks with no player in it.
       entity.destructible = false
-      note("placed %s at %s,%s", spawn.name, spawn.x or 0, spawn.y or 0)
+      -- Say where the engine actually put it and on what grid: create_entity
+      -- snaps a building to its tile grid, so a spec position off that grid
+      -- lands somewhere else, and a 4x4 asked for at x.5 reports x.0 here.
+      local proto = entity.prototype
+      note("placed %s at %s,%s -> engine position %s,%s (grid %dx%d)", spawn.name,
+           spawn.x or 0, spawn.y or 0, entity.position.x, entity.position.y,
+           proto.tile_width, proto.tile_height)
     end
   end
   -- Electric machines need real power or they render their idle state. An
@@ -203,6 +209,28 @@ local function shoot(group, tick_tag)
       if v == e.status then name = k end
     end
     note("%s at %s,%s: status %s", e.name, e.position.x, e.position.y, name)
+  end
+  -- What every belt in the group carries, per lane: the item count and the
+  -- largest stack on it. A picture cannot tell a stack of four from a single
+  -- item, and whether a crafting machine's direct output stacks on a belt is
+  -- not something the prototype API says -- so a group with `belt_report`
+  -- measures it.
+  if group.belt_report then
+    for _, b in pairs(surf.find_entities_filtered {
+        area = area_for(group), type = { "transport-belt" } }) do
+      for li = 1, b.get_max_transport_line_index() do
+        local line = b.get_transport_line(li)
+        local biggest, total = 0, 0
+        for _, d in pairs(line.get_detailed_contents()) do
+          total = total + d.stack.count
+          if d.stack.count > biggest then biggest = d.stack.count end
+        end
+        if total > 0 then
+          note("belt at %s,%s lane %d: %d items, largest stack %d",
+               b.position.x, b.position.y, li, total, biggest)
+        end
+      end
+    end
   end
   -- Night is not cosmetic here: draw_as_light and blend_mode "additive" only
   -- resolve in the light pass, so a layer that glows after dark is invisible
