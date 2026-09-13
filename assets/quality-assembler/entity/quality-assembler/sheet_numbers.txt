@@ -1,9 +1,12 @@
 base: width=198 height=234 shift=util.by_pixel(0.0, -12.5)
-shadow: width=252 height=172 shift=util.by_pixel(16.5, 5.0)
-anim: width=166 height=140 shift=util.by_pixel(-0.5, -15.0) frames=64 line_length=8 sheet=1328x1120
-lamp: width=110 height=30 shift=util.by_pixel(-12.5, 8.0)
-glow: width=44 height=68 shift=util.by_pixel(21.5, -13.5) frames=64 line_length=8 scale=1.0 sheet=352x544
-pipe-N: width=30 height=48 shift=util.by_pixel(0.5, 11.5) (outside-tile origin)
+shadow: width=252 height=170 shift=util.by_pixel(16.5, 4.5)
+anim: width=170 height=168 shift=util.by_pixel(3.5, -10.5) frames=64 line_length=8 sheet=1360x1344
+run: width=184 height=134 shift=util.by_pixel(-0.5, -15.5) frames=64 line_length=8 sheet=1472x1072
+fast-comp: width=56 height=38 shift=util.by_pixel(-29.5, -41.0) frames=64 line_length=8 sheet=448x304
+fast-fan: width=66 height=30 shift=util.by_pixel(30.5, 12.5) frames=64 line_length=8 sheet=528x240
+lamp: width=110 height=64 shift=util.by_pixel(-12.5, 16.5) frames=64 line_length=8 sheet=880x512
+glow: width=43 height=120 shift=util.by_pixel(22.0, -28.0) frames=64 line_length=8 scale=1.0 sheet=344x960
+pipe-N: width=28 height=48 shift=util.by_pixel(1.0, 11.5) (outside-tile origin)
 pipe-S: width=36 height=50 shift=util.by_pixel(0.0, -29.5) (outside-tile origin)
-pipe-E: width=22 height=44 shift=util.by_pixel(-17.5, -10.5) (outside-tile origin)
+pipe-E: width=16 height=38 shift=util.by_pixel(-15.5, -9.0) (outside-tile origin)
 pipe-W: width=16 height=38 shift=util.by_pixel(18.0, -9.0) (outside-tile origin)

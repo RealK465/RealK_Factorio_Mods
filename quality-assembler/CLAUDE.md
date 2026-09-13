@@ -13,8 +13,13 @@ compares to its two reference machines are in `.ai-support/decisions.md`.
 **Built and unplayed, as of 2026-09-13** — the entity is modelled, animated and rendered
 (sources in `../assets/quality-assembler/entity/quality-assembler/`, sheets in `graphics/`),
 wired into `data.lua`, validated in both configurations and photographed working in the engine;
-the item and technology icons and `thumbnail.png` exist. Nothing has been played beyond
-screenshots. **Unpublished**, `0.1.0`, no git tag; run the `factorio-release` skill's "Published
+the item and technology icons and `thumbnail.png` exist. A second pass the same day rebuilt the
+animation as a layered system (seven sheets in three engine slots — the craft loop, the
+always-on refrigeration, the working-speed overlays, the glow, the lamps) and it was photographed
+again over a tick sequence; a third repainted the graft in the cryogenic plant's sampled teal
+with cream panels, dark composite frames and khaki ribbed hoses, and gave it a twin-fan
+condenser, a sight dome, a light line over the window and a console (the design document's
+*The Aquilo pass*). Nothing has been played beyond screenshots. **Unpublished**, `0.1.0`, no git tag; run the `factorio-release` skill's "Published
 or open?" check rather than trusting a number written here. **The `legacy/2.0` track carries the
 same build** with `info.json` and `prototypes/assembler/entity.lua` forked — the three
 differences are in `.ai-support/decisions.md` → *The 2.0 track*, and the repo `CLAUDE.md` → *Git*
@@ -84,11 +89,23 @@ evidence lives inside the window.
 
 Two more come from the engine, measured 2026-09-13, and both bind the sprite wiring:
 
-**There is no idle loop, and do not add one.** `idle_animation` does not play — a machine that is
-not working is frozen, and the idle sheet is drawn at the frame the working one stopped on. A
-second sheet with different fan angles jumps the instant the machine stops. The machine freezes
-when idle like every vanilla assembler; the state read is the window going dim and the fan
-stopping.
+**Idle motion lives in `always_draw` + `constant_speed` working visualisations, never in
+`idle_animation`.** `idle_animation` does not play — a machine that is not working is frozen, and
+the idle sheet is drawn at the frame the working one stopped on. A working visualisation with
+both flags plays in every state, even unpowered; that is where the refrigeration (fan, flywheel,
+pulley, cabinet fan, lamps) runs, at one speed, while the craft (`anim`) freezes with the
+machine. "Fast when working" is the `fast-comp` / `fast-fan` overlays, opaque discs drawn over
+the slow layer and listed AFTER it, because working visualisations draw in list order. Do not
+put a moving part in the base animation expecting it to run while idle, and do not add an
+`idle_animation`.
+
+**The animation is not scaled by the crafting speed.** Measured: every layer closes at 128 ticks
+at `crafting_speed = 2`, 64 frames at `animation_speed = 0.5`. Author timing against that.
+
+**A turning part's step per frame stays under about 0.4 of its blade or spoke period**, or it
+strobes backwards in game. The fast fan at 28° a frame needs five blades, not seven. Check every
+wheel's blade count against its turns per loop before rendering; the numbers are in
+`.ai-support/quality-assembler-design.md` → *The animation system*.
 
 **`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the origin pipe covers
 use, not on the entity. `make_sheets.py` writes the four stub sidecars against that origin;
@@ -107,13 +124,19 @@ data.lua                   requires the two prototype files, in order
 prototypes/assembler/entity.lua     the assembling machine, built from scratch (see Decided)
 prototypes/assembler/item.lua       item, recipe and technology, forked on mods["space-age"]
 prototypes/assembler/pictures.lua   graphics_set, working_visualisations and pipe_picture
-graphics/entity/quality-assembler/  base, anim (64f), shadow, glow (64f, half res), lamp and
-                           pipe-N/S/E/W, each with the `.lua` sidecar util.sprite_load reads
+graphics/entity/quality-assembler/  base, anim (the craft loop, 64f), run (the refrigeration,
+                           always on, 64f), fast-comp + fast-fan (the working-speed overlays,
+                           64f), shadow, glow (64f, half res), lamp (64f) and pipe-N/S/E/W,
+                           each with the `.lua` sidecar util.sprite_load reads
 graphics/icons/            item icon, 120x64 mipmap strip
 graphics/technology/       technology icon, 480x256 mipmap strip
 thumbnail.png              144x144 -- the icon render over a dark panel with the title, built
                            by ../assets/quality-assembler/thumbnail/make_thumbnail.py;
                            regenerate, never edit the PNG
+images/                    the portal gallery, tracked and kept out of the zip by
+                           package.ignore: the Factoriopedia page, a production line by day
+                           and by night, a close-up -- all shot by the screenshot harness
+                           from a composed spec (see .ai-support/journal.md), not by hand
 .ai-support/index.md       the map, read it first
 .ai-support/decisions.md   what is settled, and why
 .ai-support/deferred.md    open questions and parked work

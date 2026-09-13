@@ -12,8 +12,15 @@
 # into frame N-1.
 #
 # Each layer is cropped to its OWN union box across the loop and carries its
-# own shift, so editing one re-packs only that one. The anim and idle sheets
-# share a box so the two states line up to the pixel.
+# own shift, so editing one re-packs only that one.
+#
+# The FAST layer is special. In game it is a working-only visualisation drawn
+# over the always-on RUN layer, and "fast when working, slow when idle" only
+# works if the fast fan completely hides the slow one under it. So its frames
+# are made OPAQUE here: the painted base sprite under the painted moving
+# parts, cut to the disc the parts sweep over the loop, split into two sheets
+# -- the compressor's wheels and the condenser's fan -- so neither carries a
+# sprite-sized field of nothing.
 import glob
 import os
 import sys
@@ -53,7 +60,8 @@ STEM = "quality-assembler"
 POST_BY_LAYER = {
     "base": dict(ENTITY_POST),
     "anim": dict(ENTITY_POST),
-    "idle": dict(ENTITY_POST),
+    "run": dict(ENTITY_POST),
+    "fast": dict(ENTITY_POST),
     "pipe": dict(ENTITY_POST),
     "shadow": None,
     "glow": None,
@@ -83,15 +91,21 @@ def light_only(img, floor=14):
     return out
 
 
-def light_bloom(img):
+def light_bloom(img, wide=(5.0, 0.30), near=(1.8, 0.55)):
     """A soft halo round what glows: the light sheet is what the window
     THROWS, not the window. Kept modest -- the engine adds it in daylight
     too, and a generous halo reads as a cyan wash over the hero in play."""
-    wide = img.filter(ImageFilter.GaussianBlur(5.0))
-    wide.putalpha(wide.getchannel("A").point(lambda v: int(v * 0.30)))
-    near = img.filter(ImageFilter.GaussianBlur(1.8))
-    near.putalpha(near.getchannel("A").point(lambda v: int(v * 0.55)))
-    return Image.alpha_composite(Image.alpha_composite(wide, near), img)
+    w = img.filter(ImageFilter.GaussianBlur(wide[0]))
+    w.putalpha(w.getchannel("A").point(lambda v: int(v * wide[1])))
+    n = img.filter(ImageFilter.GaussianBlur(near[0]))
+    n.putalpha(n.getchannel("A").point(lambda v: int(v * near[1])))
+    return Image.alpha_composite(Image.alpha_composite(w, n), img)
+
+
+# The window's halo is tighter than the lamps': a 5 px bloom over the cell
+# smeared the table, the pieces and the arm into one cyan shape, and the
+# machinery behind the glass is the point of the window.
+GLOW_BLOOM = dict(wide=(4.0, 0.14), near=(1.4, 0.32))
 
 
 def lua_shift(box):
@@ -123,6 +137,42 @@ def line_sheet(name, box, count, img):
         count, COLS, img.width, img.height)
 
 
+def pack_loop(out_dir, name, frames, lines, box=None):
+    """Paint-free packing of already-painted frames into one sheet."""
+    box = box or imaging.union_box(frames, CANVAS, alpha_floor=8, pad=2)
+    stem = STEM + "-" + name
+    img = imaging.pack_sheet(frames, box, COLS)
+    img.save(os.path.join(out_dir, stem + ".png"))
+    sidecar(out_dir, stem, box, line_length=COLS)
+    lines.append(line_sheet(name, box, len(frames), img))
+    return box
+
+
+def opaque_fast(fast, base_painted, split_x):
+    """The fast layer's two opaque sheets. Each frame is the base under the
+    moving parts, cut to the union of every pixel the parts touch over the
+    loop (dilated so the antialiased rim is inside), and split at `split_x`
+    into the compressor side and the condenser side."""
+    union = None
+    for f in fast:
+        a = f.getchannel("A").point(lambda v: 255 if v >= 8 else 0)
+        union = a if union is None else ImageChops.lighter(union, a)
+    union = union.filter(ImageFilter.MaxFilter(7))
+    out = {}
+    for tag, x0, x1 in (("comp", 0, split_x), ("fan", split_x, CANVAS[0])):
+        m = Image.new("L", CANVAS, 0)
+        m.paste(union.crop((x0, 0, x1, CANVAS[1])), (x0, 0))
+        if m.getbbox() is None:
+            continue
+        cells = []
+        for f in fast:
+            cell = Image.alpha_composite(base_painted, f)
+            cell.putalpha(ImageChops.multiply(cell.getchannel("A"), m))
+            cells.append(cell)
+        out[tag] = cells
+    return out
+
+
 def main():
     frames_dir, out_dir = sys.argv[1], sys.argv[2]
     os.makedirs(out_dir, exist_ok=True)
@@ -138,6 +188,15 @@ def main():
         base_painted.crop(box).save(os.path.join(out_dir, stem + ".png"))
         sidecar(out_dir, stem, box)
         lines.append(line_static("base", box))
+    elif os.path.exists(os.path.join(out_dir, STEM + "-base.png")):
+        # re-packing a moving layer alone: the fast sheets still need the
+        # shipped base under them
+        shipped = Image.open(os.path.join(out_dir, STEM + "-base.png")).convert("RGBA")
+        sx, sy = [float(v) for v in open(os.path.join(out_dir, STEM + "-base.lua")).read()
+                  .split("by_pixel(")[1].split(")")[0].split(",")]
+        base_painted = Image.new("RGBA", CANVAS, (0, 0, 0, 0))
+        base_painted.paste(shipped, (int(round(CANVAS[0] / 2 + sx * 2 - shipped.width / 2)),
+                                     int(round(CANVAS[1] / 2 + sy * 2 - shipped.height / 2))))
 
     shadow_paths = frames_of(frames_dir, "shadow")
     if shadow_paths and base_painted is not None:
@@ -153,33 +212,26 @@ def main():
         sidecar(out_dir, stem, sbox)
         lines.append(line_static("shadow", sbox))
 
-    # anim and idle share one box so the two states register exactly
-    anim_paths, idle_paths = frames_of(frames_dir, "anim"), frames_of(frames_dir, "idle")
-    if anim_paths:
-        anim = [paint("anim", Image.open(p).convert("RGBA")) for p in anim_paths]
-        idle = [paint("idle", Image.open(p).convert("RGBA")) for p in idle_paths]
-        abox = imaging.union_box(anim + idle, CANVAS, alpha_floor=8, pad=2)
-        for name, frames in (("anim", anim), ("idle", idle)):
-            if not frames:
-                continue
-            stem = STEM + "-" + name
-            img = imaging.pack_sheet(frames, abox, COLS)
-            img.save(os.path.join(out_dir, stem + ".png"))
-            sidecar(out_dir, stem, abox, line_length=COLS)
-            lines.append(line_sheet(name, abox, len(frames), img))
+    for layer in ("anim", "run"):
+        paths = frames_of(frames_dir, layer)
+        if paths:
+            frames = [paint(layer, Image.open(p).convert("RGBA")) for p in paths]
+            pack_loop(out_dir, layer, frames, lines)
+
+    fast_paths = frames_of(frames_dir, "fast")
+    if fast_paths and base_painted is not None:
+        fast = [paint("fast", Image.open(p).convert("RGBA")) for p in fast_paths]
+        for tag, cells in opaque_fast(fast, base_painted, CANVAS[0] // 2).items():
+            pack_loop(out_dir, "fast-" + tag, cells, lines)
 
     lamp_paths = frames_of(frames_dir, "lamp")
     if lamp_paths:
-        lit = light_bloom(light_only(Image.open(lamp_paths[0]).convert("RGBA")))
-        lbox = imaging.even_box(imaging.bbox_above(lit, 8), CANVAS, pad=2)
-        stem = STEM + "-lamp"
-        lit.crop(lbox).save(os.path.join(out_dir, stem + ".png"))
-        sidecar(out_dir, stem, lbox)
-        lines.append(line_static("lamp", lbox))
+        frames = [light_bloom(light_only(Image.open(p).convert("RGBA"))) for p in lamp_paths]
+        pack_loop(out_dir, "lamp", frames, lines)
 
     glow_paths = frames_of(frames_dir, "glow")
     if glow_paths:
-        frames = [light_bloom(light_only(Image.open(p).convert("RGBA"))) for p in glow_paths]
+        frames = [light_bloom(light_only(Image.open(p).convert("RGBA")), **GLOW_BLOOM) for p in glow_paths]
         gbox = imaging.union_box(frames, CANVAS, alpha_floor=8, pad=2)
         # Packed at HALF resolution and declared scale 1.0: the same display
         # pixels for a quarter of the atlas, and the layer is a 5 px gaussian
