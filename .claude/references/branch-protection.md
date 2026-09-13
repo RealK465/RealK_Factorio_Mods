@@ -37,6 +37,25 @@ The PUT **replaces the whole object and silently drops any field left out**, so 
 `gh` is not on the agent's PATH — invoke it as `"/c/Program Files/GitHub CLI/gh.exe"`. It is
 authenticated as **RealK465**.
 
+## What a direct push looks like with protection on
+
+Because `enforce_admins` is off, the owner's own push bypasses the pull-request rule, and
+GitHub says so on every push:
+
+```
+remote: Bypassed rule violations for refs/heads/main:
+remote:
+remote: - Changes must be made through a pull request.
+remote:
+To github.com:RealK465/RealK_Factorio_Mods.git
+   acb02fa..4d09dab  main -> main
+```
+
+That is the **success** case — the `old..new  main -> main` line is the push landing. A real
+rejection reads `! [remote rejected]` and `error: failed to push some refs`. Measured
+2026-09-13 on both branches; a `| tail` on the push output can hide the header line and leave
+only the bullet, which then reads as a refusal.
+
 ## What the loss actually costs
 
 Less than it appears, and the part that matters is in `CLAUDE.md` rather than here:
