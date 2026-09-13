@@ -54,10 +54,9 @@ while your actual game is open. That's how this repo is maintained, and the tool
 
 One branch per Factorio generation. Both are permanent trunks.
 
-Both are intended to be protected — pull requests required, force-pushes and branch deletion
-blocked. That protection is **currently off**: the repository is temporarily private, and
-GitHub Free offers branch protection only on public repositories. It will be restored as part
-of making the repository public again.
+Both are protected — pull requests required, force-pushes and branch deletion blocked.
+(GitHub Free offers branch protection only on public repositories, so the protection was off
+while the repository was private, from 2026-08-08 to 2026-09-13.)
 
 | Branch | Factorio | Role |
 |---|---|---|

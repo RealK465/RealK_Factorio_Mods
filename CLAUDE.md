@@ -182,14 +182,14 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
 - A `.gitignore` negation cannot rescue a file inside an ignored *directory*. `exemples/**/README.md` stays ignored because `exemples/` itself is excluded.
 - **Never run `git clean -x`** (or `-X`) here. Almost everything in this folder is ignored-but-precious: it would delete the downloaded mods, `exemples/`, and the game's own settings.
 - **Annotated tags `<name>_<version>` mark published releases** — created and pushed only as part of an authorised release, never unprompted. No tag for the version in a mod's `info.json` means that version is still **open**: changelog work belongs in its existing top section, not a new one. The decision procedure is in the `factorio-release` skill.
-- **The remote is private, so branch protection is off — temporarily**, since GitHub Free offers
-  neither classic protection nor rulesets on a private repository (verified 2026-08-08). So
-  **nothing on the remote refuses a direct push, a force-push or a branch deletion**, and the
-  committing rule below is the entire floor rather than a second layer — where a mistaken
-  force-push used to bounce, it now lands. The repo is expected to go public again; **restore
-  protection as part of that same move**, not later, following
-  **`.claude/references/branch-protection.md`**, which carries the exact field values the
-  restoring PUT has to send.
+- **The remote is public and both branches are protected** — pull requests required,
+  force-pushes and branch deletion blocked — restored on 2026-09-13, the day the repository went
+  public again (it had been private since 2026-08-08, and GitHub Free offers neither classic
+  protection nor rulesets on a private repository). `enforce_admins` is off, so the pull-request
+  rule does not bind the owner's own pushes; force-push and deletion are the rules that bind.
+  The committing rule below is still the floor: protection is a second layer, not a substitute.
+  If the repository ever goes private again the protection drops with it; the exact field
+  values to send back are in **`.claude/references/branch-protection.md`**.
 - **`main` is Factorio 2.1; `legacy/2.0` is Factorio 2.0.** Both are long-lived trunks, not a
   branch and a one-off side branch: `legacy/2.0` is where *every* 2.0 build of *every* mod in
   this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
@@ -396,4 +396,4 @@ skill would cost context permanently to save it occasionally.
 |---|---|
 | `ai-support.md` | adding, moving or re-verifying a note in a mod's `.ai-support/` |
 | `adding-a-folder.md` | adding a folder to the repo root — the four declaration lists and which class needs which |
-| `branch-protection.md` | the remote goes public again, and protection has to be restored on both branches |
+| `branch-protection.md` | the remote goes public after a spell of being private, and protection has to be restored on both branches |

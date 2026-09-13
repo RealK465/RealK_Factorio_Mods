@@ -1,18 +1,20 @@
 # Restoring branch protection
 
-Loaded on demand from the repo `CLAUDE.md` → *Git*. Read it at exactly one future moment: when
-the remote goes public again. Until then nothing here is actionable, which is why it is not
-preloaded.
+Loaded on demand from the repo `CLAUDE.md` → *Git*. Read it at exactly one moment: when the
+remote goes public after a spell of being private. Until then nothing here is actionable, which
+is why it is not preloaded.
 
 ## The situation
 
 `main` and `legacy/2.0` were both protected until 2026-08-08: pull requests required,
 force-pushes and branch deletion blocked. GitHub Free offers neither classic protection nor
 rulesets on a *private* repository, so taking the repo private disabled both — `403: Upgrade to
-GitHub Pro or make this repository public`, verified 2026-08-08.
+GitHub Pro or make this repository public`, verified 2026-08-08. The repository went public
+again on 2026-09-13 and protection was **restored the same day**, with the PUT below on both
+branches; the response read every field in the table back.
 
-The repo is expected to go public again. **Restore protection as part of that same move**, not
-later.
+If the repo is ever taken private again the protection drops with it. **Restore it as part of
+the move back to public**, not later.
 
 ## The restore
 
