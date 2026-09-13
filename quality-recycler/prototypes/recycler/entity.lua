@@ -115,7 +115,7 @@ data:extend({
     -- Sounds are open work -- see `.ai-support/deferred.md`.
     working_sound =
     {
-      sound = {filename = "__recycler__/sound/recycler/recycler-loop.ogg", volume = 0.75},
+      sound = {filename = "__quality__/sound/recycler/recycler-loop.ogg", volume = 0.75},
       max_sounds_per_prototype = 2,
       fade_in_ticks = 4,
       fade_out_ticks = 20

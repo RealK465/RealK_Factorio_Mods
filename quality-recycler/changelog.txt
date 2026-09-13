@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.4
+Date: 2026-09-13
+  Bugfixes:
+    - Fixed that Factorio 2.0 failed to start with the mod enabled, reporting that the recycler
+      sound could not be loaded.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.3
 Date: 2026-09-13
   Changes:
