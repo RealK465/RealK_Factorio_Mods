@@ -334,11 +334,12 @@ other track:
 `pictures.lua` is shared. The version stays `0.1.0` on both tracks until the first release, for
 the reason the scaffold gave.
 
-## Built, not played
+## Built and published, not played
 
 Set up 2026-09-13 as a scaffold, then — later the same day, on the owner's build brief — the
 entity was designed, modelled, animated, rendered, wired into `data.lua` and validated in both
-configurations, and photographed in the engine. The prototype is written from scratch (not a
+configurations, and photographed in the engine; and published the same night at the owner's
+ask, 0.1.0 for Factorio 2.1 and 0.1.1 for Factorio 2.0. The prototype is written from scratch (not a
 deepcopy of `assembling-machine-3`), for the reason `quality-recycler` gives: a deepcopy carries
 a working sound, a status light and a connector positioned for a different machine. **Nothing has
 been played beyond screenshots**; see `deferred.md`.

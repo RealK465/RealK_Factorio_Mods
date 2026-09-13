@@ -2,6 +2,15 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-13 (later) — 0.1.2 and 0.1.3 released
+
+The balance change shipped the same night at the owner's ask: 0.1.2 for Factorio 2.1 from
+`main` through `fmtk upload`, then 0.1.3 for Factorio 2.0 from `legacy/2.0` after the port's
+forked `entity.lua` took `quality = 1.25` and pollution 7.5 by hand and both configurations
+validated on 2.0.77. Both tagged and pushed; the changelog carries both sections on both
+branches, and the portal description was re-synced from the README (which now cross-links the
+other mods).
+
 ## 2026-09-13 — two balance calls from the owner, matched with the assembler
 
 The owner raised the pollution to 7.5 a minute (from 4) and the built-in quality to 12.5% (from
