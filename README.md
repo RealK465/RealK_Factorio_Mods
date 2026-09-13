@@ -13,7 +13,7 @@ game's own settings) is git-ignored.
 | [`pure-modules-realk`](pure-modules-realk/) | [published](https://mods.factorio.com/mod/pure-modules-realk) | A clean top tier of modules above tier 3 — stronger, with no speed or quality penalty — plus a wide-area beacon built for the tier. |
 | [`upcycler-planner`](upcycler-planner/) | [published](https://mods.factorio.com/mod/upcycler-planner) | A layout planner for quality upcycling loops — pick an item and a target quality, and it designs the loop and drops it as ghosts. |
 | [`quality-recycler`](quality-recycler/) | [published](https://mods.factorio.com/mod/quality-recycler) | A new recycler with quality built right in. |
-| [`quality-assembler`](quality-assembler/) | unpublished | A fast assembling machine with a built-in 12.5% quality chance on every craft. |
+| [`quality-assembler`](quality-assembler/) | [published](https://mods.factorio.com/mod/quality-assembler) | A fast assembling machine with a built-in 12.5% quality chance on every craft. |
 | [`extra-qualities`](extra-qualities/) | [published](https://mods.factorio.com/mod/extra-qualities) | Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers. |
 
 Each mod folder is self-contained and carries its own `README.md`, `LICENSE` and

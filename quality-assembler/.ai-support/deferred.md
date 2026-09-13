@@ -96,9 +96,11 @@ watching in play:
 
 ## Release and tracks
 
-- **Unpublished.** `0.1.0`, `Date: ????`, no git tag. Portal name confirmed free 2026-09-13; the
-  mod-portal **license field** must be set to GPLv3 at publish time, since `info.json` has no
-  license key.
+- **Published 2026-09-13**: 0.1.0 for Factorio 2.1 (the first publish, through the portal's
+  `init_publish` API) and 0.1.1 for Factorio 2.0, both tagged. The portal page has its license
+  set to GPLv3, its category to content, its description synced from the README and a
+  three-shot gallery (production line, Factoriopedia card, night) — the owner dropped the
+  close-up before the release. The next version opens a new changelog section.
 - **`images/`** holds four gallery shots from a composed harness scene (the Factoriopedia page,
   a production line by day and by night, a close-up). They are engine-true but not a *real*
   base: if the owner has a screenshot of the machine in their own factory, it belongs here

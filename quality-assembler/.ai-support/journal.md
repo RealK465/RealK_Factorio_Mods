@@ -3,6 +3,17 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-09-13 (release) — published on both tracks
+
+At the owner's ask, the same night as the build. 0.1.0 for Factorio 2.1 went out through the
+portal's `init_publish` API (`fmtk upload` cannot create a mod), then the page was set up in the
+same session: license GPLv3, category content, a three-image gallery uploaded with each id
+checked against the file's sha1 and the production line as the lead shot, the README synced as
+the description. The 2.0 build followed as 0.1.1 from `legacy/2.0`, after the cherry-pick's two
+forked-file conflicts (`info.json`, `entity.lua` with `quality = 1.25` and pollution 7.5) were
+resolved by hand and both configurations validated on 2.0.77. Both releases are tagged and
+pushed, and the two changelog copies carry both sections. Nothing has been played.
+
 ## 2026-09-13 (last) — the owner's two balance calls: 7.5 pollution, 12.5% quality
 
 Two numbers moved on the owner's word, on this machine and on `quality-recycler` together so the
