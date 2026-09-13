@@ -1,7 +1,7 @@
 # Headless render driver for the Quality Assembler.
 #
 #   blender -b -P render_entity.py -- <ABSOLUTE out_dir>
-#       [--layers base,anim,idle,shadow,glow,lamp,pipes] [--frames N]
+#       [--layers base,anim,run,fast,shadow,glow,lamp,pipes] [--frames N]
 #       [--only 0,8] [--samples 96]
 #
 # Writes <out_dir>/<layer>/f####.png. Static layers render frame 0 only.
@@ -11,7 +11,20 @@
 # One elevation. An assembling machine's art is not directional -- the engine
 # rotates only the fluid pipe pictures -- so there is no direction loop here,
 # and the pipe stubs are rendered once each for the four pipe_picture keys.
-import math
+#
+# The layers, and which engine slot each one fills (qa_gen.py has the why):
+#
+#   base    the body, one frame                       graphics_set.animation
+#   anim    the CRAFT loop: drive train, turntable,    graphics_set.animation
+#           lock, arm, valves, gauges, louvres         (plays while crafting)
+#   run     the REFRIGERATION, slow: fan, flywheel,    working_visualisation,
+#           pulley, cabinet fan, compressor needle     always_draw + constant_speed
+#   fast    fan, flywheel and pulley keyed fast,       working_visualisation,
+#           made opaque by make_sheets.py              working only, fadeout
+#   glow    what the cell throws, plus the vent puff   working_visualisation, glow
+#   lamp    the three always-on points, pulsing        working_visualisation,
+#                                                      always_draw + constant_speed
+#   shadow  one frame, everything that casts           draw_as_shadow
 import os
 import sys
 
@@ -26,30 +39,47 @@ import qa_layout                                            # noqa: E402
 sys.path.insert(0, gen._skill_scripts())
 from factorio_render import rig as fr_rig                   # noqa: E402
 
-# Which collections each layer draws.
+# The semi-transparent parts: a holdout of one leaves a ghost with alpha up
+# to about 40/255 over its whole footprint, and a crop box grows to the ghost
+GLASS = ("window-glass", "sight-dome")
+
+# Which collections each layer draws, and how the RUN parts are keyed for it.
 #
-# `anim` and `idle` keep QA_Base as a HOLDOUT rather than hiding it: both
-# composite ABOVE the base in game, so a moving part that ought to be hidden
-# behind the hull would otherwise draw straight over it. A holdout punches
-# alpha-0 where the nearer object is, which is exactly the occlusion the
-# composite cannot work out for itself.
+# `anim`, `run` and `fast` keep QA_Base as a HOLDOUT rather than hiding it:
+# all three composite ABOVE the base in game, so a moving part that ought to
+# be hidden behind the hull would otherwise draw straight over it. A holdout
+# punches alpha-0 where the nearer object is, which is exactly the occlusion
+# the composite cannot work out for itself.
 LAYERS = {
-    "base":   dict(show=("QA_Base",), holdout=(), idle=False),
-    "anim":   dict(show=("QA_Moving",), holdout=("QA_Base",), idle=False),
-    "idle":   dict(show=("QA_Moving",), holdout=("QA_Base",), idle=True),
+    "base":   dict(show=("QA_Base",), holdout=(), run="slow"),
+    # Nothing animated stands behind the glass sight dome, so it is hidden
+    # in every holdout layer; the window pane stays in the anim layer's
+    # holdout because the turntable and the arm ARE behind it.
+    "anim":   dict(show=("QA_Craft",), holdout=("QA_Base",), run="slow", hide=GLASS[1:]),
+    # Nothing in the run and fast layers stands behind the window, and a
+    # semi-transparent holdout leaves a faint ghost of the pane: the fast
+    # layer's opaque mask then swallowed the whole window and would have
+    # drawn a copy of the empty cell OVER the turntable while working. The
+    # sight dome did the same to the fast fan's box (74 x 158 px) and to
+    # every pipe picture until it was hidden too.
+    "run":    dict(show=("QA_Run",), holdout=("QA_Base",), run="slow", hide=GLASS),
+    "fast":   dict(show=("QA_Run",), holdout=("QA_Base",), run="fast", only=gen.FAST_KINDS,
+                   hide=GLASS),
     # Emission-only, every light and the world off: what reaches the film IS
     # the emission -- and the cell's ceiling lamp lighting the turntable
     # counts, because Cycles bounces mesh light. That is what the window
     # throws when the machine works, which is what an additive glow sprite is.
-    "glow":   dict(show=("QA_Base", "QA_Moving"), holdout=(), idle=False, emission=True),
+    # The vent puff lives in QA_Glow and is drawn nowhere else.
+    "glow":   dict(show=("QA_Base", "QA_Craft", "QA_Run", "QA_Glow"), holdout=(), run="slow",
+                   emission=True),
     # The always-on lamps alone: the status lamp, the amber running lamp and
-    # the violet family point. One frame, a few dozen pixels.
-    "lamp":   dict(show=("QA_Base",), holdout=(), idle=False, emission=True,
-                   only=("lamp-face", "amber-lamp", "modrack-violet")),
-    "shadow": dict(show=("QA_Base", "QA_Moving"), holdout=(), idle=False),
+    # the violet family point. 64 frames -- they pulse -- of a few dozen px.
+    "lamp":   dict(show=("QA_Base",), holdout=(), run="slow", emission=True,
+                   only=("lamp-face", "amber-lamp", "modrack-violet", "console-lamp")),
+    "shadow": dict(show=("QA_Base", "QA_Craft", "QA_Run"), holdout=(), run="slow"),
 }
-STATIC = {"base", "shadow", "lamp"}
-ALL_COLLS = ("QA_Base", "QA_Moving", "QA_Pipe")
+STATIC = {"base", "shadow"}
+ALL_COLLS = gen.COLL_NAMES
 
 # Emission strength of each lit material in the BASE pass. The base is drawn
 # in every state, so an emissive lit in it lights the IDLE machine; the base
@@ -59,6 +89,7 @@ ALL_COLLS = ("QA_Base", "QA_Moving", "QA_Pipe")
 # at luminance 88 against the working one's 101-125 -- nearly as lit. Idle is
 # "cold and waiting", not "on".
 BASE_DIM = {"cyan": 0.10, "celllamp": 0.10, "cyanfloor": 0.05, "screen": 0.18,
+            "strip": 0.08, "sightlamp": 0.10,
             "cyanlamp": 0.0, "amber": 0.0, "violet": 0.0}
 # ...and in the GLOW pass the always-on lamps are zeroed so they are not
 # added twice.
@@ -88,7 +119,7 @@ def parse_args():
     return out, layers, frames, only, samples
 
 
-def show_only(show, holdout, only=None):
+def show_only(show, holdout, only=None, hide=()):
     for name in ALL_COLLS:
         c = bpy.data.collections.get(name)
         if c:
@@ -100,13 +131,17 @@ def show_only(show, holdout, only=None):
         held = name in holdout
         for obj in c.objects:
             obj.is_holdout = held
-            if only:
+            if only and name in show:
                 obj.hide_render = not any(obj.name.startswith(gen.PREFIX + k) for k in only)
             else:
                 obj.hide_render = False
+            if any(obj.name == gen.PREFIX + h for h in hide):
+                obj.hide_render = True
 
 
 def _set_strengths(strengths):
+    """Override emission strengths, suspending the material's own keyed
+    animation while the override stands."""
     saved = []
     for name, strength in strengths.items():
         mat = bpy.data.materials.get(gen.PREFIX + name)
@@ -116,10 +151,9 @@ def _set_strengths(strengths):
         action = ad.action if ad else None
         if ad:
             ad.action = None
-        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
-        if bsdf is None:
+        sock = gen._emission_socket(name)
+        if sock is None:
             continue
-        sock = bsdf.inputs["Emission Strength"]
         saved.append((mat, action, sock, sock.default_value))
         sock.default_value = strength
     return saved
@@ -155,7 +189,7 @@ def _lights_on(dark):
 
 
 def render_shadow(scene, out_dir):
-    show_only(("QA_Base", "QA_Moving"), ())
+    show_only(LAYERS["shadow"]["show"], ())
     scene.frame_set(0)
     # 0.005 below ground, never level with it: a catcher plane exactly at the
     # model's ground level is coplanar with every foot, and two shells sharing
@@ -179,7 +213,7 @@ def render_shadow(scene, out_dir):
 
 def render_layer(scene, layer, out_dir, frames, only):
     spec = LAYERS[layer]
-    show_only(spec["show"], spec["holdout"], spec.get("only"))
+    show_only(spec["show"], spec["holdout"], spec.get("only"), spec.get("hide", ()))
     dark, dimmed = [], []
     if layer == "base":
         dimmed = _set_strengths(BASE_DIM)
@@ -210,16 +244,16 @@ def render_pipes(scene, out):
         for name in ALL_COLLS:
             c = bpy.data.collections.get(name)
             if c:
-                c.hide_render = False
+                c.hide_render = name == "QA_Glow"
         for obj in bpy.data.objects:
             if not obj.name.startswith(gen.PREFIX) or obj.type not in ("MESH", "CURVE", "EMPTY"):
                 continue
             is_stub = obj.name.startswith(gen.PREFIX + "stub-")
             mine = obj.name.startswith(gen.PREFIX + "stub-" + key)
-            # the glass pane is hidden outright: a semi-transparent holdout
-            # leaves a faint ghost of the window in every stub picture, and
-            # the crop box grows to the ghost
-            obj.hide_render = (is_stub and not mine) or obj.name == gen.PREFIX + "window-glass"
+            # the glass is hidden outright: a semi-transparent holdout
+            # leaves a faint ghost of the pane (and of the sight dome) in
+            # every stub picture, and the crop box grows to the ghost
+            obj.hide_render = (is_stub and not mine) or any(obj.name == gen.PREFIX + g for g in GLASS)
             obj.is_holdout = not is_stub
         target = os.path.join(out, "pipe-" + key)
         os.makedirs(target, exist_ok=True)
@@ -239,24 +273,21 @@ def main():
 
     qa_layout.build(gen.build_materials())
     gen.organise()
-    gen.animate(frames=frames, idle=False)
     fr_rig.camera(scene, gen.CANVAS)
     fr_rig.lights(scene, key=gen.KEY, fill=gen.FILL, ambient=gen.AMBIENT)
     fr_rig.output(scene, gen.CANVAS)
     fr_rig.cycles(scene, samples=samples)
     scene.render.use_persistent_data = True
 
-    posed_idle = False
-    # the idle loop last: it re-keys the scene, and everything else wants
-    # the working loop
-    order = [l for l in layers if l != "idle"] + (["idle"] if "idle" in layers else [])
-    for layer in order:
+    keyed = None
+    for layer in layers:
         if layer == "pipes":
             render_pipes(scene, out)
             continue
-        if layer == "idle" and not posed_idle:
-            gen.animate(frames=frames, idle=True)
-            posed_idle = True
+        want = LAYERS[layer]["run"]
+        if keyed != want:
+            gen.animate(frames=frames, run=want)
+            keyed = want
         target = os.path.join(out, layer)
         if layer == "shadow":
             render_shadow(scene, target)

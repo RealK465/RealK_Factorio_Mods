@@ -1,7 +1,7 @@
 return
 {
-  width = 22,
-  height = 44,
-  shift = util.by_pixel(-17.5, -10.5),
+  width = 16,
+  height = 38,
+  shift = util.by_pixel(-15.5, -9.0),
   line_length = 1,
 }

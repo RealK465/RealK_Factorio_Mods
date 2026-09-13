@@ -3,6 +3,101 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-09-13 (late) — verified in the running engine, both configurations
+
+The owner asked that everything work and be properly balanced with and without Space Age.
+Rather than reason from the prototype, the screenshot harness's probe gained a `report` group
+that reads the running machine back — crafting speed, the effects in force, the module
+inventory, `can_fast_replace`, and the force's view of named technologies and recipes — and
+`shoot.ps1` gained `-Disable`, so the same spec ran with Space Age on and then off. Six
+machines, four of them quality assemblers with nothing, five quality module 3s, five
+productivity module 3s and five speed module 3s: every number came back as declared, fast
+replacement is true over both vanilla assemblers, the two technology gates and both recipes
+read as written, no `Unknown key`, no changelog error. One measurement worth having: five
+speed module 3s cancel the built-in 12% to exactly zero. The data dumps of both branches were
+read for the vanilla comparables (`decisions.md` → *Where the numbers sit* already carried the
+Space Age ones; the no-expansion branch's automation-3 is 150 units and quality-module-3 300,
+against this technology's 500 of six packs after the rocket). Balance itself is a play
+judgement and stays in `deferred.md`. The probe's first recipe report crashed on
+`LuaRecipe.category`, which is `categories` in 2.1 — fixed.
+
+## 2026-09-13 (night) — the Aquilo pass: more complex, more beautiful, more futuristic
+
+The owner asked for exactly that, with the animations kept. Rather than guess what futuristic
+means in this game, the two Space Age machines that carry the word were measured: the cryogenic
+plant and the fusion reactor are teal and blue-grey pressure vessels with a tenth of cream panel,
+khaki ribbed hoses, riveted domes, and almost no cyan. The graft was repainted in the cryogenic
+plant's sampled teal with cream flanges and dark composite frames, and grew a twin-fan
+condenser, two ribbed hoses (a new `bellows()` primitive), a sight dome on the cap, a light line
+over the window, a console on the skid with its cable loom, dome ribs and a cap plate. The old
+half was left in its Nauvis blue on purpose.
+
+Three look rounds. The first cream dome was a blank white disc that owned the sprite and went
+teal; the black rubber hoses read as shadow and went khaki; the liquid hose's ribs landed inside
+the east extreme's band and failed the silhouette audit until it moved in 0.06; the east cowl's
+collar stood 0.05 past the tiles until the well moved to 1.19. The object-ID pass retired a
+jacket flange hidden under the coil and widened the console's lamps. The second fan
+counter-rotates a turn slower than the first, so the pair never strobes in step.
+
+## 2026-09-13 (evening) — the player-facing package: text and gallery
+
+The owner asked to "improve assembler content". Read as what a player sees of the mod: the
+portal page, the in-game descriptions and a gallery. The README grew from three paragraphs to a
+page with a comparison table against the assembling machine 3, both research paths with their
+recipes, a "Using it" section (the upgrade-planner swap, module stacking, productivity, fluids)
+and compatibility; the one-line descriptions now name the two numbers that matter (60% faster,
+12%); and the entity got a `factoriopedia_description` — the `[factoriopedia-description]`
+locale section Space Age uses for the fusion reactor — with two mechanical sentences and one
+of flavour.
+
+**The gallery is shot by the harness, not by hand.** Two probe options were added for it: a
+belt takes `belt_items` so a composed line of machines between two belts reads as live (shot
+24 ticks after the build, before the items run to the belt ends), and a group with
+`factoriopedia = "<entity>"` opens the page for the run's player and shoots the screen with the
+GUI — the benchmark save does have a player. Four images in `images/`: the Factoriopedia panel,
+a five-machine line with an assembling machine 3 at its end by day and by night, and a close-up
+at zoom 3. `package.ignore` already carried `images/**`. A shot of the machine in the owner's
+own base would still be better than the composed line, and `deferred.md` says so.
+
+## 2026-09-13 (later) — the animation pass: a machine that operates
+
+The owner's second brief of the day asked for "a machine that operates": layered motion with
+different rhythms, an idle that is not dead, a working state that visibly escalates, and the art
+tightened with it — and, again, no routine questions.
+
+**One measurement first, because the whole plan turned on it.** The morning had found that
+`idle_animation` is frozen, and the brief wanted the compressor and the condenser running while
+idle. A scratch copy of the mod put the anim sheet into three slots at once — the base animation,
+a plain `always_draw` visualisation and an `always_draw` + `constant_speed` one — and was shot at
+five ticks on an unpowered machine. The first two did not change a pixel; the third moved every
+shot and closed its loop after exactly 128 ticks. That is the slot the refrigeration now lives in.
+
+**The rebuild.** The moving parts were split three ways (craft / run / fast) with a timeline of
+twenty-odd events that share no edge: the turntable now eases through its quarter turn, overshoots
+two degrees and settles onto a lock pin that lifts before and drops after; the arm became a
+carriage, a head and two fingers on a static rail, running out, down, closed, up and home; three
+valves turn at three different moments; three gauges got needles with three different curves; the
+condenser louvres open under load; the relief valve blows a vent puff at the end of each cycle;
+the lamps breathe, flash and hold. The compressor got a belt drive to a motor pulley, the cabinet
+a small cooling fan, the seam two bolted angle brackets, the vessel a cradle. "Slow when idle,
+fast when working" was built as opaque working-only overlays over the slow always-on layer.
+
+**What the renders and the engine caught.** The window read as one cyan shape until the
+polished table rim, the frosted cell floor and the glow's bloom were all pulled back; the vent
+puff rendered as a *ring* because Layer Weight's "Facing" is 0 head-on, not 1; the fast layer's
+opaque mask swallowed the whole window through the pane's holdout ghost and would have drawn the
+empty cell over the turntable; a service port on the lower shell measured 2 px because the
+condenser stands in front of it, and was deleted; the needles measured 2–3 px and were widened
+to a whole pixel. The engine run then showed the working fan changing *less* between shots than
+the idle one — seven blades at 28° a frame strobe backwards — and it has five now. The same run
+settled that the animation is not scaled by crafting speed (every layer closes at 128 ticks at
+speed 2) and that working visualisations draw in list order.
+
+**Not done, deliberately:** mechanical vibration (sub-pixel at gameplay zoom, and the paint-over
+would turn it into flicker) and frost growth (the base is one frame by design). Recorded in
+`deferred.md`. The `legacy/2.0` track still carries the morning's build; the port is a
+cherry-pick once this is committed, and `pictures.lua` uses nothing 2.0 lacks.
+
 ## 2026-09-13 — built: modelled, animated, rendered, in the engine
 
 The owner asked for the graphics to be implemented from the design document and the concept

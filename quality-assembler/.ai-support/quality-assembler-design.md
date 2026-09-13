@@ -305,16 +305,24 @@ stepping, an arm cycling and a lit window. Idle is a slow fan, a slow compressor
 turntable, a still arm and a dim window. **The slow-to-fast compressor and fan change is the
 state read that survives gameplay zoom** — a turntable behind a 30 px window does not.
 
-Two engine facts this section has to respect:
+**As built, this table is superseded by the layered animation system in *Built* → *The
+animation system*, which keeps every intent here and adds the secondary and tertiary motion the
+owner's second brief asked for.** Three engine facts, all measured on this machine on 2026-09-13,
+decide how it is wired:
 
 - **An emissive lit in the always-drawn layer lights the IDLE machine.** An assembling machine's
   `graphics_set.animation` is drawn in every state and `working_visualisations` only while
   working. So the bright turquoise goes in `working_visualisations`; the base animation carries
   the dim idle glow alone. `quality-recycler` shipped this wrong once and had to dim its violet
   materials to 0.22 for the base pass.
-- **A crafting machine's animation speed is scaled by its crafting speed** unless
-  `constant_speed` is set. At `crafting_speed = 2` the authored speed is doubled in game, so
-  author the loop against that and check it beside a vanilla assembler rather than in a render.
+- **`idle_animation` does not play, but a working visualisation with `always_draw` AND
+  `constant_speed` plays in every state** — on an idle machine, on a machine with no recipe,
+  even on one with no power. That is where the "slow when idle" refrigeration lives. A plain
+  `always_draw` visualisation freezes with the machine like the base animation does.
+- **The animation is NOT scaled by the crafting speed.** Tick sequence on the working machine:
+  every layer, the base animation included, returned to the identical pixels after exactly 128
+  ticks — 64 frames at `animation_speed = 0.5`, at `crafting_speed = 2`. The earlier claim here
+  that the engine doubles it was wrong. (Whether speed modules scale it is not measured.)
 
 **Direction:** not applicable. The body is one non-directional animation and the engine rotates
 only the pipe stubs.
@@ -462,8 +470,10 @@ three engine runs on the day it was designed.
   fan in the deck centre and the session drew a fin bank overhanging east. The fan over the fins
   is the physics; the south-east corner is where its rows stay clear of the compressor's.
 - **The receiver is the expansion vessel**, vertical and insulated, on the riser.
-- **No idle loop.** See `decisions.md` → *Art*: the engine freezes a non-working machine, so the
-  fan stopping and the window dimming are the idle read, as on every vanilla assembler.
+- **The idle read is a running refrigerator, not a frozen machine.** The first build shipped no
+  idle motion because `idle_animation` is frozen; the second pass found the layer the engine
+  does animate in every state (`always_draw` + `constant_speed`) and moved the fan, the
+  flywheel, the pulley, the cabinet fan and the lamps into it — see *The animation system*.
 - **The turntable is dark and the workpieces pale**, the reverse of the session's plan: under the
   cyan lamp a pale table blew out to a flat cyan rectangle, and the eye needs dark against the
   glow.
@@ -487,10 +497,109 @@ Paint-over: `make_look.POST` — the stock entity preset with form 0.90, contras
 0.42, no saturation or value correction. The raw render measures sd 30 and the pass takes it to
 49–54 without clipping; the palette was sampled, so colour stays in the materials.
 
+### The animation system (second pass, 2026-09-13)
+
+The owner's second brief asked for a machine that operates: layered, phased motion with different
+rhythms, an idle that is alive, and a working state that escalates. The build answers it with
+**seven animated sheets in three engine slots**, keyed by `qa_gen.animate()` from one 64-frame
+timeline (`qa_gen.T`), rendered by `render_entity.py` and packed by `make_sheets.py`:
+
+| sheet | engine slot | plays | what moves |
+|---|---|---|---|
+| `anim` | `graphics_set.animation` | while crafting, frozen where it stops | the CRAFT loop: the 18:9 gear train, crank, rod and slider; the turntable and its lock pin; the transfer arm (carriage, head, two fingers); three valves; the chamber and receiver needles; the condenser louvres |
+| `run` | working visualisation, `always_draw` + `constant_speed` | **every state, even unpowered** | the REFRIGERATION, slow: condenser fan 2 turns a loop, flywheel 2, motor pulley 4 (belt ratio 2:1), cabinet fan 3, the compressor's own needle flicking with the stroke |
+| `fast-comp`, `fast-fan` | working visualisations, `fadeout` | while crafting, fading off | the flywheel, pulley and fan again at 4 / 8 / 5 turns, as OPAQUE discs (the painted base under the parts, cut to the disc they sweep) drawn over the slow layer — "slow when idle, fast when working" without an idle loop, and the fan runs down on stop instead of jumping |
+| `glow` | working visualisation, glow, `fadeout` | while crafting | the window light (up, steady, a dip during the index, back, easing off), the sight glasses at two beats a loop, the receiver screen, and the relief valve's vent puff |
+| `lamp` | working visualisation, glow, `always_draw` + `constant_speed` | every state | the cyan status lamp breathing once a loop, the amber running lamp flashing twice, unevenly, the violet family point steady |
+
+**The craft loop's timeline**, in frames of 64 (128 ticks, 2.1 s), no two edges shared:
+liquid-line valve opens 2–10 · arm out 4–14 · chamber needle rises 6–30 · louvres open 10–22 ·
+head down 14–18 · receiver needle rises 14–34 · grip 18–20 · discharge valve turns 20–26 · head
+up 26–30 · arm home 30–38 · lock pin lifts 35–38 · release 38–40 · **table indexes 38–49,
+overshoots 2.2° and settles 49–53** · actuator lever thrown 39–42 · window dips 38–44 and
+recovers 51–57 · louvres close 44–58 · discharge valve back 44–50 · needles fall 40–62 · vent puff
+50–63 · lock pin drops 53–55 with a bounce · liquid-line valve closes 52–60 · lever back 52–55.
+
+**Rules the build settled, all measured:**
+
+- **A turning part's step per frame must stay under about 0.4 of its blade or spoke period, or
+  it strobes backwards in game.** The fast fan at 5 turns a loop steps 28° a frame; against a
+  seven-blade period of 51° that is past half-way and the engine showed the working fan
+  changing *less* between shots than the idle one. Five blades (period 72°, step 0.39) read
+  forward. Every other wheel was checked: flywheel 5 spokes at 22.5° (0.31), pulley 3 spokes at
+  45° (0.375), cabinet fan 5 blades at 17° (0.23), gear 18 teeth at 5.6° (0.28), pinion 9 teeth at
+  11.25° (0.28).
+- **Working visualisations draw in list order**, so the always-on `run` layer is listed first
+  and the `fast` overlays after it. Verified in the tick sequence: the working machine's fan
+  region showed the fast sheet, the idle machine's the slow one.
+- **A semi-transparent holdout leaves a ghost.** The window pane as a holdout left alpha up to
+  37/255 over the whole opening in the run and fast renders; the fast layer's opaque mask then
+  swallowed the window and would have drawn a copy of the *empty* cell over the turntable while
+  working. Nothing in those two layers stands behind the glass, so they render with it hidden.
+  The anim layer keeps it (its parts are behind the glass and the holdout is the occlusion).
+- **Needles are 0.016 tiles wide** (a whole source pixel): at 0.008 the object-ID pass measured
+  every needle at 2–3 px, texture rather than a part.
+- **No service port on the lower shell.** The condenser skid stands directly in front of that
+  face; the object-ID pass measured a flange there at 2 px, and an invisible part is a lie.
+
+What the pass did *not* do, and why: **no mechanical vibration** (a 1 px source jitter is a
+quarter of a display pixel at zoom 1 and the paint-over turns it into edge flicker); **no frost
+growth** (the base is one frame by design — animated rime means the vessel in the per-frame
+layer, and it would jump when the machine stops); **no idle-vs-working speed on the cabinet fan
+or the needles** (they are not opaque-backed, so they run at one speed always).
+
+### The Aquilo pass (third pass, 2026-09-13)
+
+The owner asked for the graphics to be "more complex and beautiful and futuristic", keeping the
+animations. "Futuristic" was read as **what Space Age's own late-game machines look like**, and
+that was measured rather than imagined: the cryogenic plant's sprite is 3% teal paint (lit
+(133,168,161), shaded (48,68,72), hue 175) and 11% cream panel ((182,180,170)), the fusion
+reactor 5% blue-grey and 10% cream, both at luminance sd 52–55 with only 1–4% blue-cyan pixels
+and rounded, riveted, hose-fed pressure vessels. So the graft did not go neon; it went Aquilo:
+
+- **Materials**: `teal` (the cryogenic plant's own paint, sampled) on the vessel's lower shell,
+  band and dome and on the condenser cowls; `cream` on the receiver drum, the jacket flange,
+  the console fascia, the dome's cap plate and the condenser's nameplate; `composite` (dark
+  blue-grey frames) on the cap, the dome band and ribs, the cradle, the sight-glass frames, the
+  upper shell behind the coil and the receiver's bands; `hose` (khaki) on the ribbed hoses.
+  The old half's blue is untouched — the contrast between Nauvis paint and Aquilo paint is the
+  story.
+- **Forms**: a **twin-fan condenser** (two 0.19-tile wells under teal cowls, the second fan
+  counter-rotating a turn slower), **ribbed flexible hoses** — the liquid line up the skid's
+  east edge into the drum and a vibration break off the compressor head — via a new
+  `bellows()` primitive, a **sight dome** (a glass bubble over a cyan lamp on the cap's
+  shoulder, breathing in the glow), a **light line** along the top bezel's face, an **operator's
+  console** on the skid's south-west corner with a screen and two status points and a cable
+  loom to the machine, six composite **dome ribs**, a cream **cap plate**, a receiver with three
+  bands and a bolted cap, a lifting eye and a nameplate between the cowls.
+- **Rules learnt**: a whole cream dome rendered as one blank white disc that owned the sprite
+  (cream is for panels, and the cryogenic plant's rounded tops are teal); black rubber hoses
+  read as shadow where vanilla's khaki ones read as hoses; a hose whose ribs sit inside the
+  east extreme's 0.06-tile band puts its rows into the silhouette check; and a cowl's collar
+  reaches 1.42x its well's half-size, so the east well sits at 1.19 to keep the collar inside
+  the tiles.
+
+Measured after the pass — 280 objects, 235 distinct kinds; on the shipped base sheet luminance
+sd **52.2** (Space Age's own 52–55; the first build's 48.7), saturation 0.45, blue paint 20.8%,
+teal 5.2% (the cryogenic plant's 3.1%), cream 2.3%; ragged **0.91** (up from 0.80 — the hoses
+and the cowls cut holes into the outline); fill 0.88, no full-width row; north overhang
+unchanged at 0.68. Sheets: anim 170x168, run 184x134, fast-comp 56x38, fast-fan 66x30 (both
+fans), lamp 110x64 (the console's points added), glow 43x120 at half resolution, the stubs
+16–36 px. Photographed in the engine over a tick sequence: every loop still closes at 128
+ticks, the idle machine's fans and lamps still move, its window still holds at zero change.
+The gallery, the icons and the thumbnail were re-cut from this build.
+
 ### What the engine settled
 
 - **`idle_animation` does not play** (tick sequence, no change between t+6 and t+18 on a
   `no_recipe` machine; the working machine changed by a mean of 17/255 in the fan region). Cut.
+- **`always_draw` + `constant_speed` plays in every state.** A test build with the anim sheet
+  in three slots, shot at t+40/44/48/104/168 on an unpowered machine: the base animation and the
+  plain `always_draw` copy did not change a pixel; the `constant_speed` copy changed every shot
+  and returned to its start after exactly 128 ticks. On the shipped build the `no_recipe`
+  machine's fan region changed by 12–14/255 between shots four ticks apart and its window by 0.
+- **The animation is not scaled by crafting speed**: every layer of the working machine returned
+  to identical pixels after 128 ticks at `crafting_speed = 2`.
 - **`pipe_picture` is drawn centred on the tile outside the connection.** The first stubs drew a
   tile too far out — a floating hook above the north pipe, a spare flange on the south one.
 - **The idle window was too bright** with the cell lamp at 0.30 in the base: luminance 88

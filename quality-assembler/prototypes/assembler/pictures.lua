@@ -9,21 +9,34 @@
 -- rotates only the fluid pipe pictures -- so there is one set of sheets:
 --
 --   -base     the body, one frame, repeat_count 64 to stay in step
---   -anim     the WORKING loop: condenser fan, compressor flywheel, the old
---             gear train and its crank slider, the indexing turntable and
---             the transfer arm                                     (64 frames)
---             (There is deliberately no idle loop. The design wanted the fan
---             turning slowly while idle; measured in the engine 2026-09-13,
---             `idle_animation` does not play -- a machine that is not working
---             is frozen, and the idle sheet is only drawn at the frame the
---             working one stopped on. A second sheet with different fan
---             angles would JUMP the moment the machine stopped.)
+--   -anim     the CRAFT loop: the old gear train and its crank slider, the
+--             indexing turntable and its lock pin, the transfer arm, the
+--             valves, the reacting gauges, the condenser louvres. Plays
+--             while the machine crafts and freezes where it stops, like
+--             every vanilla assembler                             (64 frames)
+--   -run      the REFRIGERATION, slow: condenser fan, compressor flywheel
+--             and its motor pulley, the cabinet fan, the compressor's own
+--             pressure needle. `always_draw` + `constant_speed`, which the
+--             engine plays in EVERY state -- measured 2026-09-13 with a tick
+--             sequence: an unpowered machine's constant-speed visualisation
+--             moved every tick while its animation and its plain
+--             always_draw visualisation stood still. A refrigerator holds
+--             temperature whether or not you are using it            (64 frames)
+--   -fast-comp, -fast-fan  the same wheels and fan keyed fast, as OPAQUE
+--             discs (the base sprite under the parts, cut to the disc they
+--             sweep) drawn over the slow ones while the machine works, and
+--             faded off when it stops. That is how "slow when idle, fast
+--             when working" is done without an idle loop: `idle_animation`
+--             does not play, it is drawn at the stopped frame     (64 frames)
 --   -shadow   one frame, draw_as_shadow
 --   -glow     what the cold cell throws when the machine works: the window's
---             light, the sight glasses, the receiver screen. Working only,
---             additive, drawn as glow                                (64 frames)
---   -lamp     the three always-on points: the cyan status lamp, the amber
---             running lamp and the violet module-rack point. One frame.
+--             light, the sight glasses, the receiver screen, the relief
+--             valve's vent puff. Working only, additive, drawn as glow
+--                                                                   (64 frames)
+--   -lamp     the three always-on points: the cyan status lamp breathing,
+--             the amber running lamp flashing, the violet module-rack point
+--             steady. `always_draw` + `constant_speed`, so they pulse while
+--             idle too                                              (64 frames)
 --   -pipe-N/S/E/W  the fluid connection stubs the engine draws when a fluid
 --             recipe is set. See `pipe_picture` below.
 --
@@ -37,9 +50,24 @@ local PATH = "__quality-assembler__/graphics/entity/quality-assembler/quality-as
 
 -- 0.5 frames a tick. A crafting machine's animation is scaled by its crafting
 -- speed unless `constant_speed` is set, and this machine runs at 2, so the
--- working loop plays at one frame a tick: 64 ticks a loop, the fan at about
--- five turns a second, the turntable stepping once a second.
+-- craft loop plays at about one frame a tick -- 64 ticks a loop, one index
+-- a second -- while the constant-speed layers take 128 ticks a loop
+-- (measured: a constant-speed layer returned to its frame after exactly 128
+-- ticks). The two rhythms are deliberate: the refrigeration runs at its own
+-- pace and the craft at the machine's.
 local animation_speed = 0.5
+
+local function sheet(key, opts)
+  local t =
+  {
+    priority = "high",
+    frame_count = 64,
+    animation_speed = animation_speed,
+    scale = 0.5
+  }
+  for k, v in pairs(opts or {}) do t[k] = v end
+  return util.sprite_load(PATH .. key, t)
+end
 
 local function body(anim_key, anim_speed)
   return
@@ -94,14 +122,7 @@ local function glow()
 end
 
 local function lamp()
-  return util.sprite_load(PATH .. "lamp",
-  {
-    draw_as_glow = true,
-    blend_mode = "additive",
-    priority = "high",
-    repeat_count = 64,
-    scale = 0.5
-  })
+  return sheet("lamp", { draw_as_glow = true, blend_mode = "additive" })
 end
 
 local function stub(key)
@@ -120,6 +141,28 @@ return
     working_visualisations =
     {
       {
+        -- The refrigeration, always turning: what makes an idle machine read
+        -- as cold and waiting rather than as dead. Listed FIRST so the
+        -- working-only load layers below draw over it.
+        name = "refrigeration",
+        always_draw = true,
+        constant_speed = true,
+        animation = sheet("run")
+      },
+      {
+        -- Under load the wheels and the fan run faster: opaque discs over
+        -- the slow layer, faded off when the craft stops so the fan reads as
+        -- running down rather than as jumping to its idle angle.
+        name = "load-compressor",
+        fadeout = true,
+        animation = sheet("fast-comp")
+      },
+      {
+        name = "load-condenser",
+        fadeout = true,
+        animation = sheet("fast-fan")
+      },
+      {
         -- The cold cell's light. `fadeout` eases it off when the machine
         -- stops instead of cutting; vanilla uses it on every glow that ramps.
         name = "cell-light",
@@ -127,10 +170,11 @@ return
         animation = glow()
       },
       {
-        -- The three status points, lit in both states: what makes an idle
-        -- machine read as idle rather than as broken, and as powered at night.
+        -- The three status points, pulsing in both states: what makes an
+        -- idle machine read as powered, and as powered at night.
         name = "status-lamps",
         always_draw = true,
+        constant_speed = true,
         animation = lamp()
       }
     }

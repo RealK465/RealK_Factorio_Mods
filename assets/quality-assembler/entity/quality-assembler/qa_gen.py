@@ -413,6 +413,97 @@ def fan_blades(name, centre, r0, r1, count, thick, pitch_deg=28.0, axis="Z",
     return _emit(bm, name, _MATS.get(mat), **kw)
 
 
+def belt(name, c1, r1, c2, r2, y, width, thick, mat=None, seg=14, **kw):
+    """A drive belt round two pulleys in the XZ plane at depth `y`: the two
+    external tangents and the arcs they leave, swept as a flat band. `c1`
+    and `c2` are (x, z) centres; the band rides on radius r and stands
+    `thick` proud of it."""
+    x1, z1 = c1
+    x2, z2 = c2
+    d = math.hypot(x2 - x1, z2 - z1)
+    base = math.atan2(z2 - z1, x2 - x1)
+    off = math.acos(max(-1.0, min(1.0, (r1 - r2) / d)))
+
+    def arc(cx, cz, r, a0, a1, n):
+        return [(cx + r * math.cos(a0 + (a1 - a0) * i / n),
+                 cz + r * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+
+    def loop(extra):
+        pts = arc(x1, z1, r1 + extra, base + off, base - off + 2 * math.pi, 2 * seg)
+        pts += arc(x2, z2, r2 + extra, base - off, base + off, seg)
+        return pts
+
+    inner, outer = loop(0.0), loop(thick)
+    bm = bmesh.new()
+    y0, y1 = y - width / 2, y + width / 2
+    vi0 = [bm.verts.new((px, y0, pz)) for px, pz in inner]
+    vi1 = [bm.verts.new((px, y1, pz)) for px, pz in inner]
+    vo0 = [bm.verts.new((px, y0, pz)) for px, pz in outer]
+    vo1 = [bm.verts.new((px, y1, pz)) for px, pz in outer]
+    n = len(inner)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((vo0[i], vo0[j], vo1[j], vo1[i]))
+        bm.faces.new((vi1[i], vi1[j], vi0[j], vi0[i]))
+        bm.faces.new((vi0[i], vi0[j], vo0[j], vo0[i]))
+        bm.faces.new((vo1[i], vo1[j], vi1[j], vi1[i]))
+    # one clean closed shell, so recalc is safe here (it is NOT on a machine
+    # assembled from intersecting boxes in one mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    kw.setdefault("cuts", 0)
+    kw.setdefault("bevel", 0)
+    return _emit(bm, name, _MATS.get(mat), **kw)
+
+
+def bellows(name, points, r, pitch=0.05, rib=0.014, mat=None, seg=12, **kw):
+    """A ribbed flexible hose along a polyline: a core tube with a fat ring
+    every `pitch` along it -- the cryogenic plant's and the fusion reactor's
+    signature fitting. One mesh, no bevel: the ribs are a pixel high."""
+    bm = bmesh.new()
+    pts = [Vector(p) for p in points]
+    for a, b in zip(pts, pts[1:]):
+        d = b - a
+        L = d.length
+        if L < 1e-6:
+            continue
+        quat = d.to_track_quat("Z", "Y").to_matrix()
+        res = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=seg,
+                                    radius1=r, radius2=r, depth=L)
+        bmesh.ops.rotate(bm, verts=res["verts"], cent=(0, 0, 0), matrix=quat)
+        bmesh.ops.translate(bm, verts=res["verts"], vec=(a + b) / 2)
+        n = max(1, int(round(L / pitch)))
+        for i in range(n):
+            c = a.lerp(b, (i + 0.5) / n)
+            res = bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=seg,
+                                        radius1=r + rib, radius2=r + rib, depth=pitch * 0.48)
+            bmesh.ops.rotate(bm, verts=res["verts"], cent=(0, 0, 0), matrix=quat)
+            bmesh.ops.translate(bm, verts=res["verts"], vec=c)
+    kw.setdefault("cuts", 0)
+    kw.setdefault("bevel", 0)
+    return _emit(bm, name, _MATS.get(mat), **kw)
+
+
+def sag_path(a, b, sag, n=8):
+    """A polyline from a to b hanging by `sag` at the middle, for bellows()."""
+    a, b = Vector(a), Vector(b)
+    out = []
+    for i in range(n + 1):
+        t = i / n
+        p = a.lerp(b, t)
+        p.z -= sag * math.sin(math.pi * t)
+        out.append(tuple(p))
+    return out
+
+
+def sphere(name, centre, r, mat=None, seg=16, **kw):
+    bm = bmesh.new()
+    res = bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=seg // 2, radius=r)
+    bmesh.ops.translate(bm, verts=res["verts"], vec=Vector(centre))
+    kw.setdefault("cuts", 0)
+    kw.setdefault("bevel", 0)
+    return _emit(bm, name, _MATS.get(mat), **kw)
+
+
 def chamfer_rect(x0, y0, x1, y1, c):
     """An octagon: a rectangle with its corners cut at 45 degrees by `c`."""
     return [(x0 + c, y0), (x1 - c, y0), (x1, y0 + c), (x1, y1 - c),
@@ -860,6 +951,29 @@ def rubber(name, color=RUBBER):
     return m
 
 
+def vapour(name, color=(0.80, 0.94, 1.0)):
+    """A vent puff: emission where the surface faces the camera, transparent
+    at the rim, so a sphere reads as a soft blob. Drawn in the glow pass
+    only; its strength and size are keyed by animate()."""
+    m = _get_mat(name)
+    nt, out = _reset_nodes(m)
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1.0)
+    em.inputs["Strength"].default_value = 0.0
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.55
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    # Layer Weight's "Facing" is 0 head-on and 1 at the grazing rim, so the
+    # emission goes in the FIRST slot: solid at the centre, gone at the edge.
+    # The other way round renders a ring.
+    nt.links.new(lw.outputs["Facing"], mix.inputs["Fac"])
+    nt.links.new(em.outputs["Emission"], mix.inputs[1])
+    nt.links.new(tr.outputs["BSDF"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+    return m
+
+
 def glass(name, tint=(0.50, 0.72, 0.80), alpha=0.22):
     """The window pane: a thin, slightly cold-tinted, mostly transparent
     dielectric with a real specular, so the cell behind it reads as BEHIND
@@ -911,6 +1025,25 @@ def build_materials():
         "cryofoot": worn_metal("cryofoot", srgb("#5E6674"), srgb("#262A32"), 0.36, 0.46, 0.76,
                                grime=0.18, wear=0.30, rust=0.14, grain=0.16,
                                noise_scale=9.0, rime=0.60),
+        # 2d. AQUILO PAINT -- the graft's own identity colour, sampled off the
+        #     cryogenic plant's sprite (2026-09-13: lit (133,168,161), shaded
+        #     (48,68,72), hue 175, 3% of that sprite). The vessel's shells, the
+        #     condenser cowls and the receiver wear it; the west half never does.
+        "teal": worn_metal("teal", srgb("#85A8A1"), srgb("#304448"), 0.18, 0.55, 0.85,
+                           grime=0.22, wear=0.42, rust=0.16, grain=0.22,
+                           grain_slug="rusty_painted_metal", noise_scale=8.0, rime=0.12),
+        # 2e. CREAM insulation panels -- a tenth of the cryogenic plant and the
+        #     fusion reactor is this pale neutral (182,180,170); it is what makes
+        #     a Space Age machine read as late-game against the dark frames
+        "cream": worn_metal("cream", srgb("#ACA99E"), srgb("#56544E"), 0.08, 0.58, 0.90,
+                            grime=0.26, wear=0.26, rust=0.12, noise_scale=9.0, rime=0.16),
+        # 2f. dark composite frames and ribs the cream sits in
+        "composite": worn_metal("composite", srgb("#4A5058"), srgb("#181B20"), 0.30, 0.44, 0.76,
+                                grime=0.26, wear=0.30, rust=0.10, noise_scale=11.0),
+        # 2g. the ribbed hoses: khaki, as the fusion reactor's and the
+        #     cryogenic plant's are -- in black rubber they read as shadow
+        "hose": worn_metal("hose", srgb("#8E8872"), srgb("#3A362A"), 0.04, 0.66, 0.92,
+                           grime=0.30, wear=0.22, rust=0.10, noise_scale=12.0),
         # 2c. insulated sections: matte, no rime -- insulation stays dry
         "lagging": worn_metal("lagging", srgb("#6E757E"), srgb("#30343A"), 0.08, 0.80, 0.96,
                               grime=0.20, wear=0.20, rust=0.10, noise_scale=10.0),
@@ -942,9 +1075,12 @@ def build_materials():
         # because it is lit from inside by the cyan
         "pitch": worn_metal("pitch", srgb("#14110D"), srgb("#050403"), 0.24, 0.78, 0.96,
                             grime=0.50, wear=0.10, rust=0.18, noise_scale=12.0),
+        # rime 0.10, down from 0.22: the frosted floor round the table caught
+        # the key through the opening and the whole window bottom read as
+        # one white arc, which is not where the eye should go
         "cell": worn_metal("cell", CELL_LIT, CELL_DARK, 0.30, 0.50, 0.80,
                            grime=0.20, wear=0.20, rust=0.06, noise_scale=12.0,
-                           rime=0.22),
+                           rime=0.10),
         # 5. warm metal: the refrigerant line and riser in bronze, the coil
         #    bundle in copper. Metallic 0.42-0.44 -- higher renders near-black
         #    under a dim world.
@@ -965,7 +1101,9 @@ def build_materials():
                              noise_scale=6.0),
         "hazard": worn_metal("hazard", HAZARD, srgb("#7A5C1B"), 0.14, 0.60, 0.88,
                              grime=0.24, wear=0.52, rust=0.20, noise_scale=16.0),
-        "glass": glass("glass"),
+        # alpha 0.16: at 0.22 the pane's veil flattened the cell behind it
+        # into one pale shape
+        "glass": glass("glass", alpha=0.16),
         # Emissives. Strength keeps colour x strength near 1.0 so the hue
         # survives Standard's clip. The render driver DIMS these for the base
         # pass -- the base is drawn in every state and a bright emissive there
@@ -975,12 +1113,21 @@ def build_materials():
         # bright as the cell needs -- what the window shows is what it lights
         "celllamp": plain("celllamp", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=1.25),
         # the floor ring round the table: lit, but under the lamp, so dimmer
-        "cyanfloor": plain("cyanfloor", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=0.45),
+        "cyanfloor": plain("cyanfloor", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=0.26),
         "cyanlamp": plain("cyanlamp", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=0.9),
         "amber": plain("amber", (0.03, 0.02, 0.005), emission=AMBER_EMIT, strength=0.9),
         "violet": plain("violet", (0.02, 0.01, 0.03), emission=VIOLET_EMIT, strength=1.1),
         # the small instrument screens on the cryo half: dark glass, faint green-cyan
         "screen": plain("screen", (0.01, 0.03, 0.03), emission=srgb("#3FBFA0"), strength=0.6),
+        # the light line along the window bezel and the sight dome's lamp:
+        # cyan, bright only in the glow pass
+        # 0.6: at 0.9 the line bloomed into a second window above the window
+        "strip": plain("strip", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=0.6),
+        "sightlamp": plain("sightlamp", (0.02, 0.05, 0.06), emission=CYAN_EMIT, strength=1.0),
+        # the relief valve's vent puff at the end of each cycle: glow pass only
+        "vapour": vapour("vapour"),
+        # gauge dials: pale, so a dark needle reads against them
+        "dial": plain("dial", srgb("#B8BFC6"), metallic=0.0, rough=0.5),
     }
     _MATS.clear()
     _MATS.update(m)
@@ -989,26 +1136,58 @@ def build_materials():
 
 # --------------------------------------------------------------------------
 # collections and animation
-
-# Parts that move. Their silhouette does not change as they turn (fan,
-# flywheel, gear, turntable), so they belong in the SHADOW pass as well; the
-# arm and the piston rod travel, but only inside the hull, so they never cast
-# past it and can stay in the shadow pass too.
-MOVING_KINDS = ("fan-hub", "fan-blade", "flywheel", "gear-", "pinion-",
-                "bay-rod", "bay-slider", "table-", "work-", "arm-")
+#
+# Three kinds of moving part, because the engine plays them differently
+# (measured 2026-09-13 with a tick sequence on an unpowered and a working
+# machine):
+#
+#   CRAFT  the working loop -- graphics_set.animation. Plays only while the
+#          machine crafts, at the crafting speed, and freezes where it stops.
+#          The old drive train, the turntable and its lock, the transfer arm,
+#          the valves, the reacting gauges, the condenser louvres.
+#   RUN    the refrigeration -- a working_visualisation with always_draw AND
+#          constant_speed, which the engine animates in every state, at the
+#          declared speed, even with no power. The condenser fan, the
+#          compressor flywheel and its motor pulley, the cabinet fan, the
+#          compressor's own pressure needle. A refrigerator holds temperature
+#          whether or not you are using it.
+#   FAST   the same fan, flywheel and pulley keyed faster, drawn as an opaque
+#          disc over the slow ones while the machine works (fadeout on stop).
+#          "Slow when idle, fast when working" is a working-only layer that
+#          covers the always-on one; make_sheets.py builds the opaque backing
+#          from the base sprite.
+#
+# Silhouettes do not change as these turn, so every one of them belongs in
+# the shadow pass too; the arm and the rod travel only inside the hull.
+CRAFT_KINDS = ("gear-", "pinion-", "bay-rod", "bay-slider", "table-", "work-",
+               "lock-", "arm-", "valve-", "needle-dome", "needle-recv", "louvre-")
+RUN_KINDS = ("fan-hub", "fan-blade", "fan2-", "flywheel-", "pulley-", "cabfan-", "needle-comp")
+# the FAST layer is the subset of RUN that gets an opaque backing
+FAST_KINDS = ("fan-hub", "fan-blade", "fan2-", "flywheel-", "pulley-")
+# drawn in the glow pass only: the vent puff is light, not a thing
+GLOW_KINDS = ("vapour-",)
 # The engine-drawn pipe stubs: rendered on their own, one picture each, and
 # hidden from every other layer.
 PIPE_KINDS = ("stub-",)
-COLL_NAMES = ("QA_Base", "QA_Moving", "QA_Pipe")
+COLL_NAMES = ("QA_Base", "QA_Craft", "QA_Run", "QA_Glow", "QA_Pipe")
 
 
 def _classify(name):
     stem = name[len(PREFIX):]
-    if any(stem.startswith(k) for k in PIPE_KINDS):
-        return "QA_Pipe"
-    if any(stem.startswith(k) for k in MOVING_KINDS):
-        return "QA_Moving"
+    for kinds, coll in ((PIPE_KINDS, "QA_Pipe"), (GLOW_KINDS, "QA_Glow"),
+                        (CRAFT_KINDS, "QA_Craft"), (RUN_KINDS, "QA_Run")):
+        if any(stem.startswith(k) for k in kinds):
+            return coll
     return "QA_Base"
+
+
+def is_kind(obj, kinds):
+    return any(obj.name.startswith(PREFIX + k) for k in kinds)
+
+
+# every part's built transform, so animate() can start from the rest pose
+# however many times it is called (once per layer: craft, run, fast)
+REST = {}
 
 
 def organise():
@@ -1025,25 +1204,34 @@ def organise():
         for c in list(obj.users_collection):
             c.objects.unlink(obj)
         target.objects.link(obj)
+    REST.clear()
+    for o in bpy.data.objects:
+        if o.name.startswith(PREFIX) and o.type in ("MESH", "CURVE"):
+            REST[o.name] = (o.location.copy(), o.rotation_euler.copy(), o.scale.copy())
     return colls
 
 
-def _pivot(name, location, collection="QA_Moving"):
+def _pivot(name, location, collection="QA_Craft", parent=None):
     e = bpy.data.objects.new(PREFIX + name, None)
     e.empty_display_size = 0.15
     e.location = location
     bpy.data.collections[collection].objects.link(e)
+    if parent is not None:
+        e.parent = parent
+        e.matrix_parent_inverse = Matrix.Translation(parent.location).inverted()
     return e
 
 
-def _attach(pivot, names):
+def _attach(pivot, names, world_of_pivot=None):
     """Parent by name prefix, preserving each part's world transform. Built
     from the pivot's LOCATION, not matrix_world: a fresh empty has not been
-    through a depsgraph update and its matrix_world is still the identity."""
-    inv = Matrix.Translation(pivot.location).inverted()
+    through a depsgraph update and its matrix_world is still the identity.
+    A pivot that is itself parented passes its world location explicitly."""
+    loc = world_of_pivot if world_of_pivot is not None else pivot.location
+    inv = Matrix.Translation(loc).inverted()
     got = []
     for obj in bpy.data.objects:
-        if not obj.name.startswith(PREFIX) or obj is pivot:
+        if not obj.name.startswith(PREFIX) or obj is pivot or obj.type == "EMPTY":
             continue
         stem = obj.name[len(PREFIX):]
         if any(stem.startswith(n) for n in names):
@@ -1051,6 +1239,22 @@ def _attach(pivot, names):
             obj.matrix_parent_inverse = inv
             got.append(obj)
     return got
+
+
+def _fcurves(ad):
+    act = ad.action if ad else None
+    if act is None:
+        return []
+    if hasattr(act, "fcurves"):
+        return list(act.fcurves)
+    curves = []
+    # Blender 4.4+: layers > strips > channelbag
+    for layer in act.layers:
+        for strip in layer.strips:
+            bag = strip.channelbag(ad.action_slot)
+            if bag:
+                curves.extend(bag.fcurves)
+    return curves
 
 
 def _key(obj, path, frames_values, index=None, interp="LINEAR"):
@@ -1061,21 +1265,7 @@ def _key(obj, path, frames_values, index=None, interp="LINEAR"):
         else:
             getattr(obj, path)[index] = v
             obj.keyframe_insert(path, index=index, frame=f)
-    ad = obj.animation_data
-    if not ad:
-        return
-    curves = []
-    act = ad.action
-    if hasattr(act, "fcurves"):
-        curves = list(act.fcurves)
-    else:
-        # Blender 4.4+: layers > strips > channelbag
-        for layer in act.layers:
-            for strip in layer.strips:
-                bag = strip.channelbag(ad.action_slot)
-                if bag:
-                    curves.extend(bag.fcurves)
-    for fc in curves:
+    for fc in _fcurves(obj.animation_data):
         for kp in fc.keyframe_points:
             kp.interpolation = interp
 
@@ -1089,72 +1279,147 @@ def _clear_animation():
             mat.node_tree.animation_data_clear()
 
 
+def _rest_pose():
+    """Remove every pivot (a child returns to its own baked transform) and
+    put every directly-keyed part back where it was built."""
+    _clear_animation()
+    for e in [o for o in bpy.data.objects if o.name.startswith(PREFIX + "piv-")]:
+        bpy.data.objects.remove(e, do_unlink=True)
+    for name, (loc, rot, scl) in REST.items():
+        o = bpy.data.objects.get(name)
+        if o is None:
+            continue
+        o.parent = None
+        o.matrix_parent_inverse = Matrix.Identity(4)
+        o.location, o.rotation_euler, o.scale = loc.copy(), rot.copy(), scl.copy()
+
+
+def _smooth(t):
+    return t * t * (3.0 - 2.0 * t)
+
+
+_EASE = {"smooth": _smooth, "in": lambda u: u * u, "out": lambda u: 1.0 - (1.0 - u) ** 2,
+         "lin": lambda u: u}
+
+
+def track(segs, frames):
+    """Per-frame values from chronological (f0, f1, v0, v1, ease) segments,
+    holding v1 between them. Keyed LINEAR every frame, so the eases are
+    exactly what is written here and a heavy part can be given real inertia
+    instead of Blender's one-size bezier."""
+    vals = []
+    v = segs[0][2]
+    for f in range(frames + 1):
+        for f0, f1, v0, v1, ease in segs:
+            if f0 <= f <= f1:
+                t = (f - f0) / max(f1 - f0, 1)
+                v = v0 + (v1 - v0) * _EASE[ease](t)
+                break
+            if f > f1:
+                v = v1
+        vals.append((f, v))
+    return vals
+
+
+def _emission_socket(matname):
+    mat = bpy.data.materials.get(PREFIX + matname)
+    if not mat or not mat.node_tree:
+        return None
+    for n in mat.node_tree.nodes:
+        if n.type == "BSDF_PRINCIPLED":
+            return n.inputs["Emission Strength"]
+        if n.type == "EMISSION":
+            return n.inputs["Strength"]
+    return None
+
+
+def _key_emission(matname, frames_values):
+    sock = _emission_socket(matname)
+    if sock is None:
+        return
+    for f, v in frames_values:
+        sock.default_value = v
+        sock.keyframe_insert("default_value", frame=f)
+
+
+def _key_sine(matname, frames, lo, hi, cycles=1.0, phase=0.0, step=2):
+    vals = []
+    for f in range(0, frames + 1, step):
+        s = 0.5 + 0.5 * math.sin(2 * math.pi * cycles * f / frames + phase)
+        vals.append((f, lo + (hi - lo) * s))
+    _key_emission(matname, vals)
+
+
 # The pivots' world positions, filled in by qa_layout.build() so animate()
 # does not have to know the layout's numbers.
 PIVOTS = {}
 
+# The craft loop's timeline, in frames of 64. One craft: prepare, transfer
+# in, hold, transfer out, index, settle. Nothing shares an edge with anything
+# else on purpose -- a machine whose systems all start and stop together
+# reads as one animation, not as a machine.
+T = dict(
+    valve_riser=((2, 10), (52, 60)),      # liquid line opens, closes
+    arm_out=(4, 14), head_down=(14, 18), grip=(18, 20),
+    head_up=(26, 30), arm_back=(30, 38), release=(38, 40),
+    valve_saddle=((20, 26), (44, 50)),    # discharge valve, under load
+    louvres=((10, 22), (44, 58)),         # condenser opens under load
+    needle_dome=((6, 30), (40, 62)),      # chamber, slow to react
+    needle_recv=((14, 34), (44, 62)),     # receiver pressure, later and shorter
+    lock_up=(35, 38), index=(38, 49), settle=(49, 53), lock_down=(53, 55),
+    valve_lever=((39, 42), (52, 55)),     # the actuated valve, with the index
+    vent=(50, 63),                        # the relief valve blows
+)
 
-def animate(frames=64, idle=False):
-    """The working loop, or the idle one. Every rotation is a whole number of
-    turns so the sheet closes on the wrap.
 
-    WORKING: the condenser fan spins fast, the compressor flywheel turns, the
-    old assembler's gear train runs, the piston strokes, the turntable indexes
-    one station and the transfer arm cycles once.
-
-    IDLE: a refrigerator holds temperature whether or not you are using it.
-    The fan and the flywheel keep turning, slowly -- one turn a loop against
-    five -- and everything that belongs to the craft stands still. That
-    slow-to-fast change is the state read that survives gameplay zoom.
-    """
-    _clear_animation()
+def animate(frames=64, run="slow"):
+    """Key the whole machine for one 64-frame loop. `run` picks the speed of
+    the RUN parts: "slow" for the always-on layer, "fast" for the working
+    overlay. Every rotation is a whole number of turns so the sheet closes
+    on the wrap, and every event returns to its rest value by frame 64."""
+    _rest_pose()
     tau = 2 * math.pi
     P = PIVOTS
+    fast = run == "fast"
 
-    # Back to the rest pose before anything is keyed, so a second call (the
-    # idle loop after the working one) starts from frame 0 and not from
-    # wherever the last evaluated frame left things. Removing a pivot returns
-    # its children to their own (baked, identity) transforms.
-    for e in [o for o in bpy.data.objects if o.name.startswith(PREFIX + "piv-")]:
-        bpy.data.objects.remove(e, do_unlink=True)
-    for nm in ("arm-carriage", "bay-slider"):
-        o = bpy.data.objects.get(PREFIX + nm)
-        if o is not None:
-            o.location = (0.0, 0.0, 0.0)
-    rod = bpy.data.objects.get(PREFIX + "bay-rod")
-    if rod is not None and "crank" in P:
-        gx, gy, gz, cr, L = P["crank"]
-        px, py = gx + cr, gy
-        sy = py + math.sqrt(max(L * L - cr * cr, 0.0))
-        rod.location = ((px + gx) / 2, (py + sy) / 2, gz)
-        rod.rotation_euler = (0.0, 0.0, math.atan2(sy - py, gx - px))
-
-    fan = _pivot("piv-fan", P["fan"])
+    # -- RUN: the refrigeration, continuous ----------------------------------
+    # Slow is the idle hum; fast is under load. Different counts per part so
+    # nothing strobes in step: fan 7 blades, flywheel 5 spokes, pulley 3.
+    fan = _pivot("piv-fan", P["fan"], "QA_Run")
     _attach(fan, ("fan-hub", "fan-blade"))
-    _key(fan, "rotation_euler", [(0, 0.0), (frames, (1.0 if idle else 5.0) * tau)], index=2)
+    _key(fan, "rotation_euler", [(0, 0.0), (frames, (5.0 if fast else 2.0) * tau)], index=2)
+    if "fan2" in P:
+        # the twin fan turns the other way, a turn slower: two rhythms in one
+        # cowl, and the pair never strobes in step
+        fan2 = _pivot("piv-fan2", P["fan2"], "QA_Run")
+        _attach(fan2, ("fan2-",))
+        _key(fan2, "rotation_euler", [(0, 0.0), (frames, (4.0 if fast else 1.0) * -tau)], index=2)
+    fly = _pivot("piv-flywheel", P["flywheel"], "QA_Run")
+    _attach(fly, ("flywheel-",))
+    _key(fly, "rotation_euler", [(0, 0.0), (frames, (4.0 if fast else 2.0) * -tau)], index=1)
+    if "pulley" in P:
+        pul = _pivot("piv-pulley", P["pulley"], "QA_Run")
+        _attach(pul, ("pulley-",))
+        # belt ratio 2:1 -- the pulley is half the flywheel's radius
+        _key(pul, "rotation_euler", [(0, 0.0), (frames, (8.0 if fast else 4.0) * -tau)], index=1)
+    if "cabfan" in P:
+        cf = _pivot("piv-cabfan", P["cabfan"], "QA_Run")
+        _attach(cf, ("cabfan-",))
+        _key(cf, "rotation_euler", [(0, 0.0), (frames, 3.0 * tau)], index=2)
+    if "needle-comp" in P:
+        nd = _pivot("piv-needle-comp", P["needle-comp"], "QA_Run")
+        _attach(nd, ("needle-comp",))
+        # discharge pressure: a flick on every stroke, two strokes a turn
+        vals = [(f, -0.55 + 0.08 * math.sin(tau * 4 * f / frames)) for f in range(frames + 1)]
+        _key(nd, "rotation_euler", vals, index=1)
 
-    fly = _pivot("piv-flywheel", P["flywheel"])
-    _attach(fly, ("flywheel",))
-    _key(fly, "rotation_euler", [(0, 0.0), (frames, (1.0 if idle else 4.0) * -tau)], index=1)
-
+    # -- CRAFT: the old drive train ------------------------------------------
     gear = _pivot("piv-gear", P["gear"])
     _attach(gear, ("gear-",))
     pinion = _pivot("piv-pinion", P["pinion"])
     _attach(pinion, ("pinion-",))
-    table = _pivot("piv-table", P["table"])
-    _attach(table, ("table-", "work-"))
-    arm = bpy.data.objects.get(PREFIX + "arm-carriage")
-
-    if idle:
-        return
-
     _key(gear, "rotation_euler", [(0, 0.0), (frames, -tau)], index=2)
-    _key(pinion, "rotation_euler", [(0, 0.0), (frames, 2 * tau)], index=2)
-
-    # the crank drives a connecting rod and a slider along Y: the assembler's
-    # piston cue, and the only motion in the bay that is not a rotation. The
-    # pin rides on the gear (turning -1 turn a loop), the slider is held to
-    # x = gx, and the rod is posed between them every frame.
+    _key(pinion, "rotation_euler", [(0, 0.0), (frames, 2 * tau)], index=2)   # 18:9 teeth
     rod = bpy.data.objects.get(PREFIX + "bay-rod")
     slider = bpy.data.objects.get(PREFIX + "bay-slider")
     if rod is not None and slider is not None and "crank" in P:
@@ -1171,33 +1436,118 @@ def animate(frames=64, idle=False):
             rod.keyframe_insert("rotation_euler", index=2, frame=f)
             slider.location = (s_base.x, s_base.y + (sy - rest_y), s_base.z)
             slider.keyframe_insert("location", index=1, frame=f)
+        for o in (rod, slider):
+            for fc in _fcurves(o.animation_data):
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "LINEAR"
 
-    # the indexing turntable: dwell, one 90-degree step with an ease, dwell.
-    # Four identical stations, so 90 degrees maps the table onto itself and
-    # the loop closes. The step happens AFTER the arm has withdrawn.
+    # -- CRAFT: the indexing turntable ---------------------------------------
+    # Locked until the arm is clear; the pin lifts, the table eases through
+    # a quarter turn, overshoots two degrees, settles back onto the stop,
+    # and the pin drops with a small bounce. Four identical stations, so 90
+    # degrees maps the table onto itself and the loop closes.
+    table = _pivot("piv-table", P["table"])
+    _attach(table, ("table-", "work-"))
     step = tau / 4
+    over = math.radians(2.2)
     _key(table, "rotation_euler",
-         [(0, 0.0), (40, 0.0), (52, step), (frames, step)], index=2, interp="BEZIER")
+         track([(T["index"][0], T["index"][1], 0.0, step + over, "smooth"),
+                (T["settle"][0], T["settle"][1], step + over, step, "smooth")], frames), index=2)
+    lock = bpy.data.objects.get(PREFIX + "lock-pin")
+    if lock is not None:
+        z0 = lock.location.z
+        _key(lock, "location",
+             track([(T["lock_up"][0], T["lock_up"][1], z0, z0 + 0.035, "smooth"),
+                    (T["lock_down"][0], T["lock_down"][1], z0 + 0.035, z0 - 0.004, "in"),
+                    (T["lock_down"][1], T["lock_down"][1] + 2, z0 - 0.004, z0, "out")], frames),
+             index=2)
 
-    # the transfer arm: in over the table, dwell (the clamp), out, then the
-    # table steps. Along Y, which the camera sees as vertical motion.
-    if arm is not None:
-        by = arm.location.y
+    # -- CRAFT: the transfer arm ---------------------------------------------
+    # A carriage along the cell's rail (Y, vertical on screen), a head that
+    # drops onto the workpiece, two fingers that close on it. Out, down,
+    # grip, hold, up, back, release: seven moves, none of them together.
+    if "arm" in P:
+        ax, ay, az = P["arm"]
         reach = P["arm_reach"]
-        _key(arm, "location", [(0, by), (6, by), (16, by - reach), (28, by - reach),
-                               (38, by), (frames, by)], index=1, interp="BEZIER")
+        arm = _pivot("piv-arm", (ax, ay, az))
+        _attach(arm, ("arm-carriage", "arm-head", "arm-finger"))
+        head = _pivot("piv-armhead", (ax, ay, az), parent=arm)
+        _attach(head, ("arm-head", "arm-finger"), world_of_pivot=(ax, ay, az))
+        _key(arm, "location",
+             track([(T["arm_out"][0], T["arm_out"][1], ay, ay - reach, "smooth"),
+                    (T["arm_back"][0], T["arm_back"][1], ay - reach, ay, "smooth")], frames),
+             index=1)
+        drop = 0.024
+        _key(head, "location",
+             track([(T["head_down"][0], T["head_down"][1], az, az - drop, "smooth"),
+                    (T["head_up"][0], T["head_up"][1], az - drop, az, "out")], frames),
+             index=2)
+        for k, sgn in ((0, 1.0), (1, -1.0)):
+            fng = bpy.data.objects.get(PREFIX + "arm-finger%d" % k)
+            if fng is None:
+                continue
+            x0 = fng.location.x
+            _key(fng, "location",
+                 track([(T["grip"][0], T["grip"][1], x0, x0 + sgn * 0.012, "out"),
+                        (T["release"][0], T["release"][1], x0 + sgn * 0.012, x0, "out")], frames),
+                 index=0)
 
-    # the sight-glass slots breathe with the cycle: two beats a loop. Peak
-    # 1.05 -- Standard clips hard and a cyan past that turns white.
-    mat = bpy.data.materials.get(PREFIX + "cyan")
-    if mat:
-        bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-        sock = bsdf.inputs["Emission Strength"]
-        for f, v in ((0, 1.05), (frames // 4, 0.80), (frames // 2, 1.05),
-                     (3 * frames // 4, 0.80), (frames, 1.05)):
-            sock.default_value = v
-            sock.keyframe_insert("default_value", frame=f)
+    # -- CRAFT: valves, gauges, louvres --------------------------------------
+    def swing(name, axis, amount, when, ease="smooth"):
+        if name not in P:
+            return
+        piv = _pivot("piv-" + name, P[name][:3])
+        _attach(piv, (name,))
+        (a0, a1), (b0, b1) = when
+        _key(piv, "rotation_euler",
+             track([(a0, a1, 0.0, amount, ease), (b0, b1, amount, 0.0, "smooth")], frames),
+             index=axis)
 
+    swing("valve-riser", 1, -tau / 4, T["valve_riser"])          # a quarter turn open
+    swing("valve-saddle", 2, -tau / 6, T["valve_saddle"])        # a sixth, under load
+    swing("valve-lever", 1, 0.85, T["valve_lever"], ease="out")  # the actuator snaps open
+    swing("needle-dome", 1, -1.0, T["needle_dome"])
+    swing("needle-recv", 1, -0.7, T["needle_recv"])
+    for k in range(3):
+        swing("louvre-cond-%d" % k, 0, -0.26, T["louvres"])
+
+    # -- GLOW: what the cell throws ------------------------------------------
+    # The window: up as the cycle starts, steady through the transfer and the
+    # hold, a dip while the table moves, back up, easing off to the wrap.
+    # The values multiply each material's built strength.
+    curve = track([(0, 6, 0.90, 1.0, "smooth"), (T["index"][0], T["index"][0] + 6, 1.0, 0.82, "smooth"),
+                   (T["settle"][0] + 2, T["settle"][1] + 4, 0.82, 1.0, "smooth"),
+                   (58, 64, 1.0, 0.90, "smooth")], frames)
+    for matname, base in (("celllamp", 1.25), ("cyanfloor", 0.26), ("strip", 0.6)):
+        _key_emission(matname, [(f, base * v) for f, v in curve])
+    # the sight dome on the cap: a slow breath, out of phase with the lamp
+    _key_sine("sightlamp", frames, 0.55, 1.0, cycles=1.0, phase=1.2)
+    # the sight glasses: refrigerant flow, two beats a loop, off the window's
+    # phase. Peak 1.05 -- Standard clips hard and a cyan past that turns white.
+    _key_sine("cyan", frames, 0.80, 1.05, cycles=2.0, phase=-0.9)
+    # the receiver's screen: a slow flicker the other way
+    _key_sine("screen", frames, 0.45, 0.65, cycles=3.0, phase=1.7, step=4)
+    # the vent puff: swells from the relief valve, drifts up, fades
+    plume = bpy.data.objects.get(PREFIX + "vapour-plume")
+    if plume is not None:
+        v0, v1 = T["vent"]
+        z0 = plume.location.z
+        _key_emission("vapour", [(0, 0.0), (v0, 0.0), (v0 + 3, 1.0), (v1 - 4, 0.55), (v1, 0.0), (frames, 0.0)])
+        # scaled to nothing outside its window, so no dark sphere sits on the
+        # dome in the frames where the emission is off
+        for axis, top in ((0, 1.9), (1, 1.9), (2, 1.6)):
+            _key(plume, "scale", track([(v0, v0 + 4, 0.02, 1.0, "out"), (v0 + 4, v1, 1.0, top, "lin"),
+                                        (v1, v1 + 1, top, 0.02, "lin")], frames), index=axis)
+        _key(plume, "location", track([(v0, v1, z0, z0 + 0.22, "out")], frames), index=2)
+
+    # -- LAMP: the always-on points, at constant speed -----------------------
+    # Three lamps, three rhythms. The cyan status lamp breathes once a loop;
+    # the amber running lamp holds and flashes twice, unevenly; the violet
+    # family point never changes.
+    _key_sine("cyanlamp", frames, 0.55, 0.95, cycles=1.0, phase=-math.pi / 2)
+    _key_emission("amber", [(0, 0.45), (17, 0.45), (19, 1.0), (24, 0.45),
+                            (49, 0.45), (51, 1.0), (54, 0.55), (58, 1.0), (61, 0.45), (frames, 0.45)])
+    _key_emission("violet", [(0, 1.1), (frames, 1.1)])
 
 # --------------------------------------------------------------------------
 # audit -- spend the budget deliberately and prove the sprite fits
@@ -1300,7 +1650,7 @@ def main():
     rig.output(scene, CANVAS)
     rig.cycles(scene, samples=96)
     for c in bpy.data.collections:
-        if c.name == "QA_Pipe":
+        if c.name in ("QA_Pipe", "QA_Glow"):
             c.hide_render = True
     scene.frame_set(frame)
     scene.render.filepath = str(out / "look.png")

@@ -100,6 +100,17 @@ productivity is what the extra buys. A free 12% quality is worth five normal qua
 **800 kW per unit of speed, so 1600 kW at speed 2.** Per item crafted that is 2.7x an assembling
 machine 3's electricity (1600/2 against 375/1.25). Drain is the default thirtieth.
 
+**Read back from the running engine, 2026-09-13, in both configurations** (the screenshot
+harness's `report` group, Space Age on and then disabled): with no modules `crafting_speed`
+2.000 and `effects.quality` 0.1200; with five quality module 3s quality **0.245** and speed
+1.500 (their −5% each); with five productivity module 3s productivity 0.50, speed 0.500,
+consumption +400% and quality still 0.12; with five speed module 3s speed **7.000** and quality
+**0** — five of them take −2.5% each, 0.125 in all, and cancel the built-in 0.12 exactly, a
+number worth knowing before anyone calls the machine a pure speed upgrade. `can_fast_replace`
+returns true over an assembling machine 3 and an assembling machine 2. Beside it an assembling
+machine 3 with four quality module 3s reads 0.10 at speed 1.000. The two configurations report
+identical machine numbers and their own recipe and technology (below).
+
 **`max_health` 400 and `emissions_per_minute` 3**, chosen 2026-09-13 when the prototype was
 written: the health is the assembling machine 3's and the recycler's; the pollution sits between
 the assembling machine 3's 2 and the electromagnetic plant's 4, which is where 1.6x an
@@ -218,14 +229,43 @@ the family tell to `quality-recycler`.
 target was AM3's 13.7%; the AM2, whose blue this is, measures 17.1%). Accepted: the hull is
 squat and the deck rim is painted, and at 32 px the split needs the blue to hold.
 
-**No idle loop.** The design wanted the condenser fan and the compressor flywheel turning slowly
-while the machine idles. Measured in the engine on 2026-09-13 with a tick sequence: an
-assembling machine that is not working is *frozen* — `idle_animation` is drawn at the frame the
-working animation stopped on and never advances (which is why the API requires it to have the
-same frame count). A second sheet with different fan angles would jump the instant the machine
-stopped, so it was cut. The machine freezes when idle exactly as every vanilla assembler does; the
-state read is the window going dim (the base carries only a tenth of the cell lamp) and the fan
-stopping.
+**The graft wears the cryogenic plant's own teal, and "futuristic" means Space Age, not neon.**
+The owner's third brief of 2026-09-13 asked for a more complex, more beautiful, more futuristic
+machine with the animations kept. The design session had forbidden "clean futuristic laboratory"
+and "spaceship aesthetics"; the reconciliation is that Factorio's own futuristic machines — the
+cryogenic plant, the fusion reactor — are rounded riveted pressure vessels in teal and blue-grey
+with cream panels and khaki ribbed hoses, at 1–4% cyan. Their palette was sampled and the graft
+repainted in it (`teal`, `cream`, `composite`, `hose` in `qa_gen.py`), the condenser got twin
+fans, the plumbing got ribbed hoses, the cap got a sight dome, the skid a console. The west half
+keeps Nauvis blue: the two paints are the story. Details and the rules learnt are in the design
+document's *The Aquilo pass*. The emissive budget did not grow past a bezel light line and the
+sight dome's lamp, both working-only.
+
+**The refrigeration runs in every state; the craft freezes with the machine.** `idle_animation`
+is frozen (drawn at the frame the working animation stopped on — measured 2026-09-13 with a tick
+sequence), so the first build shipped no idle motion. The second pass the same day found the slot
+the engine *does* animate in every state: a working visualisation with `always_draw` **and**
+`constant_speed`, which moved every shot on an unpowered machine while the base animation and a
+plain `always_draw` copy stood still. So the condenser fan, the compressor flywheel and its motor
+pulley, the cabinet fan, the compressor's pressure needle and the three lamps live in two such
+layers and turn slowly whether or not the machine works; the drive train, the turntable, the arm,
+the valves, the reacting gauges and the louvres live in `graphics_set.animation` and freeze
+with it, like every vanilla assembler's. **"Slow when idle, fast when working"** is a pair of
+working-only overlays (`fast-comp`, `fast-fan`) drawn opaque over the slow layer and faded off on
+stop — the design document's *The animation system* has the sheets, the timeline and the rules.
+The state read is therefore: idle is a refrigerator humming with a dim window; working is the
+wheels speeding up, the craft cycle running and the window lit.
+
+**The animation is not scaled by the crafting speed.** Measured the same day: at
+`crafting_speed = 2` every layer, the base animation included, returned to identical pixels after
+exactly 128 ticks — 64 frames at `animation_speed = 0.5`. `pictures.lua` and the design document
+had assumed the engine doubled it. One loop is therefore 2.1 s: one index a craft cycle, the fan
+at 2.3 turns a second under load and 0.9 idle.
+
+**A turning part's step per frame stays under about 0.4 of its blade or spoke period.** The
+condenser fan shipped with seven blades and strobed backwards under load (28° a frame against a
+51° period); it has five now. The check is in the design document and applies to every wheel on
+the machine.
 
 **`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the same origin
 `pipe_covers` use, not on the entity. Measured 2026-09-13: with entity-relative shifts the north
