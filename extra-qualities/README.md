@@ -52,6 +52,13 @@ The help tapers off, and from epic upward the odds are vanilla's. Better quality
 - The quality picker in machines and filters keeps its row of buttons. The game normally replaces it with a dropdown once there are six tiers.
 - Safe to add to an existing save. The new tiers appear at the top of the ladder, locked until researched.
 
+## Check my other mods
+
+- [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
+- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.
+- [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
+- [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with a built-in 12.5% quality chance on every craft.
+
 ## AI-Assisted Development
 
 The development of this mod was done with help of AI coding assistants.
