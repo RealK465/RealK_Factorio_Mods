@@ -13,8 +13,13 @@ document leaves open is in `deferred.md` and in *Not settled* at the end.
 shows it outranks the prose here.** It arrived after the design session and confirms most of it;
 where the two differ, the sheet is the decision and the difference is recorded in *The owner's
 concept sheet* near the end of this document — read that section together with the sections it
-supersedes, which carry inline markers. Four questions the sheet leaves genuinely open are in
-*Not settled*.
+supersedes, which carry inline markers.
+
+**Built 2026-09-13, the same day, on the owner's build brief.** The brief settled the four
+questions the sheet had opened (the window and turntable stay; amber is one running lamp, not an
+accent; the violet point stays; rime goes back on) and *Built*, near the end, records what the
+model actually is, where it departs from the sections above, and what the engine measured. Where
+*Built* and an earlier section disagree, *Built* is what shipped.
 
 ## Function & constraints
 
@@ -104,8 +109,8 @@ Three readings ruled out:
 
 ## Hero & family
 
-**[superseded in form by the concept sheet — the vessel is a lit capped column with no window;
-the reasoning below still stands and the window is an open question in *Not settled*]**
+**[the concept sheet drew a lit capped column with no window; the owner's build brief of the
+same day put the window and the turntable back, and that is what was built — see *Built*]**
 
 **Hero: the jacketed cold build vessel.** A drum standing on end on the east third, wrapped in
 its coil bundle, with a frost-rimed window on its south face. Modelled first and oversized; it
@@ -394,56 +399,118 @@ on their own. Measure with `gates.silhouette` early — targets **fill 0.58–0.
 1.14–2.19**, and **zero full-width rows** — rather than discovering it after a bake. Raggedness
 is bought with holes, which is a second reason to put the ladder and railing back.
 
+## Built (2026-09-13)
+
+The model is `../../assets/quality-assembler/entity/quality-assembler/` — `qa_gen.py` (palette,
+the validated material stack with a rime term, the bmesh primitives, animation, audit) and
+`qa_layout.py` (the machine); `render_entity.py`, `make_sheets.py`, `make_look.py`, `show.py`,
+`check_visibility.py`, `render_icon.py` and `make_icons.py` do the rest. Six look-dev rounds and
+three engine runs on the day it was designed.
+
+### What was built, west to east
+
+- **The plinth**: a chamfered slab at ±1.40 tiles, deliberately inside both silhouette extremes.
+- **The old machine**, x −1.36..−0.12: a chamfered blue skirt on the plinth with three bolted
+  panel plates on its south face (the one beside the seam in a rustier paint), the deck rim
+  painted, and the top **cut open as a mechanism bay** 0.94 x 0.88 tiles: a bright 20-tooth gear,
+  a 9-tooth pinion, a crank driving a connecting rod and a slider along Y, the gearbox's shaft,
+  and the assembler's own handwheel on the west rim. A **narrow blue cabinet tower** in the
+  south-west corner carries the **module rack** (five stacked slots in a dark recess), the violet
+  point at its head and the one amber running lamp; a **low gearbox housing** south of the bay
+  carries a louvre grille and the placard. The **compressor** is bolted to the north-west corner
+  of the deck: a finned cylinder block with a valve cover, its five-spoke flywheel facing the
+  camera, a motor behind it, a gauge, and its mount plate hanging past the hull on a bracket
+  with a guard rail — the sprite's west extreme.
+- **The seam**, dead centre: a bare-steel strap up the south wall, a bolted joining plate across
+  the deck with weld beads either side, and a dark step down from the old deck (z 0.66) to the
+  graft's skid (z 0.30). The discharge line runs down the saddle in front of it on three clamps.
+- **The graft**, x −0.08..1.42 on a galvanised skid: the **cold build vessel** at (0.68, −0.26),
+  r 0.50, foot to boss z 0.30..1.84 — a rimed foot flange with a bolt ring, a lower shell, the
+  **window band** (opening −146°..−34°, z 0.72..1.24) with a heavy gunmetal bezel of two arcs and
+  two riveted posts, rubber gasket beads and a pane, **sight glasses** on the shoulders either
+  side, the upper shell wound with a **three-turn copper coil** on four straps, a bolted cap, an
+  insulated dome with a band, four seams, a manway and two lugs, a boss and a relief valve, a
+  gauge, a ladder up the south-east flank and the cyan status lamp at the south-west foot. Inside
+  the cell: a cold-light ring in the floor, a ceiling lamp hidden under the top lip, the
+  **turntable** (a dark disc with a scoured rim, four clamps, four pale workpieces) and the
+  transfer arm.
+- **The condenser skid**, x 0.46..1.50 at the south-east, z 0.30..0.66: a frame body round a
+  real well with a seven-blade pitched fan and a three-bar guard in its top, three louvres and
+  eight hazard chevrons on its face, an access panel with a handle — sooted from the top, and
+  the sprite's east extreme.
+- **The riser**, at (1.20, 0.46): the liquid line up from the condenser through an insulated
+  receiver drum with bands, a screen and a gauge, to z 1.59, then west and south into the coil's
+  top turn. The skyline, at y+z 2.18.
+- **Plumbing**: compressor → condenser (discharge, over the seam and down the saddle),
+  condenser → receiver (along the skid's east edge), receiver → coil (the riser), coil →
+  a deck flange (the return continues under the deck) and a suction stub off the compressor.
+  Two handwheels, two cables from the cabinet's junction box (one across the bay to the
+  compressor, one to the skid).
+- **The fluid stubs**: a bolted collar at the hull and a 0.5-tile-wide barrel to the tile edge,
+  one per direction, rendered with the hull as a holdout.
+
+### Where it departs from the sections above
+
+- **The old half is squat and the graft is tall.** The session's plan had a tall blue cabinet;
+  the first render hid the mechanism bay behind it (the camera hides everything behind a mass up
+  to its north edge plus its height), so the cabinet became a narrow corner tower and the deck
+  opened up. That is also the better story: the old assembler was never tall.
+- **The compressor is on the deck at the north-west, not a skid breaching west at ground.**
+  Ground hardware past the tiles lies on the neighbour in a row (the recycler shipped that); a
+  mount plate at deck height hanging 0.14 past the hull does the silhouette's work without it.
+- **The condenser is a skid in front of the vessel, fan in its top**, where the sheet drew the
+  fan in the deck centre and the session drew a fin bank overhanging east. The fan over the fins
+  is the physics; the south-east corner is where its rows stay clear of the compressor's.
+- **The receiver is the expansion vessel**, vertical and insulated, on the riser.
+- **No idle loop.** See `decisions.md` → *Art*: the engine freezes a non-working machine, so the
+  fan stopping and the window dimming are the idle read, as on every vanilla assembler.
+- **The turntable is dark and the workpieces pale**, the reverse of the session's plan: under the
+  cyan lamp a pale table blew out to a flat cyan rectangle, and the eye needs dark against the
+  glow.
+
+### Measured
+
+Off the packed sheets and the engine, 2026-09-13:
+
+| | this | AM3 | target |
+|---|---|---|---|
+| base sprite | 198 x 234 src px, drawn 1.01 x 1.20 of the footprint | 196 x 192, 1.02 x 0.94 | — |
+| north overhang | **0.67** tiles | ~0 | ≤ 0.70 |
+| luminance sd (painted) | **48.7** | 52.0 | 43–56 |
+| clipped | 0.0% | — | ≤ 0.05% |
+| saturation / ≥0.12 | 0.51 / 90% | 0.47 / 96% | — |
+| blue paint | 21.1% | 13.7% (AM3), 17.1% (AM2) | 13.7% |
+| silhouette | 0% full-width rows, fill 0.87, ragged 0.80 | 0%, 0.92, 0.89 | 0%, ≤0.90, ≥1.05 |
+| objects | 206, of which 19 draw nothing (flanges inside bodies, the hidden lamp) | — | — |
+
+Paint-over: `make_look.POST` — the stock entity preset with form 0.90, contrast 0.55, crevice
+0.42, no saturation or value correction. The raw render measures sd 30 and the pass takes it to
+49–54 without clipping; the palette was sampled, so colour stays in the materials.
+
+### What the engine settled
+
+- **`idle_animation` does not play** (tick sequence, no change between t+6 and t+18 on a
+  `no_recipe` machine; the working machine changed by a mean of 17/255 in the fan region). Cut.
+- **`pipe_picture` is drawn centred on the tile outside the connection.** The first stubs drew a
+  tile too far out — a floating hook above the north pipe, a spare flange on the south one.
+- **The idle window was too bright** with the cell lamp at 0.30 in the base: luminance 88
+  against the working 101–125. The base now carries a tenth.
+- **The pipe entity's ending sprite carries the joint's flange**, so the stub is a collar and a
+  barrel only.
+
 ## Not settled
 
-**Four of these are questions the concept sheet opened, and they need the owner rather than a
-modelling judgement.** They are listed first because the answers change what gets built.
+Everything below is a modelling or play judgement rather than a decision that changes the
+machine; `deferred.md` owns the list.
 
-- **With the frost window gone, the machine shows no material flow at all.** The session cut every
-  exterior intake on purpose — an assembler takes inserters on all four sides, so a named port
-  lies about direction — which left the window as the only evidence that anything is being made,
-  and the sheet's lit column has no window. That is a defensible Space Age answer (the
-  electromagnetic plant shows no material either) but it is a real change, so it should be a
-  choice: leave it with no material read, or give the column a viewport with the indexing
-  turntable behind it.
-- **Amber as a second emissive.** The sheet uses warm amber panels alongside the cold cyan,
-  where the session settled on one semantic accent per entity. It may be deliberate — a warm
-  counterweight is what stops an all-cold machine rendering dead, which is the job material zone
-  4 was given — in which case amber replaces copper as the warm half of the pairing and should be
-  written down as that. If it is incidental, it wants trimming before two saturated accents fight
-  at 64 px.
-- **The violet family tell.** Absent from the sheet. Either it is dropped — in which case
-  `deferred.md`'s note that the visual link to `quality-recycler` is deliberately thin becomes
-  "there is none" — or it is simply not drawn at this scale and survives as one small point on
-  the module bay.
-- **Frost and rime.** Absent from the sheet. Either the cold reads through clean panels alone, or
-  a light rime goes back on the jacket seams and low points at modelling time. The wear map's
-  seam rule is unaffected either way: condensate running off the cold half onto the old painted
-  one is what puts the machine's worst corrosion on the seam, and the sheet's heavy rust
-  streaking is consistent with it.
-
-- **`pipe_picture`: reuse AM3's or author our own.** An assembling machine's stubs come and go
-  with the recipe, so they are engine-drawn from a picture set rather than modelled into the
-  hull. Reusing `require("prototypes.entity.assembler-pictures").assembler3pipepictures` is free
-  and guaranteed to fit; authoring a set matched to this hull's materials is better and costs
-  four small sprites. Whichever is chosen, `pipe_covers = pipecoverspictures()` is declared
-  either way, and the joint gets judged by compositing against real `pipe-straight-*.png`
-  sprites — never by eye.
-- **Exact vessel proportions and the riser's position within the east third.** The design fixes
-  that the riser is tall, east and off-centre; it does not fix by how much.
-- **The window's construction.** A recess has to be built AS a recess — a dark box laid over an
-  opening in a solid hull draws zero pixels, which is how the sibling mod lost three rollers and
-  three tooth rings in every rotation. Whether this is a true inset bay or a flush emissive pane
-  behind a bezel is a modelling call, and at a 45° camera a shallow recess shows only the top
-  fraction of its back wall.
-- **`animation_speed`, and how many frames the loop needs.** AM3 runs 64. Unverifiable from
-  screenshots; watch it in play beside a vanilla assembler.
-- **`water_reflection`, circuit connector, `corpse` and `dying_explosion`.** All four are free
-  when deriving from a vanilla entity and absent on one built from scratch. AM3 has all of
-  them, and unlike the recycler's case there is no footprint mismatch — this machine is the same
-  3x3 — so the vanilla assembler connector may fit as-is. `deferred.md` owns these.
-- **`thumbnail.png`, the item icon and the technology icon.** Not designed. The icon should
-  frame the whole machine rather than crop into the hero — a flat machine's icon gets squarer as
-  the camera goes *up*, which the sibling mod established after two rejected crops.
+- **`animation_speed` 0.5** was chosen so the loop runs at one frame a tick at crafting speed
+  2 (64 ticks a loop). Unverified against a vanilla assembler standing beside it in play.
+- **Ragged silhouette 0.80** against the gate's 1.05 floor; the vanilla 3x3 assemblers measure
+  0.82–0.93. Holes in clear air would buy more.
+- **The rime reads at zoom 2 and above, not at zoom 1.** Whether that is enough cold is a play
+  call.
+- **`thumbnail.png`, the item icon and the technology icon** are built from one 512 render
+  turned so the vessel stands in front (`render_icon.py`, yaw −32°, elevation 47°). Not reviewed
+  by the owner.
 - **Balance.** Nothing here is a balance claim. The stats are in `decisions.md` and are a
   reasoned placement, not a measurement.

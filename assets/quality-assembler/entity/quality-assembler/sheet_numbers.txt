@@ -1,0 +1,9 @@
+base: width=198 height=234 shift=util.by_pixel(0.0, -12.5)
+shadow: width=252 height=172 shift=util.by_pixel(16.5, 5.0)
+anim: width=166 height=140 shift=util.by_pixel(-0.5, -15.0) frames=64 line_length=8 sheet=1328x1120
+lamp: width=110 height=30 shift=util.by_pixel(-12.5, 8.0)
+glow: width=44 height=68 shift=util.by_pixel(21.5, -13.5) frames=64 line_length=8 scale=1.0 sheet=352x544
+pipe-N: width=30 height=48 shift=util.by_pixel(0.5, 11.5) (outside-tile origin)
+pipe-S: width=36 height=50 shift=util.by_pixel(0.0, -29.5) (outside-tile origin)
+pipe-E: width=22 height=44 shift=util.by_pixel(-17.5, -10.5) (outside-tile origin)
+pipe-W: width=16 height=38 shift=util.by_pixel(18.0, -9.0) (outside-tile origin)

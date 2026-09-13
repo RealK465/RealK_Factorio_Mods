@@ -3,6 +3,42 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-09-13 — built: modelled, animated, rendered, in the engine
+
+The owner asked for the graphics to be implemented from the design document and the concept
+sheet, with a long brief on the bar: iterate on renders until the machine "finally looks like a
+machine that belongs in Factorio", and decide routine art questions without asking. The brief
+also answered the four questions the sheet had opened — window and turntable back, amber only
+as a running lamp, the violet point kept, rime on — and `decisions.md` → *Art* records that.
+
+**Six look-dev rounds.** The first render drew 2.8 tiles on a 3-tile footprint and hid the
+mechanism bay behind a tall cabinet; the hull was widened to fill its tiles and the old half made
+squat, with the cabinet a corner tower, which is also the better story. The window was black for
+two rounds: the "gasket" had been built as a full curved shell across the opening. The dome
+rendered as a white blob until it became insulated lagging with a band, seams, a manway and lugs.
+Rime was invisible on pale steel and reads only once the foot and the window sill went dark. The
+turntable was reversed to dark-with-pale-pieces because a pale table under the cyan lamp blew out
+to a flat rectangle. The object-ID pass caught the condenser fan buried inside a solid body (the
+"well" was a solid disc over the blades) and confirmed the cell interior only after the glass was
+hidden for the pass.
+
+**Two engine runs, both decisive.** `idle_animation` does not play: a machine that is not working
+is frozen, and the sheet is only drawn at the stopped frame — so the design's slow-idle fan was
+cut rather than shipped as a jump. And `pipe_picture` is drawn centred on the tile outside the
+connection: the first stubs floated a tile past the pipes, and the owner saw it ("improve the
+pipe placement graphics, it looks weird"). The stubs became a collar and a short barrel, and
+their sidecars are written against the outside tile.
+
+Also written today: the prototype (`entity.lua`, `item.lua`, `pictures.lua`, `data.lua`), the
+recipe and technology on both branches, health 400 and pollution 3, the icons and the thumbnail,
+and the 0.1.0 changelog entries. Both configurations validate.
+
+**Ported to `legacy/2.0` the same evening**, on the owner's commit request. A scratch copy
+validated against the 2.0 install found `entity.lua` a hard error there — `assembler-pictures.lua`
+is a 2.1 file — so the 2.0 fork takes its connector from the `circuit_connector_definitions`
+global, drops the reflection the 2.0 assembler does not have, and carries `quality = 1.2` for the
+2.0 scaling. Validated clean in both configurations before it was committed.
+
 ## 2026-09-13 — the owner's concept sheet arrived
 
 The owner dropped `prototype.png` into this folder after the design session below and asked for
