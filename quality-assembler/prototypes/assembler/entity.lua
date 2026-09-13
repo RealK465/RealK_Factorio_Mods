@@ -3,8 +3,8 @@
 -- Forked from main's entity.lua for the 2.0 track; keep the two in step by
 -- hand. Three things differ, and all three load clean when got wrong:
 --
---   * quality effect values are TEN TIMES larger on 2.0: `quality = 1.2` here
---     is the 12% that `0.12` buys on 2.1 (quality-recycler learned it);
+--   * quality effect values are TEN TIMES larger on 2.0: `quality = 1.25` here
+--     is the 12.5% that `0.125` buys on 2.1 (quality-recycler learned it);
 --   * `__base__/prototypes/entity/assembler-pictures.lua` is a 2.1 file. On
 --     2.0 the assembling machine's connector is the data-stage global
 --     `circuit_connector_definitions["assembling-machine"]`;
@@ -101,10 +101,10 @@ data:extend({
     -- The mechanic. `effect_receiver.base_effect.quality` is a permanent,
     -- module-free bonus -- the same field a quality module writes, carried by
     -- the machine itself. The electromagnetic plant does exactly this with
-    -- productivity 0.5. 1.2 on 2.0 is the 12% that 0.12 buys on 2.1 -- what
-    -- five normal quality module 3s give, and the number the sibling
-    -- quality-recycler carries.
-    effect_receiver = { base_effect = { quality = 1.2 } },
+    -- productivity 0.5. 1.25 on 2.0 is the 12.5% that 0.125 buys on 2.1 --
+    -- what five normal quality module 3s give, and the number the sibling
+    -- quality-recycler carries (the owner's call of 2026-09-13, up from 1.2).
+    effect_receiver = { base_effect = { quality = 1.25 } },
     module_slots = 5,                      -- the electromagnetic plant's
     -- The assembling machine 3's effects exactly, productivity included:
     -- assembling returns nothing for free, so there is nothing to exploit.
@@ -119,7 +119,7 @@ data:extend({
     {
       type = "electric",
       usage_priority = "secondary-input",
-      emissions_per_minute = { pollution = 3 }   -- chosen: AM3 2, EM plant 4
+      emissions_per_minute = { pollution = 7.5 } -- owner's call: AM3 2, cryogenic plant 6
     },
 
     -- The assembling machine 3's own loop, at the volume it ships with.
