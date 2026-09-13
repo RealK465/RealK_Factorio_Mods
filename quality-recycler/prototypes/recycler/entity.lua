@@ -62,12 +62,13 @@ data:extend({
     -- The mechanic. `effect_receiver.base_effect.quality` is a permanent,
     -- module-free bonus -- the same field a quality module writes, carried by
     -- the machine itself. The electromagnetic plant does exactly this with
-    -- productivity 0.5. 12% is what five normal quality module 3s give.
-    -- 1.2, not main's 0.12: quality effect values are ten times larger in 2.0
-    -- prototype definitions. Vanilla's own quality-module-1 is `quality = 0.1`
-    -- here against `0.01` on 2.1, and both display 1%. Written at 0.12 this
-    -- machine would load clean, dump clean, and hand out 1.2%.
-    effect_receiver = { base_effect = { quality = 1.2 } },
+    -- productivity 0.5. 12.5% is what five normal quality module 3s give.
+    -- 1.25, not main's 0.125: quality effect values are ten times larger in
+    -- 2.0 prototype definitions. Vanilla's own quality-module-1 is
+    -- `quality = 0.1` here against `0.01` on 2.1, and both display 1%. Written
+    -- at 0.125 this machine would load clean, dump clean, and hand out 1.25%.
+    -- (The owner's call of 2026-09-13, up from 1.2, matched with the assembler.)
+    effect_receiver = { base_effect = { quality = 1.25 } },
     module_slots = 5,                      -- the electromagnetic plant's
     -- No productivity, matching the vanilla recycler: recycling returns a
     -- fraction of what went in, and a productivity bonus on that would be
@@ -77,7 +78,7 @@ data:extend({
 
     -- 800kW per unit of crafting speed. The vanilla recycler pays 360, the
     -- foundry 625, the electromagnetic plant 1000 for its free productivity;
-    -- a free 12% quality sits with the plant. Per item recycled that is 2.2x
+    -- a free 12.5% quality sits with the plant. Per item recycled that is 2.2x
     -- the recycler's electricity, against the plant's 3.3x over an
     -- assembler 3. Numbers in `.ai-support/decisions.md`.
     energy_usage = "1000kW",
@@ -85,7 +86,7 @@ data:extend({
     {
       type = "electric",
       usage_priority = "secondary-input",
-      emissions_per_minute = { pollution = 4 }   -- chosen: recycler 2, EM plant 4
+      emissions_per_minute = { pollution = 7.5 } -- owner's call: recycler 2, cryogenic plant 6
     },
 
     -- Where the machine places its RESULTS: the tile past the north edge,

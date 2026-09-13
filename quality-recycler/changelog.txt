@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: ????
+  Balancing:
+    - The built-in quality chance is now 12.5% instead of 12%.
+    - The quality recycler now emits 7.5 pollution per minute instead of 4.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-09-12
   Changes:

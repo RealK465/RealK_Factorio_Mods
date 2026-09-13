@@ -21,7 +21,8 @@ section disagree, v3 is current.
 ## Function & constraints
 
 Shreds items back into their components like the vanilla recycler, but grades what comes out —
-12% quality on every craft with no modules fitted, at twice the vanilla recycler's speed.
+12.5% quality on every craft with no modules fitted (12% when this was written), at twice the
+vanilla recycler's speed.
 
 | | |
 |---|---|

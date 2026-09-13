@@ -8,7 +8,8 @@ Parked and open work. The single owner of this list — `CLAUDE.md` doesn't keep
 technology are all settled — see `decisions.md`. What is left:
 
 - **Nothing has been played.** A clean data stage says nothing about whether the machine is worth
-  building. 12% quality at 2.5x speed with five slots and a megawatt, for a recycler, two quality
+  building. 12.5% quality (12% until 2026-09-13) at 2.5x speed with five slots, a megawatt and
+  7.5 pollution a minute, for a recycler, two quality
   module 3s and three planets' worth of parts, is a reasoned guess at the balance
   (`decisions.md`), not a measurement — and the base-game branch (low-density structures,
   electric engines, the gate after the rocket) has been validated, never played.
