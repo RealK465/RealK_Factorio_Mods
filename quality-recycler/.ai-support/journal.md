@@ -2,6 +2,24 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-13 (night) — 0.1.3 does not start on Factorio 2.0: the sound path
+
+A player reported on the portal, minutes after 0.1.3 went up, that Factorio 2.0 refused to
+start with the mod: `Path __recycler__/sound/recycler/recycler-loop.ogg does not match any
+enabled mod`. They read it as a conflict with more-infinite-research because the error dialog
+listed both mods; it is nothing of the kind. The 2.0 fork of `entity.lua` kept the 2.1
+working-sound path, and the `recycler` mod does not exist on 2.0 — the loop lives at
+`__quality__/sound/recycler/recycler-loop.ogg` there. Reproduced with the mod alone on 2.0.77,
+fixed by the one-line path change, and every 2.0 and 2.1 build in the repo was then loaded the
+same way and passed. `legacy/2.0` bumped to 0.1.4 with an open changelog section on both
+branches, and released the same night at the owner's ask, the portal's sha1 matching the zip.
+
+Why validation missed it: `--dump-data` never opens a sound or sprite file, and nothing in the
+release sequence did either. `validate.ps1 -FullLoad` now creates a save headlessly and loads it
+with the renderer for one tick — the run that opens both — and the release skill requires it.
+Also measured: the game exits 0 on `Failed to load mods` in that mode, so the script reads the
+log rather than the exit code.
+
 ## 2026-09-13 (later) — 0.1.2 and 0.1.3 released
 
 The balance change shipped the same night at the owner's ask: 0.1.2 for Factorio 2.1 from
