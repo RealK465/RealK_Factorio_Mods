@@ -89,8 +89,8 @@ electromagnetic plant (the tier this joins). Both read out of the game's own dat
 | `module_slots` | **5** | 4 | 5 |
 | free bonus | 12% quality | none | +50% productivity |
 | `collision_box` | **1.2 (3x3)** | 1.2 (3x3) | 1.7 (4x4) |
-| `max_health` | *open* | 400 | 350 |
-| pollution/min | *open* | 2 | 4 |
+| `max_health` | **400** | 400 | 350 |
+| pollution/min | **3** | 2 | 4 |
 
 **Electricity is priced by the free bonus**, exactly as it was for `quality-recycler`. Per unit
 of crafting speed the assembling machine 3 pays 300 kW, the vanilla recycler 360, the foundry
@@ -100,7 +100,31 @@ productivity is what the extra buys. A free 12% quality is worth five normal qua
 **800 kW per unit of speed, so 1600 kW at speed 2.** Per item crafted that is 2.7x an assembling
 machine 3's electricity (1600/2 against 375/1.25). Drain is the default thirtieth.
 
-`max_health` and `emissions_per_minute` are deliberately left open — see `deferred.md`.
+**`max_health` 400 and `emissions_per_minute` 3**, chosen 2026-09-13 when the prototype was
+written: the health is the assembling machine 3's and the recycler's; the pollution sits between
+the assembling machine 3's 2 and the electromagnetic plant's 4, which is where 1.6x an
+assembler 3's work at 800 kW per unit of speed puts it.
+
+### The recipe
+
+Chosen 2026-09-13 with the prototype, in `quality-recycler`'s shape: a whole machine of the tier
+below plus two quality module 3s (the "quality built in" as an ingredient), then materials that
+say where the machine has been.
+
+- **With Space Age:** `assembling-machine-3` x1, `quality-module-3` x2, `lithium-plate` x20,
+  `superconductor` x10, `processing-unit` x20. Lithium plate is Aquilo's own material and the
+  cryogenic plant's recipe carries the same 20; the superconductors are the cold cell's drive.
+- **Without it:** `assembling-machine-3` x1, `quality-module-3` x2, `low-density-structure`
+  x20, `electric-engine-unit` x10, `processing-unit` x20 — the base game's late materials, the
+  engines being the compressor's drive.
+- `energy_required` 10, the electromagnetic plant's, on both.
+
+**The technology's cost** is `quantum-processor`'s exactly on the Space Age branch: 500 units of
+all ten packs at 60 s, prerequisites `cryogenic-science-pack` and `quality-module-3`. Without
+Space Age it is 500 units of the six base packs at 60 s after `space-science-pack`,
+`utility-science-pack` and `quality-module-3` — the recycler's own gate.
+
+Nothing here is a balance claim; see `deferred.md`.
 
 ### Crafting categories
 
@@ -163,15 +187,55 @@ is the honest translation.
 
 ## Art
 
-**Designed 2026-09-13** through a full `factorio-entity-design` session. The design, its
-reasoning and its measured reference numbers are in `quality-assembler-design.md`, which is also
-the mod's house art style since there is no separate art-direction register. The headline
-decisions: it is **an assembling machine 3 that came back from Aquilo with half of it replaced**,
-its hero is a **jacketed cold build vessel** with an indexing turntable behind a frost window,
-and **quality reads as tolerance rather than selection** — an assembler builds one thing, so the
-only honest reading is that it builds it more precisely, and real precision is held by holding
-temperature. The accent is **pale turquoise (180–195°)** with one small violet point as the
-family tell to `quality-recycler`. Nothing is modelled or rendered.
+**Designed 2026-09-13** through a full `factorio-entity-design` session, **and built the same
+day** through `factorio-graphics`. The design, its reasoning and its measured reference numbers
+are in `quality-assembler-design.md`, which is also the mod's house art style since there is no
+separate art-direction register; its *Built* section records what the model actually is. The
+headline decisions: it is **an assembling machine 3 that came back from Aquilo with half of it
+replaced**, its hero is a **jacketed cold build vessel** with an indexing turntable behind a
+window, and **quality reads as tolerance rather than selection** — an assembler builds one thing,
+so the only honest reading is that it builds it more precisely, and real precision is held by
+holding temperature. The accent is **pale turquoise (180–195°)** with one small violet point as
+the family tell to `quality-recycler`.
+
+**The four questions the concept sheet opened were settled by the owner's build brief of
+2026-09-13**, which asked for the graphics to be implemented and spelt out each one:
+
+- **The window stays, with the indexing turntable behind it.** The brief calls for "a
+  south-facing viewing window, a heavy window bezel" with the turntable visible behind the glass,
+  so the sheet's windowless column is superseded. The material-through evidence is interior,
+  as the design session wanted.
+- **Amber is not a second accent.** The brief lists copper/brass as the warm zone and allows
+  "restrained warm highlights"; the machine carries one small amber running lamp on the
+  cabinet. Copper and bronze do the warm-against-cold work.
+- **The violet family tell survives**, as exactly one point at the head of the module rack —
+  "one tiny violet family cue on the module bay", the brief's words.
+- **Rime goes back on.** Frost, rime and ice accumulation are named in the brief for the cold
+  half; the model carries it as a material term on the vessel's foot, the window sill and the
+  coil, heaviest low and in crevices.
+
+**Paint fraction as built: 21.1% blue over the opaque pixels of the base sheet** (the design's
+target was AM3's 13.7%; the AM2, whose blue this is, measures 17.1%). Accepted: the hull is
+squat and the deck rim is painted, and at 32 px the split needs the blue to hold.
+
+**No idle loop.** The design wanted the condenser fan and the compressor flywheel turning slowly
+while the machine idles. Measured in the engine on 2026-09-13 with a tick sequence: an
+assembling machine that is not working is *frozen* — `idle_animation` is drawn at the frame the
+working animation stopped on and never advances (which is why the API requires it to have the
+same frame count). A second sheet with different fan angles would jump the instant the machine
+stopped, so it was cut. The machine freezes when idle exactly as every vanilla assembler does; the
+state read is the window going dim (the base carries only a tenth of the cell lamp) and the fan
+stopping.
+
+**`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the same origin
+`pipe_covers` use, not on the entity. Measured 2026-09-13: with entity-relative shifts the north
+stub drew a full tile past the pipe as a floating hook. `make_sheets.py` writes the stub sidecars
+against that origin. The stubs are a bolted collar at the hull and a short barrel to the tile
+edge, nothing more — the pipe entity's own ending sprite carries the flange at the joint, and a
+flange on the stub doubled it.
+
+**The circuit connector and `water_reflection` are the assembling machine's own**, required from
+`assembler-pictures.lua`. Same 3x3, and the connector's corner is the condenser skid's top.
 
 Three constraints from that session bind the prototype and belong here because code will need
 them before the art exists:
@@ -205,9 +269,31 @@ The rig lessons in `../quality-recycler/CLAUDE.md` — palette on rendered swatc
 split in the paint-over, the object-ID visibility pass, `cyl()` making a disc rather than a ring
 — are general and should be carried over. Its *entity* decisions should not.
 
-## Scaffold only, no Lua yet
+## The 2.0 track
 
-Set up 2026-09-13 as folders, wiring and docs only, per the repo owner's standing instruction to
-scaffold a new mod before writing any code. `data.lua`, `prototypes/` and all art are unwritten;
-`prototypes/assembler/` and `graphics/` exist on disk as empty directories and will not appear in
-a clone until they hold a file. Nothing has been validated, because there is nothing to load.
+`legacy/2.0` carries the same mod with **two forked files**, `info.json` and
+`prototypes/assembler/entity.lua`; everything else, sheets included, is identical. Measured
+2026-09-13 by validating against the 2.0 install (base 2.0.77, with and without Space Age),
+`entity.lua` differs in three things, and every one of them loads clean when got wrong on the
+other track:
+
+- **`quality = 1.2`** where main has `0.12` — quality effect values are ten times larger on 2.0,
+  which `quality-recycler` learned first.
+- **The connector is `circuit_connector_definitions["assembling-machine"]`**, a data-stage
+  global. `__base__/prototypes/entity/assembler-pictures.lua`, which main requires it from, is a
+  2.1 file; on 2.0 the assembling machine's graphics live inline in `entities.lua` and the
+  require is a hard error.
+- **No `water_reflection`**: the assembling machine has none on 2.0.
+
+`pipe_picture`, `secondary_draw_orders`, `draw_as_glow` and `fadeout` all exist on 2.0, so
+`pictures.lua` is shared. The version stays `0.1.0` on both tracks until the first release, for
+the reason the scaffold gave.
+
+## Built, not played
+
+Set up 2026-09-13 as a scaffold, then — later the same day, on the owner's build brief — the
+entity was designed, modelled, animated, rendered, wired into `data.lua` and validated in both
+configurations, and photographed in the engine. The prototype is written from scratch (not a
+deepcopy of `assembling-machine-3`), for the reason `quality-recycler` gives: a deepcopy carries
+a working sound, a status light and a connector positioned for a different machine. **Nothing has
+been played beyond screenshots**; see `deferred.md`.

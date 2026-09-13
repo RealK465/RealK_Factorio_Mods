@@ -10,16 +10,21 @@ A new assembling machine: **12% base quality chance built in (no modules needed)
 after Aquilo with Space Age and after the rocket without it.** The verified mechanism and how it
 compares to its two reference machines are in `.ai-support/decisions.md`.
 
-**Scaffold plus a design, as of 2026-09-13 — folders, wiring, docs and the entity's design
-document; no Lua and no art.** Nothing has been validated, because there is nothing to validate
-yet. **Unpublished**, `0.1.0`, no git tag; run the `factorio-release` skill's "Published or
-open?" check rather than trusting a number written here.
+**Built and unplayed, as of 2026-09-13** — the entity is modelled, animated and rendered
+(sources in `../assets/quality-assembler/entity/quality-assembler/`, sheets in `graphics/`),
+wired into `data.lua`, validated in both configurations and photographed working in the engine;
+the item and technology icons and `thumbnail.png` exist. Nothing has been played beyond
+screenshots. **Unpublished**, `0.1.0`, no git tag; run the `factorio-release` skill's "Published
+or open?" check rather than trusting a number written here. **The `legacy/2.0` track carries the
+same build** with `info.json` and `prototypes/assembler/entity.lua` forked — the three
+differences are in `.ai-support/decisions.md` → *The 2.0 track*, and the repo `CLAUDE.md` → *Git*
+declares the two files.
 
-The entity's visual design is settled — **an assembling machine 3 that came back from Aquilo
-with half of it replaced**, hero a jacketed cold build vessel with an indexing turntable behind a
-frost window, because **quality on an assembler reads as tolerance, not selection**. It lives in
-`.ai-support/quality-assembler-design.md` and it also sets the mod's house art style, since there
-is no separate art-direction register.
+The entity's visual design is settled and built — **an assembling machine 3 that came back from
+Aquilo with half of it replaced**, hero a jacketed cold build vessel with an indexing turntable
+behind a window, because **quality on an assembler reads as tolerance, not selection**. It lives
+in `.ai-support/quality-assembler-design.md`, whose *Built* section says what shipped, and it
+also sets the mod's house art style, since there is no separate art-direction register.
 
 This mod is the sibling of `../quality-recycler` and was asked for as "similar, but an
 assembler". The shared idea is the mechanic — a free permanent quality bonus on a top-tier
@@ -75,46 +80,68 @@ this fault once and had to dim its violet materials to 0.22 for the base pass.
 **Nothing on the model may look like an item intake — no port, hopper or chute.** An assembling
 machine accepts inserters on all four sides, so a named intake promises a direction the entity
 does not have; vanilla's own assembler has none for exactly this reason. All the material
-evidence lives inside the frost window.
+evidence lives inside the window.
+
+Two more come from the engine, measured 2026-09-13, and both bind the sprite wiring:
+
+**There is no idle loop, and do not add one.** `idle_animation` does not play — a machine that is
+not working is frozen, and the idle sheet is drawn at the frame the working one stopped on. A
+second sheet with different fan angles jumps the instant the machine stops. The machine freezes
+when idle like every vanilla assembler; the state read is the window going dim and the fan
+stopping.
+
+**`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the origin pipe covers
+use, not on the entity. `make_sheets.py` writes the four stub sidecars against that origin;
+a sidecar written against the entity centre puts the stub a full tile past the pipe.
 
 ## Layout
 
-Planned. Only the files marked **on disk** exist today; the rest is the shape the work should
-take, not a claim that it is there. Git does not track an empty directory, so
-`prototypes/assembler/` and `graphics/` will not appear in a clone until they hold something.
-
 ```
-info.json                  on disk -- base, quality, optional space-age
-changelog.txt              on disk -- 0.1.0 open, Date: ????
-LICENSE                    on disk
-README.md                  on disk
-locale/en/quality-assembler.cfg   on disk
-CLAUDE.md                  on disk -- this file
+info.json                  base, quality, optional space-age
+changelog.txt              0.1.0 open, Date: ????
+LICENSE
+README.md
+locale/en/quality-assembler.cfg
+CLAUDE.md                  this file
 data.lua                   requires the two prototype files, in order
-prototypes/assembler/entity.lua     the assembling machine
-prototypes/assembler/item.lua       item, recipe and technology
-prototypes/assembler/pictures.lua   graphics_set
-graphics/entity/quality-assembler/  base, anim and shadow, one direction, with the
-                           `.lua` sidecars util.sprite_load reads
-graphics/icons/            item icon
-graphics/technology/       technology icon
-thumbnail.png              144x144, portal and in-game mod browser
-.ai-support/index.md       on disk -- the map, read it first
-.ai-support/decisions.md   on disk -- what is settled, and why
-.ai-support/deferred.md    on disk -- open questions and parked work
-.ai-support/journal.md     on disk -- dated sessions, newest first
-.ai-support/quality-assembler-design.md   on disk -- the entity's visual design, read before
-                           any art work or the entity prototype
-.ai-support/prototype.png  on disk -- the owner's concept sheet; outranks the prose on
-                           anything it shows. Git-ignored, so not in a clone
+prototypes/assembler/entity.lua     the assembling machine, built from scratch (see Decided)
+prototypes/assembler/item.lua       item, recipe and technology, forked on mods["space-age"]
+prototypes/assembler/pictures.lua   graphics_set, working_visualisations and pipe_picture
+graphics/entity/quality-assembler/  base, anim (64f), shadow, glow (64f, half res), lamp and
+                           pipe-N/S/E/W, each with the `.lua` sidecar util.sprite_load reads
+graphics/icons/            item icon, 120x64 mipmap strip
+graphics/technology/       technology icon, 480x256 mipmap strip
+thumbnail.png              144x144 -- the icon render over a dark panel with the title, built
+                           by ../assets/quality-assembler/thumbnail/make_thumbnail.py;
+                           regenerate, never edit the PNG
+.ai-support/index.md       the map, read it first
+.ai-support/decisions.md   what is settled, and why
+.ai-support/deferred.md    open questions and parked work
+.ai-support/journal.md     dated sessions, newest first
+.ai-support/quality-assembler-design.md   the entity's design and, in *Built*, what shipped
+.ai-support/prototype.png  the owner's concept sheet; git-ignored, so not in a clone
 ```
 
-**No sprite numbers will live in the Lua.** Every width, height and shift belongs in the `.lua`
-sidecar beside its PNG, the way `../quality-recycler` does it, so a re-render never touches
-`prototypes/`. Two traps that cost that mod a validate each and will cost this one the same:
-`sounds` and `hit_effects` are globals inside base's own data stage and must be `require`d by
-file, and **`frame_count` in a sidecar is ignored** — `util.sprite_load` reads only
-width/height/shift/line_length from the file.
+`../assets/quality-assembler/entity/quality-assembler/` holds the Blender sources, all of them
+importing the first:
+
+| file | what it is |
+|---|---|
+| `qa_gen.py` | palette, the material stack (with the rime term), bmesh primitives, collections, animation, `audit()`; run it for one look frame and the `.blend` |
+| `qa_layout.py` | **the machine**: plinth, the old hull and its bay, cabinet, gearbox, compressor, seam, skid, vessel, condenser, riser, plumbing, stubs |
+| `render_entity.py` | headless bake of every layer -- `--layers base,anim,shadow,glow,lamp,pipes` |
+| `make_sheets.py` | paint-over per frame, pack, write the sidecars and `sheet_numbers.txt` |
+| `make_look.py` | the settled paint-over `POST` dict, the gates on a look frame |
+| `show.py` | composite a look frame on Nauvis at game zoom and 3x beside the assembling machine 3 |
+| `check_visibility.py` | the object-ID pass; `--hide window-glass` to audit the cell |
+| `render_icon.py` / `make_icons.py` | the 512 icon render and the two mipmap strips |
+| `renders/` | frames and the icon render; git-ignored, regenerable |
+
+**No sprite numbers live in the Lua.** Every width, height and shift is in the `.lua` sidecar
+beside its PNG, written by `make_sheets.py`, so a re-render never touches `prototypes/`. Two
+traps that cost the recycler a validate each: `sounds` and `hit_effects` are globals inside
+base's own data stage and must be `require`d by file, and **`frame_count` in a sidecar is
+ignored** — `util.sprite_load` reads only width/height/shift/line_length from the file.
 
 Blender sources go to `../assets/quality-assembler/`, never inside this folder. See the repo
 `CLAUDE.md` → *Asset sources*.
@@ -136,9 +163,13 @@ two configurations and **both must validate** (`validate.ps1` plain, then with
 - **`.ai-support/` is this mod's local context — start at its `index.md`.**
 - **Validate after any prototype edit** — `factorio-validate`, about five seconds, both
   configurations.
-- **The entity is designed but not built.** `.ai-support/quality-assembler-design.md` is the
-  brief; `factorio-graphics` builds from it. Read it before opening Blender, and read its *Not
-  settled* section before deciding anything it deliberately left open.
+- **Rebuild, never hand-edit.** The `.blend` is a snapshot; `qa_gen.py` and `qa_layout.py`
+  are the source. After any change to either: `render_entity.py` for the layers touched (a hull
+  change invalidates `anim` and `glow` too, because the hull is their holdout and their light),
+  `make_sheets.py`, `validate.ps1` in both configurations, then photograph it with
+  `scripts/screenshot/shoot.ps1` (`-ExtraArgs '--force-opengl'` here) — the object-ID pass and
+  the engine have each caught what no render showed (the fan buried in a solid body; the stubs
+  a tile off).
 - **`.ai-support/prototype.png` is the owner's own concept sheet, and on anything it shows it
   outranks the design document's prose.** Read both. The design document's *The owner's concept
   sheet* section records where the two differ and carries inline markers on the superseded
@@ -167,10 +198,15 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
 - **Unlocked after Aquilo** — `cryogenic-science-pack` — **with Space Age; after the rocket
   (space science) without it.**
 - **Prototype `quality-assembler`, its own technology `quality-assembly`.**
-- **Art is one direction.** No rotation sheets.
-- **Art direction settled** — `.ai-support/quality-assembler-design.md`. Accent is pale
-  turquoise (180–195°), with exactly one small violet point on the module bay as the family tell
-  to `quality-recycler`. Identity paint is AM3's own 13.7%, on the west half only.
+- **Art is one direction.** No rotation sheets, and no idle loop (above).
+- **Art direction settled and built** — `.ai-support/quality-assembler-design.md`. Accent is
+  pale turquoise (180–195°), with exactly one small violet point on the module rack as the
+  family tell to `quality-recycler`; identity paint is the assembler family's blue, on the west
+  half only, measured at 21% of the base sheet against AM3's 13.7% target.
+- **Built from scratch, not deep-copied from `assembling-machine-3`.** A deepcopy carries a
+  working sound, a status light and a connector positioned for a different machine.
+- **Health 400, pollution 3, the recipe and the technology cost on both branches** — reasoning
+  in `.ai-support/decisions.md`.
 
-Recipe, health, pollution, sounds and the whole art job are still open. See
+Sounds, a real remnant, the connector check and balance are open. See
 `.ai-support/deferred.md`.
