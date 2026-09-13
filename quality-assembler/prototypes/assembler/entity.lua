@@ -1,10 +1,20 @@
--- The Quality Assembler entity.
+-- The Quality Assembler entity -- the Factorio 2.0 build.
+--
+-- Forked from main's entity.lua for the 2.0 track; keep the two in step by
+-- hand. Three things differ, and all three load clean when got wrong:
+--
+--   * quality effect values are TEN TIMES larger on 2.0: `quality = 1.2` here
+--     is the 12% that `0.12` buys on 2.1 (quality-recycler learned it);
+--   * `__base__/prototypes/entity/assembler-pictures.lua` is a 2.1 file. On
+--     2.0 the assembling machine's connector is the data-stage global
+--     `circuit_connector_definitions["assembling-machine"]`;
+--   * the assembling machine has no `water_reflection` on 2.0, so neither
+--     does this.
 --
 -- Built from scratch rather than deep-copied from `assembling-machine-3`: a
 -- deepcopy carries a working sound, a status light and a circuit connector
 -- positioned for a different machine, and nothing warns when one of them
--- lands in the wrong place. Everything vanilla-shaped here is required by
--- file instead.
+-- lands in the wrong place.
 --
 -- The numbers are in `.ai-support/decisions.md`; the ones chosen here for
 -- the first time (health, pollution) are marked.
@@ -13,7 +23,6 @@
 -- mods; requiring the files gives the same tables back.
 local sounds = require("__base__.prototypes.entity.sounds")
 local hit_effects = require("__base__.prototypes.entity.hit-effects")
-local assembler_pictures = require("__base__.prototypes.entity.assembler-pictures")
 local pictures = require("prototypes.assembler.pictures")
 
 local function fluid_box(kind, direction, position)
@@ -50,7 +59,7 @@ data:extend({
     -- The vanilla assembler's connector: same 3x3, and the design puts
     -- nothing on its south-east corner but the condenser skid's top.
     circuit_wire_max_distance = assembling_machine_circuit_wire_max_distance,
-    circuit_connector = assembler_pictures.circuit_connector,
+    circuit_connector = circuit_connector_definitions["assembling-machine"],
     resistances =
     {
       { type = "fire", percent = 70 }
@@ -68,7 +77,6 @@ data:extend({
     fast_replaceable_group = "assembling-machine",
 
     graphics_set = pictures.graphics_set,
-    water_reflection = assembler_pictures.water_reflection,
 
     -- The assembling machine 3's three categories exactly. Not the expansion
     -- machines' -- each of those belongs to one machine whose identity is
@@ -89,9 +97,10 @@ data:extend({
     -- The mechanic. `effect_receiver.base_effect.quality` is a permanent,
     -- module-free bonus -- the same field a quality module writes, carried by
     -- the machine itself. The electromagnetic plant does exactly this with
-    -- productivity 0.5. 12% is what five normal quality module 3s give, and
-    -- it is the number the sibling quality-recycler carries.
-    effect_receiver = { base_effect = { quality = 0.12 } },
+    -- productivity 0.5. 1.2 on 2.0 is the 12% that 0.12 buys on 2.1 -- what
+    -- five normal quality module 3s give, and the number the sibling
+    -- quality-recycler carries.
+    effect_receiver = { base_effect = { quality = 1.2 } },
     module_slots = 5,                      -- the electromagnetic plant's
     -- The assembling machine 3's effects exactly, productivity included:
     -- assembling returns nothing for free, so there is nothing to exploit.
