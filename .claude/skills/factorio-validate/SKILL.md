@@ -1,6 +1,6 @@
 ---
 name: factorio-validate
-description: Use to verify a Factorio mod's data stage actually loads — after editing prototypes or data.lua, before packaging a release, or when a mod fails to load, doesn't appear in game, or logs an error in factorio-current.log. Runs the game headless against an isolated mod directory using a bundled script, can dump the resulting prototypes to confirm their final values, and can lint for prototype properties the engine silently ignored. Prefer running it over reasoning about whether a prototype change is valid.
+description: Use to verify a Factorio mod's data stage actually loads — after editing prototypes or data.lua, before packaging a release, or when a mod fails to load, doesn't appear in game, or logs an error in factorio-current.log. Runs the game headless against an isolated mod directory using a bundled script, can additionally start the real game once to prove every sprite and sound path resolves, can dump the resulting prototypes to confirm their final values, and can lint for prototype properties the engine silently ignored. Prefer running it over reasoning about whether a prototype change is valid.
 ---
 
 # Headless data-stage validation
@@ -25,7 +25,7 @@ The isolated dir needs a copy of the mod under test plus a `mod-list.json`. **Ex
 .\validate.ps1 -ModPath <path-to-mod-folder>
 ```
 
-Options: `-FactorioPath <install root>`, `-Disable <names>` to turn an expansion off for a compatibility check, `-KeepDump` to leave `data-raw-dump.json` in place for inspection, and `-Live` for scratch write-data — which switches itself on here and is described below only so its output makes sense.
+Options: `-FactorioPath <install root>`, `-Disable <names>` to turn an expansion off for a compatibility check, `-FullLoad` to start the real game once after a clean data stage (below — the only run that opens sprite and sound files), `-KeepDump` to leave `data-raw-dump.json` in place for inspection, and `-Live` for scratch write-data — which switches itself on here and is described below only so its output makes sense.
 
 **`-FactorioPath` resolves itself and rarely needs passing.** The script takes `$env:FACTORIO_PATH` if set, else **the install this repo lives in** — four levels above the script, since the repo is a dev install's `mods/` folder. If neither has a `bin\x64\factorio.exe` it throws; it deliberately does **not** go hunting for some other install, because the one it would find is the one being played and a wrong-install run exits 0 looking like a pass. It prints the install it chose and that install's `base` version on every run:
 
@@ -44,6 +44,45 @@ Three things the script exists to get right, all found by testing it:
 - **Exit 0 does not mean the mod loaded.** A folder name that doesn't match `info.json`, or a mod-list the game rejected, both produce a clean exit with the mod skipped entirely. Confirm `Checksum of <name>:` appears in the log — the script does this and turns a silent skip into a failure.
 
 Expansions load from the game install whether or not `mod-list.json` names them, so they only need listing to turn one **off**.
+
+## `-FullLoad`: the run that opens sprites and sounds
+
+`--dump-data` never opens a sprite or a sound file. A `filename` that is misspelled, or that
+names a mod the target game does not have, passes every headless check and then stops the game
+for every player. That is exactly how `quality-recycler` 0.1.3 shipped for Factorio 2.0 on
+2026-09-13: its working sound stayed at `__recycler__/sound/recycler/recycler-loop.ogg`, the
+`recycler` mod does not exist on 2.0 (the file is under `__quality__` there), the data stage
+loaded clean on 2.0.77, and the first 2.0 player got
+
+```
+Failed to load mods: Loading sound "__recycler__/sound/recycler/recycler-loop.ogg" failed
+with error: Path __recycler__/sound/recycler/recycler-loop.ogg does not match any enabled mod.
+```
+
+```powershell
+.\validate.ps1 -ModPath <mod> -FullLoad
+```
+
+After a clean data stage it creates a save headlessly, then loads that save with the renderer
+for one tick (`--benchmark-graphics <save> --benchmark-ticks 1`). Sounds load first, then
+sprites; both phases have to appear in the log or the renderer never started and nothing was
+proved. It takes 10 s on a small mod and about 40 s on 2.1 with every expansion (the sprite
+atlas), opens a game window briefly, and needs scratch write-data — which every standalone
+install switches on itself. `-FullLoadArgs` replaces the renderer flags; the default is
+`--force-opengl`, which starts on any GPU and loads the same files as the default renderer.
+
+Two measured facts (2.0.77 and 2.1.17, 2026-09-13):
+
+- **The game exits 0 on `Failed to load mods` in this mode.** It shows the dialog text, quits
+  with `automatic-quit`, and reports success. The script reads the log, not the exit code, and
+  fails on ` Error `, `Failed to load mods` or `does not match any enabled mod`.
+- **Vanilla plus every mod in this repo produces zero such lines**, on both tracks, so any hit
+  is the mod under test.
+
+**Run it before every release, on every track being shipped** — the `factorio-release` skill
+lists it. The plain headless run stays the five-second check for prototype edits. Stage
+somewhere short if it ever fails on a `File ... not found` for a file that exists — see
+*Stage somewhere SHORT* below.
 
 ## The lock, and why it never bites here
 
@@ -247,7 +286,8 @@ Two things to know before trusting it:
 into a switch on the script once a mod is large enough to want it on every validation.
 
 **There is no `-CheckUnusedPrototypeData` parameter, and inventing one reads as a pass.**
-`validate.ps1` takes only `-ModPath`, `-FactorioPath`, `-Disable`, `-KeepDump` and `-Live`;
+`validate.ps1` takes only `-ModPath`, `-FactorioPath`, `-Disable`, `-KeepDump`, `-Live`,
+`-FullLoad` and `-FullLoadArgs`;
 anything else fails PowerShell's parameter binding — and the wrapper still **exits 0**, so the
 run looks green while the game never launched. Read the output, not the exit code (measured
 2026-08-26). This is the same shape as the flag's own warnings above: on this script, exit 0
@@ -299,7 +339,7 @@ It says **nothing** about:
 - **Whether every property you wrote was understood.** An unknown or misspelled key is
   ignored, not rejected, so the run is clean either way — unless you add
   `--check-unused-prototype-data`, above.
-- **Graphics paths.** Sprites are not loaded in headless mode, so a missing or misspelled `icon` / `filename` passes clean. Verified: a non-existent icon path exits 0. Only the real game catches these.
+- **Graphics and sound paths.** Neither sprites nor sounds are loaded in headless mode, so a missing or misspelled `icon` / `filename`, or one under a `__mod__` the target game lacks, passes clean. Verified: a non-existent icon path exits 0, and a 2.1-only sound path shipped on 2.0. `-FullLoad` (above) is the check.
 - **The mod checksum, for art changes.** It is computed over what the data
   stage reads, so replacing a PNG leaves `Checksum of <name>:` byte-identical.
   A stable checksum is not evidence the art is unchanged, and the game reads

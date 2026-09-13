@@ -180,7 +180,11 @@ A standalone (zip) install keeps its write-data in its own folder rather than a 
 the script detects that and switches itself to scratch-folder mode, so the 2.0 run never writes
 into the install and never collides with a running game.
 
-Exit 0 proves the data stage loads. It says nothing about classes 2 and 3.
+Exit 0 proves the data stage loads. It says nothing about classes 2 and 3 — and nothing about
+**file paths**, which are a fourth thing a port gets wrong: a `__recycler__/...` sound or
+sprite path is valid on 2.1 and names a mod that does not exist on 2.0, and `--dump-data`
+never opens the file. Run the legacy copy of the script with `-FullLoad` as well before a 2.0
+release; `quality-recycler` 0.1.3 shipped exactly that fault.
 
 ## Diffing the dumps
 
