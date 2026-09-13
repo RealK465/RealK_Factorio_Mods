@@ -2,33 +2,26 @@
 
 **An assembling machine with quality built right in.**
 
-A 3x3 assembling machine that crafts 60% faster than an assembling machine 3. Every result
-has a 12% chance of coming out at a higher quality, with no modules fitted. Quality modules
-stack on top of that. It has five module slots, allows all module effects including
-productivity, and handles fluid recipes with connections on the north and south sides.
+A 3x3 assembling machine that crafts faster than an assembling machine 3 with 12.5% built-in quality.
+It has five module slots, allows all module effects including productivity.
 
 ### Compared with an assembling machine 3
 
 | | Quality Assembler | Assembling machine 3 |
 |---|---|---|
 | Crafting speed | 2 | 1.25 |
-| Quality chance | 12% | 0% |
+| Quality chance | 12.5% | 0% |
 | Module slots | 5 | 4 |
 | Power | 1.6 MW | 375 kW |
-| Pollution | 3/min | 2/min |
+| Pollution | 7.5/min | 2/min |
 | Size | 3x3 | 3x3 |
 
 ## Getting it
 
-With Space Age, the technology "Quality assembly" unlocks after Cryogenic science pack and
-Quality module 3. Research costs 500 units of all ten science packs (60 s each). Recipe:
-1 assembling machine 3, 2 quality module 3, 20 lithium plate, 20 processing unit,
-10 superconductor.
+With Space Age, the technology "Quality Assembly" unlocks after Cryogenic science pack at Aquilo.
 
-Without Space Age, it unlocks after Quality module 3, Utility science pack and Space science
-pack. Research costs 500 units of the six base packs (60 s each). Recipe: 1 assembling
-machine 3, 2 quality module 3, 20 low density structure, 10 electric engine unit,
-20 processing unit.
+Without Space Age, it unlocks after Quality module 3 with Utility Science and Space Science
+pack.
 
 ## Using it
 
@@ -37,7 +30,7 @@ it straight in over an assembling machine 3, keeping the recipe, modules, insert
 in place.
 
 All module effects are allowed, including productivity. Five quality module 3s add another
-12.5% quality chance on top of the built-in 12%.
+12.5% quality chance on top of the built-in 12.5%.
 
 It crafts everything an assembling machine 3 can, including fluid recipes.
 
@@ -47,6 +40,13 @@ Requires the Quality mod (part of Space Age) on Factorio 2.1. Space Age itself i
 the mod works with Quality alone. A Factorio 2.0 build is released separately.
 
 The companion mod Quality Recycler (same author) does the same for recycling.
+
+## Check my other mods
+
+- [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
+- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.
+- [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
+- [Extra Qualities](https://mods.factorio.com/mod/extra-qualities) — Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.
 
 ## AI-Assisted Development
 

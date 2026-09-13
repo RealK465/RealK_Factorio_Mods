@@ -57,9 +57,10 @@ mod touches — checked against `doc-html/auxiliary/mod-structure.html` for `qua
 
 The repo owner's calls, 2026-09-13, from three options each.
 
-- **Built-in quality, no modules needed**: `effect_receiver.base_effect.quality = 0.12` on the
-  entity prototype. The same number `quality-recycler` carries, deliberately — the two machines
-  are a matched pair and a player should not have to remember two figures.
+- **Built-in quality, no modules needed**: `effect_receiver.base_effect.quality = 0.125` on the
+  entity prototype — the owner's call of 2026-09-13, raised from the 0.12 the prototype was
+  written at. The same number `quality-recycler` carries, deliberately — the two machines are a
+  matched pair and a player should not have to remember two figures; both moved together.
 - **Crafting speed 2** — the electromagnetic plant's, and **1.6x** the assembling machine 3's
   1.25.
 - **Five module slots** — the electromagnetic plant's, against the assembling machine 3's four.
@@ -87,34 +88,38 @@ electromagnetic plant (the tier this joins). Both read out of the game's own dat
 | `energy_usage` | **1600kW** | 375kW | 2000kW |
 | kW per unit of speed | **800** | 300 | 1000 |
 | `module_slots` | **5** | 4 | 5 |
-| free bonus | 12% quality | none | +50% productivity |
+| free bonus | 12.5% quality | none | +50% productivity |
 | `collision_box` | **1.2 (3x3)** | 1.2 (3x3) | 1.7 (4x4) |
 | `max_health` | **400** | 400 | 350 |
-| pollution/min | **3** | 2 | 4 |
+| pollution/min | **7.5** | 2 | 4 |
 
 **Electricity is priced by the free bonus**, exactly as it was for `quality-recycler`. Per unit
 of crafting speed the assembling machine 3 pays 300 kW, the vanilla recycler 360, the foundry
 625, the cryogenic plant 750 and the electromagnetic plant 1000 — the plant's free +50%
-productivity is what the extra buys. A free 12% quality is worth five normal quality module 3s
+productivity is what the extra buys. A free 12.5% quality is worth five normal quality module 3s
 (0.025 each, `data/quality/prototypes/item.lua`), so this machine sits where the recycler sits:
 **800 kW per unit of speed, so 1600 kW at speed 2.** Per item crafted that is 2.7x an assembling
 machine 3's electricity (1600/2 against 375/1.25). Drain is the default thirtieth.
 
 **Read back from the running engine, 2026-09-13, in both configurations** (the screenshot
-harness's `report` group, Space Age on and then disabled): with no modules `crafting_speed`
-2.000 and `effects.quality` 0.1200; with five quality module 3s quality **0.245** and speed
-1.500 (their −5% each); with five productivity module 3s productivity 0.50, speed 0.500,
-consumption +400% and quality still 0.12; with five speed module 3s speed **7.000** and quality
-**0** — five of them take −2.5% each, 0.125 in all, and cancel the built-in 0.12 exactly, a
-number worth knowing before anyone calls the machine a pure speed upgrade. `can_fast_replace`
+harness's `report` group, Space Age on and then disabled, while the prototype still said 0.12):
+with no modules `crafting_speed` 2.000 and `effects.quality` 0.1200; with five quality module 3s
+quality **0.245** and speed 1.500 (their −5% each); with five productivity module 3s
+productivity 0.50, speed 0.500, consumption +400% and quality unchanged; with five speed module
+3s speed **7.000** and quality **0** — five of them take −2.5% each, 0.125 in all, which at the
+present 0.125 cancels the built-in quality to exactly zero, a number worth knowing before anyone
+calls the machine a pure speed upgrade. Re-read after the raise: 0.125 with no modules, 0.250
+with five quality module 3s. `can_fast_replace`
 returns true over an assembling machine 3 and an assembling machine 2. Beside it an assembling
 machine 3 with four quality module 3s reads 0.10 at speed 1.000. The two configurations report
 identical machine numbers and their own recipe and technology (below).
 
-**`max_health` 400 and `emissions_per_minute` 3**, chosen 2026-09-13 when the prototype was
-written: the health is the assembling machine 3's and the recycler's; the pollution sits between
-the assembling machine 3's 2 and the electromagnetic plant's 4, which is where 1.6x an
-assembler 3's work at 800 kW per unit of speed puts it.
+**`max_health` 400, and `emissions_per_minute` 7.5 — the owner's call of 2026-09-13**, on both
+this machine and `quality-recycler` at once. The prototype was written at 3 (between the
+assembling machine 3's 2 and the electromagnetic plant's 4, where 1.6x an assembler 3's work at
+800 kW per unit of speed put it); the owner raised the pair to 7.5, above the cryogenic plant's
+and the foundry's 6, so the free quality is paid for in pollution as well as in electricity. The
+health is the assembling machine 3's and the recycler's.
 
 ### The recipe
 
@@ -317,7 +322,7 @@ split in the paint-over, the object-ID visibility pass, `cyl()` making a disc ra
 `entity.lua` differs in three things, and every one of them loads clean when got wrong on the
 other track:
 
-- **`quality = 1.2`** where main has `0.12` — quality effect values are ten times larger on 2.0,
+- **`quality = 1.25`** where main has `0.125` — quality effect values are ten times larger on 2.0,
   which `quality-recycler` learned first.
 - **The connector is `circuit_connector_definitions["assembling-machine"]`**, a data-stage
   global. `__base__/prototypes/entity/assembler-pictures.lua`, which main requires it from, is a

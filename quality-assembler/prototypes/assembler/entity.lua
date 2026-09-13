@@ -95,7 +95,7 @@ data:extend({
     -- the machine itself. The electromagnetic plant does exactly this with
     -- productivity 0.5. 12% is what five normal quality module 3s give, and
     -- it is the number the sibling quality-recycler carries.
-    effect_receiver = { base_effect = { quality = 0.12 } },
+    effect_receiver = { base_effect = { quality = 0.125 } },  -- owner's call: 12.5%, matched with the recycler
     module_slots = 5,                      -- the electromagnetic plant's
     -- The assembling machine 3's effects exactly, productivity included:
     -- assembling returns nothing for free, so there is nothing to exploit.
@@ -110,7 +110,7 @@ data:extend({
     {
       type = "electric",
       usage_priority = "secondary-input",
-      emissions_per_minute = { pollution = 3 }   -- chosen: AM3 2, EM plant 4
+      emissions_per_minute = { pollution = 7.5 } -- owner's call: AM3 2, cryogenic plant 6
     },
 
     -- The assembling machine 3's own loop, at the volume it ships with.

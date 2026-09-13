@@ -24,7 +24,8 @@ model actually is, where it departs from the sections above, and what the engine
 ## Function & constraints
 
 Builds the same recipes an assembling machine 3 does, 60% faster, and everything it makes has a
-12% chance of coming out one quality tier higher with no modules fitted.
+12.5% chance of coming out one quality tier higher with no modules fitted (12% when the design
+was written; the owner raised the pair to 12.5% on 2026-09-13).
 
 | | |
 |---|---|
@@ -125,7 +126,7 @@ its exposed top deck. The grafted half quotes the cryogenic plant: bare insulate
 bundles, sealed vessels — hardware that looks recovered rather than manufactured.
 
 Its mechanical precedent is the **electromagnetic plant**, whose `effect_receiver =
-{ base_effect = { productivity = 0.5 }}` is the exact shape of this entity's `quality = 0.12`.
+{ base_effect = { productivity = 0.5 }}` is the exact shape of this entity's `quality = 0.125`.
 It is not the size or palette reference: it is 4x4 and it is a Space Age dark-hull machine.
 
 ## Silhouette

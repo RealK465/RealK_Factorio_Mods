@@ -3,6 +3,18 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-09-13 (last) — the owner's two balance calls: 7.5 pollution, 12.5% quality
+
+Two numbers moved on the owner's word, on this machine and on `quality-recycler` together so the
+pair stays matched: `emissions_per_minute` from 3 to 7.5 (the recycler's from 4), above the
+cryogenic plant's and the foundry's 6, and the built-in quality from 0.12 to 0.125. Every place
+that stated the old figures was brought up — README, locale, the mod-browser line, the open
+changelog entry, the registers, both `CLAUDE.md`s and the repo's — and the Factoriopedia card in
+the gallery was re-shot, since it printed both. The recycler is published, so its change opened
+a `0.1.2` section and bumped its `info.json`; the release itself is the owner's to ask for. The
+2.0 forks of both `entity.lua` files take `quality = 1.25` and the pollution by hand at the next
+sync.
+
 ## 2026-09-13 (late) — verified in the running engine, both configurations
 
 The owner asked that everything work and be properly balanced with and without Space Age.

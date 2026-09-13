@@ -74,9 +74,10 @@ reasoned placement between two vanilla machines, in the same method `quality-rec
 that mod's own balance is still a guess too. Two things specific to this machine are worth
 watching in play:
 
-- **A free 12% quality is worth far more on an assembler than on a recycler**, because an
+- **A free 12.5% quality is worth far more on an assembler than on a recycler**, because an
   assembler crafts a far larger share of everything a base makes. The owner was offered 8% for
-  that reason and chose to keep the pair matched at 12%. If it plays too strong, this is the
+  that reason and chose to keep the pair matched, first at 12% and then at 12.5% (2026-09-13,
+  with the pollution raised to 7.5 on both). If it plays too strong, this is the
   number to move, and moving it costs nothing but a line.
 - **Fast replacement makes adoption total.** Because it swaps in over every assembling machine
   3 with one upgrade planner, the machine is either built everywhere or nowhere; there is no
@@ -87,11 +88,11 @@ watching in play:
 - **What the engine confirmed and what it cannot** (2026-09-13, `decisions.md` → *Read back
   from the running engine*): the numbers are exactly as declared in both configurations, fast
   replacement works over both vanilla assemblers, and the two technology gates read as
-  written. What no probe can settle is whether 12% plus five module slots at crafting speed 2
+  written. What no probe can settle is whether 12.5% plus five module slots at crafting speed 2
   is *fair*: with five speed module 3s the machine is a speed-7 assembler whose quality bonus
-  is cancelled to zero, and with five quality module 3s a 24.5% one — both far past an
-  assembling machine 3 (speed 3.75 or 10%). The 1.6 MW and the recipe are the price. Play
-  decides; the number to move is `quality = 0.12` in `entity.lua`, one line.
+  is cancelled to zero, and with five quality module 3s a 25% one — both far past an
+  assembling machine 3 (speed 3.75 or 10%). The 1.6 MW, the 7.5 pollution and the recipe are
+  the price. Play decides; the number to move is `quality = 0.125` in `entity.lua`, one line.
 
 ## Release and tracks
 

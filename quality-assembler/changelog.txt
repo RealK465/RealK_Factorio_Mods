@@ -4,7 +4,7 @@ Date: ????
   Major Features:
     - Initial release, for Factorio 2.1.
     - Adds the quality assembler: a 3x3 assembling machine that crafts 60% faster than an
-      assembling machine 3. Each result has a 12% chance of higher quality, no modules needed. It
+      assembling machine 3. Each result has a 12.5% chance of higher quality, no modules needed. It
       has five module slots and draws more power than an assembling machine 3.
     - Replaces an assembling machine 3 in place with an upgrade planner, keeping the recipe, the
       modules and the inserters.

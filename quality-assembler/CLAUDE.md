@@ -5,7 +5,7 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 ## What the mod is
 
-A new assembling machine: **12% base quality chance built in (no modules needed), crafting speed
+A new assembling machine: **12.5% base quality chance built in (no modules needed), crafting speed
 2, five module slots, a 3x3 footprint, fast-replaceable with an assembling machine 3, unlocked
 after Aquilo with Space Age and after the rocket without it.** The verified mechanism and how it
 compares to its two reference machines are in `.ai-support/decisions.md`.
@@ -211,7 +211,7 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
   2026-09-13.
 - Version starts at `0.1.0`, unpublished.
 - Dependencies and feature flags as above.
-- **The mechanic: `effect_receiver.base_effect.quality = 0.12`, `crafting_speed = 2`, five
+- **The mechanic: `effect_receiver.base_effect.quality = 0.125`, `crafting_speed = 2`, five
   module slots, 1600 kW, a 3x3 footprint** at `collision_box = {{-1.2,-1.2},{1.2,1.2}}`.
 - **Crafting categories are the assembling machine 3's exactly** — `crafting`,
   `advanced-crafting`, `crafting-with-fluid`. It does not take `electromagnetics`, `metallurgy`,
@@ -228,7 +228,8 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
   half only, measured at 21% of the base sheet against AM3's 13.7% target.
 - **Built from scratch, not deep-copied from `assembling-machine-3`.** A deepcopy carries a
   working sound, a status light and a connector positioned for a different machine.
-- **Health 400, pollution 3, the recipe and the technology cost on both branches** — reasoning
+- **Health 400, pollution 7.5 (the owner's call, matched with the recycler), the recipe and the
+  technology cost on both branches** — reasoning
   in `.ai-support/decisions.md`.
 
 Sounds, a real remnant, the connector check and balance are open. See
