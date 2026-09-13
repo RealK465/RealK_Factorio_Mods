@@ -206,6 +206,14 @@ Blender saves to wherever it was last pointed, which is almost never here — pa
   levers are starting the tube lower inside its base, and not spending the
   little length there is on fittings.
 
+- **A semi-transparent object used as a HOLDOUT leaves a ghost.** A glass pane or a glass
+  dome marked `is_holdout` punches the part behind it as it should, but also returns alpha of
+  up to ~40/255 over its whole footprint where nothing is behind it. Every crop box in that
+  layer then grows to the ghost: on the quality assembler a 0.1-tile glass sight dome turned a
+  40 x 38 px fan overlay into 74 x 158 and a 16 x 38 pipe stub into 138 x 116, and an opaque
+  overlay built from the union alpha swallowed the whole window. Hide the glass outright in
+  every layer that has nothing behind it, and keep it as a holdout only where a moving part
+  genuinely sits behind it.
 - Generator scripts should be **idempotent**: delete only your own prefixed objects (`AM4_*`) and rebuild. And make `make_material()` *re-apply* values to an existing datablock rather than early-returning — otherwise palette edits silently do nothing.
 
 ## The one rule that matters most
@@ -286,8 +294,11 @@ same connected or not, which is a smaller price than floating art.
 
 **The harness photographs WORKING machines only if the spec makes them work, and it
 says so.** `shoot.ps1` takes a JSON spec; per entity, `insert` / `insert_count` puts a slow
-item in a crafting machine (recycling runs at a sixteenth of the craft time), `mirror = true`
-photographs the `use_mirroring` set, and per group `shoot_ticks = [50, 58, ...]` shoots a
+item in a crafting machine (recycling runs at a sixteenth of the craft time), `inserts` (a
+list of `{name, count}`) and `fluids` (a list of `{name, amount}`, put straight into the fluid
+box) feed a multi-ingredient or fluid recipe -- processing units at 10 s keep an assembler
+working for a whole run where a gear recipe hits `full_output` inside forty ticks --
+`mirror = true` photographs the `use_mirroring` set, and per group `shoot_ticks = [50, 58, ...]` shoots a
 tick sequence tagged `-t<offset>` so a loop can be judged in motion (the benchmark renderer
 produces a new frame only every few ticks; sample eight apart). The probe researches every
 technology, powers each group from a substation at its centre, and logs every machine's
@@ -535,8 +546,29 @@ requires the two to share a frame count. It is an alternate LOOK for the stopped
 electromagnetic plant's darker base), never a slower loop. Measured on the quality assembler
 2026-09-13 with a tick sequence: a `no_recipe` machine did not change a pixel between t+6 and
 t+18 while the working one beside it moved. A second sheet with different fan angles would jump
-the instant the machine stopped, so "fan turns slowly while idle" cannot be shipped without
-control scripting; the idle read has to be the glow going dim and the motion stopping.
+the instant the machine stopped.
+
+**But a working visualisation with `always_draw` AND `constant_speed` plays in every state** --
+idle, no recipe, even unpowered. Measured the same day with the anim sheet in three slots at
+once on an unpowered machine: the base animation and a plain `always_draw` copy did not change
+a pixel over five shots; the `constant_speed` copy moved every shot and closed its loop after
+exactly 128 ticks (64 frames at `animation_speed = 0.5`). That is the slot for anything that
+should run while idle -- a refrigerator's fan, a pilot lamp's pulse. It runs at ONE speed; "slow
+when idle, fast when working" is done with a working-only visualisation drawn OVER it, made
+opaque (the painted base under the moving part, cut to the disc it sweeps) and listed after it,
+since working visualisations draw in list order, with `fadeout` so the part runs down on stop
+rather than jumping. The quality assembler's `make_sheets.py` builds those overlays.
+
+**The base animation is not scaled by the crafting speed.** Same tick sequence, on the working
+machine at `crafting_speed = 2`: every layer returned to identical pixels after 128 ticks, the
+declared `animation_speed`. Author the loop's timing against the declared speed.
+
+**A turning part's step per frame must stay under about 0.4 of its blade or spoke period**, or
+the wagon-wheel effect turns it backwards in game. A fan at 5 turns over 64 frames steps 28° a
+frame: past half of a seven-blade period (51°) and it strobed backwards on the quality
+assembler -- the tick sequence showed the working fan changing LESS between shots than the idle
+one; against a five-blade period (72°, step 0.39) it reads forward. Check every wheel: step =
+360 x turns / frames, against 360 / blades.
 
 **`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the same origin
 `pipe_covers` use, not on the entity. Measured the same day: stubs rendered about the entity

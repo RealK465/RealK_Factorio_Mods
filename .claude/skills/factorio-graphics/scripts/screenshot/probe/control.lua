@@ -144,6 +144,44 @@ local function build(group)
           note("inserted %s x%d into %s", spawn.insert, spawn.insert_count or 50, spawn.name)
         end
       end
+      -- A recipe with several ingredients, or a fluid one, needs more than
+      -- one `insert`: `inserts` is a list of {name, count} and `fluids` a
+      -- list of {name, amount} put straight into the machine's fluid box, so
+      -- a slow fluid recipe (processing units: 10 s) keeps a machine working
+      -- for the whole run without a pump and a tank beside it.
+      for _, item in pairs(spawn.inserts or {}) do
+        local ok2, err = pcall(function()
+          return entity.insert { name = item.name, count = item.count or 50 }
+        end)
+        if not ok2 then
+          note("insert %s into %s FAILED: %s", item.name, spawn.name, tostring(err))
+        else
+          note("inserted %s x%d into %s", item.name, item.count or 50, spawn.name)
+        end
+      end
+      for _, fluid in pairs(spawn.fluids or {}) do
+        local ok2, got = pcall(function()
+          return entity.insert_fluid { name = fluid.name, amount = fluid.amount or 1000 }
+        end)
+        if not ok2 then
+          note("insert fluid %s into %s FAILED: %s", fluid.name, spawn.name, tostring(got))
+        else
+          note("inserted fluid %s x%s into %s", fluid.name, tostring(got), spawn.name)
+        end
+      end
+      -- A belt in a composed scene should carry something: `belt_items` is a
+      -- list of {name, count} put on every lane of this belt at the build
+      -- tick, so inserters downstream have work and the line reads as live.
+      if spawn.belt_items and entity.type == "transport-belt" then
+        for li = 1, entity.get_max_transport_line_index() do
+          local line = entity.get_transport_line(li)
+          for _, item in pairs(spawn.belt_items) do
+            for _ = 1, (item.count or 1) do
+              pcall(function() line.insert_at_back({ name = item.name, count = 1 }) end)
+            end
+          end
+        end
+      end
       -- `use_mirroring` entities have a second set of art the player reaches
       -- with the flip key; a spec entity with `mirror = true` photographs it.
       if spawn.mirror then
@@ -230,6 +268,86 @@ local function shoot(group, tick_tag)
                b.position.x, b.position.y, li, total, biggest)
         end
       end
+    end
+  end
+  -- A group with `report = true` says what the engine actually makes of each
+  -- crafting machine in it -- the numbers a prototype only promises: crafting
+  -- speed with modules, the quality / productivity / speed / consumption
+  -- effects in force, what the module inventory holds, the energy buffer --
+  -- plus, for every spec entity carrying `fast_replace_over = "<name>"`,
+  -- whether the engine would fast-replace that name at its position; and
+  -- for `report_tech` / `report_recipe` lists, what the force sees of them.
+  if group.report then
+    for _, e in pairs(surf.find_entities_filtered {
+        area = area_for(group), type = { "furnace", "assembling-machine" } }) do
+      local fx = e.effects or {}
+      local inv = e.get_module_inventory()
+      local mods = {}
+      if inv then
+        for _, item in pairs(inv.get_contents()) do mods[#mods + 1] = string.format("%s x%d", item.name, item.count) end
+      end
+      note("REPORT %s at %s,%s: recipe %s | crafting_speed %.3f | effects quality %.4f productivity %.4f speed %.4f consumption %.4f pollution %.4f | productivity_bonus %.4f speed_bonus %.4f | modules [%s] slots %d | buffer %s J",
+           e.name, e.position.x, e.position.y,
+           e.get_recipe() and e.get_recipe().name or "-", e.crafting_speed,
+           fx.quality or 0, fx.productivity or 0, fx.speed or 0, fx.consumption or 0, fx.pollution or 0,
+           e.productivity_bonus or 0, e.speed_bonus or 0, table.concat(mods, ", "), inv and #inv or 0,
+           tostring(e.electric_buffer_size))
+    end
+    for _, spawn in pairs(group.entities or {}) do
+      if spawn.fast_replace_over then
+        local ok = surf.can_fast_replace {
+          name = spawn.fast_replace_over, position = { spawn.x or 0, spawn.y or 0 },
+          direction = defines.direction.north, force = "player" }
+        note("REPORT fast_replace %s over %s at %s,%s: %s", spawn.fast_replace_over, spawn.name,
+             spawn.x or 0, spawn.y or 0, tostring(ok))
+      end
+    end
+    local force = game.forces.player
+    for _, tname in pairs(group.report_tech or {}) do
+      local t = force.technologies[tname]
+      if not t then note("REPORT tech %s: MISSING", tname)
+      else
+        local pre = {}
+        for pname in pairs(t.prerequisites) do pre[#pre + 1] = pname end
+        local ing = {}
+        for _, i in pairs(t.research_unit_ingredients) do ing[#ing + 1] = i.name end
+        note("REPORT tech %s: researched %s | units %d x %ss | packs [%s] | prerequisites [%s] | unlocks %d effects",
+             tname, tostring(t.researched), t.research_unit_count, tostring(t.research_unit_energy / 60),
+             table.concat(ing, ", "), table.concat(pre, ", "), #t.prototype.effects)
+      end
+    end
+    for _, rname in pairs(group.report_recipe or {}) do
+      local r = force.recipes[rname]
+      if not r then note("REPORT recipe %s: MISSING", rname)
+      else
+        local ing = {}
+        for _, i in pairs(r.ingredients) do ing[#ing + 1] = string.format("%s x%s", i.name, tostring(i.amount)) end
+        -- `categories`, plural: 2.1 gave a recipe several, and `category` is gone
+        note("REPORT recipe %s: enabled %s | energy %ss | categories %s | ingredients [%s]",
+             rname, tostring(r.enabled), tostring(r.energy), table.concat(r.categories, "/"), table.concat(ing, ", "))
+      end
+    end
+  end
+  -- A group with `factoriopedia = "<prototype name>"` opens that entity's
+  -- Factoriopedia page for the first player and shoots the screen WITH the
+  -- GUI: the stats card a mod portal gallery wants, straight from the game.
+  -- Needs a player in the run; a benchmark without one says so and skips.
+  if group.factoriopedia then
+    local p = game.connected_players[1] or game.players[1]
+    local proto = prototypes.entity[group.factoriopedia] or prototypes.item[group.factoriopedia]
+    if not p then
+      note("factoriopedia %s: no player in this run, no GUI to shoot", group.factoriopedia)
+    elseif not proto then
+      note("factoriopedia %s: no such entity or item", group.factoriopedia)
+    else
+      local ok, err = pcall(function() p.open_factoriopedia_gui(proto) end)
+      if not ok then note("factoriopedia open FAILED: %s", tostring(err)) end
+      local name = string.format("%s-factoriopedia%s.png", group.label, tick_tag or "")
+      game.take_screenshot {
+        player = p, show_gui = true, path = name, anti_alias = true,
+        resolution = group.resolution and { group.resolution[1], group.resolution[2] } or nil,
+      }
+      note("shot %s (gui)", name)
     end
   end
   -- Night is not cosmetic here: draw_as_light and blend_mode "additive" only

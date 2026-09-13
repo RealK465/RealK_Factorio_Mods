@@ -583,6 +583,37 @@ Four things it exists to get right, each found by testing:
 - **Spread the work over ticks.** Chunk generation, placement and
   screenshotting each need the previous one finished; a screenshot requested in
   the same tick as the entity photographs empty ground.
+- **Feed a machine something it can craft for the whole run.** A spec entity
+  takes `insert` / `insert_count` for one item, `inserts` (a list of
+  `{name, count}`) for a recipe with several ingredients, and `fluids` (a
+  list of `{name, amount}`, put straight into the machine's fluid box with
+  `insert_fluid`) for a fluid recipe -- so processing units (10 s a craft)
+  run an assembler for the whole benchmark with no pump beside it. A gear
+  recipe reaches `full_output` inside forty ticks and every later shot is of
+  an idle machine; the probe's `status` line says which.
+- **A group with `report = true` prints what the engine makes of the
+  prototype**, which is the cheapest runtime verification there is: for every
+  crafting machine in the group its recipe, `crafting_speed` with modules
+  fitted (`module` / `module_count` on the spec entity), the quality,
+  productivity, speed, consumption and pollution effects in force, the module
+  inventory and the energy buffer; for every spec entity with
+  `fast_replace_over = "<name>"` whether `can_fast_replace` would swap that
+  name in at its position; and for `report_tech` / `report_recipe` lists,
+  the unit count, packs, prerequisites and ingredients the force actually
+  sees (`research_all_technologies` has run, so recipes read as enabled).
+  With `shoot.ps1 -Disable space-age` the same spec verifies the
+  no-expansion branch of a mod that forks on `mods["space-age"]` -- the
+  quality assembler's two recipes and two technology gates were read back
+  that way in one afternoon, with no test framework.
+- **A composed scene for a portal gallery is a spec too.** A belt entity takes
+  `belt_items` (a list of `{name, count}` put on every lane at the build tick),
+  so a line of machines between two belts with `fast-inserter`s facing
+  `north` reads as live -- shoot it early (`shoot_ticks = [24]`) before the
+  items run to the belt ends. And a group with `factoriopedia = "<entity>"`
+  opens that entity's Factoriopedia page for the run's player and shoots the
+  screen with the GUI (`show_gui = true`): the stats card, straight from the
+  game, at `resolution` -- crop the right-hand panel. The benchmark save does
+  have a player; the probe says so if one day it does not.
 - **Pass the spec as JSON, not generated Lua.** PowerShell unrolls
   single-element arrays, so a hand-rolled serialiser turned a one-group spec
   into the group itself and the probe iterated its fields. `ConvertTo-Json`
@@ -593,7 +624,12 @@ Also: `LuaEntity.minable` is read-only in 2.1.
 ### Shoot at night too — it is the only way to check a light layer
 
 `shoot.ps1 -Daytimes '0,0.5'` shoots each time of day (0 noon, 0.5 midnight)
-and suffixes the midnight files `-d0.5`. **A `draw_as_light` /
+and suffixes the midnight files `-d0.5`. **Put no `small-lamp` in a night
+scene unless the lamp is the subject:** one lamp lights tens of tiles, and four
+of them in the quality assembler's gallery line rendered midnight at mean
+luminance 78 against a real night's 30, at every zoom and every tick, while
+the machines' own glow vanished into daylight. It cost three runs to find,
+because the lamps looked like the obvious way to light a night shot. **A `draw_as_light` /
 `blend_mode = "additive"` layer renders in the light pass and is simply absent
 at noon** — and no offline composite can show it either, because the darkness
 it is added to does not exist in the PNGs. A beacon core that glows after dark

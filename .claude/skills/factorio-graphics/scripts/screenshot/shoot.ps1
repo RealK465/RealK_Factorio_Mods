@@ -62,7 +62,12 @@ param(
   # "Failed to enumerate adapter output" and a modal DirectX error dialog that
   # holds the .lock until it is dismissed. OpenGL does not enumerate DXGI
   # outputs and renders the same screenshots.
-  [string[]] $ExtraArgs = @()
+  [string[]] $ExtraArgs = @(),
+  # Expansion mods to switch off for the run, as validate.ps1's -Disable does:
+  # `-Disable space-age` photographs the no-expansion configuration on an
+  # install that has the expansion, which is the only way to see that branch
+  # of a mod that forks on mods["space-age"] in the running engine.
+  [string[]] $Disable = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -146,6 +151,8 @@ if ($ModPath) {
   Copy-Item -LiteralPath $ModPath -Destination (Join-Path $stage $folder) -Recurse
   $mods += @{ name = $info.name; enabled = $true }
 }
+foreach ($d in $Disable) { $mods += @{ name = $d; enabled = $false } }
+if ($Disable.Count) { Write-Host "Disabled: $($Disable -join ', ')" }
 
 $json = [pscustomobject]@{ mods = @($mods | ForEach-Object { [pscustomobject]$_ }) } |
   ConvertTo-Json -Depth 4
