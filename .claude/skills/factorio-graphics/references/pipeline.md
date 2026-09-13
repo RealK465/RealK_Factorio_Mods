@@ -573,6 +573,13 @@ Four things it exists to get right, each found by testing:
 - **Scratch write-data.** The `.lock`, the log and `script-output` all follow
   write-data, so a `config.ini` relocating it keeps the run out of the install's
   own user-data folder entirely.
+- **Every group is built before any is shot, so groups must not share ground.**
+  The probe places all groups on the build tick and each group's `clear()`
+  empties a radius round its own centre -- so two groups centred on the same
+  spot leave only the last one standing, and every group's screenshot shows it.
+  Measured 2026-09-13: a "row", a "night" and a "ticks" group all centred near
+  the origin produced three shots of the ticks group. Give each group its own
+  centre at least twice the clear radius (default 20 tiles) from the others.
 - **Spread the work over ticks.** Chunk generation, placement and
   screenshotting each need the previous one finished; a screenshot requested in
   the same tick as the entity photographs empty ground.

@@ -529,6 +529,23 @@ and `shadow`. Keep the frame directory around and rebuild the sheets from it.
 
 **Status lights do not survive a deepcopy.** If you derive an entity from a vanilla one, its `working_visualisations` glow sprite is positioned for *that* shape. Re-author it or drop it deliberately.
 
+**`idle_animation` does not play.** A crafting machine that is not working is frozen, and the
+idle sheet is drawn at the frame the working animation stopped on -- which is why the API
+requires the two to share a frame count. It is an alternate LOOK for the stopped machine (the
+electromagnetic plant's darker base), never a slower loop. Measured on the quality assembler
+2026-09-13 with a tick sequence: a `no_recipe` machine did not change a pixel between t+6 and
+t+18 while the working one beside it moved. A second sheet with different fan angles would jump
+the instant the machine stopped, so "fan turns slowly while idle" cannot be shipped without
+control scripting; the idle read has to be the glow going dim and the motion stopping.
+
+**`pipe_picture` is drawn centred on the tile OUTSIDE the connection**, the same origin
+`pipe_covers` use, not on the entity. Measured the same day: stubs rendered about the entity
+centre and declared with entity-relative shifts drew a full tile past the pipe -- a floating hook
+above the north one, a spare flange on the south one's far end. Subtract the outside tile's
+offset (two tiles, 64 display px at `scale = 0.5`) from the shift, and keep the stub to a collar
+at the hull plus a short barrel: the pipe entity's own ending sprite carries the flange at the
+joint, and a flange on the stub doubles it.
+
 ## Remnants (corpses)
 
 A wreck follows almost none of the entity rules above, and measuring vanilla settles
