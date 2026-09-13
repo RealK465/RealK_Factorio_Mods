@@ -102,6 +102,13 @@ Also by two planners that showed how good this kind of mod can feel:
 - rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
 - Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
 
+## Check my other mods
+
+- [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
+- [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
+- [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with a built-in 12.5% quality chance on every craft.
+- [Extra Qualities](https://mods.factorio.com/mod/extra-qualities) — Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.
+
 ## AI-Assisted Development
 
 The development of this mod was done with the help of AI coding assistants.
