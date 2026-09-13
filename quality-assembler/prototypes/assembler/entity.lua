@@ -48,6 +48,10 @@ data:extend({
     name = "quality-assembler",
     icon = "__quality-assembler__/graphics/icons/quality-assembler.png",
     icon_size = 64,
+    -- the Factoriopedia page's own paragraph, under the tooltip line; the
+    -- key lives in locale/en under [factoriopedia-description], the section
+    -- Space Age uses for the fusion reactor's
+    factoriopedia_description = {"factoriopedia-description.quality-assembler"},
     flags = {"placeable-neutral", "placeable-player", "player-creation"},
     minable = {mining_time = 0.2, result = "quality-assembler"},
     max_health = 400,                      -- chosen: assembling machine 3's 400
