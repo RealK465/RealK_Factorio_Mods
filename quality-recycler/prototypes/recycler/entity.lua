@@ -58,7 +58,7 @@ data:extend({
     -- module-free bonus -- the same field a quality module writes, carried by
     -- the machine itself. The electromagnetic plant does exactly this with
     -- productivity 0.5. 12% is what five normal quality module 3s give.
-    effect_receiver = { base_effect = { quality = 0.12 } },
+    effect_receiver = { base_effect = { quality = 0.125 } },  -- owner's call: 12.5%, matched with the assembler
     module_slots = 5,                      -- the electromagnetic plant's
     -- No productivity, matching the vanilla recycler: recycling returns a
     -- fraction of what went in, and a productivity bonus on that would be
@@ -76,7 +76,7 @@ data:extend({
     {
       type = "electric",
       usage_priority = "secondary-input",
-      emissions_per_minute = { pollution = 4 }   -- chosen: recycler 2, EM plant 4
+      emissions_per_minute = { pollution = 7.5 } -- owner's call: recycler 2, cryogenic plant 6
     },
 
     -- Where the machine places its RESULTS: the tile past the north edge,

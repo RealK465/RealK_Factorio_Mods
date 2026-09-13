@@ -2,6 +2,18 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-09-13 — two balance calls from the owner, matched with the assembler
+
+The owner raised the pollution to 7.5 a minute (from 4) and the built-in quality to 12.5% (from
+12%), on this machine and on `quality-assembler` in the same breath, so the pair keeps one
+figure. Both are one-line changes in `prototypes/recycler/entity.lua`; the data stage loads
+clean in both configurations. Because 0.1.0 and 0.1.1 are published, the change opened a
+`0.1.2` section in `changelog.txt` with two Balancing entries and bumped `info.json` to
+0.1.2 — nothing is released until the owner asks. The registers, `CLAUDE.md`, the README and
+the repo `CLAUDE.md` now say 12.5% and 7.5. Still to do at the next sync: the 2.0 fork of
+`entity.lua` takes `quality = 1.25` and `pollution = 7.5` by hand. The gallery's
+`01_stats.jpg` is the owner's own screenshot and still shows the old figures.
+
 ## 2026-09-12 (fourth session, later) — the first release
 
 Published at the owner's ask, both tracks the same day: 0.1.0 for Factorio

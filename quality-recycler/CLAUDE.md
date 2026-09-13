@@ -5,7 +5,7 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 ## What the mod is
 
-A new recycler kind: **12% base quality chance built in (no modules needed), 2.5x the vanilla
+A new recycler kind: **12.5% base quality chance built in (no modules needed), 2.5x the vanilla
 crafting speed, five module slots, a 4x4 footprint, unlocked after the first three planets with
 Space Age and after the rocket without it.** The verified mechanism
 and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **Published
@@ -274,7 +274,7 @@ feature flag, and why the optional dependency carries no version — are in
 - **`package.ignore` needs `images/**`, not `images`.** A bare folder name matches nothing and
   the gallery would ship in the zip; verified by listing the zip on the first release.
 - Dependencies and feature flags as above.
-- **The mechanic: `effect_receiver.base_effect.quality = 0.12`, `crafting_speed = 1.25`, five
+- **The mechanic: `effect_receiver.base_effect.quality = 0.125` (0.12 until 2026-09-13), `crafting_speed = 1.25`, five
   module slots, 1 MW, a 4x4 footprint** at `collision_box = {{-1.7,-1.7},{1.7,1.7}}` (3x3,
   speed 1.0, four slots and 600 kW until 2026-09-11). Verified mechanism, the electricity
   reasoning and the vanilla-recycler comparison in `.ai-support/decisions.md`.
@@ -286,7 +286,8 @@ feature flag, and why the optional dependency carries no version — are in
 - **Art direction settled** — see `.ai-support/quality-recycler-design.md`.
 
 - **Prototype `quality-recycler`, its own technology `quality-recycling`**, 1 MW / 400 health /
-  5 module slots / 4 pollution, recipe built on a whole `recycler` and two quality module 3s plus
+  5 module slots / 7.5 pollution (raised from 4 on the owner's call of 2026-09-13, matched
+  with `quality-assembler`), recipe built on a whole `recycler` and two quality module 3s plus
   one material from each of the three planets (low-density structures and electric engines
   without Space Age). Re-balanced 2026-09-11 — reasoning in `.ai-support/decisions.md`.
 - **Built from scratch, not deep-copied from the vanilla recycler.** A deepcopy carries its 2x4

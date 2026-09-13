@@ -58,7 +58,9 @@ Starts at `0.1.0`, unpublished (`changelog.txt` carries `Date: ????`, no
 Settled 2026-09-10, from the repo owner's own numbers. Resolves the question `deferred.md` used
 to carry as open.
 
-- **Built-in quality, no modules needed**: `effect_receiver.base_effect.quality = 0.12` on the
+- **Built-in quality, no modules needed**: `effect_receiver.base_effect.quality = 0.125` on the
+  entity prototype since the owner's call of 2026-09-13 (0.12 through the 0.1.0 and 0.1.1
+  releases; raised together with `quality-assembler`, and the pollution to 7.5 the same day) — on the
   entity prototype. Verified against `prototype-api.json` (2.1.17) before relying on it:
   `CraftingMachinePrototype` (the recycler's parent — `type = "furnace"`) carries
   `effect_receiver: EffectReceiver`, `EffectReceiver.base_effect: Effect`, and
@@ -92,14 +94,14 @@ and the electromagnetic plant, which are the two machines this one sits between:
 | `energy_usage` | **1000kW** | 180kW | 2000kW |
 | kW per unit of speed | **800** | 360 | 1000 |
 | `module_slots` | **5** | 4 | 5 |
-| free bonus | 12% quality | none | +50% productivity |
+| free bonus | 12.5% quality | none | +50% productivity |
 | `max_health` | **400** | 300 | 350 |
-| pollution/min | **4** | 2 | 4 |
+| pollution/min | **7.5** (4 until 2026-09-13) | 2 | 4 |
 
 **Electricity is priced by the free bonus.** Per unit of crafting speed the assembling machine 3
 pays 300 kW, the vanilla recycler 360, the foundry 625, the cryogenic plant 750 and the
 electromagnetic plant 1000 — the plant's free +50% productivity is what the extra buys. A free
-12% quality is worth five normal quality module 3s (0.025 each, `data/quality/prototypes/item.lua`),
+12.5% quality is worth five normal quality module 3s (0.025 each, `data/quality/prototypes/item.lua`),
 so this machine sits with the plant: 1 MW at 1.25 is 800 kW per unit of speed. Per item
 recycled that is 2.2x the vanilla recycler's electricity (1000/1.25 against 180/0.5), where the
 plant charges 3.3x an assembler 3 for the same recipe. Drain is the default thirtieth.
