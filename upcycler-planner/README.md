@@ -106,7 +106,7 @@ Also by two planners that showed how good this kind of mod can feel:
 
 - [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
 - [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
-- [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with a built-in 12.5% quality chance on every craft.
+- [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with built-in quality.
 - [Extra Qualities](https://mods.factorio.com/mod/extra-qualities) — Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.
 
 ## AI-Assisted Development
