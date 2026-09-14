@@ -71,6 +71,15 @@ atlas), opens a game window briefly, and needs scratch write-data — which ever
 install switches on itself. `-FullLoadArgs` replaces the renderer flags; the default is
 `--force-opengl`, which starts on any GPU and loads the same files as the default renderer.
 
+**The window is never fullscreen, and the run is capped.** The scratch `config.ini` sets
+`full-screen=false`: in fullscreen the game hung for good on this machine right after audio
+init, before the mod manager even started — one core at 100%, window unresponsive, three
+runs out of three on 2.1.17 (2026-09-14), the day after the same run had passed — and the
+same run in a window took 36 s. Nothing in the log says why; the Logitech LED integration
+was the first suspect and was cleared (switching it off changed nothing). Because a hung
+renderer never exits, the script kills it after `-FullLoadTimeout` seconds (default 300)
+and reports the full load as failed instead of blocking the session.
+
 Two measured facts (2.0.77 and 2.1.17, 2026-09-13):
 
 - **The game exits 0 on `Failed to load mods` in this mode.** It shows the dialog text, quits
@@ -287,7 +296,7 @@ into a switch on the script once a mod is large enough to want it on every valid
 
 **There is no `-CheckUnusedPrototypeData` parameter, and inventing one reads as a pass.**
 `validate.ps1` takes only `-ModPath`, `-FactorioPath`, `-Disable`, `-KeepDump`, `-Live`,
-`-FullLoad` and `-FullLoadArgs`;
+`-FullLoad`, `-FullLoadArgs` and `-FullLoadTimeout`;
 anything else fails PowerShell's parameter binding — and the wrapper still **exits 0**, so the
 run looks green while the game never launched. Read the output, not the exit code (measured
 2026-08-26). This is the same shape as the flag's own warnings above: on this script, exit 0

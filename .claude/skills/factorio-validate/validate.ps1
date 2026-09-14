@@ -36,7 +36,11 @@ param(
 
   # Extra arguments for the renderer run only. OpenGL starts on any GPU and
   # loads exactly the same files as the default renderer, so it is the default.
-  [string[]] $FullLoadArgs = @('--force-opengl')
+  [string[]] $FullLoadArgs = @('--force-opengl'),
+
+  # The renderer run is killed and counted as a failure after this many seconds:
+  # a hung game never exits, and Start-Process -Wait would sit on it for good.
+  [int] $FullLoadTimeout = 300
 )
 
 $ErrorActionPreference = 'Stop'
@@ -102,8 +106,12 @@ if ($Live) {
   if (Test-Path -LiteralPath $writeData) { Remove-Item -LiteralPath $writeData -Recurse -Force }
   New-Item -ItemType Directory -Path $writeData | Out-Null
   # The lock lives in the write-data folder, not the mod folder, so moving it is
-  # all it takes to validate while Factorio is open.
-  $ini = "[path]`nread-data=$FactorioPath\data`nwrite-data=$writeData`n"
+  # all it takes to validate while Factorio is open. The renderer run is windowed:
+  # in fullscreen the -FullLoad game spun on one core for good right after audio
+  # init, before the mod manager, three runs out of three (2.1.17, 2026-09-14),
+  # while the same run in a window finished in 36 s.
+  $ini = "[path]`nread-data=$FactorioPath\data`nwrite-data=$writeData`n" +
+    "[graphics]`nfull-screen=false`n"
   [System.IO.File]::WriteAllText(
     (Join-Path $writeData 'config.ini'), $ini, (New-Object System.Text.UTF8Encoding $false))
 }
@@ -179,9 +187,17 @@ if ($FullLoad -and $code -eq 0) {
     $common + @('--create', $save, '--map-gen-seed', '1'))
   $fullCode = $proc.ExitCode
   if ($fullCode -eq 0) {
-    $proc = Start-Process -FilePath $exe -Wait -PassThru -NoNewWindow -ArgumentList (
+    $proc = Start-Process -FilePath $exe -PassThru -NoNewWindow -ArgumentList (
       $common + $FullLoadArgs + @('--benchmark-graphics', $save, '--benchmark-ticks', '1'))
-    $fullCode = $proc.ExitCode
+    # Without -Wait, ExitCode stays empty unless the handle was read before the exit.
+    $null = $proc.Handle
+    if ($proc.WaitForExit($FullLoadTimeout * 1000)) {
+      $fullCode = $proc.ExitCode
+    } else {
+      Stop-Process -Id $proc.Id -Force
+      Write-Host "Full load: the game had not exited after $FullLoadTimeout s and was killed."
+      $fullCode = 1
+    }
   }
   if (Test-Path -LiteralPath $log) { $fullText = Get-Content -LiteralPath $log -Raw }
 }
