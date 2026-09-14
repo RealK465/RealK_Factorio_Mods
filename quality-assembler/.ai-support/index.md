@@ -2,9 +2,10 @@
 
 Read this first. One line per file: what is in it, and when to read it.
 
-As of 2026-09-13 the mod is **built, published and unplayed**: entity, art, icons, thumbnail and
+As of 2026-09-14 the mod is **built, published and unplayed**: entity, art, icons, thumbnail and
 prototype, validated in both configurations, read back from the running engine, and released as
-0.1.0 for Factorio 2.1 and 0.1.1 for Factorio 2.0 the same night; nothing has been played. The design was decided before the code, and the design document now carries a
+0.1.0 for Factorio 2.1 and 0.1.1 for Factorio 2.0 that night, then 0.1.2 (2.0) and 0.1.3 (2.1)
+on 2026-09-14 with a shorter description; nothing has been played. The design was decided before the code, and the design document now carries a
 *Built* section saying what shipped.
 
 - **`quality-assembler-design.md`** — the entity's visual design and, in its *Built* section,
