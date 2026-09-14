@@ -1,11 +1,11 @@
 {
   "name": "quality-assembler",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "title": "Quality Assembler",
   "author": "RealK",
   "factorio_version": "2.0",
   "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/legacy/2.0/quality-assembler",
-  "description": "A fast assembling machine with a built-in 12.5% quality chance on every craft.",
+  "description": "A fast assembling machine with built-in quality.",
   "dependencies": ["base >= 2.0.0", "quality >= 2.0.0", "? space-age"],
   "quality_required": true,
   "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**"] }
