@@ -10,7 +10,7 @@ A new assembling machine: **12.5% base quality chance built in (no modules neede
 after Aquilo with Space Age and after the rocket without it.** The verified mechanism and how it
 compares to its two reference machines are in `.ai-support/decisions.md`.
 
-**Built, published and unplayed, as of 2026-09-13** — the entity is modelled, animated and rendered
+**Built, published and unplayed, as of 2026-09-14** — the entity is modelled, animated and rendered
 (sources in `../assets/quality-assembler/entity/quality-assembler/`, sheets in `graphics/`),
 wired into `data.lua`, validated in both configurations and photographed working in the engine;
 the item and technology icons and `thumbnail.png` exist. A second pass the same day rebuilt the
@@ -20,7 +20,8 @@ again over a tick sequence; a third repainted the graft in the cryogenic plant's
 with cream panels, dark composite frames and khaki ribbed hoses, and gave it a twin-fan
 condenser, a sight dome, a light line over the window and a console (the design document's
 *The Aquilo pass*). Nothing has been played beyond screenshots. **Published 2026-09-13**: 0.1.0 for Factorio 2.1
-from `main` and 0.1.1 for Factorio 2.0 from `legacy/2.0`, both tagged; run the
+from `main` and 0.1.1 for Factorio 2.0 from `legacy/2.0`; **2026-09-14**: 0.1.2 for 2.0 and
+0.1.3 for 2.1 with a shorter description; all four tagged; run the
 `factorio-release` skill's "Published or open?" check rather than trusting a number written
 here. **The `legacy/2.0` track carries the
 same build** with `info.json` and `prototypes/assembler/entity.lua` forked — the three
@@ -117,7 +118,7 @@ a sidecar written against the entity centre puts the stub a full tile past the p
 
 ```
 info.json                  base, quality, optional space-age
-changelog.txt              0.1.0 open, Date: ????
+changelog.txt              0.1.0 to 0.1.3, all shipped
 LICENSE
 README.md
 locale/en/quality-assembler.cfg
@@ -211,9 +212,10 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
 
 - Name `quality-assembler`, title "Quality Assembler". Confirmed unclaimed on the mod portal
   2026-09-13.
-- Versions are drawn from one sequence shared by both tracks: 0.1.0 shipped for Factorio 2.1
-  and 0.1.1 for Factorio 2.0, both on 2026-09-13. The next release takes the next free number
-  whichever game it is for — `factorio-multiversion` → Version numbering.
+- Versions are drawn from one sequence shared by both tracks: 0.1.0 for Factorio 2.1 and 0.1.1
+  for Factorio 2.0 on 2026-09-13, then 0.1.2 for 2.0 and 0.1.3 for 2.1 on 2026-09-14. The next
+  release takes the next free number whichever game it is for — `factorio-multiversion` →
+  Version numbering.
 - Dependencies and feature flags as above.
 - **The mechanic: `effect_receiver.base_effect.quality = 0.125`, `crafting_speed = 2`, five
   module slots, 1600 kW, a 3x3 footprint** at `collision_box = {{-1.2,-1.2},{1.2,1.2}}`.

@@ -3,6 +3,31 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-09-14 — shorter description, 0.1.2 and 0.1.3 released
+
+The owner cut the mod's description to "A fast assembling machine with built-in quality." (the
+closing period is the one addition, matching the four sibling descriptions) and asked for a
+release with everything committed, pushed and synced. The line moved in `info.json`, the
+locale's `[mod-description]`, the four sibling READMEs' "Check my other mods" sections and the
+root README's table; this mod's own README body was not touched. Following
+`factorio-multiversion`, the 2.0 build took the lower number this time: 0.1.2 for Factorio 2.0
+from `legacy/2.0` carries the entry, 0.1.3 for Factorio 2.1 from `main` says it is that build
+ported, one changelog on both branches. Both configurations validated on each track, with
+`-FullLoad`; both zips listed (36 entries, no `CLAUDE.md`, no `images/`); uploaded 2.0 first;
+the portal's sha1 for each release equals the local zip's. `fmtk upload` does **not** touch the
+portal summary — a cache-busted read after both uploads still showed the old sentence — so
+`fmtk details --readme` ran for this mod and for the four siblings, which also re-synced their
+descriptions with the new line. Tagged and pushed on both branches.
+
+The release was held up for half an hour by the validator, not the mod: `validate.ps1 -FullLoad`
+hung on this machine in fullscreen, three runs out of three, one core at 100% and the window
+unresponsive right after audio init, before the mod manager — the same run had passed the day
+before. The Logitech LED integration was the first suspect and was cleared (switching it off in
+the scratch config changed nothing). Windowed, the run took 36 s. The script now writes
+`full-screen=false` into its scratch config and caps the renderer wait (`-FullLoadTimeout`,
+300 s) so a hang fails the run instead of blocking the session; the skill records the
+measurement.
+
 ## 2026-09-13 (release) — published on both tracks
 
 At the owner's ask, the same night as the build. 0.1.0 for Factorio 2.1 went out through the
