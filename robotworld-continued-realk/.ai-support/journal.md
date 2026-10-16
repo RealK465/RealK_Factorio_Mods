@@ -2,6 +2,13 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-16 — README cut down after release
+
+The owner found the portal description too long. `README.md` was rewritten from 701 to 286
+words: a feature list instead of per-setting paragraphs, and no "what changed" section (the
+changelog carries that). It was synced to the portal with `fmtk details`. The 0.1.0 zip and its tag
+still carry the long README; the short one ships with the next version.
+
 ## 2026-10-16 — 0.1.0 published
 
 The owner asked to release, publish, keep the docs current, commit and push. Before the upload
