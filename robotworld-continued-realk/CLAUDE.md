@@ -17,12 +17,12 @@ the starting power armor.
 for them stays visible in `README.md` and `UPSTREAM-LICENSES.txt`. Treat a design question as
 "what did upstream intend" before "what would be better".
 
-**Published 2026-10-16 as 0.1.0, then 0.1.1, for Factorio 2.1**; `git tag -l
-'robotworld-continued-realk_*'` is the list of what shipped.
-**The data stage loads clean on 2.1.17 and 2.1.22, with every expansion and with none, at default and at
-edge settings, and quick start, the starting armor, the early robotics flags and the AAI
-Containers and Factorissimo 3 interactions were proven on created saves. Nothing has been
-played.** See `.ai-support/deferred.md`.
+**Published 2026-10-16: 0.1.0 and 0.1.1 for Factorio 2.1, then 0.1.2 for Factorio 2.0**;
+`git tag -l 'robotworld-continued-realk_*'` is the list of what shipped.
+**The data stage loads clean on 2.1.17, 2.1.22 and 2.0.77, with every expansion and with none,
+at default and at edge settings, and quick start, the starting armor, the early robotics flags
+and the AAI Containers and Factorissimo 3 interactions were proven on created saves on both
+games. Nothing has been played.** See `.ai-support/deferred.md`.
 
 Read `.ai-support/index.md` first. Decisions and their reasons are there, not here.
 
@@ -46,7 +46,7 @@ Read `.ai-support/index.md` first. Decisions and their reasons are there, not he
   handles the crash-site cutscene itself.
 - **A flag set on a `LuaForce` by script is lost on every technology reset**, so it is re-applied
   in `on_configuration_changed`, `on_technology_effects_reset`, `on_force_reset` and
-  `on_force_created`. Early ghosts and the logistic network button work that way.
+  `on_force_created`. Early ghosts and, on 2.1, the logistic network button work that way.
 - **Hidden robots and hidden roboports are never scaled.** They belong to other mods' own
   mechanics — Factorissimo 3 sizes its in-factory roboport to the factory floor.
 - **A mod that redefines a recipe this mod unlocks early must load first**, through a `(?)`
@@ -56,12 +56,14 @@ Read `.ai-support/index.md` first. Decisions and their reasons are there, not he
   named mod or item. That is what makes Krastorio 2's nuclear reactor work without a K2 branch.
 - **Testing anything in `on_player_created` needs `--benchmark-graphics`**, not `--create`:
   only the graphics run makes a player. `.ai-support/journal.md` has the probe set-up.
-- **Factorio 2.1 only — there is no `legacy/2.0` build.** Upstream's own 2.0.0 serves 2.0.
+- **Two tracks: Factorio 2.1 on `main`, 2.0 on `legacy/2.0`.** Only `info.json`, `control.lua`
+  and `prototypes/cheap-recipes.lua` differ, and a change to any of them is ported by hand.
+  Everything else, docs and `changelog.txt` included, stays identical on both.
 
 ## Layout
 
 ```
-info.json                      2.1; `!` robotworld and robotworld-continued
+info.json                      2.1 on main, 2.0 on legacy/2.0; `!` both originals
 settings.lua                   every startup setting, grouped by `order`
 data.lua                       -> prototypes/early-unlocks.lua
 data-updates.lua               -> prototypes/cheap-recipes.lua

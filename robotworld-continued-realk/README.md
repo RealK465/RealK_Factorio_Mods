@@ -2,7 +2,7 @@
 
 **Tune your robots and roboports. Optionally start the game with robots.**
 
-A Factorio 2.1 port of Robot World Continued. Everything is set in Settings > Mod settings > Startup.
+An updated Robot World Continued, for Factorio 2.0 and 2.1. Everything is set in Settings > Mod settings > Startup.
 
 ## What you can change
 
@@ -22,7 +22,7 @@ Works with or without Space Age, and with Krastorio 2, AAI Containers & Warehous
 
 ## Credits
 
-Based on [Robot World](https://mods.factorio.com/mod/robotworld) by GamingComet and [Robot World Continued](https://mods.factorio.com/mod/robotworld-continued) by thinkong. On Factorio 2.0, use Robot World Continued.
+Based on [Robot World](https://mods.factorio.com/mod/robotworld) by GamingComet and [Robot World Continued](https://mods.factorio.com/mod/robotworld-continued) by thinkong.
 
 ## Check my other mods
 

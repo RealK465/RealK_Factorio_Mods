@@ -2,6 +2,24 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-16 — Factorio 2.0 port, 0.1.2
+
+The owner asked to port and release a 2.0 build, then to test everything, keep the docs current,
+publish, commit and push. That reverses the earlier "2.1 only" call (`decisions.md` → *Two
+tracks*). The source was read against the skill's 2.1 breaking-changes list and each runtime
+call checked in 2.0.77's `runtime-api.json`. Two things broke: `LuaForce::unlock_logistic_network`
+does not exist on 2.0 (its gate is new in 2.1.7, so there is nothing to unlock there), and the
+recycling library sits in `quality` instead of `recycler`. Both became forked files on
+`legacy/2.0`, beside `info.json`.
+
+Testing turned up a third. Krastorio 2 Spaced Out's 2.0 release runs without Krastorio 2, so
+the quick start's steam top-up, keyed on `Krastorio2`, silently skipped it, though it nerfs the
+same boiler and engine. The 2.0 `control.lua` names both mods. The 2.0 releases of K2, Spaced
+Out, AAI Containers, Factorissimo 3 and Bob's were downloaded with the dev install's login
+(sha1 checked against the portal), and the 2.1 harnesses were rebuilt for the 2.0 installs.
+Upstream's load order reproduced the AAI chest bug on 2.0 too, and the dependency fixes it there
+the same way. The 2.0.77 runs are listed under *Two tracks*.
+
 ## 2026-10-16 — upstream discussion review, 0.1.1
 
 The owner asked what in upstream's portal discussion could be fixed. 50 of 52 threads were

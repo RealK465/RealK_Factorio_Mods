@@ -33,11 +33,14 @@ repo. MIT's one condition — keep the copyright and permission notice in every 
   under that title.
 - **`0.1.0`**, the owner's choice over 1.0.0 and 2.1.0. Published 2026-10-16, tagged
   `robotworld-continued-realk_0.1.0`. **`0.1.1`** followed the same day with the fixes from
-  the upstream discussion review (*Scope* below); `git tag -l 'robotworld-continued-realk_*'`
-  is the list of what shipped.
+  the upstream discussion review (*Scope* below), and **`0.1.2`** is that build ported to
+  Factorio 2.0 (*Two tracks* below), also the same day; `git tag -l
+  'robotworld-continued-realk_*'` is the list of what shipped. The two tracks draw from one
+  version line, so the number says nothing about the game.
 - **Portal page:** license GNU GPLv3 (`default_gnugplv3`), category `tweaks` (it changes vanilla
   robots, roboports and inserters rather than adding content), description from `README.md`
-  via `fmtk details`. Gallery: `images/01-startup-settings.jpg` then
+  via `fmtk details`, run from `main`'s folder: it also sends `info.json`'s `homepage`, which
+  points at `legacy/2.0` in the 2.0 build. Gallery: `images/01-startup-settings.jpg` then
   `images/02-early-robots-choice.jpg`, the real mod settings screen at 150% UI scale.
 
 ## Names: everything prefixed `rwcr-`
@@ -219,9 +222,13 @@ when an older version of the other one is installed, and upstream's dated from 0
 - **`(?) 248k` dropped** — 1.0/1.1 only, so it can never load on 2.1. Its 2.1 continuation is a
   different mod, `248k-Redux`, which defines its robots in `data.lua` with `place_result` set
   and changes nothing later, so it needs no dependency.
-- **No `recycler` dependency.** The recycling rebuild above works in either load order:
+- **No `recycler` dependency** (no `quality` one on 2.0, where the recycling library lives in
+  `quality`). The recycling rebuild above works in either load order:
   `generate_recycling_recipe` ends in `data:extend`, so whichever runs last writes the same
   recipe.
+- **`base >= 2.0.7` on the 2.0 build**, not 2.0.0: `LuaForce::create_ghost_on_entity_death`
+  arrived in 2.0.7 (the 2.0 changelog), and the early robotics flags write it. Nothing below
+  2.0.77 was run.
 
 ## Quick start with Krastorio 2
 
@@ -240,6 +247,11 @@ changes make it a worse fit, and the kit adds to it only when `Krastorio2` is ac
   tech cards (5 wood + 5 copper cable for 5 cards, enabled from the start), and the kit gives
   labs with nothing to put in them. K2 Spaced Out hides the card, so the check asks the recipe
   prototype instead of naming that mod — measured: wood added on K2, not on K2 Spaced Out.
+- **On Factorio 2.0 the steam top-up also names `Krastorio2-spaced-out`.** Its 2.0 release
+  (1.6.21) runs *without* Krastorio 2 (`! Krastorio2`), so the `Krastorio2` check alone left it
+  out, yet it sets the same 1.5 MW boiler, 0.75 MW engine, 200 kW lab and 100 kW drill. On 2.1
+  Spaced Out runs on top of Krastorio 2, so `main` needs no second name. Measured on 2.0.77:
+  K2 2.0.19 and Spaced Out 1.6.21 both get 6 boilers and 12 engines; wood only on K2.
 
 Considered and not added: K2's small roboport (unlocked by the advanced tech card, far too
 late for a starter kit), wind turbines (20 kW each, too weak to matter), and more coal (the
@@ -296,6 +308,12 @@ for the ghosts fixed on 2026-10-16 (0.1.0) and the logistic network button the s
   `on_init` and in a running game, and on a newly created force; off on `enemy`; switched on in
   an existing save through `on_configuration_changed`; and back off when the setting is turned
   off, by the game's own reset with nothing from this mod.
+- **Factorio 2.0 has no logistic network gate.** The `unlock-logistic-network` modifier and
+  `LuaForce::unlock_logistic_network` are both new in 2.1.7 (2.1.22's changelog: "used by entity
+  GUI to enable a 'logistic network' button"); neither exists in 2.0.77's runtime or prototype
+  API, and base 2.0 grants nothing of the kind. So the 2.0 build sets only the ghost flag —
+  writing the missing field would be a runtime error. The ghost flag measured the same way on
+  2.0.77. The button itself was not looked at in a 2.0 game.
 - **`vehicle_logistics` is not set.** `logistic-system` grants it, and the logistic-system
   level unlocks that technology's recipes early but not this flag — the same class of gap, not
   asked for. See `deferred.md`.
@@ -308,11 +326,35 @@ widens what each roboport reveals — x2 takes vanilla's 2 chunks to 4. Upstream
 thread asked for a separate setting. **The owner decided on 2026-10-16 to keep it as it is**:
 a bigger area revealing more map makes sense. Don't pin `radar_range`.
 
-## Factorio 2.1 only
+## Two tracks: 2.1 on `main`, 2.0 on `legacy/2.0`
 
-No `legacy/2.0` build. Upstream's 2.0.0 already serves Factorio 2.0 players, so a second 2.0
-track would add a duplicate, not reach anyone new. The repo `CLAUDE.md` → *Git* records the
-mod as existing on `main` only.
+The port started 2.1-only, on the reasoning that upstream's 2.0.0 already served 2.0. **The
+owner asked on 2026-10-16 for a 2.0 release as well**, after 0.1.1: upstream's 2.0.0 still has
+every bug the port fixed, crashes with Bob's Electronics, is refused by Factorissimo 3's 2.0
+release (`! robotworld-continued`) and loses the early chests to AAI Containers — so a 2.0
+build reaches players upstream cannot. Shipped as 0.1.2, the next free number.
+
+Only three files differ, and each for a measured reason:
+
+- **`info.json`** — `version`, `factorio_version` `2.0`, `base >= 2.0.7` (*Dependencies*) and a
+  `homepage` on the `legacy/2.0` tree.
+- **`control.lua`** — no `unlock_logistic_network` (*Early robotics flags*), and the quick start's
+  K2 steam top-up also names Krastorio 2 Spaced Out (*Quick start with Krastorio 2*).
+- **`prototypes/cheap-recipes.lua`** — the recycling library is
+  `__quality__.prototypes.recycling` on 2.0, gated on `quality`, not `__recycler__.recycling`.
+
+Everything else is identical, docs and `changelog.txt` included. Measured on 2.0.77, Space Age
+and vanilla installs: the data stage at default and edge settings (profiles A to E, expansions
+on and off) with `--check-unused-prototype-data` silent for this mod; the four early
+technologies dump identically to 2.1's, and 68 of the 76 fields the mod rewrites match too — the
+other 8 are recycling amounts, which 2.0's own library writes as fractions where 2.1's floors
+them; the full load with every sprite and sound, at default and with every technology present;
+quick start on vanilla, Space Age, K2 2.0.19 and Spaced Out 1.6.21; the starting armor on base,
+Space Age, K2 (8x8 grid, uranium cells) and Spaced Out; the ghost flag in every case the 2.1 probe
+covers; AAI Containers 0.3.2 at every level (upstream's load order reproduces the locked chests,
+`(?) aai-containers` alone fixes it); Factorissimo 3.11.19 (hidden roboport kept at 64, a factory
+placed); and Bob's Electronics, Logistics and Library 2.1.x (Bob's circuit board in the cheap
+recipes, Bob's robots and roboports scaled).
 
 ## Thumbnail
 
