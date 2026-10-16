@@ -2,6 +2,18 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-16 — settings screenshots for the gallery
+
+The owner asked for screenshots of the settings while away, with the screens off. No command line
+flag opens the mod settings screen, so a scratch game window was driven directly. It had its own
+mod folder and write-data, and its config set `; version=13` (without it the game offers to reset
+the file), manual UI scale 1.5 and windowed. Clicks were posted as window messages, so the real
+cursor never moved. The capture was a screen copy with the window held topmost. With
+`--force-opengl` that copy and `PrintWindow` both came back black; the default DirectX renderer
+captured correctly even with the monitors off. Hover tooltips do not appear from posted mouse
+moves. Two shots were cropped to the dialog and uploaded with `images/add`; both ids matched the
+files' sha1. Then `images/edit` set the order.
+
 ## 2026-10-16 — README cut down after release
 
 The owner found the portal description too long. `README.md` was rewritten from 701 to 286

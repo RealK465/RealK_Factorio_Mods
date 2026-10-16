@@ -35,7 +35,8 @@ repo. MIT's one condition — keep the copyright and permission notice in every 
   `robotworld-continued-realk_0.1.0`.
 - **Portal page:** license GNU GPLv3 (`default_gnugplv3`), category `tweaks` (it changes vanilla
   robots, roboports and inserters rather than adding content), description from `README.md`
-  via `fmtk details`, no gallery.
+  via `fmtk details`. Gallery: `images/01-startup-settings.jpg` then
+  `images/02-early-robots-choice.jpg`, the real mod settings screen at 150% UI scale.
 
 ## Names: everything prefixed `rwcr-`
 

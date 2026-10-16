@@ -54,4 +54,5 @@ A cleanup review (2026-10-16) suggested two behaviour changes, both left for the
 
 ## Portal page
 
-No gallery and no FAQ yet; screenshots would need a played game with robots working.
+The gallery holds two mod settings screenshots (`images/`) and nothing in game; shots of robots
+at work would need a played game. No FAQ.
