@@ -45,8 +45,8 @@ reference material, never redistributed.
 Claims here are marked where they are not first-hand:
 
 - **Verified** — read out of `doc-html/runtime-api.json`, `doc-html/prototype-api.json`, or the
-  game's own `data/*.lua`, at the version the file's front matter names (2.1.14, or 2.0.77 for
-  `factorio-2.0.md`). File:line given where it is game data.
+  game's own `data/*.lua`, at the version the file's front matter names (a 2.1 build, or
+  2.0.77 for `factorio-2.0.md`). File:line given where it is game data.
 - **Decoded** — read directly out of a blueprint's JSON.
 - **UNVERIFIED** — could not be confirmed from a first-party source. Listed explicitly in
   `api.md` §9 so they can be probed in game rather than trusted.

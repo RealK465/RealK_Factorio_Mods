@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.17
-verified: 2026-09-07
+verified_against: 2.1.22
+verified: 2026-10-16
 ---
 # Quality maths, recycler mechanics, and how closed loops fail
 
@@ -93,9 +93,12 @@ All 2.0-era analyses; mechanics unchanged.
   divides `station_times` by the player's counts, and this table stays reference only
   (the wizard's balanced-counts hint was removed 2026-08-29, decisions.md).
 - **Recycler timing**: recipe energy `craft_energy / 16 / result_count`, recycler speed 0.5, so
-  wall-clock is about `craft_time / 8` — and **multi-output recipes recycle slower** by the
-  `result_count` divisor. This is a documented community trap and the scaling changed again in
-  2.1.13, so read generated recipes from `prototypes.recipe` rather than re-deriving.
+  wall-clock is about `craft_time / 8` — and **each item of a multi-output recipe recycles
+  faster**, by the `result_count` divisor (`data/recycler/recycling.lua:105`; the 2.1.13
+  changelog: "in general things will recycle faster"). Self-recycling items got the same
+  divisor in 2.1.21 (`recycling.lua:264`). This is a documented community trap and the scaling
+  has changed twice in 2.1, so read generated recipes from `prototypes.recipe` rather than
+  re-deriving.
 
 ## 4. Known failure modes of closed loops
 
@@ -132,8 +135,8 @@ All 2.0-era analyses; mechanics unchanged.
 ## 6. Out of scope, and why
 
 - **Asteroid-chunk reprocessing laundering** — dead since 2.1.7, which disallowed quality
-  modules on crusher reprocessing recipes (first-party, `data/changelog.txt` line 334,
-  section re-confirmed 2026-08-17; announced in FFF #442 — a research agent's 2.1.12
+  modules on crusher reprocessing recipes (first-party, `data/changelog.txt` line 625 at
+  2.1.22, section re-confirmed 2026-08-17 and 2026-10-16; announced in FFF #442 — a research agent's 2.1.12
   attribution was checked against the changelog and rejected).
 - **Biter-egg / spoilage tricks** — ordinary recipes with a farm input; the generic loop covers
   them.

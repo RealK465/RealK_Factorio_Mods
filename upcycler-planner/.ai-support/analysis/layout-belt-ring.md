@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.17
-verified: 2026-09-09
+verified_against: 2.1.22
+verified: 2026-10-16
 ---
 # The belt-ring layout, generalised
 
@@ -193,7 +193,8 @@ S, bottom row E, right column N. The corner tile faces where the items go next.
 
 The reference threads the return beneath the terminal machine as an underground pair. That does
 not survive the two extra rows the buffer chests cost — the span would be about 14 tiles, past
-even a turbo belt's `max_underground_distance` of 10. A dedicated return column costs one tile
+even a turbo underground belt's `max_distance` of 11
+(`data/space-age/prototypes/entity/transport-belts.lua:84`). A dedicated return column costs one tile
 of width, removes the underground entirely, and removes the belt-tier dependency with it.
 
 Belt tier: the fastest belt whose recipe is enabled for the force (P.U.M.P.'s "best researched"

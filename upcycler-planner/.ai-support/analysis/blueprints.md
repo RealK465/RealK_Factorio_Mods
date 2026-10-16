@@ -1,6 +1,6 @@
 ---
-verified_against: 2.1.17
-verified: 2026-09-07
+verified_against: 2.1.22
+verified: 2026-10-16
 ---
 # Decoded blueprints — the mechanism, the scaling law, the conventions
 
@@ -31,9 +31,10 @@ inside the machine's bottom row. Consequences:
 - This is also how the design dodges the well-documented direct-insertion quality deadlock
   (quality output with nowhere to go jams the machine).
 
-Verified in game data. The **runtime stall-and-resume behaviour** of the eject when the target
-machine rejects the front item is assumed from drill behaviour and is on the UNVERIFIED list —
-it is the one thing to eyeball in the first in-game test, because the whole family leans on it.
+Verified in game data. The **runtime behaviour** of the eject when the target machine rejects
+the front item was once assumed from drill behaviour; it was measured on 2026-08-16 and is
+worse than a stall — the recycler wedges outright, so the inserter beneath it is load-bearing
+(`api.md` §9.6).
 
 Every recycler in the reference book carries `mirror = true`, which only flips the eject
 x-offset (-0.35 to +0.35); both land inside the machine. We can emit unmirrored.
@@ -41,8 +42,8 @@ x-offset (-0.35 to +0.35); both land inside the machine. We can emit unmirrored.
 ## 2. Inserter direction convention
 
 Vanilla inserter prototype: `pickup_position = {0,-1}`, `insert_position = {0,1.2}`
-(`data/base/prototypes/entity/entities.lua:2385-2386`; long-handed `{0,-2}`/`{0,2.2}`
-:2526-2527). Negative y is north, so:
+(`data/base/prototypes/entity/entities.lua:2387-2388`; long-handed `{0,-2}`/`{0,2.2}`
+:2528-2529). Negative y is north, so:
 
 **An inserter's `direction` is the side it picks up from; it drops on the opposite side.**
 
@@ -140,7 +141,7 @@ which parts of the design are essential and which are incidental:
 All their assemblers are `direction = None`. With a *parameter* recipe and
 `fluid_boxes_off_when_no_fluid_recipe = true` there are no fluid boxes at capture time, so the
 authors' rotations were normalised away. Vanilla `assembling-machine-3` has exactly one fluid
-input, north-centre (`entities.lua:5427-5434`), so a north-facing machine cannot reach the side
+input, north-centre (`entities.lua:5506-5513`), so a north-facing machine cannot reach the side
 pipes those blueprints place.
 
 **A parameterised blueprint cannot fix this. A mod that knows the real recipe at plan time can**
