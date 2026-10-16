@@ -15,6 +15,7 @@ game's own settings) is git-ignored.
 | [`quality-recycler`](quality-recycler/) | [published](https://mods.factorio.com/mod/quality-recycler) | A new recycler with quality built right in. |
 | [`quality-assembler`](quality-assembler/) | [published](https://mods.factorio.com/mod/quality-assembler) | A fast assembling machine with built-in quality. |
 | [`extra-qualities`](extra-qualities/) | [published](https://mods.factorio.com/mod/extra-qualities) | Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers. |
+| [`robotworld-continued-realk`](robotworld-continued-realk/) | [published](https://mods.factorio.com/mod/robotworld-continued-realk) | Robot World Continued, ported to Factorio 2.1 — tune your robots and roboports, or get robots early. Credit to thinkong and GamingComet. |
 
 Each mod folder is self-contained and carries its own `README.md`, `LICENSE` and
 `changelog.txt`, which is what ships to the [mod portal](https://mods.factorio.com/) on
