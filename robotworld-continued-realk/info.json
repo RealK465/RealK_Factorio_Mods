@@ -1,0 +1,23 @@
+{
+  "name": "robotworld-continued-realk",
+  "version": "0.1.2",
+  "title": "Robot World Continued (RealK)",
+  "author": "RealK",
+  "factorio_version": "2.0",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/legacy/2.0/robotworld-continued-realk",
+  "description": "Tune your robots and roboports: speed, cargo, battery, range and more. Optionally get robots early, with cheaper recipes and a quick start kit.",
+  "dependencies": [
+    "base >= 2.0.7",
+    "! robotworld",
+    "! robotworld-continued",
+    "(?) space-age",
+    "? aai-industry",
+    "(?) aai-containers",
+    "? bobelectronics",
+    "(?) boblogistics",
+    "(?) nullius",
+    "(?) space-exploration",
+    "(?) Krastorio2"
+  ],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**"] }
+}
