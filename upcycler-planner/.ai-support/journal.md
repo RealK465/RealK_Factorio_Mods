@@ -9,6 +9,37 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-16 - The dev install moved to 2.1.22, and the evidence was re-read against it
+
+The owner replaced the 2.1 dev install with 2.1.22. Nothing in `scripts/`, `control.lua` or
+the prototypes needed to change: no code touches a member 2.1.18-2.1.22 removed or renamed.
+Gate on 2.1.22: data stage and full load clean, `--check-unused-prototype-data` silent with
+every mod in the repo loaded together, static clean, headless 382/382.
+
+Unlike the 2.1.17 re-stamp, every evidence file was re-read claim by claim this time, against
+the 2.1.22 docs, data and the 2.1.18-2.1.22 changelog in full. What moved:
+
+- **Version-driven**: the area-selection payload gained `selection_mode`, `position` and
+  `cursor_position`; `LuaQualityPrototype.next` is now marked optional, which settles §9.7 at
+  doc level; recycle time of self-recycling items now divides by result count (2.1.21);
+  `quality_affects_spoil_ticks` lets an item opt out of spoil-by-quality (vanilla opts nothing
+  out); the preselection events carry `cursor_position`, but never for a held blueprint, so
+  the no-cursor-preview conclusion holds.
+- **Wrong before, found on the way**: `quality-math.md` §3 had the recycle-time direction
+  backwards (multi-output items recycle *faster*); `get_requester_point` exists, on
+  `LuaControl`; `rotation_speed` is cars only; the oil refinery shares the chemical plant's
+  missing `fluid_boxes_off_when_no_fluid_recipe`; the locomotive is a third
+  `quality_affects_*` assignment; the turbo underground's `max_distance` is 11, not 10;
+  `blueprints.md` still listed the eject stall as unverified a month after §9.6 measured it.
+- **Line shifts** in `entities.lua` and `circuit-connector-sprites.lua`, all re-pointed.
+
+All seven 2.1 evidence files now say `verified_against: 2.1.22`. Left alone, flagged rather
+than corrected: `blueprints.md` §4 calls connector id 1 green, while `api.md` §21's measured
+`pole_copper = 5` would put `circuit_red` at 1; `reference-mods.md` names Enter as
+`confirm-gui`'s key where this mod's `CLAUDE.md` says E. Both need an in-game read.
+
+---
+
 ## 2026-09-12 - 1.2.4 and 1.2.5 ship: the network cap and the data-port fix, both tracks
 
 Released on the owner's ask ("commit and push ... release and publish in mod portal") in the

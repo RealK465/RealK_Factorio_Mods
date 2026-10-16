@@ -1,11 +1,12 @@
 ---
-verified_against: 2.1.17
-verified: 2026-09-12
+verified_against: 2.1.22
+verified: 2026-10-16
 ---
 # Verified API reference
 
-Checked against the installed 2.1.14's own `doc-html/runtime-api.json`,
-`doc-html/prototype-api.json` and `data/*.lua`. The JSON files are minified, so citations are
+Checked against the installed game's own `doc-html/runtime-api.json`,
+`doc-html/prototype-api.json` and `data/*.lua` — first at 2.1.14, re-checked at each install
+move since; the front matter names the latest. The JSON files are minified, so citations are
 `Class::member` rather than line numbers; game-data citations give file:line.
 
 **This supersedes the API table in `../journal.md`** (2026-08-15, feasibility investigation),
@@ -42,7 +43,8 @@ Item flags used: `"only-in-cursor"` (Q deletes it, nothing lands in inventory), 
 `"not-stackable"`.
 
 `on_player_selected_area` payload: `area`, `entities`, `tiles`, `item`, `quality`, `surface`,
-`player_index`, `name`, `tick`. The two **reverse** variants carry no `quality` field.
+`player_index`, `name`, `tick`, plus `selection_mode`, `position` and `cursor_position` since
+2.1.22. The two **reverse** variants carry no `quality` field.
 
 Use `mode = {"any-tile"}` — it guarantees a non-empty selection so the event fires.
 Whether `{"nothing"}` still fires is UNVERIFIED (§9).
@@ -103,7 +105,8 @@ contained in a ghost."*
 - `set_filter(index, filter)` / `get_filter(index)`; `ItemFilter` is a string or
   `{name?, quality?, comparator?}`.
 - `inserter_filter_mode` r/w `"whitelist"|"blacklist"`; `use_filters` r/w bool.
-- **`get_requester_point()` does not exist.** Use `LuaEntity.get_logistic_point(index?)` ->
+- **`get_requester_point()` is not on `LuaEntity` itself** — it lives on its parent
+  `LuaControl` (re-read 2.1.22). The route used here: `LuaEntity.get_logistic_point(index?)` ->
   `LuaLogisticPoint`, then `add_section()` -> `LuaLogisticSection`, then
   `set_slot(index, LogisticFilter)`. Ghost support is explicit in changelog v2.0.29 / v2.0.32.
 - `LogisticFilter {value :: SignalFilter, min, max, minimum_delivery_count, import_from,
@@ -189,7 +192,7 @@ shorter) and `player` (sets `last_user` and feeds the undo queue).
   `items_to_place_this`. **`crafting_speed` is not an attribute** — it is the method
   `get_crafting_speed(quality?)`. Same trap one over: an inserter's speed is the method
   `get_inserter_rotation_speed(quality)`; a `rotation_speed` ATTRIBUTE exists but belongs to
-  cars and turrets and reads nil on an inserter — verified the hard way, arithmetic crash in
+  cars alone (`subclasses: ["Car"]`; turrets read `turret_rotation_speed`) and reads nil on an inserter — verified the hard way, arithmetic crash in
   a live game 2026-08-15. Energy sources: `burner_prototype`,
   `electric_energy_source_prototype`, `fluid_energy_source_prototype` etc., nil when not that
   kind — how the planner refuses fuelled inserters. **`inserter_pickup_position` /
@@ -203,10 +206,10 @@ shorter) and `player` (sets `last_user` and feeds the undo queue).
   outright (the reason — community-documented stalls in quality loops — is in
   `../decisions.md`). The exclusion cannot ride on `bulk`, because vanilla's bulk-inserter and
   Space Age's stack-inserter tie the pick exactly: both `bulk = true`
-  (`data/base/prototypes/entity/entities.lua:5480`,
-  `data/space-age/prototypes/entity/entities.lua:2682`), both `rotation_speed = 0.04`
-  (base :5507, space-age :2714), and only the stack-inserter carries
-  `max_belt_stack_size = 4` (space-age :2686).
+  (`data/base/prototypes/entity/entities.lua:5585`,
+  `data/space-age/prototypes/entity/entities.lua:2683`), both `rotation_speed = 0.04`
+  (base :5612, space-age :2715), and only the stack-inserter carries
+  `max_belt_stack_size = 4` (space-age :2687).
 - `LuaRecipePrototype`: **`categories` is an array in 2.1** (singular `category` does not
   exist); `ingredients`, `products`, `main_product`, `energy`, `maximum_productivity`,
   **`can_set_quality`** (the runtime mirror of the data-stage `allow_quality`; a bare
@@ -230,8 +233,9 @@ shorter) and `player` (sets `last_user` and feeds the undo queue).
 render with rich text `[quality=<name>]` or the `-with-quality` GUI widgets.
 
 Walk `prototypes.quality["normal"]` -> `.next`, skipping `hidden` (`"quality-unknown"` is
-hidden and must be skipped). The schema marks `next` non-optional but the top tier logically
-ends the chain — **nil-check it anyway** (§9).
+hidden and must be skipped). The schema marks `next` (and `previous`) optional since 2.1.22 —
+non-optional through 2.1.17, though the top tier always ended the chain — so **nil-check it**
+(§9).
 
 `LuaForce.is_quality_unlocked(q)`, `unlock_quality`, `lock_quality`.
 2.1.7 added the `chain_probability` / `previous_probability` read family (the roll rework's
@@ -270,7 +274,8 @@ player picked a different recipe for the same product than the one the reversal 
 from.
 
 Recycle energy is `energy_required / 16 / result_count` (floored at 0.0011), and the formula
-changed again in 2.1.13 — **read the generated recipe from `prototypes.recipe`, never
+changed again in 2.1.13, and in 2.1.21 for items that recycle into themselves
+(`data/recycler/recycling.lua:264`) — **read the generated recipe from `prototypes.recipe`, never
 re-derive it.**
 
 **Every generated recycling recipe is unlocked by the `recycling` technology at once**
@@ -333,7 +338,8 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    Deterministic seeding for the suite: a script `insert` into
    `defines.inventory.crafter_output` works on a recycler (2.1.14) and stands in for a lucky
    roll.
-7. `LuaQualityPrototype.next` nil-ability at the top of the chain.
+7. `LuaQualityPrototype.next` nil-ability at the top of the chain. **Settled at doc level in
+   2.1.22**, which marks `next` and `previous` optional; still unmeasured in game.
 
 ## 10. Electric poles and wires — verified 2026-08-16
 
@@ -487,7 +493,7 @@ full research, real entities and ticks) plus the installed `prototype-api.json` 
    corner connections on the one box; an UNROTATED electromagnetic plant (inputs authored on
    OPPOSITE flanks, west dir=12 and east dir=4) crafted supercapacitors from a west-side pipe
    run alone. Output boxes did not materialise at all for a fluid-input-only recipe — even on
-   the chemical plant, the one vanilla machine without `fluid_boxes_off_when_no_fluid_recipe`.
+   the chemical plant, which like the oil refinery never sets `fluid_boxes_off_when_no_fluid_recipe`.
 4. **Vanilla input authoring, and the rotation each machine gets**: AM2/AM3 north-centre → face
    west; chemical plant and biochamber north corners → west; foundry and cryogenic plant
    author their inputs on the SOUTH face → face EAST; the EM plant already has a west input →
@@ -545,20 +551,20 @@ one belt fact this mod already measured (`belt_speed` has no quality variant).
 `ContainerPrototype::quality_affects_inventory_size` has `"default": true` in
 `prototype-api.json`, and `LogisticContainerPrototype` inherits it. Base never sets it — the only
 `quality_affects_*` assignments in `data/quality/prototypes/base-data-updates.lua` are the cargo
-wagon's inventory and the fluid wagon's capacity — so vanilla chests carry the bonus *because of
+wagon's inventory, the locomotive's max speed and the fluid wagon's capacity — so vanilla chests carry the bonus *because of
 the default*, not because anyone opted in. Read it per quality with
 `get_inventory_size(defines.inventory.chest, quality)`. **Confidence: verified from the property
 default; the resulting slot count per tier was not measured**, and does not matter here — the
 default pick ranks chests at normal, which is quality-invariant when every chest scales alike.
 
 **An inserter's bonus is swing speed**, read with `get_inserter_rotation_speed(quality)` (the
-method takes an optional quality; the `rotation_speed` *attribute* is for cars and turrets and
+method takes an optional quality; the `rotation_speed` *attribute* is for cars alone and
 reads nil on an inserter). **Confidence: verified that the API is quality-aware and that
 inserters are not on the exception list; the per-tier multiplier was not measured.**
 
 **Filter slots do not scale with quality, and the engine caps them at five.** `filter_count`
 is a plain `InserterPrototype` property, default 0, **every one of the six vanilla inserters
-sets it to 5** (base `entities.lua`, space-age `transport-belts.lua`), and the property's own
+sets it to 5** (base `entities.lua`, space-age `entities.lua:2716`), and the property's own
 doc says *"Maximum count of filtered items in inserter is 5"* — in 2.1.17's and 2.0.77's
 `prototype-api.json` alike (`InserterPrototype::filter_count`; the same sentence sits on
 `LoaderPrototype` and `MiningDrillPrototype`). So no inserter, modded or not, can filter more
@@ -857,7 +863,9 @@ read it back rather than assuming.
 
 **There is no continuous read of the cursor's world position.** `LuaControl.render_position` is
 the player's own; `CustomInputEvent` carries `cursor_position` and `cursor_direction` but only at
-the instant a key fires. A `rendering`-drawn footprint that follows the cursor therefore cannot
+the instant a key fires. 2.1.22's opt-in preselection events (`on_player_start_selected_area`
+and its two siblings) carry `cursor_position`, but only while a selection tool is being
+dragged, never for a held blueprint. A `rendering`-drawn footprint that follows the cursor therefore cannot
 be built — which is why a blueprint is not merely the nicer route to a preview but the only one.
 
 **Rotation and flipping do not break the eject** — measured, and it was not obvious. The
@@ -1094,7 +1102,7 @@ Vanilla reads 3 at normal; the planner reads it at the beacon's build quality an
 quality scaling either way.
 
 **What a vanilla beacon accepts, by §16's own rule, no new mechanism:** `allowed_effects =
-{consumption, speed, pollution}` (`data/base/prototypes/entity/entities.lua:7686`), so quality
+{consumption, speed, pollution}` (`data/base/prototypes/entity/entities.lua:7787`), so quality
 and productivity modules refuse insertion (their positive effect is disallowed) and speed and
 efficiency go in. `planner.accepts_module(beacon, item)` works unchanged with the beacon as
 holder — a beacon has no recipe half, which is the one difference from the machine pair and why
@@ -1125,8 +1133,8 @@ leaves the floor in the chest"). Schema reads were against 2.1.14; **the install
 
 **Machines AND furnaces can be circuit-gated.** `LuaAssemblingMachineControlBehavior` and
 `LuaFurnaceControlBehavior` both declare `"parent":"LuaGenericOnOffControlBehavior"`, whose
-whole own surface is `circuit_enable_disable`, `circuit_condition`, `connect_to_logistic_network`
-and `logistic_condition`. Blueprint side: `AssemblingMachineBlueprintControlBehavior` and
+whole own surface is `circuit_enable_disable`, `circuit_condition`, `connect_to_logistic_network`,
+`logistic_condition` and `disabled`. Blueprint side: `AssemblingMachineBlueprintControlBehavior` and
 `FurnaceBlueprintControlBehavior` are the same shape — `{circuit_enabled (default false),
 circuit_condition: CircuitCondition}` — and the furnace variant group carries `control_behavior`
 and nothing else (§21's recycler-can-never-have-a-recipe fact, now exercised). Measured: both
@@ -1163,7 +1171,7 @@ degrades to exactly the uncircuited loop.
 
 **Circuit wire reach is 9 for everything this mod wires.** `default_`, `inserter_`,
 `transport_belt_`, `assembling_machine_` and `furnace_circuit_wire_max_distance` are all 9
-(`data/core/lualib/circuit-connector-sprites.lua:99-202`); chests take the default, and
+(`data/core/lualib/circuit-connector-sprites.lua:106-209`); chests take the default, and
 `InserterPrototype`'s own default is **0** — a modded inserter that never sets it has no
 circuit reach at all, which is why the reserve inserter joins the reach min whenever a
 reserve is set. The runtime read is `LuaEntityPrototype.get_max_circuit_wire_distance(quality)`
@@ -1294,7 +1302,9 @@ The runtime surface is `LuaItemPrototype::get_spoil_ticks(quality) -> uint32`, d
 *"The number of ticks before this item spoils, or `0` if it does not spoil."* Confirmed against
 2.1.16's own `runtime-api.json`. The neighbouring attributes that DO exist are `spoil_level`,
 `spoil_result`, `spoil_to_trigger_result`, `spoil_quality_change`, `spoil_quality_min`,
-`spoil_quality_max` and `lab_ignores_spoil_percent` — none of them a duration.
+`spoil_quality_max` and `lab_ignores_spoil_percent` — none of them a duration — and, since
+2.1.18, `quality_affects_spoil_ticks`: an item can now opt out of spoil-by-quality. Vanilla
+opts nothing out, so the figures below stand (2.1.22).
 
 **Spoil time varies by quality**, which is why the getter takes one: a captive biter spawner
 lasts **108000** ticks at normal and **270000** at legendary (2.5x). So a loop's lowest tier is
@@ -1476,7 +1486,7 @@ through `create_blueprint` instead.
   what the paused-before-done rule relies on, not re-measured visually]. `text` is a plain
   string, so no locale key can reach it.
 - **Reach and power**: `small-lamp`, `constant-combinator` and `display-panel` all carry
-  `circuit_wire_max_distance = 9` (`data/base/prototypes/entity/entities.lua:2911`,
+  `circuit_wire_max_distance = 9` (`data/base/prototypes/entity/entities.lua:2971`,
   `circuit-network.lua`, via `core/lualib/circuit-connector-sprites.lua:106,211`); only the
   lamp has an `energy_source` (5 kW). Unlocks: the lamp by `lamp`, the other two by
   `circuit-network` (`data/base/prototypes/technology.lua:2226,5411,5423`) — not gated by
@@ -1622,7 +1632,7 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
   network"*, `prototype-api.json`) and removed 2.0's
   `AssemblingMachinePrototype::enable_logistic_control_behavior` (default `true` in the 2.0.77
   `prototype-api.json`). Vanilla sets the flag on exactly one crafter, the captive biter
-  spawner (`data/space-age/prototypes/entity/entities.lua:1568`; 2.0 sets the old switch
+  spawner (`data/space-age/prototypes/entity/entities.lua:1569`; 2.0 sets the old switch
   `false` on the same entity, its line 1573). Read at runtime through
   `LuaEntityPrototype.has_flag("no-logistic-connection")`, which `planner.validate` refuses on
   in network mode — **2.1 only**: the flag name is absent from the 2.0.77 `runtime-api.json`,
