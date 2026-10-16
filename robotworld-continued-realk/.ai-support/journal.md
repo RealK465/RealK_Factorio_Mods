@@ -2,6 +2,27 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-16 — upstream discussion review, 0.1.1
+
+The owner asked what in upstream's portal discussion could be fixed. 50 of 52 threads were
+read (`?page=2` returns page 1, so the two oldest, from early 2020, were not seen). Most were
+already fixed by the port or concerned mods with no 2.1 release. Two were real here:
+Factorissimo 3's hidden roboports getting scaled, and the roboport map reveal growing with
+the construction area. A scratch run with Factorissimo's public source confirmed the first
+(64 → 128 at x2). The owner chose to fix it and the logistic network button, to keep the map
+reveal as it is, and to fix and test AAI Containers.
+
+AAI Containers looked fine at first: in 0.1.0 it loads before us and everything worked. The
+thread's screenshot showed the chests gone with it, so the question became why upstream lost
+them. Upstream has no `space-age` dependency; dropping ours from a staged copy moved us
+before AAI and reproduced the bug exactly. So 0.1.0 worked by accident of load depth, and
+`(?) aai-containers` now pins it. AAI was downloaded from the portal with the dev install's
+login (hash checked against the portal's sha1) and run on created saves at every level.
+
+The owner then asked to publish, commit, push, and get the list of threads worth answering.
+Re-verified before release: profiles A to E and vanilla, validate default, base only and
+full load, the ghost harness for both flags, Factorissimo, and luacheck.
+
 ## 2026-10-16 — settings screenshots for the gallery
 
 The owner asked for screenshots of the settings while away, with the screens off. No command line

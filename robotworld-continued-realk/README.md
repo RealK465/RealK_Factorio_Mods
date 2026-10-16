@@ -18,7 +18,7 @@ A Factorio 2.1 port of Robot World Continued. Everything is set in Settings > Mo
 
 ## Compatibility
 
-Works with or without Space Age, and with Krastorio 2. Can't be used together with Robot World or Robot World Continued.
+Works with or without Space Age, and with Krastorio 2, AAI Containers & Warehouses and Factorissimo 3. Can't be used together with Robot World or Robot World Continued.
 
 ## Credits
 

@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2026-10-16
+  Compatibility:
+    - [aai-containers] Loads after AAI Containers & Warehouses, so Early robots always unlock its small logistic chests with the cheap recipes.
+  Bugfixes:
+    - Fixed that with Early robots on, buildings could not connect to the logistic network until robotics was researched.
+    - [factorissimo-2-notnotmelon] Fixed that the roboport settings also changed the hidden roboports inside factory buildings.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2026-10-16
   Major Features:

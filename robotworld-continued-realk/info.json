@@ -1,6 +1,6 @@
 {
   "name": "robotworld-continued-realk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "title": "Robot World Continued (RealK)",
   "author": "RealK",
   "factorio_version": "2.1",
@@ -12,6 +12,7 @@
     "! robotworld-continued",
     "(?) space-age",
     "? aai-industry",
+    "(?) aai-containers",
     "? bobelectronics",
     "(?) boblogistics",
     "(?) nullius",

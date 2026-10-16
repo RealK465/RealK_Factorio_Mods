@@ -63,8 +63,10 @@ local construction_multiplier = setting("roboport-construction-radius-multiplier
 local charging_multiplier = setting("roboport-charging-rate-multiplier")
 local usage_multiplier = setting("roboport-energy-usage-multiplier")
 
+-- Hidden roboports belong to other mods' own mechanics too, such as Factorissimo's inside
+-- factory buildings.
 for name, roboport in pairs(data.raw.roboport) do
-  if name == "roboport" or not only_vanilla then
+  if not roboport.hidden and (name == "roboport" or not only_vanilla) then
     -- The buffer grows with the charging rate, so a faster port does not run itself dry. The
     -- restart level after a blackout scales with it, or a smaller buffer could never reach it.
     local source = roboport.energy_source

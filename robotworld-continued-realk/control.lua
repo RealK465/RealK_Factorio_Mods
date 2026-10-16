@@ -56,36 +56,38 @@ local function add_quick_start()
   remote.call("freeplay", "set_created_items", items)
 end
 
--- Construction robotics also makes destroyed buildings leave ghosts, and early construction
--- robots skip that research, so the force gets it directly. The game recomputes it from
--- research whenever technology effects are reset, so it is set again after every reset.
-local early_ghosts = settings.startup["rwcr-early-robots"].value ~= "off"
+-- The robotics technologies also make destroyed buildings leave ghosts and enable the
+-- "connect to logistic network" button, and early robots skip that research, so the force
+-- gets both directly. The game recomputes them from research whenever technology effects are
+-- reset, so they are set again after every reset.
+local early_robots = settings.startup["rwcr-early-robots"].value ~= "off"
 
-local function enable_ghosts(force)
+local function enable_robotics(force)
   if force.name ~= "enemy" and force.name ~= "neutral" then
     force.create_ghost_on_entity_death = true
+    force.unlock_logistic_network = true
   end
 end
 
-local function enable_ghosts_everywhere()
+local function enable_robotics_everywhere()
   for _, force in pairs(game.forces) do
-    enable_ghosts(force)
+    enable_robotics(force)
   end
 end
 
 script.on_init(function()
   add_quick_start()
-  if early_ghosts then enable_ghosts_everywhere() end
+  if early_robots then enable_robotics_everywhere() end
 end)
 
-if early_ghosts then
+if early_robots then
   -- Mod and startup setting changes reset technology effects before this runs.
-  script.on_configuration_changed(enable_ghosts_everywhere)
+  script.on_configuration_changed(enable_robotics_everywhere)
   script.on_event({
     defines.events.on_force_created,
     defines.events.on_force_reset,
     defines.events.on_technology_effects_reset,
-  }, function(event) enable_ghosts(event.force) end)
+  }, function(event) enable_robotics(event.force) end)
 end
 
 -- Largest pieces first: grid.put packs first-fit, and Krastorio 2 shrinks this armor's grid

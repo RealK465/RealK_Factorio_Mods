@@ -2,7 +2,7 @@
 
 Parked and open work. The single owner of this list — `CLAUDE.md` doesn't keep a second copy.
 
-As of 2026-10-16 the mod is **published (0.1.0), validated and unplayed**.
+As of 2026-10-16 the mod is **published (0.1.1), validated and unplayed**.
 
 ## Nothing has been played
 
@@ -12,19 +12,25 @@ the quick start list read back from freeplay on a created save. Not checked: a r
 robots flying, that the early technologies read sensibly in the tech tree, and the kit landing
 in an actual player's inventory (freeplay's own `insert_safe` does that part).
 
-## Early robots do not unlock "connect to logistic network"
+## Early logistic system does not unlock vehicle logistics
 
-2.0 added a hidden `unlock-logistic-network` effect to `construction-robotics` and
-`logistic-robotics`; it sets `LuaForce.unlock_logistic_network`, which enables the "connect to
-logistic network" button on inserters, belts and the like. Unlocking robot recipes from the
-start does not grant it, so a player using early robots cannot wire machines to the logistic
-network until the vanilla technology is researched. Upstream (written for 1.1) has the same
-gap. Candidate fix: add the effect to `rwcr-early-character-logistic-slots`. Not done because
-the owner scoped the port to bug fixes; it is a behaviour change.
+`logistic-system` carries a `vehicle-logistics` effect, which lets cars, tanks and the like use
+logistic requests. The logistic-system level of Early robots unlocks that technology's recipes
+but not this flag, so vehicles keep waiting for the research. Same class of gap as the ghosts
+and the logistic network button (`decisions.md` → *Early robotics flags*), and the same fix
+would close it: set `LuaForce.vehicle_logistics` alongside them, at that level only. Not asked
+for; noticed while fixing the logistic network button for 0.1.1.
 
-The sibling gap, ghosts on entity death, was fixed at the owner's request with a force flag set
-from `control.lua` (`decisions.md` → *Early ghosts*). The same pattern would close this one
-through `LuaForce.unlock_logistic_network`.
+## Upstream discussion: raised, not taken
+
+From the 2026-10-16 review of upstream's portal discussion, left open by the owner:
+
+- **Quick start in other scenarios.** The kit goes through freeplay's created items, so a
+  scenario without the `freeplay` interface silently gets nothing (upstream's "16K Mini Factory"
+  thread; that scenario is 1.1 only). A fallback that inserts the kit on player creation is
+  possible, but many scenarios plan their own start.
+- **5Dim's New Logistic** (`5dim_logistic`, has a 2.1 release): reported upstream as robots not
+  available at the start. Not run.
 
 ## Quick start kit at very small robot stack sizes
 
@@ -35,10 +41,12 @@ sets stack size that low and also turns the kit on.
 
 ## Compatibility not run in game
 
-Each dependency's reason is in `decisions.md` → *Dependencies*. Not run, for lack of a zip:
-Space Exploration (its robot overrides were read in 0.7.60's source), AAI Industry (kept on
-inference), and Bob's Electronics itself (its circuit name was read from source; Bob's
-Logistics and Library were run). Nullius has no 2.1 release yet.
+Each dependency's reason is in `decisions.md` → *Dependencies*. Run with this mod on 2.1.22:
+Krastorio 2, Bob's Logistics and Library, AAI Containers & Warehouses 0.4.0 and Factorissimo 3
+(3.12.3). Not run, for lack of a zip: Space Exploration (its robot overrides were read in
+0.7.60's source; it gained a 2.1 release, 0.7.63, on 2026-10-15), AAI Industry (kept on
+inference), and Bob's Electronics itself (its circuit name was read from source). Nullius has
+no 2.1 release yet.
 
 ## Upstream values kept on purpose, flagged by review
 

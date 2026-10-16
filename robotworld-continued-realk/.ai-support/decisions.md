@@ -32,7 +32,9 @@ repo. MIT's one condition — keep the copyright and permission notice in every 
   identically named mod in the in-game browser. Proposed by the agent; the owner released it
   under that title.
 - **`0.1.0`**, the owner's choice over 1.0.0 and 2.1.0. Published 2026-10-16, tagged
-  `robotworld-continued-realk_0.1.0`.
+  `robotworld-continued-realk_0.1.0`. **`0.1.1`** followed the same day with the fixes from
+  the upstream discussion review (*Scope* below); `git tag -l 'robotworld-continued-realk_*'`
+  is the list of what shipped.
 - **Portal page:** license GNU GPLv3 (`default_gnugplv3`), category `tweaks` (it changes vanilla
   robots, roboports and inserters rather than adding content), description from `README.md`
   via `fmtk details`. Gallery: `images/01-startup-settings.jpg` then
@@ -49,12 +51,15 @@ costs exactly that. The README tells switching players their settings do not car
 Either way the mod declares **`! robotworld` and `! robotworld-continued`**: both scale the
 same vanilla robots, so running two of them multiplies everything twice.
 
-## Scope: port + bug fixes, plus three owner-requested changes
+## Scope: port + bug fixes, plus owner-requested changes
 
 The owner chose this over a strict port and over a modernising rewrite, then asked for four
 changes the same day: the Krastorio 2 quick start additions, the starting power armor, the
-settings consolidation and early ghosts (each below). Otherwise behaviour is upstream's; the code was
-restructured only as far as the fixes needed.
+settings consolidation and early ghosts (each below). After 0.1.0 the owner had upstream's
+portal discussion reviewed (50 of 52 threads; the portal would not serve the second page) and
+chose three fixes for 0.1.1: Factorissimo 3's hidden roboports, the logistic network button for
+early robots (*Early robotics flags*), and AAI Containers' chests (*Dependencies*). Otherwise
+behaviour is upstream's; the code was restructured only as far as the fixes needed.
 
 ### What the port changed
 
@@ -64,6 +69,13 @@ restructured only as far as the fixes needed.
   `logistics_rad`. Any other mod using the same names would clobber or be clobbered.
 - **Hidden robots are skipped by `robot.hidden`.** Upstream checked `flags` for `"hidden"`,
   which 2.0 replaced with the `hidden` property, so robots other mods hide were scaled.
+- **Hidden roboports are skipped the same way** (0.1.1). Upstream scaled every roboport.
+  Factorissimo 3 (`factorissimo-2-notnotmelon` 3.12.3) builds two hidden roboports into its
+  factory buildings, one with a 64-tile construction radius sized to the factory floor;
+  measured on 2.1.22, a construction multiplier of 2 took it to 128. Factorissimo has declared
+  `! robotworld-continued` since its 3.11.17 (changelog gives no reason; its code touches
+  nothing of ours), and this is the one interaction found. Factorissimo's hidden robot already
+  carries `hidden`, so robots needed no change.
 - **Cargo size is rounded to a whole number, at least 1.** `max_payload_size` is an
   `ItemCountType`; upstream multiplied it by a double, so any fractional result stopped the load.
 - **`max_payload_size_after_bonus` and `max_speed` are raised to the new base values when lower.**
@@ -185,9 +197,22 @@ when an older version of the other one is installed, and upstream's dated from 0
   risk measured for K2 and Bob's, and SE hard-requires it. No source was available.
 - **`(?) nullius`** — no 2.1 release yet, kept as a free hedge: its 2.0 `data-final-fixes` sets
   absolute inserter speeds.
-- **`(?) space-age`** — no measurable effect (identical output with and without it: Space Age
-  edits robots and roboports in `data.lua` and has no `data-final-fixes`). Kept, hidden and
-  harmless.
+- **`(?) aai-containers` — load-bearing, measured (0.1.1).** AAI Containers & Warehouses 0.4.0
+  redefines the five 1x1 logistic chests under their vanilla names in its `data.lua`, recipes
+  `enabled = false`. If it loads after us it erases the early unlock, which is upstream's
+  "early game logistic chest unavailable" report. Load order follows dependency depth before
+  name: upstream had no `space-age` dependency, so it loaded before AAI (which has `(?)
+  space-age`); 0.1.0 happened to load after AAI only because `(?) space-age` evened the depth.
+  Measured on 2.1.22 with AAI 0.4.0: our `(?) space-age` removed from a staged copy reproduced
+  upstream's bug (all five chests locked); with `(?) aai-containers` added, AAI loads first
+  either way. With it: every Early robots level unlocks exactly its chests, at the cheap cost,
+  recycling rebuilt; a placed AAI chest joins a roboport's network; cheap recipes off leaves
+  AAI's costs; Off changes nothing; the full graphics load is clean. AAI's own 2x2 and larger
+  logistic containers stay behind its technologies, which are not early robots.
+- **`(?) space-age`** — no measurable effect on the recipes and multipliers (identical output
+  with and without it: Space Age edits robots and roboports in `data.lua` and has no
+  `data-final-fixes`). Kept, hidden and harmless; it also sets our load depth, which is why
+  `aai-containers` above needs naming explicitly rather than relying on it.
 - **`! robotworld`, `! robotworld-continued`** — both scale the same vanilla robots. The second
   is measured to block (exit 1, "Incompatible with ..."); the first has only a 0.16 release and
   is refused on version anyway.
@@ -250,25 +275,38 @@ prototype and there is no expansion branch.
 - Skipped entirely if `power-armor-mk2` does not exist, so an overhaul that removes it costs
   a missing armor, not a script error on every new player.
 
-## Early ghosts
+## Early robotics flags
 
-`construction-robotics` also carries a `create-ghost-on-entity-death` effect (base
-`technology.lua`, 2.1.22), so early construction robots alone left destroyed buildings with no
-ghost until that research. Upstream had the same gap. The owner asked for it fixed on
-2026-10-16.
+`construction-robotics` carries a `create-ghost-on-entity-death` effect, and both it and
+`logistic-robotics` carry a hidden `unlock-logistic-network` effect (base `technology.lua`,
+2.1.22), so early robots alone left destroyed buildings with no ghost and the "connect to
+logistic network" button disabled until that research. Upstream had both gaps. The owner asked
+for the ghosts fixed on 2026-10-16 (0.1.0) and the logistic network button the same day (0.1.1).
 
-- **Set on the force from `control.lua`**, whenever Early robots is above Off: on every force
-  except `enemy` and `neutral`. A technology effect would need research, which is the very
-  thing early robots skip.
-- **Set again after every reset.** The game recomputes the flag from research whenever technology
+- **Both set on the force from `control.lua`** (`create_ghost_on_entity_death`,
+  `unlock_logistic_network`), whenever Early robots is above Off: on every force except
+  `enemy` and `neutral`. A technology effect would need research, which is the very thing
+  early robots skip.
+- **Set again after every reset.** The game recomputes the flags from research whenever technology
   effects are reset: on any mod or startup setting change (before `on_configuration_changed`,
   per `auxiliary/migrations.html`), and on `reset_technology_effects` / `LuaForce.reset` from any
   mod. So it is re-applied in `on_configuration_changed`, `on_technology_effects_reset`,
   `on_force_reset`, and for new forces in `on_force_created`.
-- Measured on 2.1.22 with a probe mod: on in a new game, after a reset in `on_init` and in a
-  running game, and on a newly created force; off on `enemy`; switched on in an existing save
-  through `on_configuration_changed`; and back off when the setting is turned off, by the game's
-  own reset with nothing from this mod.
+- Measured on 2.1.22 with a probe mod, both flags together: on in a new game, after a reset in
+  `on_init` and in a running game, and on a newly created force; off on `enemy`; switched on in
+  an existing save through `on_configuration_changed`; and back off when the setting is turned
+  off, by the game's own reset with nothing from this mod.
+- **`vehicle_logistics` is not set.** `logistic-system` grants it, and the logistic-system
+  level unlocks that technology's recipes early but not this flag — the same class of gap, not
+  asked for. See `deferred.md`.
+
+## Roboport map reveal scales with the radius
+
+A roboport with no `radar_range` charts out to its larger radius rounded up to chunks
+(`prototype-api.json`, `RoboportPrototype::radar_range`), so the construction area setting
+widens what each roboport reveals — x2 takes vanilla's 2 chunks to 4. Upstream's "Radar Scale"
+thread asked for a separate setting. **The owner decided on 2026-10-16 to keep it as it is**:
+a bigger area revealing more map makes sense. Don't pin `radar_range`.
 
 ## Factorio 2.1 only
 

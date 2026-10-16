@@ -17,10 +17,12 @@ the starting power armor.
 for them stays visible in `README.md` and `UPSTREAM-LICENSES.txt`. Treat a design question as
 "what did upstream intend" before "what would be better".
 
-**Published 2026-10-16 as 0.1.0 for Factorio 2.1** (tag `robotworld-continued-realk_0.1.0`).
+**Published 2026-10-16 as 0.1.0, then 0.1.1, for Factorio 2.1**; `git tag -l
+'robotworld-continued-realk_*'` is the list of what shipped.
 **The data stage loads clean on 2.1.17 and 2.1.22, with every expansion and with none, at default and at
-edge settings, and quick start, the starting armor and early ghosts were proven on created
-saves. Nothing has been played.** See `.ai-support/deferred.md`.
+edge settings, and quick start, the starting armor, the early robotics flags and the AAI
+Containers and Factorissimo 3 interactions were proven on created saves. Nothing has been
+played.** See `.ai-support/deferred.md`.
 
 Read `.ai-support/index.md` first. Decisions and their reasons are there, not here.
 
@@ -44,7 +46,12 @@ Read `.ai-support/index.md` first. Decisions and their reasons are there, not he
   handles the crash-site cutscene itself.
 - **A flag set on a `LuaForce` by script is lost on every technology reset**, so it is re-applied
   in `on_configuration_changed`, `on_technology_effects_reset`, `on_force_reset` and
-  `on_force_created`. Early ghosts work that way.
+  `on_force_created`. Early ghosts and the logistic network button work that way.
+- **Hidden robots and hidden roboports are never scaled.** They belong to other mods' own
+  mechanics — Factorissimo 3 sizes its in-factory roboport to the factory floor.
+- **A mod that redefines a recipe this mod unlocks early must load first**, through a `(?)`
+  dependency, or it re-locks the recipe. Load order follows dependency depth, so name
+  order is no guarantee; AAI Containers is the measured case.
 - **Equipment fuel comes from the equipment's own `burner.fuel_categories`**, never from a
   named mod or item. That is what makes Krastorio 2's nuclear reactor work without a K2 branch.
 - **Testing anything in `on_player_created` needs `--benchmark-graphics`**, not `--create`:
@@ -59,7 +66,7 @@ settings.lua                   every startup setting, grouped by `order`
 data.lua                       -> prototypes/early-unlocks.lua
 data-updates.lua               -> prototypes/cheap-recipes.lua
 data-final-fixes.lua           -> prototypes/multipliers.lua
-control.lua                    the quick start kit, the starting power armor and early ghosts
+control.lua                    the quick start kit, the starting power armor and the early robotics flags
 prototypes/lib.lua             setting(), energy scaling, recipe helpers
 prototypes/early-unlocks.lua   early recipes and the four rwcr-early-* technologies
 prototypes/cheap-recipes.lua   cheap robot, chest and roboport recipes
