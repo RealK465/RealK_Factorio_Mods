@@ -16,8 +16,8 @@ at 4 on mythic and 5 on celestial, which is the owner's power anchor.
 quality technology icons are redrawn too, because a set where two of seven follow different
 rules is what a player notices.
 
-**The data stage loads clean against base 2.1.17 with all four expansions (2026-09-10), and
-`--check-unused-prototype-data` reports nothing ignored.** The roll mechanics the balance rests
+**The data stage loads clean against base 2.1.22 with all four expansions (2026-10-16; first
+on 2.1.17, 2026-09-10), and `--check-unused-prototype-data` reports nothing ignored.** The roll mechanics the balance rests
 on are measured against the engine. **Nothing has been played** — see `.ai-support/deferred.md`,
 which leads on exactly that.
 

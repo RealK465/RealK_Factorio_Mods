@@ -3,6 +3,16 @@
 Dated sessions, newest first. Append-only: entries are history and may go stale. Only a moved
 file path is ever repaired in place.
 
+## 2026-10-16 — the dev install moved to 2.1.22
+
+Re-validated against base 2.1.22: the data stage loads clean with all four expansions, the
+full load opens every sprite and sound, and `--check-unused-prototype-data` reports nothing
+ignored with every mod in this repo loaded together. `analysis/quality-roll-mechanics.md` was
+re-read claim by claim against the 2.1.22 docs, data and the 2.1.18–2.1.22 changelog; nothing
+in it moved, so its front matter now says 2.1.22. The selector combinator's new quality select
+mode (2.1.21) is another quality-picking GUI, so it may bear on whether other GUIs honour
+`quality_selector_dropdown_threshold` — still untested.
+
 ## 2026-09-10 — ported to Factorio 2.0, and the odds rescale was the whole job
 
 `legacy/2.0`, version 0.1.1, clean against base 2.0.77 with Space Age. Four files fork; the
