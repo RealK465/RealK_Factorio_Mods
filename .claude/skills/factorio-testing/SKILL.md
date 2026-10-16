@@ -150,6 +150,13 @@ emmylua config must reach the library at `typedefs/factorio/library` — the bun
 addon wrapper, not the library. emmylua_check **errors** fail the run; its warnings
 (nilability pedantry on untyped code) print and pass. luacheck fails on any finding.
 
+**`fmtk docs` aborts on any broken link in Wube's JSON**, and `-RegenerateTypedefs` then
+reports it as a path problem. 2.1.22's `prototype-api.json` links the preselection events as
+`on_player_{start,change,cancel}_select_area` (the events are `..._selected_area`), which
+fmtk 2.1.8 rejects with `Invalid Link` (2026-10-16; 2.1.9 predates 2.1.22). Correct the
+links in a scratch copy, run `fmtk docs -d <runtime-api.json> -p <fixed copy> <typedefs>`
+by hand, and leave the install's copy alone.
+
 ## Windows plumbing the runner owns (so nobody re-debugs it)
 
 - The CLI shells out to `npx fmtk` with a bare `spawn("npx")` — unresolvable on Windows
