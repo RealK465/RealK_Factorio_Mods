@@ -65,7 +65,3 @@ A cleanup review (2026-10-16) suggested two behaviour changes, both left for the
 
 The gallery holds two mod settings screenshots (`images/`) and nothing in game; shots of robots
 at work would need a played game. No FAQ.
-
-**The portal description still says "for Factorio 2.0 and 2.1".** `README.md` names 2.1 only
-since 2026-10-23, but `fmtk upload` never syncs the page, so the 0.1.3 upload left it as it was
-(read back 2026-10-24). It catches up only at an approved `fmtk details --readme`.

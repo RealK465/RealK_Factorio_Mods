@@ -320,10 +320,6 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 
 ## Housekeeping
 
-- **The portal description still says both Factorio 2.1 and 2.0 are supported.** `README.md`
-  says 2.1 only since 2026-10-23, but `fmtk upload` never syncs the page, so the 1.2.6 upload
-  left it as it was (read back 2026-10-24). It catches up only at an approved
-  `fmtk details --readme`, which also brings the README's *Check my other mods* list up to date.
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **`settings.lua` exists since 2026-08-15**, carrying two per-player settings as of
   2026-08-17: `upcycler-planner-show-all` (offer unresearched items — the game's own

@@ -37,7 +37,7 @@ It crafts everything an assembling machine 3 can, including fluid recipes.
 ## Compatibility
 
 Requires the Quality mod (part of Space Age) on Factorio 2.1. Space Age itself is optional;
-the mod works with Quality alone. The older releases for Factorio 2.0 no longer get updates.
+the mod works with Quality alone.
 
 The companion mod Quality Recycler (same author) does the same for recycling.
 

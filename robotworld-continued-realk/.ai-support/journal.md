@@ -2,6 +2,12 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-24 — the portal description drops Factorio 2.0
+
+At the owner's ask, `fmtk details --readme` synced the README to the portal, retiring the
+page's old "for Factorio 2.0 and 2.1". The README itself already named 2.1 only. The gallery,
+title and category read back unchanged.
+
 ## 2026-10-24 — 0.1.3 released above the 2.0 build
 
 The owner reported that games moving from Factorio 2.0 to 2.1 were not updating the mod: 0.1.2,

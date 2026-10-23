@@ -91,7 +91,7 @@ A checkbox at the foot of the Limits window switches the maximum to count every 
 ## Requirements
 
 Factorio with **Space Age**.
-Made for Factorio 2.1. The older releases for Factorio 2.0 no longer get updates.
+Made for Factorio 2.1.
 
 ## Credits
 

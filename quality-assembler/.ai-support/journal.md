@@ -3,6 +3,13 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-10-24 — the portal description drops Factorio 2.0
+
+At the owner's ask, `README.md`'s compatibility paragraph lost its sentence about the 2.0
+releases, and `fmtk details --readme` synced it to the portal, retiring the page's old "A
+Factorio 2.0 build is released separately." The gallery, title and category read back
+unchanged. The README edit postdates the 0.1.4 zip, so the next release ships it.
+
 ## 2026-10-24 — 0.1.4 released, 2.1 only
 
 Released at the owner's ask beside the fix for four other mods, whose 2.0 builds held their

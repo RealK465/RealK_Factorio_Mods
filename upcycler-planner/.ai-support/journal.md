@@ -9,6 +9,14 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-24 - the portal description drops Factorio 2.0
+
+At the owner's ask, `README.md`'s requirements line lost its sentence about the 2.0 releases and
+now reads "Made for Factorio 2.1." alone, and `fmtk details --readme` synced it to the portal,
+retiring the page's old "Both Factorio 2.1 and 2.0 are supported." The gallery, title and
+category read back unchanged. The README edit postdates the 1.2.6 zip, so the next release
+ships it.
+
 ## 2026-10-24 - 1.2.6 released above the last 2.0 build
 
 The owner reported that games moving from Factorio 2.0 to 2.1, stable since the day before,
