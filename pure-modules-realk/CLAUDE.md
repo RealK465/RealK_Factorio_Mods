@@ -15,35 +15,11 @@ technology, full animated graphics and icons, an Aquilo frost overlay, remnants 
 explosion. Design notes live in `.ai-support/pure-beacon-design.md`. Four startup settings
 govern where the tier can be built and what the beacon will carry — see **Settings** below.
 
-**Published, on two tracks** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`.
-Run the `factorio-release` skill's "Published or open?" check rather than trusting a number
-written here: `git tag -l 'pure-modules-realk_*'` is what has shipped, and a changelog section
-still stamped `Date: ????` is what has not. Both tracks draw from one shared version sequence,
-so new work takes the next free number whichever track it ships on — `factorio-multiversion`
-→ Version numbering.
-
-**The two tracks differ on purpose, in the Lua.** The 2.0 build cannot hold module penalties
-flat across quality — `consumption_quality_multiplier` and `pollution_quality_multiplier` are
-2.1-only, so on 2.0 quality scales the penalties along with the bonuses and no property exists
-to stop it; the flat-penalty claim therefore belongs to a 2.1 changelog section and to no 2.0
-one. `definitions.lua` carries `quality = 0.04` on `main` against `0.4` on `legacy/2.0`, because
-a 2.0 quality value is ten times its 2.1 counterpart, and `recipe.lua` and `beacon.lua` fork on
-the category and ingredient forms 2.0 understands.
-**Do not reconcile those files by syncing them** — the divergence is the port.
-
-**`changelog.txt` is not one of them, since 2026-08-07.** One file, shared by both branches,
-listing every release with its game named in the section. The portal renders a single changelog
-per mod, so the 1.0.4 entries — written only on `legacy/2.0` — never reached the website at all,
-and the 1.0.5 section the website *does* show says only that it is the port. **The two copies
-were reconciled in the 1.0.6 / 1.0.7 pair on 2026-08-08** — one identical file on both branches
-carrying every section from 1.0.0 to 1.0.7, confirmed rendering all eight on the live site. The
-zips published before that still carry the split copies and cannot be corrected; see the repo
-`CLAUDE.md` → Git and `factorio-multiversion` → Changelog across two tracks.
-
-`README.md` was a third until 1.0.2/1.0.3. The rewrite that shipped with them dropped the
-sentence about a module's cost not growing with its quality — the only 2.1-only claim it
-carried — so both tracks now ship the same README, and it is the same text the mod portal
-serves as the description.
+**Published** for Factorio 2.1 from `main`. Run the `factorio-release` skill's "Published or
+open?" check rather than trusting a number written here: `git tag -l 'pure-modules-realk_*'`
+is what has shipped, and a changelog section still stamped `Date: ????` is what has not. The
+Factorio 2.0 builds, last 1.0.8, came from `legacy/2.0`, now a frozen backup; `changelog.txt`
+keeps their sections, since the portal shows one changelog for every release.
 
 Efficiency is deliberately absent. Vanilla's efficiency module already has no drawback, so a
 Pure version would carry the tier's whole identity on a +0.05 consumption bonus. Adding it is a
@@ -543,13 +519,12 @@ Beacon and release questions now; the module side is settled.
 - Commit scope is `pure-modules-realk`, e.g. `feat(pure-modules-realk): add pure speed module`.
 - `README.md` and the `info.json` / locale descriptions are player-facing and go to the mod
   portal — `README.md` becomes the portal description verbatim, via `fmtk details --readme`.
-  So a claim that is only true on one track has to be checked against the branch it ships from.
 - `LICENSE` at the mod root is the GNU GPLv3 text, copied verbatim from the repo root's
   `LICENSE` — see the repo `CLAUDE.md` → License. Keep the two in sync if the root copy is
   ever refreshed.
 - **`.ai-support/` is this mod's local context — start at its `index.md`.** `balance.md` holds
   why the numbers are what they are, `pure-beacon-design.md` the beacon's lore, look,
   materials, animation, remnants and dying explosion. Tracked, ships nowhere (not to the mod
-  portal, not into the zip), and **kept identical on both branches** like this file. The repo
+  portal, not into the zip). The repo
   `CLAUDE.md` → *AI support folders* has the rules; anything that generalises beyond this mod
   belongs in a skill under `.claude/` instead.

@@ -15,7 +15,7 @@ game's own settings) is git-ignored.
 | [`quality-recycler`](quality-recycler/) | [published](https://mods.factorio.com/mod/quality-recycler) | A new recycler with quality built right in. |
 | [`quality-assembler`](quality-assembler/) | [published](https://mods.factorio.com/mod/quality-assembler) | A fast assembling machine with built-in quality. |
 | [`extra-qualities`](extra-qualities/) | [published](https://mods.factorio.com/mod/extra-qualities) | Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers. |
-| [`robotworld-continued-realk`](robotworld-continued-realk/) | [published](https://mods.factorio.com/mod/robotworld-continued-realk) | Robot World Continued, updated for Factorio 2.0 and 2.1 — tune your robots and roboports, or get robots early. Credit to thinkong and GamingComet. |
+| [`robotworld-continued-realk`](robotworld-continued-realk/) | [published](https://mods.factorio.com/mod/robotworld-continued-realk) | Robot World Continued, updated for Factorio 2.1 — tune your robots and roboports, or get robots early. Credit to thinkong and GamingComet. |
 
 Each mod folder is self-contained and carries its own `README.md`, `LICENSE` and
 `changelog.txt`, which is what ships to the [mod portal](https://mods.factorio.com/) on
@@ -53,25 +53,18 @@ while your actual game is open. That's how this repo is maintained, and the tool
 
 ## Branches
 
-One branch per Factorio generation. Both are permanent trunks.
+| Branch | Factorio | Role |
+|---|---|---|
+| `main` | 2.1 | Where all work happens. The default branch. |
+| `legacy/2.0` | 2.0 | Frozen backup. It holds the source of the Factorio 2.0 builds, shipped until 2.1 became the stable release in October 2026. |
 
 Both are protected — pull requests required, force-pushes and branch deletion blocked.
 (GitHub Free offers branch protection only on public repositories, so the protection was off
 while the repository was private, from 2026-08-08 to 2026-09-13.)
 
-| Branch | Factorio | Role |
-|---|---|---|
-| `main` | 2.1 | Where new work happens. The default branch. |
-| `legacy/2.0` | 2.0 | The 2.0 build of every mod here, kept while 2.0 is the stable release. |
-
-A mod zip declares exactly one `factorio_version`, so supporting both games means two
-builds and two uploads of the same mod — the portal serves each game only the releases
-matching it. Version numbers come from a single sequence shared by both branches, so a
-release number says nothing about which game it targets; the changelog entry does.
-
-Only a mod's own source differs between the branches. The docs, `.claude/`, each mod's
-notes and its `changelog.txt` are kept identical, so `git diff main` from the `legacy/2.0` side should only ever
-list the files a port genuinely changes.
+The 2.0 releases stay on the mod portal but get no further updates. They took their version
+numbers from the same sequence as `main`, so a mod's next release always goes above its
+highest tag on either branch.
 
 Released versions are marked with annotated `<mod-name>_<version>` tags, per mod, on
 whichever branch shipped them.
@@ -80,8 +73,8 @@ whichever branch shipped them.
 
 This repo is developed with [Claude Code](https://claude.com/claude-code); `CLAUDE.md`
 holds the conventions and `.claude/skills/` the Factorio-specific reference material
-(mod setup, prototypes, graphics, changelogs, releases, validation, multi-version
-support) that guide that work. None of it ships with a mod or reaches the mod portal.
+(mod setup, prototypes, graphics, changelogs, releases, validation and testing) that guide
+that work. None of it ships with a mod or reaches the mod portal.
 
 Tooling used across mods in this repo:
 

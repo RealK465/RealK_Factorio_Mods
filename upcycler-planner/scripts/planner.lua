@@ -612,7 +612,7 @@ end
 
 -- Filter slots on a chosen inserter, nil when nothing valid is chosen. The harvest inserters
 -- need one slot per ingredient of their own stack, and the engine caps every inserter at five
--- (prototype docs, both tracks), so only a recipe past two stacks' worth can outrun a pick.
+-- (prototype docs), so only a recipe past two stacks' worth can outrun a pick.
 function planner.inserter_filter_count(name)
   if not (name and planner.is_inserter(name)) then return nil end
   return prototypes.entity[name].filter_count or 0

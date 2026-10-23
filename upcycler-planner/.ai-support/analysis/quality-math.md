@@ -34,8 +34,8 @@ Two rules the layout depends on:
 **2.1.7 reworked the roll's internals** (installed `data/changelog.txt`, section confirmed by
 line-mapping 2026-08-17): quality `next_probability` was multiplied by 10 (to 1), so a 100%
 total quality effect now *guarantees* an increase — module effect values moved by the inverse
-factor, so the effective per-module chances above are unchanged (the scale seam is recorded in
-`factorio-2.0.md`) — and the multi-step jump became data-driven: `next_probability` now affects
+factor, so the effective per-module chances above are unchanged — and the multi-step jump
+became data-driven: `next_probability` now affects
 only the first step, and the new `QualityPrototype::chain_probability` carries the steps after
 it, so FFF-375's "10 times lower per step" is a data default rather than an engine constant.
 2.1.12/2.1.13 added `LuaQualityPrototype.roll_quality()` and `get_roll_chances()` (both

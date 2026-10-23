@@ -28,9 +28,8 @@ ships (leading dot).
   0.4.0. **Both were rewritten on 2026-08-26 at the repo owner's request** to *"Choose an item
   and a target quality, the mod designs and gives you an entirely configurable upcycling loop
   blueprint."* — the owner's own wording, so correct an error in it, never restyle it to taste.
-  The pair is still not resynced or reworded unprompted; when the owner does ask, **edit both,
-  on both branches**, since `locale/` is not a divergent file and `info.json` diverges only in
-  version, dependencies and feature flags. **The README's opening line is the third place the
+  The pair is still not resynced or reworded unprompted; when the owner does ask, **edit
+  both**. **The README's opening line is the third place the
   sentence lives** — it is the portal's long description, and it was reworded to the same
   sentence on the same day, at the owner's follow-up ask. Keep the three together; the README
   half only reaches the portal at the next approved `fmtk details --readme`.
@@ -41,44 +40,28 @@ ships (leading dot).
   `pure-modules-realk`. `upcycler-` was rejected because the portal already carries a different
   mod named `upcycler`, likely to own that name and its derivatives; `up-` as too generic — "up"
   reads as a direction before it reads as a namespace.
-- **Hard dependency on `quality` (`>= 2.1.0` on `main`, `>= 2.0.0` on `legacy/2.0`).** The mod
-  is worthless without quality tiers, and the dependency is the half that fixes load order —
-  feature flags do not. The one line delivers the recycler on both tracks: in 2.1 `quality`
-  declares `recycler >= 2.1.0`, and in 2.0 the recycler entity ships inside `quality` itself.
-- **Space Age feature flags are declared, and the set forks by game version:
-  `quality_required` on both tracks, `expansion_required` on `main` only.** Asked for by the
-  repo owner on 2026-08-16, reversing the earlier no-flag call — that call was made when the
-  only question was enforcement, where a flag is redundant behind the `quality` dependency.
-  The deciding reason is the **mod portal**, which tags a mod as Space Age from the expansion
-  flags in its uploaded `info.json` and *not* from its dependencies, so without a flag the mod
-  never appears in the portal's Space Age section however hard its dependency is.
-  `expansion_required` is omitted on `legacy/2.0` because **the flag does not exist in 2.0** —
-  measured, it is silently ignored there and gates nothing, which would be a dead field
-  pretending to be a gate (`analysis/api.md` §13). This mirrors vanilla `quality` exactly,
-  which declares both flags in 2.1 and only `quality_required` in 2.0. `space_travel_required`
-  was rejected: it would also earn the portal tag, but it unlocks planet and space-platform
-  prototypes this mod never touches, so declaring it would be a false claim about the mod.
-  Neither flag narrows the audience in practice — `quality` already ships only with Space Age.
-- **Both game tracks, forked — `main` carries no 2.0 code.** Ported to Factorio 2.0 on
-  2026-08-16 at the repo owner's ask, reversing the earlier 2.1-only call — that call rested
-  on "`recycler` is 2.1-only", and 2.0's `quality` mod ships the recycler entity itself, so
-  the mod's whole mechanism exists there; 2.0 is also the stable release most players are on.
-  The port was first built as version-gated shared files and **the owner rejected that
-  shape**: the 2.0 track is temporary — it stops getting work when 2.1 goes stable — and
-  gated compat code in `main` would sit there confusing readers long after it stopped
-  mattering. So the adaptations are forked copies on `legacy/2.0`: `scripts/planner.lua`
-  (recipe `category` + `additional_categories` in place of 2.1's `categories`, and the
-  mod-data bridge standing in for the missing `can_set_quality`),
-  `prototypes/planner/icons.lua` (the recycler icon ships in `quality` there),
-  `scripts/gui.lua` (local `contains_value`; core's is 2.1-only), and the legacy-only
-  `data-final-fixes.lua` that writes the bridge — declared in the repo `CLAUDE.md` → *Git*
-  beside Pure Modules' divergent list. A cherry-pick touching a forked file is rewritten by
-  hand. The verified 2.0 API surface: `analysis/factorio-2.0.md`.
-- **First release pair shipped 2026-08-16: `0.1.0` is the Factorio 2.0 build, `0.1.1` the
-  Factorio 2.1 build** — the repo owner assigned the lower number to the 2.0 track in the
-  release request, matching the ship-2.0-first pair convention. The two tracks share one
-  sequential version line (repo rule, `factorio-multiversion`), so whatever ships next takes
-  the next free number, whichever game it targets.
+- **Hard dependency on `quality >= 2.1.0`.** The mod is worthless without quality tiers, and
+  the dependency is the half that fixes load order — feature flags do not. The one line also
+  delivers the recycler: `quality` declares `recycler >= 2.1.0`.
+- **Space Age feature flags are declared: `quality_required` and `expansion_required`.** Asked
+  for by the repo owner on 2026-08-16, reversing the earlier no-flag call — that call was made
+  when the only question was enforcement, where a flag is redundant behind the `quality`
+  dependency. The deciding reason is the **mod portal**, which tags a mod as Space Age from the
+  expansion flags in its uploaded `info.json` and *not* from its dependencies, so without a flag
+  the mod never appears in the portal's Space Age section however hard its dependency is. This
+  mirrors vanilla `quality`, which declares the same two (`analysis/api.md` §13).
+  `space_travel_required` was rejected: it would also earn the portal tag, but it unlocks planet
+  and space-platform prototypes this mod never touches, so declaring it would be a false claim
+  about the mod. Neither flag narrows the audience in practice — `quality` already ships only
+  with Space Age.
+- **Factorio 2.1 only, since 2026-10-23.** 2.1 went stable at 2.1.23 and the repo owner retired
+  the 2.0 track. Its builds, 0.1.0 to 1.2.5, stay on the portal, unmaintained; `legacy/2.0` keeps
+  their source as a frozen backup. No 2.0 work and no 2.0 releases.
+- **Version numbers continue above every number ever shipped, 2.0 builds included.** Both
+  tracks drew from one sequence — the first pair was `0.1.0` for 2.0 and `0.1.1` for 2.1, on
+  2026-08-16 — and the portal never takes a number twice, so the next release goes above the
+  highest `upcycler-planner_*` tag on either branch: 1.2.5, a 2.0 build, while `info.json` on
+  `main` still reads 1.2.4.
 - **No flib dependency.** Its save/load-safe GUI handler registry is ~43 lines and worth
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.
@@ -578,25 +561,15 @@ per-release approval.
   alone, showing nothing a solve prices. **Research finishing
   mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild exists,
   so an open Ratios wizard's displayed defaults stay priced pre-research until any rebuild —
-  chosen, not missed, the quality dropdown's own frozen-tags reasoning. **The
-  `legacy/2.0` port is complete**: the columns feature landed 2026-08-28 and the 2026-08-29
-  delta — the pole-solve optimizations, the cap at 64 and the hint removal — followed the
-  same day (both clean cherry-picks; suite 331 on 2.0.77, matching `main`), so the open
-  1.0.0 / 1.0.1 pair ships in order whenever called: 1.0.0 for
-  Factorio 2.1 first, 1.0.1 as its 2.0 port.
+  chosen, not missed, the quality dropdown's own frozen-tags reasoning.
 - **Modules are planned, not merely requested** — and each lower tier's machine carries the
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
   the portal ask `6a9147f558087c568146a11d`, superseding the flat all-quality rule: computed
   default over pacak's opt-in checkbox; a third module picker rather than reusing the final
-  machine's; the expected-output line in the same release; 2.1-only at first, `legacy/2.0`
-  keeping the flat rule — **reversed by the owner on 2026-08-28** ("port everything, find a
-  way"): the legacy track now computes the same distributions itself from
-  `next`/`next_probability`, THE 2.0 ROLL SHIM in the forked planner, so the whole feature
-  set runs on both tracks — `factorio-2.0.md` carries the shim's model and its one measured
-  surprise, legendary q3 reading 0.62 there where 2.1 says 0.0625). The optimum is solved
+  machine's; the expected-output line in the same release). The optimum is solved
   exactly, per tier from the target down, on engine data alone: `get_roll_chances`
-  **force-free** (planning ahead of research is validate's own stance; the shim is force-free
-  by construction), `get_module_effects` at the modules' own qualities,
+  **force-free** (planning ahead of research is validate's own stance),
+  `get_module_effects` at the modules' own qualities,
   `effect_receiver.base_effect` and `*_limits`, `force.recipes[...].productivity_bonus`,
   the recipe's `maximum_productivity`, and the recycler ratio read off the generated recycling
   recipe — so modded machines, modules and quality chains price themselves.
@@ -776,8 +749,8 @@ per-release approval.
 - **A recipe past one inserter's filter slots feeds each machine from two stacks, never three,
   and the refusal names the pick only when a better inserter actually exists** (the repo
   owner's call, 2026-09-09, superseding the one-slot-per-ingredient rule that refused six
-  ingredients). The engine caps every inserter at five filter slots — `filter_count`'s own doc,
-  both tracks (`analysis/api.md` §15) — so no inserter can ever be the fix; only the geometry
+  ingredients). The engine caps every inserter at five filter slots — `filter_count`'s own doc
+  (`analysis/api.md` §15) — so no inserter can ever be the fix; only the geometry
   can. The buffer sub-column above the machine is empty on every tier, so a second harvest
   inserter, feed chest and feed inserter stand there at no width, each taking a balanced half
   of the ingredients (six is 3 and 3, seven is 4 and 3) and requesting only its own. Never a
@@ -1078,9 +1051,8 @@ per-release approval.
   shows the product icon otherwise — chosen over dropping the panel (the map marker goes) or
   a Done row reading the output chest (wrong whenever bots drain it). `planner.validate`
   refuses network mode when the machine or recycler prototype carries
-  `no-logistic-connection` (2.1's flag; vanilla's captive biter spawner is the one case),
-  because the engine would ignore the condition without a word; the 2.0 build has no such
-  read and skips the guard. Rejected: keeping today's chest cap on the wire beside the
+  `no-logistic-connection` (vanilla's captive biter spawner is the one case), because the
+  engine would ignore the condition without a word. Rejected: keeping today's chest cap on the wire beside the
   network one (two caps, the lower of them silent); dropping the C row in network mode (no
   pause left); a roboport of the mod's own reading the network onto the green wire, which
   would have kept C retunable — a 4x4 in the layout, power and a network to merge with, for a

@@ -4,9 +4,8 @@ Notes written for the agent, not for the game. Tracked in git, ships nowhere (le
 invisible to Factorio and to `fmtk package`). The rules governing this folder are in the repo
 `CLAUDE.md` → *AI support folders*.
 
-This mod is **published on both tracks** — Factorio 2.1 from `main`, 2.0 from `legacy/2.0` — and
-everything in this folder is kept identical on both branches, like the `CLAUDE.md` files. Where
-a figure genuinely differs between the two, say so at the figure rather than forking the file.
+This mod is **published for Factorio 2.1** from `main`. Its Factorio 2.0 builds came from
+`legacy/2.0`, a frozen backup since 2026-10-23; nothing here describes them any more.
 
 | File | Genre | What is in it | Read it when |
 |---|---|---|---|

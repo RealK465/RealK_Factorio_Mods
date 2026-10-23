@@ -592,9 +592,8 @@ describe("stamping the blueprint", function()
     assert(green == 1 and blue == 1, green .. " green and " .. blue .. " blue lamps")
 
     -- The panel's rows come back through the engine's own encoder rather than its control
-    -- behaviour: 2.0.77 spells that class's list `messages` and 2.1 `records`, each a hard
-    -- error on the other track (analysis/factorio-2.0.md), where the blueprint shape is one
-    -- and the same. A one-tile area, so the lamp above and the combinator below stay out.
+    -- behaviour, so the spec reads the same shape the mod writes. A one-tile area, so the
+    -- lamp above and the combinator below stay out.
     local panel = revived["display-panel"][1]
     local inventory = game.create_inventory(1)
     inventory.insert({ name = "blueprint", count = 1 })

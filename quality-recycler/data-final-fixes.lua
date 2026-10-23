@@ -11,16 +11,15 @@
 -- now says 25, the owner's floor; this file only ever raises it.
 --
 -- So the number is read off the recipes here, after every mod has had its
--- say, and only ever grows. A recipe names its categories in the plural on
--- 2.1 and the singular on 2.0; both spellings are still legal, so both are
--- read.
+-- say, and only ever grows. A recipe without `categories` is "crafting", the
+-- engine's default.
 local machine = data.raw["furnace"]["quality-recycler"]
 local mine = {}
 for _, c in pairs(machine.crafting_categories) do mine[c] = true end
 
 local widest = machine.result_inventory_size or 0
 for _, recipe in pairs(data.raw["recipe"]) do
-  local categories = recipe.categories or { recipe.category or "crafting" }
+  local categories = recipe.categories or { "crafting" }
   for _, c in pairs(categories) do
     if mine[c] and recipe.results and #recipe.results > widest then
       widest = #recipe.results

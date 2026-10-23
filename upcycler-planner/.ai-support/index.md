@@ -39,5 +39,4 @@ owner per fact.
 
 What suite-green still does **not** prove: a multi-tier loop's endurance in a played game,
 where quality rolls arrive probabilistically over hours rather than by scripted seeding — keep
-half an eye on long sessions. The `legacy/2.0` build is no longer on that list: the whole suite
-was pointed at 2.0.77 on 2026-08-16 and passes there (`factorio-testing` → The 2.0 track).
+half an eye on long sessions.

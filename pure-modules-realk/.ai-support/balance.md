@@ -4,8 +4,7 @@ Register: why the numbers are what they are. **Edited in place** — when a valu
 the paragraph that justifies it rather than appending a note, so this file always describes the
 shipped build. The values themselves live in `../prototypes/`; `../CLAUDE.md` holds the rules.
 
-Never ships (leading dot). Both release tracks are covered: where a figure differs between
-Factorio 2.1 (`main`) and 2.0 (`legacy/2.0`), say so at the figure.
+Never ships (leading dot). Describes the Factorio 2.1 build only.
 
 ---
 

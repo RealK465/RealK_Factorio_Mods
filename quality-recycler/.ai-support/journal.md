@@ -2,6 +2,16 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
+
+2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide:
+`legacy/2.0` is now a frozen backup holding 0.1.1, 0.1.3 and 0.1.4, and nothing more ships for
+2.0. With no second build to serve, `data-final-fixes.lua` stopped reading the singular
+`category`. 2.1.7 removed that field and the engine ignores it, so the file now reads
+`categories` alone, defaulting to `{"crafting"}` as the engine does. No player sees a
+difference, so there is no changelog entry. The next release goes above 0.1.4: `main` still
+reads 0.1.2, and the 2.0 builds took 0.1.3 and 0.1.4.
+
 ## 2026-09-13 (night) — 0.1.3 does not start on Factorio 2.0: the sound path
 
 A player reported on the portal, minutes after 0.1.3 went up, that Factorio 2.0 refused to

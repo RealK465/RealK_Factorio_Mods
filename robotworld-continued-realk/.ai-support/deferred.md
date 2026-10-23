@@ -2,12 +2,12 @@
 
 Parked and open work. The single owner of this list — `CLAUDE.md` doesn't keep a second copy.
 
-As of 2026-10-16 the mod is **published (0.1.1 for Factorio 2.1, 0.1.2 for 2.0), validated and
-unplayed**.
+The mod is **published (0.1.1 for Factorio 2.1, plus 0.1.2 for Factorio 2.0, unmaintained since
+2026-10-23), validated and unplayed**.
 
 ## Nothing has been played
 
-Validated: the data stage on 2.1.17, 2.1.22 and 2.0.77 with every expansion and with none, at default settings
+Validated: the data stage on 2.1.17 and 2.1.22 with every expansion and with none, at default settings
 and with every toggle on, every Early robots level and fractional multipliers; `--check-unused-prototype-data` silent;
 the quick start list read back from freeplay on a created save. Not checked: a real game with
 robots flying, that the early technologies read sensibly in the tech tree, and the kit landing
@@ -44,12 +44,10 @@ sets stack size that low and also turns the kit on.
 
 Each dependency's reason is in `decisions.md` → *Dependencies*. Run with this mod on 2.1.22:
 Krastorio 2, Bob's Logistics and Library, AAI Containers & Warehouses 0.4.0 and Factorissimo 3
-(3.12.3). Run on 2.0.77 (`decisions.md` → *Two tracks*): Krastorio 2 2.0.19, Krastorio 2 Spaced
-Out 1.6.21, AAI Containers 0.3.2, Factorissimo 3.11.19, and Bob's Electronics, Logistics and
-Library 2.1.x. Not run, for lack of a zip: Space Exploration (its robot overrides were read in
+(3.12.3). Not run, for lack of a zip: Space Exploration (its robot overrides were read in
 0.7.60's source; it gained a 2.1 release, 0.7.63, on 2026-10-15), AAI Industry (kept on
-inference), and Bob's Electronics on 2.1 (its circuit name was read from source; on 2.0 it was run). Nullius has
-no 2.1 release yet.
+inference), and Bob's Electronics (its circuit name was read from source, and it was run only
+against the retired 2.0 build). Nullius has no 2.1 release yet.
 
 ## Upstream values kept on purpose, flagged by review
 

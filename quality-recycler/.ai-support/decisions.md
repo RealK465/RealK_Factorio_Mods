@@ -143,7 +143,7 @@ metallurgic + electromagnetic + agricultural science, no cryogenic pack. **Since
 is the Space Age gate; without the expansion the gate is the base game's own late game — after
 `space-science-pack` (a technology in base as well as in Space Age; the expansion only changes
 its trigger) with `utility-science-pack` and `quality-module-3` as prerequisites, since the recipe
-uses the module.** Cost, both branches: 500 units of every pack the gate implies (seven with
+uses the module.** Cost: 500 units of every pack the gate implies (seven with
 Space Age, six without) at 60 s each — re-balanced from 1000 x 7 x 60, which was a research wall
 for a single machine; `planet-discovery-aquilo`, the one vanilla technology at the Space Age
 gate's rung, costs 3000 x 9 x 60 and unlocks a planet.
@@ -195,9 +195,11 @@ code will need them before the art exists:
   results is covered; the count is taken in final-fixes because that is the last stage
   other mods write recipes in, and a mod whose final-fixes runs after this one could still
   add a result past it — accepted, since the vanilla recycler carries the same exposure.
-  Recipes are read in both the 2.1 plural `categories` and the 2.0 singular `category`
-  form, which keeps the file identical on both branches. Verified on the owner's mod set:
-  13 slots after the fix against 12 before, and 25 once the floor went in.
+  Recipes are read through `categories` alone, defaulting to `{"crafting"}` as the engine
+  does: the singular `category` was removed in 2.1.7 and the engine ignores it, so reading it
+  would count recipes the machine can never run (it was read only while the file also served
+  the 2.0 build). Verified on the owner's mod set: 13 slots after the fix against 12 before,
+  and 25 once the floor went in.
 - **The direct output stacks on belts, and nothing in the prototype decides that.**
   `CraftingMachinePrototype` has no belt-stacking field -- `max_belt_stack_size` belongs to
   inserters and loaders, `drops_full_belt_stacks` to mining drills -- so the answer had to be

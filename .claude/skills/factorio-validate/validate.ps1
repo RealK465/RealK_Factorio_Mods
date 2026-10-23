@@ -29,9 +29,9 @@ param(
 
   # After a clean data stage, create a save headlessly and load it with the
   # renderer for one tick. --dump-data never opens a sprite or sound file, so a
-  # `__mod__/...` path naming a mod the target game does not have passes every
+  # `__mod__/...` path naming a mod the game does not have passes every
   # headless check and then refuses to start for every player (quality-recycler
-  # 0.1.3 on Factorio 2.0, 2026-09-13). Costs 10-40 s and opens a game window.
+  # 0.1.3, 2026-09-13). Costs 10-40 s and opens a game window.
   [switch] $FullLoad,
 
   # Extra arguments for the renderer run only. OpenGL starts on any GPU and
@@ -131,7 +131,7 @@ $json = [pscustomobject]@{
   (Join-Path $stage 'mod-list.json'), $json, (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host "Validating $name $version"
-# Say which install ran. Validating a 2.1 mod against a 2.0 install (or the wrong
+# Say which install ran. Validating against the wrong game version (or the wrong
 # expansion set) passes clean and proves nothing, and there is no other signal.
 $baseInfo = Join-Path $FactorioPath 'data\base\info.json'
 $baseVer = if (Test-Path -LiteralPath $baseInfo) {
@@ -213,7 +213,7 @@ if ($code -eq 0) {
     if (-not $FullLoad) {
       Write-Host "Data stage loaded clean (exit 0). Runtime behaviour and appearance are still unverified."
     } else {
-      # The game exits 0 on "Failed to load mods" in this mode (measured 2.0.77 and
+      # The game exits 0 on "Failed to load mods" in this mode (measured on
       # 2.1.17), so the log is the verdict, not the exit code. Both loading phases
       # must have run, or the renderer never started and nothing was checked.
       $errs = @($fullText -split "`n" |

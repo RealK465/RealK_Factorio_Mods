@@ -14,7 +14,8 @@ again on 2026-09-13 and protection was **restored the same day**, with the PUT b
 branches; the response read every field in the table back.
 
 If the repo is ever taken private again the protection drops with it. **Restore it as part of
-the move back to public**, not later.
+the move back to public**, not later. Both branches still need it: `legacy/2.0` has been a
+frozen backup since 2026-10-23, and the blocked deletion and force-push are what keep it one.
 
 ## The restore
 

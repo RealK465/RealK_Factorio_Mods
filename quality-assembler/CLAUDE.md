@@ -23,10 +23,7 @@ condenser, a sight dome, a light line over the window and a console (the design 
 from `main` and 0.1.1 for Factorio 2.0 from `legacy/2.0`; **2026-09-14**: 0.1.2 for 2.0 and
 0.1.3 for 2.1 with a shorter description; all four tagged; run the
 `factorio-release` skill's "Published or open?" check rather than trusting a number written
-here. **The `legacy/2.0` track carries the
-same build** with `info.json` and `prototypes/assembler/entity.lua` forked — the three
-differences are in `.ai-support/decisions.md` → *The 2.0 track*, and the repo `CLAUDE.md` → *Git*
-declares the two files.
+here. The 2.0 builds get no further work; `legacy/2.0` is a frozen backup.
 
 The entity's visual design is settled and built — **an assembling machine 3 that came back from
 Aquilo with half of it replaced**, hero a jacketed cold build vessel with an indexing turntable
@@ -212,10 +209,9 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
 
 - Name `quality-assembler`, title "Quality Assembler". Confirmed unclaimed on the mod portal
   2026-09-13.
-- Versions are drawn from one sequence shared by both tracks: 0.1.0 for Factorio 2.1 and 0.1.1
-  for Factorio 2.0 on 2026-09-13, then 0.1.2 for 2.0 and 0.1.3 for 2.1 on 2026-09-14. The next
-  release takes the next free number whichever game it is for — `factorio-multiversion` →
-  Version numbering.
+- Factorio 2.1 only. Versions continue the sequence the 2.0 builds shared: 0.1.0 for Factorio
+  2.1 and 0.1.1 for Factorio 2.0 on 2026-09-13, then 0.1.2 for 2.0 and 0.1.3 for 2.1 on
+  2026-09-14 — `factorio-release` → Versioning.
 - Dependencies and feature flags as above.
 - **The mechanic: `effect_receiver.base_effect.quality = 0.125`, `crafting_speed = 2`, five
   module slots, 1600 kW, a 3x3 footprint** at `collision_box = {{-1.2,-1.2},{1.2,1.2}}`.
@@ -235,8 +231,7 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
 - **Built from scratch, not deep-copied from `assembling-machine-3`.** A deepcopy carries a
   working sound, a status light and a connector positioned for a different machine.
 - **Health 400, pollution 7.5 (the owner's call, matched with the recycler), the recipe and the
-  technology cost on both branches** — reasoning
-  in `.ai-support/decisions.md`.
+  technology cost** — reasoning in `.ai-support/decisions.md`.
 
 Sounds, a real remnant, the connector check and balance are open. See
 `.ai-support/deferred.md`.

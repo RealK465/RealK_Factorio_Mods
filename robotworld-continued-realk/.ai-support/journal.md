@@ -2,6 +2,15 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
+
+A week after the 2.0 port below, 2.1 became the stable release at 2.1.23 and the owner retired
+the 2.0 track repo-wide. 0.1.2 stays on the portal as the one 2.0 build, unmaintained;
+`legacy/2.0` keeps its source as a frozen backup. The register's *Two tracks* section, the
+2.0-only dependency floor, the logistic-gate note and the 2.0.77 compatibility runs came out of
+the registers. The README now names 2.1 only. The next release goes above 0.1.2, since `main`
+still reads 0.1.1.
+
 ## 2026-10-16 — Factorio 2.0 port, 0.1.2
 
 The owner asked to port and release a 2.0 build, then to test everything, keep the docs current,

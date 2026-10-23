@@ -3,6 +3,14 @@
 Dated sessions, newest first. Append-only: entries are history and may go stale. Only a moved
 file path is ever repaired in place.
 
+## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
+
+2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide: 0.1.1
+stays on the portal unmaintained, and `legacy/2.0` keeps its source as a frozen backup. The
+four-file fork, the tenth-scale odds note in `balance.md` and the unplayed-2.0 entry in
+`deferred.md` came out of the registers. The next release goes above 0.1.1, since `main` still
+reads 0.1.0.
+
 ## 2026-10-16 — the dev install moved to 2.1.22
 
 Re-validated against base 2.1.22: the data stage loads clean with all four expansions, the

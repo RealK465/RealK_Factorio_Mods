@@ -127,10 +127,10 @@ fn)` for behaviour that unfolds over ticks, plain `assert(cond, message)`. Facts
   killing only processes whose path is under the dev install, so no other Factorio instance
   can ever be touched. The verdict comes from the marker, not the CLI's exit code, which
   the kill interrupts. `-KeepOpen` skips the close for interactive debugging.
-- **A crash before any mod loads is a display flake, not a verdict.** Measured 2026-09-07
-  on 2.0.77: the graphics run died at 0.1 s with `SDL_DXGIGetOutputInfo` failing and
+- **A crash before any mod loads is a display flake, not a verdict.** Measured 2026-09-07:
+  the graphics run died at 0.1 s with `SDL_DXGIGetOutputInfo` failing and
   `IDXGIAdapter::EnumAdapters` answering `DXGI_ERROR_NOT_FOUND`, having enumerated one
-  display where a 2.1.17 run minutes earlier saw two; the crash dialog held the process
+  display where a run minutes earlier saw two; the crash dialog held the process
   ~165 s and the runner reported `marker: never appeared`. A plain retry passed 353/353.
   Read the log head for those lines before suspecting the mod, and retry once.
   **Seen again 2026-09-09 on 2.1.17, twice in a row, and this time with the cause:** the
@@ -168,21 +168,7 @@ by hand, and leave the install's copy alone.
 - Native tools writing progress to stderr become terminating errors under
   `$ErrorActionPreference = 'Stop'` plus redirection — relax around native calls and judge
   by `$LASTEXITCODE`.
-
-## The 2.0 track
-
-Proven on 2.0.77 (2026-08-16): the whole suite passes from the legacy worktree, whose copy of
-this skill self-locates to the 2.0 install exactly like `validate.ps1` — `check-static.ps1`
-regenerates 2.0.77 typedefs there on first run, the runner keys its data dir per install,
-trims `recycler` from the default mod set when the install ships no `data\recycler` (2.0,
-where the entity lives inside `quality`), and seeds the framework **version-matched** from
-the portal (the overall-newest release is a 2.1-only build a 2.0 game refuses to load).
-
-Findings from the port, so nobody re-predicts them: `defines.inventory.crafter_input`/
-`crafter_output` already exist on 2.0 — 2.1 only removed the old `furnace_*` aliases — so
-`loop_spec` needed no fork. The one forked spec is `tests/planner_spec.lua` on `legacy/2.0`,
-because the two tracks offer a different number of upcyclable items and the spec pins each
-track's count exactly — the figures move as the planner's rules do, so they live in that spec
-and in the mod's own docs rather than being copied here. Suite changes flow
-main → cherry-pick, with that file rewritten by hand like the mod's other divergent files
-(repo `CLAUDE.md` → Git); `factorio-multiversion` governs the branch mechanics.
+- **The data dir is keyed by game version** — `%LOCALAPPDATA%\factorio-testing\<mod>-<base
+  version>` — and the framework mod is seeded **version-matched** from the portal. So the
+  first run after the dev install moves creates a fresh dir and re-downloads the framework;
+  the old version's dir is dead weight, safe to delete.

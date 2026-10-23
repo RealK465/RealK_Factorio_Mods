@@ -18,11 +18,12 @@ The point is coupling: a note that has drifted from the game should BREAK, not s
 quietly believed. Citations pass today, which is what makes the check worth having - it fires
 the day the pinned install is replaced, naming exactly which claims need re-checking.
 
-The install is the folder holding this repo's mods/ directory, so the script self-locates: run
-it from the legacy worktree and it checks against 2.0 instead. Evidence pinned to the OTHER
-track's version (a 2.0 file read from main, api.md read from legacy) resolves through the git
-worktrees, each of which sits in its own install - so one clone checks both, and only a version
-no pinned install carries is a freshness problem. Exit 0 = clean, 1 = problems.
+The install is the folder holding this repo's mods/ directory, so the script self-locates. A
+git worktree of the repo sitting in another install's mods/ adds that install too, so evidence
+pinned to its version resolves there; only a version no pinned install carries is a freshness
+problem. Journals are history and never edited, so a journal citation also passes when the
+installed changelog names it, and a journal path when git history shows the file once existed.
+Exit 0 = clean, 1 = problems.
 """
 
 import io
@@ -86,11 +87,11 @@ def resolves(target, here, docrel):
 
 # ---------------------------------------------------------------- installed APIs
 #
-# Evidence is pinned to a game version, and this repo deliberately spans two: main sits in the
-# 2.1 install and legacy/2.0 sits, as a worktree, in the 2.0 one. Each evidence file is checked
-# against the install matching its own verified_against, found through the worktrees, so a 2.0
-# note is not "stale" on main nor a 2.1 note on legacy. Foreign installs load lazily - a repo
-# whose evidence all matches the local install never pays for the second parse.
+# Evidence is pinned to a game version. The repo can span more than one install - a second
+# worktree of it sitting in another install's mods/ - so each evidence file is checked against
+# the install matching its own verified_against, found through the worktrees. Foreign installs
+# load lazily - a repo whose evidence all matches the local install never pays for the second
+# parse.
 
 
 def load_api(install):
@@ -146,6 +147,56 @@ def ensure_all_apis():
         if v and v not in api_by_version:
             api_by_version[v] = (members, other)
 
+
+# ------------------------------------------------------------------ history, for journals
+#
+# A journal entry is never edited, so a name it used correctly must not start failing once the
+# engine or the repo moves on. Two records say what once existed: the engine's own changelog,
+# which names every member it removes or renames ("Removed LuaRecipe::category,
+# additional_categories reads"), and git history, for files the repo deleted.
+
+CHANGELOG_CITE = re.compile(
+    r"\b(Lua[A-Za-z]+)(?:::|\.)([a-z_][a-z0-9_]*(?:\s*(?:,|\band\b|/)\s*[a-z_][a-z0-9_]*)*)")
+
+
+def changelog_members(install):
+    path = os.path.join(install, "data", "changelog.txt")
+    out = set()
+    if not os.path.exists(path):
+        return out
+    text = io.open(path, encoding="utf-8", errors="replace").read()
+    for m in CHANGELOG_CITE.finditer(text):
+        for mem in re.split(r"\s*(?:,|\band\b|/)\s*", m.group(2)):
+            if mem:
+                out.add((m.group(1), mem))
+    return out
+
+
+def deleted_paths():
+    """Every path the repo's history deleted, plus deletions not committed yet."""
+    out = set()
+    for args in (["log", "--diff-filter=D", "--name-only", "--pretty=format:"],
+                 ["diff", "--diff-filter=D", "--name-only", "HEAD"]):
+        try:
+            text = subprocess.run(["git"] + args, cwd=REPO, capture_output=True, text=True).stdout
+        except OSError:
+            continue
+        out.update(line.strip() for line in text.splitlines() if line.strip())
+    return out
+
+
+CHANGELOG_MEMBERS = changelog_members(INSTALL)
+DELETED = deleted_paths()
+
+
+def is_journal(r):
+    return os.path.basename(r) == "journal.md" or "/journal-archive/" in r
+
+
+def once_existed(target):
+    t = target.rstrip("/")
+    return any(p == t or p.endswith("/" + t) for p in DELETED)
+
 # ------------------------------------------------------------------- the checks
 
 CITE = re.compile(r"\b(Lua[A-Za-z]+)\.([a-z_][a-z0-9_]*)\b")
@@ -189,7 +240,8 @@ for path in markdown_files():
             else:
                 ensure_all_apis()
                 if not any(m and cls in m and mem in m[cls]
-                           for m, _ in api_by_version.values()):
+                           for m, _ in api_by_version.values()) and not (
+                        is_journal(r) and (cls, mem) in CHANGELOG_MEMBERS):
                     problems.append("%s : cites `%s.%s` - not known to any pinned install"
                                     % (r, cls, mem))
 
@@ -240,8 +292,8 @@ for path in markdown_files():
     #    Scope: a MOD's own docs, which reference that mod's own files - the case this exists
     #    for. Repo-level docs and skills are excluded because they name conventions rather than
     #    paths (`decisions.md` as a genre, not a file), and reference things that are absent by
-    #    design: CLAUDE.local.md is git-ignored, exemples/ is optional, and legacy/2.0 carries
-    #    only the mods that ship a 2.0 build. Checking them there reports the branch, not a bug.
+    #    design: CLAUDE.local.md is git-ignored and exemples/ is optional. A journal may also
+    #    name a file the repo has since deleted; it is history, and history is not repaired.
     mod = r.split("/")[0]
     in_mod = "/" in r and os.path.exists(os.path.join(REPO, mod, "info.json"))
     if not in_mod:
@@ -260,7 +312,7 @@ for path in markdown_files():
         if target == "CLAUDE.local.md" or target.startswith("exemples/"):
             continue  # git-ignored by design and absent from a fresh clone - never a defect
         n_link += 1
-        if not resolves(target, here, r):
+        if not resolves(target, here, r) and not (is_journal(r) and once_existed(target)):
             problems.append("%s : names `%s`, which matches no file in the repo" % (r, target))
 
 # ------------------------------------------------------------------------ report

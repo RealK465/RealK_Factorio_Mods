@@ -9,6 +9,21 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-23 - Factorio 2.1 went stable, and the 2.0 track was retired
+
+2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide: no
+more 2.0 work and no more 2.0 releases. `legacy/2.0` stays as a frozen backup, with 1.2.5 as
+this mod's last 2.0 build; its worktree and both 2.0 dev installs were deleted.
+`analysis/factorio-2.0.md` went with them. The 2.0 API surface, the roll shim and the
+forked-spec notes all still live on that branch. Every register line about the fork, the
+shared version line and the 2.0-only flag rules was rewritten for a 2.1-only mod, and
+`api.md` lost its 2.0 cross-checks.
+
+One thing outlives the track: the version sequence. `main`'s `info.json` reads 1.2.4 while
+1.2.5 shipped for 2.0, so the next release goes above 1.2.5 (`decisions.md`). The README's
+requirements line now says the 2.0 releases no longer get updates; the portal page catches up
+at the next approved sync.
+
 ## 2026-10-16 - The dev install moved to 2.1.22, and the evidence was re-read against it
 
 The owner replaced the 2.1 dev install with 2.1.22. Nothing in `scripts/`, `control.lua` or

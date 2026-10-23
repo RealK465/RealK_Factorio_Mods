@@ -77,18 +77,18 @@ it after. It exists because the lists had already drifted once.
 
 Tracked unpacked folders are this repo's own mods:
 
-- **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published**, on both tracks: Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`. `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
+- **`pure-modules-realk/`** — Pure Modules. A clean top tier of modules above tier 3, plus a wide-area beacon for them. **Published** for Factorio 2.1; its 2.0 builds came from `legacy/2.0`, now frozen (*Git* below). `git tag -l 'pure-modules-realk_*'` is the list of what has actually shipped. The name is not plain `pure-modules` because that portal name is squatted by a deleted account — see the mod's `CLAUDE.md`, Decided. Design notes there too.
 
 - **`upcycler-planner/`** — Upcycler Planner. A layout planner for quality upcycling loops, in the tradition of Mining Patch Planner and P.U.M.P.: pick an item and a target quality, and the mod designs the loop and hands it over as a blueprint. Works end to end (shortcut button or CTRL+U → modal → Confirm → a blueprint in the cursor; the engine builds it), with research-gated pickers and support for modded recyclers, and a permanent four-tier test suite (`tests/`, run via the `factorio-testing` skill) that
-  settled the once-open eject question by measurement. **Published** since 2026-08-16, on both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below); `git tag -l 'upcycler-planner_*'` is the list of what has actually shipped. Has a hard `quality` dependency, like `quality-recycler` below. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly the thirteen blueprint-entity fields read out of the engine, and that only blueprint *strings* are simulation-restricted, a limit once over-generalised to all runtime blueprint writing.
+  settled the once-open eject question by measurement. **Published** since 2026-08-16, for Factorio 2.1 (its 2.0 builds, up to 1.2.5, came from `legacy/2.0`); `git tag -l 'upcycler-planner_*'` is the list of what has actually shipped. Has a hard `quality` dependency, like `quality-recycler` below. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the verified API findings — chiefly the thirteen blueprint-entity fields read out of the engine, and that only blueprint *strings* are simulation-restricted, a limit once over-generalised to all runtime blueprint writing.
 
-- **`quality-recycler/`** — Quality Recycler. A new recycler with quality built in: 12.5% quality on every craft with no modules fitted, 2.5x the vanilla recycler's speed, five module slots, 4x4, unlocked after the first three planets with Space Age and after the rocket without it. **Published** since 2026-09-12, on both tracks: Factorio 2.1 from `main` (0.1.0, then 0.1.2), Factorio 2.0 from `legacy/2.0` (0.1.1, 0.1.3, then 0.1.4); `git tag -l 'quality-recycler_*'` is the list of what has actually shipped. The machine is modelled, animated and rendered at eight directions (`assets/quality-recycler/`), with both icons and a thumbnail. **The balance is a guess, not a measurement** — the owner has played it only for screenshots. Has a hard `quality` dependency like `upcycler-planner`, plus a hard `recycler` one; `space-age` is optional and the recipe and technology gate fork on it in the data stage. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions, the art direction and the measured render numbers; `deferred.md` is the open list.
+- **`quality-recycler/`** — Quality Recycler. A new recycler with quality built in: 12.5% quality on every craft with no modules fitted, 2.5x the vanilla recycler's speed, five module slots, 4x4, unlocked after the first three planets with Space Age and after the rocket without it. **Published** since 2026-09-12: 0.1.0, then 0.1.2 for Factorio 2.1 (0.1.1, 0.1.3 and 0.1.4 were 2.0 builds from `legacy/2.0`); `git tag -l 'quality-recycler_*'` is the list of what has actually shipped. The machine is modelled, animated and rendered at eight directions (`assets/quality-recycler/`), with both icons and a thumbnail. **The balance is a guess, not a measurement** — the owner has played it only for screenshots. Has a hard `quality` dependency like `upcycler-planner`, plus a hard `recycler` one; `space-age` is optional and the recipe and technology gate fork on it in the data stage. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions, the art direction and the measured render numbers; `deferred.md` is the open list.
 
-- **`quality-assembler/`** — Quality Assembler. The sibling of `quality-recycler`, with the same mechanic on an assembling machine: 12.5% quality on every craft with no modules fitted, crafting speed 2, five module slots, 3x3 and fast-replaceable with an assembling machine 3, unlocked after Aquilo with Space Age and after the rocket without it. **Published** since 2026-09-13, on both tracks: 0.1.0 and 0.1.3 for Factorio 2.1 from `main`, 0.1.1 and 0.1.2 for Factorio 2.0 from `legacy/2.0`; `git tag -l 'quality-assembler_*'` is the list of what has actually shipped (divergent files declared under *Git* below). The entity is modelled, animated and rendered (`assets/quality-assembler/`), the prototype validated in both configurations and read back from the running engine, but **nothing has been played beyond screenshots**. The entity is **an assembling machine 3 that came back from Aquilo with half of it replaced**, hero a jacketed cold build vessel with an indexing turntable behind a frost window — **quality on an assembler reads as tolerance, not selection**, which is why the recycler's separator hero does not transfer. Hard `quality` dependency, optional `space-age`, no `recycler` one. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the open list. Three things there are worth knowing before reusing anything from `quality-recycler`: **an assembling machine's art is not directional** (one 64-frame animation, the engine rotates only the pipes), **it needs fluid boxes** for `crafting-with-fluid` so the north and south mid-edge tiles must stay clear of the model, and **it allows productivity** where the recycler deliberately forbids it. Three engine facts measured while building it are worth knowing repo-wide: **`idle_animation` does not play** (a non-working machine is frozen, and the idle sheet is drawn at the stopped frame) **but a working visualisation with `always_draw` and `constant_speed` plays in every state, even unpowered** — its refrigeration runs while idle that way; **the animation is not scaled by crafting speed** (every layer closes at 128 ticks at speed 2); and **`pipe_picture` is drawn centred on the tile outside the connection**, not on the entity.
+- **`quality-assembler/`** — Quality Assembler. The sibling of `quality-recycler`, with the same mechanic on an assembling machine: 12.5% quality on every craft with no modules fitted, crafting speed 2, five module slots, 3x3 and fast-replaceable with an assembling machine 3, unlocked after Aquilo with Space Age and after the rocket without it. **Published** since 2026-09-13: 0.1.0 and 0.1.3 for Factorio 2.1 (0.1.1 and 0.1.2 were 2.0 builds from `legacy/2.0`); `git tag -l 'quality-assembler_*'` is the list of what has actually shipped. The entity is modelled, animated and rendered (`assets/quality-assembler/`), the prototype validated in both configurations and read back from the running engine, but **nothing has been played beyond screenshots**. The entity is **an assembling machine 3 that came back from Aquilo with half of it replaced**, hero a jacketed cold build vessel with an indexing turntable behind a frost window — **quality on an assembler reads as tolerance, not selection**, which is why the recycler's separator hero does not transfer. Hard `quality` dependency, optional `space-age`, no `recycler` one. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions and the open list. Three things there are worth knowing before reusing anything from `quality-recycler`: **an assembling machine's art is not directional** (one 64-frame animation, the engine rotates only the pipes), **it needs fluid boxes** for `crafting-with-fluid` so the north and south mid-edge tiles must stay clear of the model, and **it allows productivity** where the recycler deliberately forbids it. Three engine facts measured while building it are worth knowing repo-wide: **`idle_animation` does not play** (a non-working machine is frozen, and the idle sheet is drawn at the stopped frame) **but a working visualisation with `always_draw` and `constant_speed` plays in every state, even unpowered** — its refrigeration runs while idle that way; **the animation is not scaled by crafting speed** (every layer closes at 128 ticks at speed 2); and **`pipe_picture` is drawn centred on the tile outside the connection**, not on the entity.
 
-- **`extra-qualities/`** — Extra Qualities. Two quality tiers above legendary — mythic (level 6) and celestial (level 8) — and the seven tiers respread one per planetary milestone: epic on Fulgora, legendary after the first three planets, mythic on Aquilo, celestial after promethium science. The first three steps of the odds ladder were made easier to pay for the two new ones, and the whole strength ladder is set to one constant ratio of about 1.26 per tier — vanilla's uncommon and epic move slightly, so an assembling machine 3 goes 1.25 / 1.6 / 2 / 2.5 / 3.125 / 4 / 5. It also **redraws vanilla's five quality glyphs and its two quality technology icons**, so all seven tiers match. **Published** since 2026-09-10, on both tracks: `0.1.0` for Factorio 2.1 from `main`, `0.1.1` for Factorio 2.0 from `legacy/2.0`; `git tag -l 'extra-qualities_*'` is the list of what has actually shipped. Data-only, five small prototype files, hard `quality` and `space-age` dependencies. The data stage loads clean and `--check-unused-prototype-data` reports nothing ignored, but **nothing has been played**. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions, the measured balance numbers and the pip/die art direction; `deferred.md` is the open list. Two things there are worth knowing repo-wide: **`next_probability` above 1 is legal and linear** (measured), and **adding any quality tier costs the player their row of quality buttons** unless `quality_selector_dropdown_threshold` is raised.
+- **`extra-qualities/`** — Extra Qualities. Two quality tiers above legendary — mythic (level 6) and celestial (level 8) — and the seven tiers respread one per planetary milestone: epic on Fulgora, legendary after the first three planets, mythic on Aquilo, celestial after promethium science. The first three steps of the odds ladder were made easier to pay for the two new ones, and the whole strength ladder is set to one constant ratio of about 1.26 per tier — vanilla's uncommon and epic move slightly, so an assembling machine 3 goes 1.25 / 1.6 / 2 / 2.5 / 3.125 / 4 / 5. It also **redraws vanilla's five quality glyphs and its two quality technology icons**, so all seven tiers match. **Published** since 2026-09-10: `0.1.0` for Factorio 2.1 (`0.1.1` was its 2.0 build, from `legacy/2.0`); `git tag -l 'extra-qualities_*'` is the list of what has actually shipped. Data-only, five small prototype files, hard `quality` and `space-age` dependencies. The data stage loads clean and `--check-unused-prototype-data` reports nothing ignored, but **nothing has been played**. The mod's `CLAUDE.md` and `.ai-support/` hold the decisions, the measured balance numbers and the pip/die art direction; `deferred.md` is the open list. Two things there are worth knowing repo-wide: **`next_probability` above 1 is legal and linear** (measured), and **adding any quality tier costs the player their row of quality buttons** unless `quality_selector_dropdown_threshold` is raised.
 
-- **`robotworld-continued-realk/`** — Robot World Continued (RealK). **Not our design**: a fork and port of thinkong's Robot World Continued (MIT), itself a continuation of GamingComet's Robot World (Unlicense). Startup settings scale robots, roboports and inserters; an Early robots dropdown unlocks robots from the start with cheap recipes, four early technologies, ghosts on entity death and the logistic network button, and optional toggles add a freeplay quick start kit and a starting power armor MK2 with equipment (Krastorio 2-aware for both). On both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0` (divergent files declared under *Git* below). Every setting and technology carries the owner-chosen `rwcr-` prefix, and the mod is marked incompatible with both originals. **Published** since 2026-10-16: 0.1.0 and 0.1.1 for Factorio 2.1, 0.1.2 for Factorio 2.0; `git tag -l 'robotworld-continued-realk_*'` is the list of what has actually shipped. The data stage validates at default and edge settings on 2.1.17, 2.1.22 and 2.0.77, and the quick start, starting armor, ghosts and the AAI Containers and Factorissimo 3 interactions were proven on created saves on both games, but **nothing has been played**. Upstream's MIT notice ships in `UPSTREAM-LICENSES.txt`; the credits are in its README. The mod's `CLAUDE.md` and `.ai-support/` hold what the port changed and why.
+- **`robotworld-continued-realk/`** — Robot World Continued (RealK). **Not our design**: a fork and port of thinkong's Robot World Continued (MIT), itself a continuation of GamingComet's Robot World (Unlicense). Startup settings scale robots, roboports and inserters; an Early robots dropdown unlocks robots from the start with cheap recipes, four early technologies, ghosts on entity death and the logistic network button, and optional toggles add a freeplay quick start kit and a starting power armor MK2 with equipment (Krastorio 2-aware for both). Every setting and technology carries the owner-chosen `rwcr-` prefix, and the mod is marked incompatible with both originals. **Published** since 2026-10-16: 0.1.0 and 0.1.1 for Factorio 2.1 (0.1.2 was its one 2.0 build, from `legacy/2.0`); `git tag -l 'robotworld-continued-realk_*'` is the list of what has actually shipped. The data stage validates at default and edge settings on 2.1.17 and 2.1.22, and the quick start, starting armor, ghosts and the AAI Containers and Factorissimo 3 interactions were proven on created saves, but **nothing has been played**. Upstream's MIT notice ships in `UPSTREAM-LICENSES.txt`; the credits are in its README. The mod's `CLAUDE.md` and `.ai-support/` hold what the port changed and why.
 
 <!-- - `my-mod-name_0.1.0/` — one-line purpose -->
 
@@ -192,66 +192,14 @@ The whole mods directory is one repository. `.gitignore` inverts the usual defau
   The committing rule below is still the floor: protection is a second layer, not a substitute.
   If the repository ever goes private again the protection drops with it; the exact field
   values to send back are in **`.claude/references/branch-protection.md`**.
-- **`main` is Factorio 2.1; `legacy/2.0` is Factorio 2.0.** Both are long-lived trunks, not a
-  branch and a one-off side branch: `legacy/2.0` is where *every* 2.0 build of *every* mod in
-  this repo lives, the 2.0 counterpart of `main`, and it keeps that role until 2.1 goes stable
-  and the 2.0 track stops getting work. It is checked out as a **worktree in the 2.0 dev
-  install's own `mods/`**, so the 2.0 build is live and testable exactly as `main` is in the 2.1
-  one. **The repo forks; it never gates** — 2.0 compatibility lives on `legacy/2.0` as forked
-  files, never as a version check, a feature-flag probe or a shim on `main`, however small.
-  Path in `CLAUDE.local.md`; workflow and worked examples in the `factorio-multiversion` skill.
-- **Only a mod's own source may differ between the two branches.** `CLAUDE.md`, `README.md`,
-  everything under `.claude/`, and each mod's own `CLAUDE.md` are kept identical on both, so a
-  cherry-pick never conflicts on documentation. For Pure Modules the legitimately divergent
-  files are `info.json`, `prototypes/modules/definitions.lua`,
-  `prototypes/modules/recipe.lua` and `prototypes/beacon/beacon.lua` — nothing else. For
-  Upcycler Planner they are `info.json`, `prototypes/planner/icons.lua`, `scripts/planner.lua`
-  (the recipe-shape seams and the 2.0 roll shim), `scripts/gui.lua` and
-  `tests/planner_spec.lua` (the 2.0 track offers 212 upcyclable items where 2.1 offers 210,
-  and its engine premises pin the roll shim where main's pin `get_roll_chances`), plus
-  `data-final-fixes.lua`, which exists **only** on `legacy/2.0` — the 2.0 shims live on that
-  branch alone, never version-gated into `main`.
-  For Quality Recycler they are `info.json` and `prototypes/recycler/entity.lua` — nothing
-  else. Three things force that one file apart, and all three load clean when got wrong:
-  **quality effect values are ten times larger on 2.0** (`quality = 1.25` there for the 12.5%
-  that `0.125` buys on 2.1); **`use_mirroring` does not exist on 2.0**, where
-  `graphics_set_flipped` alone drives the mirrored art; and **the recycler's sounds live under
-  `__quality__/sound/recycler/` on 2.0**, not `__recycler__/` — the data stage never opens a
-  sound file, so the 2.1 path shipped in 0.1.3 and stopped every 2.0 game at startup. Only
-  `validate.ps1 -FullLoad` catches that class. There is also no `recycler` mod on 2.0 — the
-  recycler prototype ships inside `quality` and the `recycling` category inside `base` — so
-  the dependency set differs too.
-  For Extra Qualities they are `info.json`, `prototypes/quality/ladder.lua`,
-  `prototypes/quality/qualities.lua` and `data-final-fixes.lua` — nothing else. Three things
-  force those apart, and all three load clean when got wrong: **`next_probability` is a tenth of
-  the 2.1 value on 2.0** (0.14 there for the 14% step that `1.4` buys on 2.1, because 2.1.7
-  rescaled quality effects and `next_probability` in opposite directions together);
-  **`chain_probability`, `locomotive_power_multiplier` and `rolling_stock_max_speed_multiplier`
-  do not exist on 2.0**, so they are removed rather than left to be silently ignored; and the
-  `quality` mod **un-hides `normal` on 2.1 but not on 2.0**, which changes what
-  `data-final-fixes.lua` must count to keep the player's row of quality buttons.
-  For Quality Assembler they are `info.json` and `prototypes/assembler/entity.lua` — nothing
-  else, the sheets included. Five fields differ in the first: `version`, `factorio_version`, the
-  `base` floor, the `quality` floor and `homepage` — the versions come from one shared sequence,
-  so they differ by design (0.1.3 on `main`, 0.1.2 on `legacy/2.0` as of 2026-09-14). Three things
-  force the second apart, and all three load clean when got wrong: **quality effect values are
-  ten times larger on 2.0** (`quality = 1.25` there for the 12.5% that `0.125` buys on 2.1);
-  **`__base__/prototypes/entity/assembler-pictures.lua` is a 2.1 file**, so the 2.0 build takes
-  the assembler's connector from the `circuit_connector_definitions["assembling-machine"]`
-  global instead of requiring it; and **the assembling machine has no `water_reflection` on
-  2.0**, so the 2.0 build declares none.
-  For Robot World Continued (RealK) they are `info.json`, `control.lua` and
-  `prototypes/cheap-recipes.lua` — nothing else. Three things force the two code files apart:
-  **`LuaForce::unlock_logistic_network` does not exist on 2.0**, where the logistic network
-  button has no research gate at all, and writing the field is a runtime error;
-  **the recycling library is `__quality__.prototypes.recycling` on 2.0**, not
-  `__recycler__.recycling`; and **Krastorio 2 Spaced Out runs without Krastorio 2 on 2.0**, so
-  the quick start's K2 steam top-up names both mods there. The `info.json` floor is
-  `base >= 2.0.7`, where `create_ghost_on_entity_death` arrived.
-  `README.md` and `changelog.txt` are **not** on that list — both are kept identical on the two
-  branches, for reasons the `factorio-multiversion` skill carries.
-  `git diff main -- .` from the legacy worktree is the check: anything it lists beyond that set
-  is drift, and the fix is to bring it back in line rather than to leave the branches guessing.
+- **`main` is the only working branch. `legacy/2.0` is a frozen backup.** Until 2026-10-23 a
+  mod could also ship a Factorio 2.0 build from `legacy/2.0`. When 2.1 went stable the owner
+  retired that track, and its worktree and the 2.0 dev installs were deleted. The branch keeps
+  the source of every 2.0 release, and its tags stay reachable through it. Nothing is
+  committed, cherry-picked or released there any more, and its own copies of these docs still
+  describe the two-track era — left as they are. **The version numbers it used are still
+  spent**: a new release goes above the highest tag of that mod on either branch, not merely
+  above `info.json`'s version — `factorio-release` → Versioning.
 
 Git identity is set **locally only**, in `.git/config` — values in `CLAUDE.local.md`. Never `git config --global` it, and never let a real email address into a commit here. An empty `user.email` is the default position — git accepts it and commits are authored `Name <>`, publishing nothing; a forge `<username>@users.noreply.<host>` address is the fallback when something needs a syntactically valid one, and keeps commits linked to the account without exposing a real address.
 
@@ -339,15 +287,13 @@ developers. Write for a glance.
 
 ## Factorio version and local API sources
 
-Target is **Factorio 2.1**. The exact installed version and expansion set are in `CLAUDE.local.md`.
+Target is **Factorio 2.1**, the stable release since 2.1.23 — the only version this repo builds
+for. The exact installed version and expansion set are in `CLAUDE.local.md`.
 
-2.1 is still the experimental branch; **2.0 is stable and is what most players are on.** So the
-working tree, every `info.json` and all new work stay on 2.1, and a mod may *additionally* ship a
-2.0 build from a `legacy/2.0` branch. That second track is a nice-to-have — worth doing, never
-worth delaying or compromising the 2.1 mod for. `factorio_version` names exactly one major
-version, so this genuinely is two builds and two release tracks, not one zip that spans both.
-Mechanics, numbering and what 2.1 broke: the `factorio-multiversion` skill. When 2.1 goes stable
-the 2.0 track simply stops getting work.
+`factorio_version` names exactly one major version, and every `info.json` here says `"2.1"`.
+The 2.0 track is retired (*Git* above): no backports and no 2.0 builds. Code written for 2.0 —
+another author's mod being forked, or a pattern from `exemples/` — is ported, not copied:
+`factorio-mod-development` → `references/porting-from-2.0.md` lists what 2.1 broke.
 
 The game install ships the authoritative API for the *exact installed version* — **prefer these over anything remembered, guessed, or found online.** Read them from the dev install, whose version is pinned; absolute path in `CLAUDE.local.md`, and the paths below are relative to its root (the folder holding `bin/`, `data/` and `doc-html/`, one level above this repo):
 
@@ -359,11 +305,11 @@ The game install ships the authoritative API for the *exact installed version* �
 
 The JSON files are large — grep them for the specific class/property rather than reading whole.
 
-For what the local files don't answer (community conventions, modding-forum idioms), use **context7** and **web search**. Always state which Factorio version the information applies to; pre-2.0 answers are frequently wrong for 2.1.
+For what the local files don't answer (community conventions, modding-forum idioms), use **context7** and **web search**. Always state which Factorio version the information applies to; answers written for 2.0 or earlier are frequently wrong for 2.1.
 
 ## `exemples/`
 
-Optional local reference material: extracted copies of existing mods, kept to check how things are actually done — code, graphics, asset layouts. Read-only; never edit. **When implementing something, check here first for an established pattern before inventing one.**
+Optional local reference material: extracted copies of existing mods, kept to check how things are actually done — code, graphics, asset layouts. Read-only; never edit. **When implementing something, check here first for an established pattern before inventing one.** Most of it was written for 2.0, so read `factorio-mod-development` → `references/porting-from-2.0.md` before lifting code from it.
 
 It is git-ignored, so it does not come with a clone; `CLAUDE.local.md` records what is present on this machine. If the collection carries its own `CLAUDE.md` tree, start at `exemples/CLAUDE.md` for the index, then the collection's own, then the individual package's for full detail.
 
@@ -375,7 +321,7 @@ The detail lives in the `factorio-mod-development` skill — it is Factorio know
 repo convention, and it is long. Three facts orient everything else:
 
 - **Stages run in order**: `settings.lua` → `data.lua` → `data-updates.lua` → `data-final-fixes.lua` → (game starts) → `control.lua`. Data-stage code cannot see runtime state; control-stage code cannot see or modify prototypes. Only touch other mods' prototypes in `data-updates`/`data-final-fixes`.
-- **2.0 renamed things.** `global` → `storage`, `game.<x>_prototypes` → `prototypes.<x>`, assorted `game.*` utilities → `helpers.*`. Code using the old names is pre-2.0 and needs porting, not copying.
+- **2.0 renamed things, and 2.1 renamed more.** `global` → `storage`, `game.<x>_prototypes` → `prototypes.<x>`, assorted `game.*` utilities → `helpers.*`. Code using the old names is pre-2.0 and needs porting, not copying; code written for 2.0 needs the second pass in `factorio-mod-development` → `references/porting-from-2.0.md`.
 - **Errors surface in `factorio-current.log`**, in the same user-data folder as `mods/` — for a standalone install that is the install root, one level above this repo. Read it when diagnosing a load failure; several failure modes are silent otherwise.
 
 ## Skills
@@ -392,11 +338,10 @@ Reference detail lives in `.claude/skills/`, tracked in this repo. **Invoke the 
 | `factorio-testing` | Running or writing automated tests for a mod — the in-game factorio-test suite (headless or graphics), the pure host-Lua tier, or the static checkers |
 | `factorio-entity-design` | Conceiving a new entity — machine, miner, beacon, turret — before any art or prototype exists |
 | `factorio-graphics` | Any sprite, icon, `thumbnail.png` or Blender work |
-| `factorio-multiversion` | Anything touching a second game version — backporting to 2.0, the `legacy/2.0` branch, whether a change is safe there, or what 2.1 broke |
 
 Roughly: `factorio-mod-development` is the code, `factorio-mod-setup` is the wrapper around it, the rest are the steps on either side.
 
-Several tasks span two: a release is `factorio-release` **and** `factorio-changelog`; renaming a prototype is `factorio-mod-development` (the code), `factorio-mod-setup` (the migration) **and** `factorio-release` (the major bump); a backport release is `factorio-multiversion`, `factorio-validate` (against a 2.0 install) **and** both of the release pair; a new entity is `factorio-entity-design` (what it is and looks like), then `factorio-graphics` (the sprites), then `factorio-mod-development` (the prototype), in that order. Invoke all of them.
+Several tasks span two: a release is `factorio-release` **and** `factorio-changelog`; renaming a prototype is `factorio-mod-development` (the code), `factorio-mod-setup` (the migration) **and** `factorio-release` (the major bump); moving the dev install to a new game version is `factorio-validate` (every mod, plus the dump diff) **and** `factorio-testing` (the suites, regenerated typedefs); a new entity is `factorio-entity-design` (what it is and looks like), then `factorio-graphics` (the sprites), then `factorio-mod-development` (the prototype), in that order. Invoke all of them.
 
 **`.claude/references/` is the other half.** A skill covers Factorio knowledge and is invoked by
 its description; a reference file is a *repo procedure* needed at one identifiable moment, linked

@@ -3,28 +3,18 @@
 Parked and open work. The single owner of this list — `CLAUDE.md` doesn't keep a second copy.
 
 As of 2026-09-13 (evening) the mod is **built and unplayed**: the entity is modelled, animated,
-rendered and wired, the icons and thumbnail exist, both configurations validate on both tracks,
-and the machine has been photographed working in the 2.1 engine — twice, the second time after
+rendered and wired, the icons and thumbnail exist, both configurations validate, and the
+machine has been photographed working in the engine — twice, the second time after
 the animation was rebuilt as a layered system. What is left is play, and the polish nothing has
 forced yet.
 
 ## Settled, so not here
 
 Name, version, dependency set, footprint, the mechanic and its stats, crafting categories, fluid
-boxes, `allowed_effects`, fast replacement, the technology gate and cost, the recipe on both
-branches, health, pollution, and the art — see `decisions.md` and the design document's *Built*
-section. The four questions the concept sheet opened were settled by the owner's build brief and
-are recorded in `decisions.md` → *Art*. Don't reopen them without the owner.
-
-## The `legacy/2.0` build
-
-Ported 2026-09-13, the same day the entity was built — see `decisions.md` → *The 2.0 track*
-for the fork. **The animation pass later that day is not on it yet**: it is a cherry-pick of the
-`main` commit once that exists (`pictures.lua`, the sheets and the assets; `entity.lua` is
-untouched by it, and the pass uses nothing 2.0 lacks — `always_draw`, `constant_speed` and
-`fadeout` are all 2.0 fields). What is open there is otherwise the same as here: nothing on the
-2.0 track has been played, and the machine has not been photographed in the 2.0 engine, only
-validated against it.
+boxes, `allowed_effects`, fast replacement, the technology gate and cost, the recipe, health,
+pollution, the art, and the end of the 2.0 track — see `decisions.md` and the design document's
+*Built* section. The four questions the concept sheet opened were settled by the owner's build
+brief and are recorded in `decisions.md` → *Art*. Don't reopen them without the owner.
 
 ## The entity, as shipped
 
@@ -94,7 +84,7 @@ watching in play:
   assembling machine 3 (speed 3.75 or 10%). The 1.6 MW, the 7.5 pollution and the recipe are
   the price. Play decides; the number to move is `quality = 0.125` in `entity.lua`, one line.
 
-## Release and tracks
+## Release
 
 - **Published 2026-09-13**: 0.1.0 for Factorio 2.1 (the first publish, through the portal's
   `init_publish` API) and 0.1.1 for Factorio 2.0, both tagged. The portal page has its license
@@ -103,6 +93,9 @@ watching in play:
   close-up before the release. 0.1.2 (Factorio 2.0) and 0.1.3 (Factorio 2.1) followed on
   2026-09-14 with the shorter description, both tagged; the next version opens a new changelog
   section.
+- **The portal description still says a Factorio 2.0 build is released separately.**
+  `README.md` now says the 2.0 releases no longer get updates; the page catches up at the next
+  approved release or `fmtk details --readme`.
 - **`images/`** holds four gallery shots from a composed harness scene (the Factoriopedia page,
   a production line by day and by night, a close-up). They are engine-true but not a *real*
   base: if the owner has a screenshot of the machine in their own factory, it belongs here

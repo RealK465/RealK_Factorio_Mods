@@ -30,10 +30,10 @@ Options: `-FactorioPath <install root>`, `-Disable <names>` to turn an expansion
 **`-FactorioPath` resolves itself and rarely needs passing.** The script takes `$env:FACTORIO_PATH` if set, else **the install this repo lives in** — four levels above the script, since the repo is a dev install's `mods/` folder. If neither has a `bin\x64\factorio.exe` it throws; it deliberately does **not** go hunting for some other install, because the one it would find is the one being played and a wrong-install run exits 0 looking like a pass. It prints the install it chose and that install's `base` version on every run:
 
 ```
-Install: ...\Factorio 2.1 SA Experimental (base 2.1.14)
+Install: ...\Factorio 2.1 SA (base 2.1.23)
 ```
 
-Read that line. Validating a 2.1 mod against a 2.0 install, or against one with a different expansion set, exits 0 and proves nothing — and nothing else in the output would tell you.
+Read that line. Validating against the wrong install — an older game version, or a different expansion set — exits 0 and proves nothing, and nothing else in the output would tell you.
 
 It reads `name` and `version` out of `info.json`, checks the folder name matches, copies the folder into a scratch dir under `%TEMP%`, writes a `mod-list.json`, runs the game, extracts the error lines on failure, and cleans up. Takes about 5 seconds.
 
@@ -48,11 +48,10 @@ Expansions load from the game install whether or not `mod-list.json` names them,
 ## `-FullLoad`: the run that opens sprites and sounds
 
 `--dump-data` never opens a sprite or a sound file. A `filename` that is misspelled, or that
-names a mod the target game does not have, passes every headless check and then stops the game
-for every player. That is exactly how `quality-recycler` 0.1.3 shipped for Factorio 2.0 on
-2026-09-13: its working sound stayed at `__recycler__/sound/recycler/recycler-loop.ogg`, the
-`recycler` mod does not exist on 2.0 (the file is under `__quality__` there), the data stage
-loaded clean on 2.0.77, and the first 2.0 player got
+names a mod the game does not have, passes every headless check and then stops the game for
+every player. That is exactly how `quality-recycler` 0.1.3 shipped on 2026-09-13: its working
+sound named `__recycler__`, a mod that build's game did not have, the data stage loaded clean,
+and the first player got
 
 ```
 Failed to load mods: Loading sound "__recycler__/sound/recycler/recycler-loop.ogg" failed
@@ -66,7 +65,7 @@ with error: Path __recycler__/sound/recycler/recycler-loop.ogg does not match an
 After a clean data stage it creates a save headlessly, then loads that save with the renderer
 for one tick (`--benchmark-graphics <save> --benchmark-ticks 1`). Sounds load first, then
 sprites; both phases have to appear in the log or the renderer never started and nothing was
-proved. It takes 10 s on a small mod and about 40 s on 2.1 with every expansion (the sprite
+proved. It takes 10 s on a small mod and about 40 s with every expansion (the sprite
 atlas), opens a game window briefly, and needs scratch write-data — which every standalone
 install switches on itself. `-FullLoadArgs` replaces the renderer flags; the default is
 `--force-opengl`, which starts on any GPU and loads the same files as the default renderer.
@@ -80,16 +79,15 @@ was the first suspect and was cleared (switching it off changed nothing). Becaus
 renderer never exits, the script kills it after `-FullLoadTimeout` seconds (default 300)
 and reports the full load as failed instead of blocking the session.
 
-Two measured facts (2.0.77 and 2.1.17, 2026-09-13):
+Two measured facts (2.1.17, 2026-09-13):
 
 - **The game exits 0 on `Failed to load mods` in this mode.** It shows the dialog text, quits
   with `automatic-quit`, and reports success. The script reads the log, not the exit code, and
   fails on ` Error `, `Failed to load mods` or `does not match any enabled mod`.
-- **Vanilla plus every mod in this repo produces zero such lines**, on both tracks, so any hit
-  is the mod under test.
+- **Vanilla plus every mod in this repo produces zero such lines**, so any hit is the mod under
+  test.
 
-**Run it before every release, on every track being shipped** — the `factorio-release` skill
-lists it. The plain headless run stays the five-second check for prototype edits. Stage
+**Run it before every release** — the `factorio-release` skill lists it. The plain headless run stays the five-second check for prototype edits. Stage
 somewhere short if it ever fails on a `File ... not found` for a file that exists — see
 *Stage somewhere SHORT* below.
 
@@ -204,13 +202,11 @@ harness. Three Windows facts, each measured the hard way (2.1.14):
   tile's `map_color` against real terrain: composite candidate recolours onto one render instead
   of re-running the game per candidate.
 
-## Validating against another game version
+## Validating against another install
 
-`-FactorioPath` points the run at any install, which is how a 2.0 backport gets validated while
-the default install is on 2.1, and how a no-expansion build gets checked against an install
-that genuinely does not ship the expansions. The installs on this machine — and which one each
-question belongs to — are listed in `CLAUDE.local.md`; the 2.0 workflow is the
-`factorio-multiversion` skill.
+`-FactorioPath` points the run at any install, which is how a no-expansion build gets checked
+against an install that genuinely does not ship the expansions. The installs on this machine —
+and which question each belongs to — are listed in `CLAUDE.local.md`.
 
 **A vanilla install is a stronger check than `-Disable`.** `-Disable` leaves the expansion data
 sitting in the install and merely switches the mods off; a base-only install does not ship it at
@@ -222,13 +218,35 @@ directory like `%APPDATA%\Factorio`, so the log this script reads would otherwis
 *other* install's stale one — a failed run reported as a pass. The script detects those
 (`config-path.cfg` → `use-system-read-write-data-directories=false`) and switches itself to
 `-Live` scratch mode, which also keeps the run from writing anything into that install.
-Verified 2026-08-06 against both 2.0.77 standalone installs, exit 0 with the checksum line
-present. **This is also why the default run needs no flags when the repo lives in a standalone
-dev install** — the same detection fires on it.
+Verified 2026-08-06 against two standalone installs, exit 0 with the checksum line present.
+**This is also why the default run needs no flags when the repo lives in a standalone dev
+install** — the same detection fires on it.
 
-Remember what a green run on the other version does *not* prove: the data stage ignores
-properties it does not recognise, so anything version-only loads clean and does nothing.
-`factorio-multiversion` covers the dump-diff that catches it.
+## After a game update: diff the dumps
+
+A green run on a new game version does *not* prove the mod still means what it did: the data
+stage ignores properties it does not recognise, so a property the update removed or renamed
+loads clean and does nothing. `scripts/compare-dumps.py` compares one mod's prototypes across
+two `-KeepDump` runs and prints every property that differs, appears or vanishes. Keep a dump
+from the old install **before** replacing it; the comparison needs both sides. It works the
+same for a refactor: dump before, change, dump after.
+
+```powershell
+.\validate.ps1 -ModPath <mod> -KeepDump
+Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-before.json
+# ...replace the install, or make the change...
+.\validate.ps1 -ModPath <mod> -KeepDump
+Move-Item "$env:TEMP\data-raw-dump-<mod>.json" dump-after.json
+python scripts\compare-dumps.py dump-before.json dump-after.json --prefix <mod-prefix>
+```
+
+Both runs write the same `%TEMP%\data-raw-dump-<mod>.json`, so the `Move-Item` between them is
+not optional — skip it and the diff comes out empty, reading as "nothing changed". Not every
+difference is the mod's: recycling recipes the recycler generates from the mod's recipes move
+with the engine. What matters is a property present on one side and `<absent>` on the other
+inside a prototype the mod itself authors. Behaviour changes show in no dump; read the game's
+`data/changelog.txt` for the versions in between, and
+`factorio-mod-development` → `references/porting-from-2.0.md` for the 2.0 → 2.1 list.
 
 ## Validate every branch, not just the happy one
 
@@ -302,22 +320,23 @@ run looks green while the game never launched. Read the output, not the exit cod
 2026-08-26). This is the same shape as the flag's own warnings above: on this script, exit 0
 means very little on its own.
 
-## Never validate two tracks concurrently
+## Never validate one mod twice at once
 
 The scratch write-data folder is keyed by **mod name only** —
-`%TEMP%\factorio-validate-<mod>-data` — not by install. Run `main` and the legacy worktree at
-the same time and both target that one folder: the second run's cleanup hits a `.lock` the first
-still holds, staging is clobbered mid-flight, and the failure names something entirely
-unrelated. Measured 2026-08-26, validating upcycler-planner on 2.1 and 2.0 together:
+`%TEMP%\factorio-validate-<mod>-data` — not by install. Two runs of the same mod at the same
+time, against two installs or from two sessions, both target that one folder: the second run's
+cleanup hits a `.lock` the first still holds, staging is clobbered mid-flight, and the failure
+names something entirely unrelated. Measured 2026-08-26, validating upcycler-planner against
+two installs together:
 
 ```
 Error Util.cpp:81: Failed to load mod "upcycler-planner": __upcycler-planner__/data.lua:1:
   module prototypes.planner.shortcut not found; no such file ...
 ```
 
-`prototypes/planner/shortcut.lua` was on disk and unchanged throughout, and both tracks passed
-individually seconds later. **Run the two tracks sequentially** — a validation is ~4 s, so there
-is nothing to gain, and the misdirection costs far more than the wait.
+`prototypes/planner/shortcut.lua` was on disk and unchanged throughout, and both runs passed
+individually seconds later. **Run them sequentially** — a validation is ~4 s, so there is
+nothing to gain, and the misdirection costs far more than the wait.
 
 ## Stage somewhere SHORT: MAX_PATH silently disables the mod
 
@@ -348,7 +367,7 @@ It says **nothing** about:
 - **Whether every property you wrote was understood.** An unknown or misspelled key is
   ignored, not rejected, so the run is clean either way — unless you add
   `--check-unused-prototype-data`, above.
-- **Graphics and sound paths.** Neither sprites nor sounds are loaded in headless mode, so a missing or misspelled `icon` / `filename`, or one under a `__mod__` the target game lacks, passes clean. Verified: a non-existent icon path exits 0, and a 2.1-only sound path shipped on 2.0. `-FullLoad` (above) is the check.
+- **Graphics and sound paths.** Neither sprites nor sounds are loaded in headless mode, so a missing or misspelled `icon` / `filename`, or one under a `__mod__` the target game lacks, passes clean. Verified: a non-existent icon path exits 0, and a sound path naming a missing mod shipped once (`quality-recycler` 0.1.3). `-FullLoad` (above) is the check.
 - **The mod checksum, for art changes.** It is computed over what the data
   stage reads, so replacing a PNG leaves `Checksum of <name>:` byte-identical.
   A stable checksum is not evidence the art is unchanged, and the game reads

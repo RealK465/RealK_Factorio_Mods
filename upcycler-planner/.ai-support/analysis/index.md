@@ -17,7 +17,6 @@ dot on `.ai-support`).
 | `layout-bot-loop.md` | The deferred second family, specified so it can be picked up as a GUI toggle later |
 | `poles.md` | The pole coverage pass, and how the planner decides which utility columns a plan opens — read before changing the footprint or the pole count |
 | `api.md` | Every verified API shape this mod needs, plus what could not be verified |
-| `factorio-2.0.md` | Where 2.0.77 differs from `api.md`'s 2.1 picture and where it agrees — the planner seam's evidence, the 2.0 recycler ground truth. Read before touching the seam or anything on `legacy/2.0` |
 | `quality-math.md` | Quality roll maths, recycler mechanics, known failure modes of closed loops |
 | `reference-mods.md` | P.U.M.P., Mining Patch Planner and flib — patterns to copy and to avoid |
 | `blueprints/` | The two source blueprint strings, so the analysis is reproducible |
@@ -45,8 +44,8 @@ reference material, never redistributed.
 Claims here are marked where they are not first-hand:
 
 - **Verified** — read out of `doc-html/runtime-api.json`, `doc-html/prototype-api.json`, or the
-  game's own `data/*.lua`, at the version the file's front matter names (a 2.1 build, or
-  2.0.77 for `factorio-2.0.md`). File:line given where it is game data.
+  game's own `data/*.lua`, at the version the file's front matter names. File:line given
+  where it is game data.
 - **Decoded** — read directly out of a blueprint's JSON.
 - **UNVERIFIED** — could not be confirmed from a first-party source. Listed explicitly in
   `api.md` §9 so they can be probed in game rather than trusted.

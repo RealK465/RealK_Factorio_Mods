@@ -314,25 +314,12 @@ The rig lessons in `../quality-recycler/CLAUDE.md` — palette on rendered swatc
 split in the paint-over, the object-ID visibility pass, `cyl()` making a disc rather than a ring
 — are general and should be carried over. Its *entity* decisions should not.
 
-## The 2.0 track
+## Factorio 2.1 only
 
-`legacy/2.0` carries the same mod with **two forked files**, `info.json` and
-`prototypes/assembler/entity.lua`; everything else, sheets included, is identical. Measured
-2026-09-13 by validating against the 2.0 install (base 2.0.77, with and without Space Age),
-`entity.lua` differs in three things, and every one of them loads clean when got wrong on the
-other track:
-
-- **`quality = 1.25`** where main has `0.125` — quality effect values are ten times larger on 2.0,
-  which `quality-recycler` learned first.
-- **The connector is `circuit_connector_definitions["assembling-machine"]`**, a data-stage
-  global. `__base__/prototypes/entity/assembler-pictures.lua`, which main requires it from, is a
-  2.1 file; on 2.0 the assembling machine's graphics live inline in `entities.lua` and the
-  require is a hard error.
-- **No `water_reflection`**: the assembling machine has none on 2.0.
-
-`pipe_picture`, `secondary_draw_orders`, `draw_as_glow` and `fadeout` all exist on 2.0, so
-`pictures.lua` is shared. The version stays `0.1.0` on both tracks until the first release, for
-the reason the scaffold gave.
+Since 2026-10-23, when 2.1 went stable at 2.1.23 and the repo owner retired the 2.0 track. The
+2.0 builds, 0.1.1 and 0.1.2, stay on the portal unmaintained, and `legacy/2.0` keeps their
+source as a frozen backup — no 2.0 work and no 2.0 releases. Version numbers still continue
+above every number ever shipped on either track, because the portal never takes one twice.
 
 ## Built and published, not played
 

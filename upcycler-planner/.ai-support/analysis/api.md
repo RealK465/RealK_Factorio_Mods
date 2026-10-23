@@ -333,7 +333,7 @@ recipes for items the force cannot craft. Two consequences, both verified in gam
    own item, left alone), and the machine crafts on (9 crafts, all 40 gears recycled). The two
    filters select the same items because the recycler only ever holds this tier's ingredients
    at this quality or rolled-up ones above it. Confidence: verified by the suite on a real
-   recycler, on 2.1.17 and on 2.0.77 alike (the whole suite passes from the legacy worktree).
+   recycler (2.1.17).
    In both arrangements nothing was lost and nothing wrong-quality reached the pinned machine.
    Deterministic seeding for the suite: a script `insert` into
    `defines.inventory.crafter_output` works on a recycler (2.1.14) and stands in for a lucky
@@ -427,32 +427,20 @@ player comes from the framework's bundled save, an external artifact — the spe
 `before_all` asserts a connected player exists and says what to do when it does not.
 
 
-## 13. Space Age feature flags — the set forks between 2.0 and 2.1, verified 2026-08-16
+## 13. Space Age feature flags — verified 2026-08-16
 
-**`expansion_required` does not exist in Factorio 2.0.** The flag set is not the same on both
-tracks, which matters because a flag the game does not know is *silently ignored* rather than
-rejected — it would sit in `info.json` looking like a gate and enforcing nothing.
+A flag the game does not know is *silently ignored* rather than rejected — it would sit in
+`info.json` looking like a gate and enforcing nothing — so the set the engine knows matters.
+It enumerates its flags at startup; 2.1.14's `ModManager.cpp` logs **eight**: `expansion`,
+`expansion-shaders`, `freezing`, `quality`, `rail-bridges`, `segmented-units`,
+`space-travel`, `spoiling`. Vanilla's own `quality/info.json` declares `expansion_required`
+**and** `quality_required`.
 
-The engine enumerates its flags at startup, and the two versions disagree by exactly one:
-
-| Install | Flags logged by `ModManager.cpp` |
-|---|---|
-| 2.1.14 | `expansion`, `expansion-shaders`, `freezing`, `quality`, `rail-bridges`, `segmented-units`, `space-travel`, `spoiling` — **eight** |
-| 2.0.77 | the same **minus `expansion`** — **seven** |
-
-Vanilla's own `quality/info.json` matches: 2.1's declares `expansion_required` **and**
-`quality_required`, 2.0's declares only `quality_required`.
-
-**Measured, not inferred.** Four one-file probe mods (`info.json` only, a single flag, no
-`quality` dependency) run through `validate.ps1` against the no-expansion installs:
-
-| Probe | 2.1 Vanilla | 2.0 Vanilla |
-|---|---|---|
-| `quality_required` | **refused** — `ModManager::enterMinimalMode` | **refused** — `ModManager::loadData` |
-| `expansion_required` | — | **loaded clean, exit 0** |
-
-Controls: the same `quality_required` probe loads clean on the 2.1 SA install (`Checksum of
-ff-probe: 0`), so the probes are well-formed and ownership is the only variable. A refusal
+**Measured, not inferred.** A one-file probe mod (`info.json` only, `quality_required`, no
+`quality` dependency) run through `validate.ps1` against the no-expansion 2.1 install is
+**refused** — `ModManager::enterMinimalMode`. Control: the same probe loads clean on the 2.1 SA
+install (`Checksum of ff-probe: 0`), so the probe is well-formed and ownership is the only
+variable. A refusal
 surfaces as a *crash* under `--dump-data`, not a tidy message — there is no GUI to fall back
 to — so read the stack trace, not the exit code alone.
 
@@ -512,8 +500,8 @@ full research, real entities and ticks) plus the installed `prototype-api.json` 
    battery plan revived whole crafts from an outside tap on one stub, which pins the
    planner→layout→blueprint chain end to end.
 7. **`connection_category` reads back as an array on every normal connection, `{"default"}`
-   when the author wrote none** (measured 2026-09-12 on 2.1.17; the 2.0.77 runtime JSON
-   lists the same field). The engine joins two connections only when they share a category,
+   when the author wrote none** (measured 2026-09-12 on 2.1.17). The engine joins two
+   connections only when they share a category,
    and a foreign category is how a modded port hides in plain sight: **Muluna**
    (`planet-muluna` 2.7.22, `prototypes/final-fixes/data-cells.lua`) copies the two fluid
    boxes of every assembling-machine-3-class machine as `"data"` ports on the other faces —
@@ -565,11 +553,11 @@ inserters are not on the exception list; the per-tier multiplier was not measure
 **Filter slots do not scale with quality, and the engine caps them at five.** `filter_count`
 is a plain `InserterPrototype` property, default 0, **every one of the six vanilla inserters
 sets it to 5** (base `entities.lua`, space-age `entities.lua:2716`), and the property's own
-doc says *"Maximum count of filtered items in inserter is 5"* — in 2.1.17's and 2.0.77's
-`prototype-api.json` alike (`InserterPrototype::filter_count`; the same sentence sits on
+doc says *"Maximum count of filtered items in inserter is 5"* — in 2.1.17's
+`prototype-api.json` (`InserterPrototype::filter_count`; the same sentence sits on
 `LoaderPrototype` and `MiningDrillPrototype`). So no inserter, modded or not, can filter more
 than five, and a better quality changes nothing: a recipe past five is served by a second feed
-stack, never by a bigger inserter. **Confidence: verified against both docs; a modded
+stack, never by a bigger inserter. **Confidence: verified against the docs; a modded
 `filter_count = 10` was not tried in game.**
 
 **Exactly one vanilla upcyclable recipe has more than five item ingredients, and none has
@@ -1058,13 +1046,6 @@ plain `">"` is stored verbatim. So a spec that reads a blueprint's own filters m
 against the glyph, not against what the mod wrote. `tests/blueprint_spec.lua` spells it
 `"\226\137\165"` rather than embedding the character.
 
-**2.0.77 behaves identically, measured not assumed.** The API surface matches field-for-field —
-`ItemFilter`, `BlueprintItemFilter` and `ComparatorString`, nine accepted spellings and five
-canonical — and the whole suite was then run from the legacy worktree against that install
-(163/163, 2026-08-20): the live ring drains out of both lanes, and both comparators survive the
-blueprint round trip, `">="`-to-glyph normalisation included. So none of this is forked.
-Detail in `factorio-2.0.md`.
-
 ## 25. Beacons: supply area, module inventory, and what transmits — measured 2026-08-22
 
 The facts the beacon feature stands on. The permanent harness is `tests/beacon_spec.lua`; every
@@ -1388,14 +1369,6 @@ the names). Engine defaults apply: `quality_limits {low = 0, high = 1000}`, prod
 `{low = -0.8, high = 1000}`. The split clamps with nil-coalesced defaults — cheap insurance
 for modded machines, exercised by pure spec only since no real prototype exercises it.
 
-**2.0 note:** `get_roll_chances`/`roll_quality` do not exist on 2.0.77
-(`LuaQualityPrototype` has an empty methods list there); `get_module_effects` **does**. Since
-2026-08-28 the split runs there anyway: the legacy planner's ROLL SHIM computes the same
-distributions from `next`/`next_probability` (raw x10 effects in, the x0.1 conversion landing
-exactly once inside the walk), pinned digit-for-digit against this section's measured 2.1
-distributions by the forked `planner_spec`. Model, sources and the 0.62-vs-0.0625 legendary
-measurement: `factorio-2.0.md`.
-
 ## 31. The pace estimate's premises: crafting speed at quality, beacon transmission, recycling energy
 
 Engine surface `planner.loop_seconds` stands on, checked against the installed
@@ -1434,13 +1407,9 @@ Measured on 2.1.17 through a throwaway probe spec (`create_blueprint` read-back 
 entities, `set_blueprint_entities` → `build_blueprint` → `revive` read-back, and a live rig),
 then pinned permanently by `tests/loop_spec.lua` ("a combinator-carried cap pauses, resumes,
 stops when switched off") and `tests/blueprint_spec.lua` ("the circuit stack survives the
-stamp"). The 2.0.77 `runtime-api.json` carries the same blueprint concepts (`LampBlueprintControlBehavior`
-lacks only 2.1's `input_networks`, unused here), and the whole suite runs green on 2.0.77
-from the legacy worktree — the stack is fork-free (`factorio-2.0.md`). One runtime-only
-rename bit the spec, not the mod: the display panel's row list is
-`LuaDisplayPanelControlBehavior.records` on 2.1 where 2.0 spells it `messages`
-(`factorio-2.0.md`), each a hard error on the other, so the spec reads a revived panel back
-through `create_blueprint` instead.
+stamp"). The display panel's runtime row list is `LuaDisplayPanelControlBehavior.records`,
+which the mod never reads — it writes the blueprint `parameters` — so the spec reads a revived
+panel back through `create_blueprint` as well.
 
 - **An enable condition's `second_signal` works against a quality-tagged VIRTUAL signal.**
   A machine gated `product@normal < signal-C@rare`, wired to a chest of 5 and a constant
@@ -1629,14 +1598,12 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
 - **The prototype-level opt-out.** 2.1.7 added the `EntityPrototypeFlag`
   `"no-logistic-connection"` (*"For entities with control behavior that supports logistic
   connection, if this flag is set then entity will not be able to connect to logistic
-  network"*, `prototype-api.json`) and removed 2.0's
-  `AssemblingMachinePrototype::enable_logistic_control_behavior` (default `true` in the 2.0.77
-  `prototype-api.json`). Vanilla sets the flag on exactly one crafter, the captive biter
-  spawner (`data/space-age/prototypes/entity/entities.lua:1569`; 2.0 sets the old switch
-  `false` on the same entity, its line 1573). Read at runtime through
+  network"*, `prototype-api.json`), replacing the old
+  `AssemblingMachinePrototype::enable_logistic_control_behavior` switch. Vanilla sets the flag
+  on exactly one crafter, the captive biter spawner
+  (`data/space-age/prototypes/entity/entities.lua:1569`). Read at runtime through
   `LuaEntityPrototype.has_flag("no-logistic-connection")`, which `planner.validate` refuses on
-  in network mode — **2.1 only**: the flag name is absent from the 2.0.77 `runtime-api.json`,
-  and so is any runtime read of the old switch (`factorio-2.0.md`).
+  in network mode.
 - **The GUI side is not measured here.** The wiki's Circuit network page lists "Crafting
   machines" among the entities with a Logistic network section (community, current revision),
   and 2.0.15's own changelog line *"Fixed captive biter spawner was able to connect to

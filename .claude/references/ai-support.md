@@ -37,10 +37,6 @@ lost — by the time it is obviously too big, nobody knows which half to move. `
 has had `balance.md` from the start and never needed a decisions file; an overhaul in this repo
 splits into identity and art-direction registers and states the rule in its own index.
 
-(Register names are written here as prose rather than as paths on purpose: this file is kept
-identical on `main` and `legacy/2.0`, and a mod that exists on only one branch would make a
-backticked filename dangle on the other.)
-
 Three habits that keep a concept split honest:
 
 - **A concept file owns its subject completely** — decided, required-but-not-done, open and
@@ -74,10 +70,7 @@ verified: 2026-08-16
 someone replaces it by hand, so "the install is now 2.1.15 and this file was checked at 2.1.14"
 is the signal worth having. A review calendar would just be noise on a repo worked in bursts.
 
-Required on `analysis/**/*.md` (the index excepted). Optional elsewhere. **Dual-track content is
-the exception**: `pure-modules-realk` ships from both `main` and `legacy/2.0`, and everything in
-its `.ai-support/` is kept byte-identical across the two, so nothing there claims a single game
-version.
+Required on `analysis/**/*.md` (the index excepted). Optional elsewhere.
 
 ## The checks
 
@@ -95,7 +88,13 @@ of sitting there being quietly believed.
 | paths | any relative path in any tracked `.md` that matches nothing on disk |
 
 Both scripts **self-locate to whichever install holds the repo**, exactly as `validate.ps1`
-does, so running them from the legacy worktree checks against 2.0 rather than 2.1.
+does.
+
+**A journal is held to history, not to the present.** Its entries are never edited, so a name
+that was true when written must not fail later: an API citation in `journal.md` also passes
+when the installed `data/changelog.txt` names that member (the engine documents what it removes
+or renames there), and a path passes when git history shows the file once existed. A name that
+was never real anywhere still fails, which is the typo case the check exists for.
 
 What they **cannot** check is whether a row is still *true*. Nothing can — which is why the
 same-session rule in `CLAUDE.md` carries the weight the automation can't, and why a claim that

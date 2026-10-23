@@ -42,6 +42,7 @@ Read the one that matches the work — SKILL.md is the contract, these are the c
 | `references/control-stage.md` | Anything in `control.lua`: lifecycle handlers, `storage`, events, tracking entities, GUIs, commands, remote interfaces |
 | `references/performance.md` | A mod that costs UPS, anything running per-tick, or before writing a loop over entities |
 | `references/compatibility.md` | Optional dependencies, patching another mod, expansion gating, or shipping an API other mods call |
+| `references/porting-from-2.0.md` | Porting or forking a mod written for 2.0, or lifting code from `exemples/` — every removal, rename and silent behaviour change between 2.0 and 2.1 |
 
 ## The two stages
 
@@ -131,7 +132,8 @@ Three renames from 1.1 account for most stale code and most wrong recollection:
 | assorted `game.*` utilities (`table_to_json`, `write_file`, `is_valid_sprite_path`, …) | **`helpers.*`** |
 
 Anything you find using `global` for mod state, or `game.recipe_prototypes`, is pre-2.0 and needs
-porting, not copying. `on_entity_destroyed` likewise became `on_object_destroyed`.
+porting, not copying. `on_entity_destroyed` likewise became `on_object_destroyed`. Code written
+for 2.0 has a second set of changes to port — `references/porting-from-2.0.md`.
 
 **And one that is 2.1, not 2.0: `LuaEntity.fluidbox` and the whole `LuaFluidBox` class are
 gone.** Fluid boxes are read and written through methods on the entity itself —

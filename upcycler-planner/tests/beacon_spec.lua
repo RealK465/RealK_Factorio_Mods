@@ -121,7 +121,7 @@ describe("beacon module inventory in blueprints", function()
       build_mode = defines.build_mode.forced,
     })
     -- The graphics tier stamps onto a real freeplay map, and a forced build can return
-    -- map-dependent extras beside the beacon (seen once on 2.0.77, one seed in many). The
+    -- map-dependent extras beside the beacon (seen once, one seed in many). The
     -- measurement is the beacon's insert plan, so find that ghost rather than pin the count.
     local beacon_ghost
     for _, g in pairs(ghosts) do

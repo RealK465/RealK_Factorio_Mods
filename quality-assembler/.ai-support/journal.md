@@ -3,6 +3,14 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
+
+2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide.
+`legacy/2.0` keeps 0.1.1 and 0.1.2 as a frozen backup. The fork's register section (*The 2.0
+track*) and the deferred entry for that branch came out of the registers. The README used to
+say a 2.0 build is released separately; it now says the 2.0 releases no longer get updates.
+The portal keeps the old line until the next approved sync (`deferred.md`).
+
 ## 2026-09-14 — shorter description, 0.1.2 and 0.1.3 released
 
 The owner cut the mod's description to "A fast assembling machine with built-in quality." (the

@@ -30,8 +30,8 @@ both refuse rather than falling back to some other install they happen to find.
 
 ### Installs this workspace may use
 
-List every install that is fair game, and what each is for — the default, a stable-branch one
-for backports, a base-only one for the no-expansion path.
+List every install that is fair game, and what each is for — the default, and a base-only one
+for the no-expansion path.
 
 **Anything not on that list is out of scope**, in particular any copy of the game used for
 actually playing: never read, never written, never validated against. Say so explicitly here if

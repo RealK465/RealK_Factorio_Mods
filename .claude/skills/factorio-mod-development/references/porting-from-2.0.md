@@ -1,4 +1,4 @@
-# 2.0 → 2.1: what breaks
+# Porting 2.0 code to 2.1: what breaks
 
 Extracted from the game's own `data/changelog.txt` (2.1.14 install, extended to 2.1.22 on
 2026-10-16), Modding and Scripting sections only. Regenerate against a newer install rather
@@ -8,60 +8,70 @@ than trusting this copy:
 grep -A2000 "Version: 2.1" "<install>/data/changelog.txt"
 ```
 
+**Read it whenever 2.0-era code is the source**: forking or porting another author's mod
+(`robotworld-continued-realk` was one), or lifting a pattern from `exemples/`, whose mods were
+written for 2.0. Code written for 2.0 uses the left-hand names below; 2.1 needs the right-hand
+ones. Anything still using `global` or `game.*_prototypes` is older again — see `SKILL.md` →
+*The globals, and the 2.0 renames*.
+
 **Most of it is in 2.1.7**, the first public experimental build: 149 Modding and 150
 Scripting entries, against 23 across 2.1.8–2.1.14 which are purely additive. 2.1.15–2.1.22
 add 66 more, and those are **not** all additive: the rows tagged with a version below are
 removals and renames from that stretch, each checked against the 2.0.77 and 2.1.22 API files.
-A mod written against an earlier 2.1 build can break on them too.
-
-Direction of use: this file answers *"what must change to run on 2.0"* as much as *"what must
-change to run on 2.1"*. A 2.0 build has to use the left-hand name; a 2.1 build the right-hand one.
+Code written against an earlier 2.1 build can break on them too.
 
 ---
 
 ## Silent behaviour changes — read these first
 
-Nothing errors, nothing shows in a dump diff, and the mod is quietly wrong on the other version.
+Nothing errors, nothing shows in a dump diff, and ported code is quietly wrong.
 
 - **Module quality multipliers.** `ModulePrototype::consumption_quality_multiplier`,
   `speed_`, `productivity_`, `pollution_`, `quality_quality_multiplier` are new in 2.1, and
-  default to 1.0 for beneficial effects and **0.0 for detrimental ones**. A module whose
-  penalties stay flat across quality levels gets that from the 2.1 default. On 2.0 quality
-  scales the penalties too, and no property exists to stop it.
+  default to 1.0 for beneficial effects and **0.0 for detrimental ones**. A module's penalties
+  stay flat across quality levels on 2.1 by default, where 2.0 scaled them with the bonuses.
 - **Quality effect values divided by 10** in prototype definitions, and GUI percentages no
-  longer multiplied by `next_probability`. Any quality number written for one version is wrong
-  by a factor of ten on the other. The mechanism: on 2.0 the real chance is
-  `effect.quality * next_probability`, and every quality's `next_probability` is `0.1`; on 2.1
-  `next_probability` is `1`, so the effect value *is* the chance. Verified against vanilla
-  `quality-module-3` — `quality = 0.25` on 2.0, `0.025` on 2.1, both displaying 2.5%. A module
-  written for 2.1 and shipped to 2.0 unchanged is a **tenth** as strong, which puts a top-tier
-  module below vanilla tier 1. Nothing errors and the dump looks fine; only the arithmetic says so.
-- **`RecipePrototype::categories` is 2.1-only and silently ignored on 2.0**, where the recipe
-  falls back to the default single `category = "crafting"` — under Space Age that quietly drops
-  it out of the electromagnetic plant. 2.0's shape is one `category` plus optional
-  `additional_categories`, and vanilla 2.0 Space Age never uses the latter: it sets
-  `category = "electronics"` on every module and beacon recipe and *adds* `electronics` to
-  assembling machines 1–3, so the single category reaches both machines. The 2.1 equivalent is
-  `categories = {"crafting", "electromagnetics"}`. **Port to `category = "electronics"`**, not
-  to `additional_categories`.
+  longer multiplied by `next_probability`. Any quality number written for 2.0 is ten times too
+  strong on 2.1. The mechanism: on 2.0 the real chance is `effect.quality * next_probability`,
+  and every quality's `next_probability` is `0.1`; on 2.1 `next_probability` is `1`, so the
+  effect value *is* the chance. Verified against vanilla `quality-module-3` — `quality = 0.25`
+  on 2.0, `0.025` on 2.1, both displaying 2.5%. Nothing errors and the dump looks fine; only
+  the arithmetic says so.
 - **`next_probability` values multiplied by 10** (to 1). 100% quality effect now guarantees a
-  quality increase.
+  quality increase. A 2.0 quality prototype's `next_probability` is a tenth of what 2.1 means
+  by the same odds.
+- **Recipe categories.** `RecipePrototype::category` and `additional_categories` are removed
+  and silently ignored: a recipe that sets only `category` falls back to the default
+  `categories = {"crafting"}`. 2.1.7 also removed the combined categories — `basic-crafting`,
+  `recycling-or-hand-crafting`, `chemistry-or-cryogenics`, `pressing`,
+  `crafting-with-fluid-or-metallurgy`, `metallurgy-or-assembling`, `organic-or-hand-crafting`,
+  `organic-or-assembling`, `organic-or-chemistry`, `electronics-or-assembling`, `electronics`,
+  `electronics-with-fluid`, `cryogenics-or-assembling` — and added `hand-crafting`, listing
+  several categories per recipe instead. Vanilla 2.0 Space Age put every module and beacon
+  recipe in `category = "electronics"`; the 2.1 equivalent is
+  `categories = {"crafting", "electromagnetics"}`. Port a 2.0 `category = X` to
+  `categories = {X}`, and a removed combined category to the list it stood for.
+- **The `quality` mod un-hides `normal` on 2.1** but not on 2.0, so the count of *shown*
+  qualities differs by one between the two for the same set of tiers — which matters to
+  anything sizing `quality_selector_dropdown_threshold` (measured off two dumps, 2026-09-10).
 - **`QualityPrototype::beacon_power_usage_multiplier` must be ≥ 0.01** in 2.1.
-- **Module effects resolve to 0.01%** in 2.1. Finer-grained effect values silently round on 2.0.
+- **Module effects resolve to 0.01%** in 2.1. Finer-grained effect values round.
 - **Selection flags** `blueprint`, `deconstruct`, `cancel-deconstruct`, `upgrade`,
   `cancel-upgrade`, `downgrade` no longer imply `any-entity` or `any-tile` in 2.1.
 - **Reactors** no longer connect to neighbours by touching edges — 2.1 uses
   `ReactorPrototype::neighbour_connectable`.
-- **The `recycling` recipe category moved from base to the recycler mod** in 2.1. On 2.0 it is
-  in base and there is no recycler mod. **The recycler's files moved with it**: its sounds are
-  `__recycler__/sound/recycler/*.ogg` on 2.1 and `__quality__/sound/recycler/*.ogg` on 2.0, and
-  a 2.1 path loads clean on 2.0 right up to the moment the real game starts.
+- **The `recycling` recipe category moved from base to the recycler mod** in 2.1, and the
+  recycler's files moved with it. 2.0 has no `recycler` mod: its recycler, sounds and recycling
+  library live in `quality`. So a 2.0 `__quality__/sound/recycler/*.ogg` is
+  `__recycler__/sound/recycler/*.ogg` on 2.1, and `__quality__.prototypes.recycling` is
+  `__recycler__.recycling`. A wrong sound or sprite path passes `--dump-data` and stops the
+  real game — `factorio-validate` → `-FullLoad` is the check.
 - **Flying robot energy usage** no longer derives from gravity/pressure; 2.1 uses a
   `"robot-energy-usage"` surface property.
 - **`feature_flags["expansion"]` is 2.1-only** (added with belt stacking). Reads as `nil` on
-  2.0. Other people's mods use that as a version probe; this repo never does — 2.0 code lives
-  on `legacy/2.0`, never behind a probe on `main` (SKILL.md → *Sharing code between the
-  tracks*).
+  2.0, so other people's mods use it as a version probe; on 2.1 the 2.0 side of such a branch
+  is dead code to delete when porting. The same goes for `mods["base"]` version-string
+  matching and `script.active_mods["base"]` at runtime.
 - **`AmbientSound::planet` → `planets`** plus `surface_names`, `play_on_all_surfaces`,
   `exclude_planets`, `exclude_surface_names`. This one *did* error — it crashed planet mods on
   2.1.13.
@@ -76,7 +86,7 @@ Nothing errors, nothing shows in a dump diff, and the mod is quietly wrong on th
   outside the output fluid's range is now a prototype error.
 - **`LuaEntity::set_fluid_filter`, `get_fluid_filter`, `get_fluid_segment_filter` take and
   return a `FluidID`** (2.1.22), no longer a `FluidFilter`. A within-2.1 change: these methods
-  replaced `LuaFluidBox` in 2.1.7, so 2.0 has neither shape.
+  replaced `LuaFluidBox` in 2.1.7, so 2.0 code has neither shape.
 
 ---
 
@@ -90,6 +100,7 @@ Nothing errors, nothing shows in a dump diff, and the mod is quietly wrong on th
 | `RecipePrototype::reset_freshness_on_craft` | `ItemProductPrototype::reset_freshness_on_craft` |
 | `AssemblingMachinePrototype::enable_logistic_control_behavior` | `"no-logistic-connection"` entity flag |
 | `CraftingMachinePrototype::forced_symmetry` | `use_mirroring` |
+| assembling-machine graphics inline in `__base__/prototypes/entity/entities.lua`, the connector from the `circuit_connector_definitions["assembling-machine"]` global | `__base__/prototypes/entity/assembler-pictures.lua`, required by file |
 | `EntityPrototype::build_base_evolution_requirement` | removed |
 | `GeneratorPrototype::horizontal_animation`, `vertical_animation`, `horizontal_frozen_patch`, `vertical_frozen_patch` | `GeneratorPrototype::pictures` |
 | `MiningDrillPrototype::base_picture`, `base_render_layer` | `working_visualisations` |
@@ -147,6 +158,7 @@ Nothing errors, nothing shows in a dump diff, and the mod is quietly wrong on th
 | `LuaPlayer::teleport()` | no longer implicitly exits remote view |
 | `LuaLogisticContainerControlBehavior::circuit_exclusive_mode_of_operation` | `set_requests`, `read_contents` |
 | `LuaAssemblingMachineControlBehavior::include_fuel`, `LuaFurnaceControlBehavior::include_fuel` | `read_fuel` |
+| `LuaDisplayPanelControlBehavior::messages`, `get_message`, `set_message` | `records`, `get_record`, `add_record`, `set_record`, `move_record`, `remove_record` |
 | `LuaGroup` | `LuaItemGroup`, `LuaItemSubGroup` (2.1.15) |
 | `LuaSimulation::get_widget_position()` with `data`/`data2` strings | reworked, 1-based indexing (2.1.15) |
 | `LuaPlayer::spectator` | removed (2.1.20) |
@@ -171,7 +183,7 @@ Nothing errors, nothing shows in a dump diff, and the mod is quietly wrong on th
 
 ## 2.1-only additions worth knowing
 
-Using any of these means the 2.0 build needs a different implementation, or none.
+What 2.0 code had no way to use, and often worked around. A port can replace the workaround.
 
 - `ModulePrototype::*_quality_multiplier` (see silent changes above)
 - `EffectReceiver::consumption_limits`, `speed_limits`, `productivity_limits`,
@@ -185,13 +197,14 @@ Using any of these means the 2.0 build needs a different implementation, or none
 - `RecipePrototype::requires_ingredients_to_unlock_results`, `sort_item_ingredients`,
   `can_set_quality`, `raise_on_crafted` (2.1.12)
 - Module support on agricultural towers
-- The `+` dependency prefix (recommended, auto-enabled) — **`info.json` on the 2.0 branch must
-  not use it**
+- The `+` dependency prefix (recommended, auto-enabled)
 - `[space-age]` `expansion` feature flag; `ItemPrototype::spoil_quality_min`/`max`/`change`
 - Runtime: `LuaPin` and `LuaPlayer::get_pins()`/`clear_pins()` (2.1.10),
   `LuaQualityPrototype::roll_quality()` (2.1.12), `get_roll_chances()` (2.1.13),
   `LuaForce::get_space_platforms()`, `LuaEntity::local_effect` (2.1.13),
-  `on_player_super_forced_selected_area` (2.1.13), `LuaBootstrap::get_event_name()` (2.1.12)
+  `on_player_super_forced_selected_area` (2.1.13), `LuaBootstrap::get_event_name()` (2.1.12),
+  `LuaForce::unlock_logistic_network` and the `unlock-logistic-network` technology modifier
+  (2.1.7)
 - `info.json` `migrates_from` (2.1.18) — takes over a removed mod's storage, inventories, GUI
   and render objects
 - `ItemPrototype::science_capacity`, `quality_affects_spoil_ticks`,

@@ -2,7 +2,7 @@
 
 **Tune your robots and roboports. Optionally start the game with robots.**
 
-An updated Robot World Continued, for Factorio 2.0 and 2.1. Everything is set in Settings > Mod settings > Startup.
+An updated Robot World Continued, for Factorio 2.1. Everything is set in Settings > Mod settings > Startup.
 
 ## What you can change
 

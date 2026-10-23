@@ -5,8 +5,9 @@ Read this first. One line per file: what is in it, and when to read it.
 As of 2026-09-14 the mod is **built, published and unplayed**: entity, art, icons, thumbnail and
 prototype, validated in both configurations, read back from the running engine, and released as
 0.1.0 for Factorio 2.1 and 0.1.1 for Factorio 2.0 that night, then 0.1.2 (2.0) and 0.1.3 (2.1)
-on 2026-09-14 with a shorter description; nothing has been played. The design was decided before the code, and the design document now carries a
-*Built* section saying what shipped.
+on 2026-09-14 with a shorter description; nothing has been played. Factorio 2.1 only since
+2026-10-23 — the 2.0 builds get no further work. The design was decided before the code, and
+the design document now carries a *Built* section saying what shipped.
 
 - **`quality-assembler-design.md`** — the entity's visual design and, in its *Built* section,
   what was actually modelled: lore anchor, hero, family, silhouette, the components by flow,
@@ -30,8 +31,8 @@ on 2026-09-14 with a shorter description; nothing has been played. The design wa
   crafting categories, its fluid boxes, fast replacement, and the technology gate. Also the
   three facts about assembling machines that differ from `../quality-recycler` and will mislead
   anyone who copies from it.
-- **`deferred.md`** — open questions and parked work: the `legacy/2.0` port of the animation
-  and text passes, sounds, the remnant, the connector check, the gate number still under its
-  band, what the animation pass left out on purpose, the gallery, balance. Read before
-  starting any of those.
+- **`deferred.md`** — open questions and parked work: sounds, the remnant, the connector check,
+  the gate number still under its band, what the animation pass left out on purpose, the
+  gallery, the portal description's stale 2.0 line, balance. Read before starting any of
+  those.
 - **`journal.md`** — dated sessions, newest first. Read to catch up on what happened and why.

@@ -83,11 +83,3 @@ because it grows the mod past quality tiers into modules, and because it scales 
 equally rather than reshaping the curve — which is the thing the design rule in `balance.md`
 actually needs. The costs it was compared against at the time were from a draft ladder and are
 not quoted here; re-run `qsim.py` with a module-4 multiplier if the idea comes back.
-
-## The 2.0 build has not been played either
-
-Built and validated on 2026-09-10 — `legacy/2.0`, version 0.1.1, clean against base 2.0.77 with
-Space Age, and dump-diffed against the 2.1 build. What the port does and why is in
-`decisions.md`. What is *not* settled is the same thing as on 2.1: nobody has played it, and the
-2.0 build has two behaviour differences a player would notice — no train bonuses above legendary
-and no tier skipping — that only in-game time can judge.

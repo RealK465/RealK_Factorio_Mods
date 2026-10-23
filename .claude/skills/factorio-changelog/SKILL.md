@@ -72,41 +72,15 @@ check before touching this file**, because it decides everything below:
 
 **Every released version needs a section, and the top section's version must match `info.json`.** Add the entry in the same change that bumps the version — see the `factorio-release` skill for the full sequence.
 
-### Two release tracks
+### Sections from the retired 2.0 track
 
-A mod with a second release track still has **one** changelog, kept identical on both branches
-and listing every released version whichever game it targeted. Each zip carries a copy — but the
-mod portal renders exactly one of them, so a section missing from that copy is invisible to
-everyone who is not already running the other build.
-
-- **Every published version gets its own section** — including a release whose only change is
-  the game it targets, which is a normal thing to ship. Numbers are drawn from one sequence
-  shared by both tracks (`factorio-multiversion` → Version numbering), so the number alone
-  never tells a player which game a release was for. Say it: `- Releasing 1.0.0 for Factorio
-  2.1.` Do not renumber an existing section to stand in for the new release — the version that
-  shipped under the old number is real and keeps its own record.
-- **A paired release writes two sections, and both live in the same file.** When one change
-  ships to both games it goes out as two releases: the 2.0 one carries the real entries, and the
-  2.1 one that follows says it is that build ported — `- Version 1.0.4, ported to Factorio 2.1.`
-  Neither section is a per-track secret; both belong in **both** branches' `changelog.txt`,
-  because the portal renders a single file and a reader has to find the work *and* the port in
-  it. Do not copy the entry list into the second section, and do not leave the first section out
-  of the second track's file. Full rule, both ways it has gone wrong here, and the opposite case
-  of a fix backported later: `factorio-multiversion` → Changelog across two tracks.
-- **A section must describe the build that actually shipped under that number**, not the
-  mod in general. Where the tracks genuinely differ, the entry belongs to whichever release
-  introduced it and must be *absent* from the other. Pure Modules 1.0.0 (Factorio 2.0) cannot
-  hold module penalties flat across quality — the properties are 2.1-only — so that entry sits
-  in 1.0.1 (Factorio 2.1) alone. Repeating it in 1.0.0 would promise 2.0 players a feature
-  their build does not have. With one shared file a 2.0 player does *see* the 1.0.1 section, and
-  that is fine — it names Factorio 2.1 as its target. Naming the game in the section is what
-  keeps a shared changelog honest; withholding sections is not.
-- Check the mod's `README.md` for the same claim before shipping it: it becomes the portal
-  description, so a 2.1-only promise left in it is published against a 2.0 build.
-- A backported fix earns an entry on both tracks, worded the same, under each track's own
-  version number.
-
-See `factorio-multiversion`.
+Until 2026-10-23 several mods also shipped Factorio 2.0 builds from `legacy/2.0`, so their
+changelogs list those releases beside the 2.1 ones — sections such as `- Releasing for Factorio
+2.0.` or `- Version 1.0.4, ported to Factorio 2.1.` The portal renders one changelog per mod,
+from the newest upload, so those sections are the only public record of what the 2.0 releases
+changed. **Leave them exactly as they are**, and never renumber around them: a new section
+takes a version above the highest ever shipped, 2.0 builds included (`factorio-release` →
+Versioning). A new section needs no game line — every release from here on is for Factorio 2.1.
 
 ## Before calling it done
 

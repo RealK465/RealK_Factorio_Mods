@@ -53,19 +53,11 @@ if ($folder -ne $name -and $folder -ne "$name`_$($info.version)") {
 $baseVer = (Get-Content -LiteralPath (Join-Path $FactorioPath 'data\base\info.json') -Raw |
   ConvertFrom-Json).version
 
-# Keyed per install: pointing -FactorioPath at the 2.0 install must not flip the mod-list a
-# 2.1 run wrote into the same folder, and vice versa.
+# Keyed per game version: a run against another install, or the dev install after an update,
+# must not flip the mod-list and framework zip an earlier run left in the same folder.
 if (-not $DataDir) { $DataDir = Join-Path $env:LOCALAPPDATA "factorio-testing\$name-$baseVer" }
 $modsDir = Join-Path $DataDir 'mods'
 New-Item -ItemType Directory -Force -Path $modsDir | Out-Null
-
-# On 2.0 the recycler entity ships inside quality and no `recycler` mod exists -- enabling
-# one would send the CLI to the portal for it. Only the DEFAULT set is trimmed; an explicit
-# -Mods is the caller's own business.
-if (-not $PSBoundParameters.ContainsKey('Mods') -and
-    -not (Test-Path -LiteralPath (Join-Path $FactorioPath 'data\recycler'))) {
-  $Mods = @($Mods | Where-Object { $_ -ne 'recycler' })
-}
 
 # The CLI shells out to `npx fmtk` with a bare spawn, which on Windows resolves only a real
 # .exe -- npm ships none. The scoop shim (node.exe + npx-cli.js) is what makes it callable.
@@ -85,7 +77,7 @@ if (-not (Get-Command 'factorio-test' -ErrorAction SilentlyContinue)) {
 # Pre-seed the framework mod so the CLI never reaches its own download path, whose default
 # credential source is %APPDATA%\Factorio - the play install, off-limits in this workspace.
 # Version-matched to the install: the newest portal release for THIS game's major.minor,
-# because the overall-newest is a 2.1-only build that a 2.0 install refuses to load.
+# since a release built for another game version refuses to load.
 if (-not (Get-ChildItem -LiteralPath $modsDir -Filter 'factorio-test_*.zip' -ErrorAction SilentlyContinue)) {
   $gameMajor = ($baseVer -split '\.')[0..1] -join '.'
   Write-Host "Downloading the factorio-test mod for Factorio $gameMajor (dev-install credentials)."

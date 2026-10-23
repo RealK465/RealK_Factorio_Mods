@@ -39,7 +39,7 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (379 tests on `main`, 378 on `legacy/2.0`, as of 2026-09-12) — planner, layout, poles,
+suite under `tests/` (379 tests as of 2026-09-12) — planner, layout, poles,
 circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
 beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
@@ -48,11 +48,12 @@ filter since 2026-09-09 — is what keeps the loop alive
 (`.ai-support/analysis/api.md` §9.6). What suite-green still does not prove is endurance in a
 long played session, where rolls arrive by probability rather than scripted seeding.
 
-**Published, on two tracks** — Factorio 2.1 from `main`, Factorio 2.0 from `legacy/2.0`,
-since the 0.1.0 / 0.1.1 pair of 2026-08-16. Run the `factorio-release` skill's "Published or
-open?" check rather than trusting a number written here: `git tag -l 'upcycler-planner_*'` is
-what has shipped, and a changelog section still stamped `Date: ????` is what has not. Both
-tracks draw from one shared version sequence — `factorio-multiversion` → Version numbering.
+**Published** since the 0.1.0 / 0.1.1 pair of 2026-08-16, for Factorio 2.1 from `main`. The
+Factorio 2.0 builds, last 1.2.5, came from `legacy/2.0`, now a frozen backup. Run the
+`factorio-release` skill's "Published or open?" check rather than trusting a number written
+here: `git tag -l 'upcycler-planner_*'` is what has shipped, and a changelog section still
+stamped `Date: ????` is what has not. The 2.0 tags count too: the next release goes above
+1.2.5, not merely above `info.json`'s 1.2.4 (`factorio-release` → Versioning).
 
 ## The five technical facts worth not re-deriving
 
@@ -122,29 +123,16 @@ work: reference only, never edited, never redistributed.
 
 ## Dependencies
 
-`["base >= 2.1.0", "quality >= 2.1.0"]` on `main`; the `legacy/2.0` build floors both at
-`2.0.0`.
+`["base >= 2.1.0", "quality >= 2.1.0"]`.
 
 The hard dependency on `quality` is deliberate and does double duty: the mod is meaningless
-without quality tiers, and it delivers the recycler on both tracks — in 2.1 `quality` itself
-declares `"recycler >= 2.1.0"`, and in 2.0 the recycler entity ships inside `quality`. The
-dependency is also the only half of this that fixes load order; the flags below do not.
+without quality tiers, and it delivers the recycler — `quality` itself declares
+`"recycler >= 2.1.0"`. The dependency is also the only half of this that fixes load order; the
+flags below do not.
 
-**Space Age feature flags are declared, and the set forks by game version** — `quality_required`
-on both tracks, `expansion_required` on `main` **only**. Do not add `expansion_required` to
-`legacy/2.0`: the flag does not exist in Factorio 2.0, so it is silently ignored there and gates
-nothing. Do not add `space_travel_required` to either. Reasons in `.ai-support/decisions.md`; the
-measurements, including the flag set each version actually enumerates, in `analysis/api.md` §13.
-
-## The 2.0 build
-
-**`main` carries no 2.0 code — never version-gate 2.0 compatibility into it.** The repo
-owner's explicit call; the reason is in `.ai-support/decisions.md`. The port lives entirely on
-`legacy/2.0` as forked copies of the divergent files declared in the repo `CLAUDE.md` → *Git*,
-plus `data-final-fixes.lua`, which exists only on that branch. A cherry-pick from `main` that
-touches a forked file is rewritten by hand, never merged blind. When working on the legacy
-branch, keep `.ai-support/analysis/factorio-2.0.md` open — it is the verified 2.0 API surface,
-including the reads that are hard errors on the wrong version.
+**Space Age feature flags are declared** — `quality_required` and `expansion_required`. Do not
+add `space_travel_required`. Reasons in `.ai-support/decisions.md`; the measurements, including
+the flag set the game actually enumerates, in `analysis/api.md` §13.
 
 ## Layout
 
@@ -153,7 +141,6 @@ The shape follows the community convention in the `factorio-mod-setup` skill: gr
 
 ```
 data.lua                            entry point; requires the prototype files
-data-final-fixes.lua                legacy/2.0 branch ONLY: records allow_quality into mod-data
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        the two per-player settings the modal's window edits
 prototypes/planner/                 the shortcut, the icon layers it is built from, and the two
@@ -264,11 +251,10 @@ The rules, in short. **Every reason lives once, in `.ai-support/decisions.md`** 
 re-opening any of these, and don't restate a reason here.
 
 - Name `upcycler-planner`; prototype prefix `upl-`; settings and locale keys use the full name.
-- Both tracks: Factorio 2.1 from `main`, 2.0 from `legacy/2.0`. No 2.0 code on `main` — the
-  port is forked files on the legacy branch, declared in the repo `CLAUDE.md` → *Git*. Version
-  starts at `0.1.0`.
-- Hard `quality >= 2.1.0` dependency. Space Age flags declared, forking by version:
-  `quality_required` both tracks, `expansion_required` on `main` only. No flib dependency.
+- Factorio 2.1 only. The 2.0 builds stay on the portal, unmaintained; `legacy/2.0` is a frozen
+  backup, never worked on. Version starts at `0.1.0`.
+- Hard `quality >= 2.1.0` dependency. Space Age flags declared: `quality_required` and
+  `expansion_required`. No flib dependency.
 - **The plan becomes a blueprint; the engine builds it.** See fact 1 above.
 - Shortcut → modal → Confirm → a blueprint in the cursor, gated on the `recycling` technology.
   A rebindable hotkey (CTRL+U default) toggles the modal too, honouring the same gate
@@ -332,8 +318,7 @@ re-opening any of these, and don't restate a reason here.
   the machine refuses productivity — never to a quality module. Clearing it means "leave that
   machine empty".
 - **Each lower tier's machine carries the computed best quality/productivity mix by default**
-  (both tracks: 2.1 through the engine's `get_roll_chances`, 2.0 through the legacy roll
-  shim — `analysis/factorio-2.0.md`). A *Mix productivity modules*
+  (through the engine's `get_roll_chances`). A *Mix productivity modules*
   checkbox, ticked by default, is the opt-out; unticking forces quality-only and parks the
   per-tier overrides; the whole line shows only when some productivity module fits the
   machine-and-recipe pair (show-all overrides, the pipe's rule). Solved per tier from engine data
