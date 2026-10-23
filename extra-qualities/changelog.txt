@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2026-10-24
+  Changes:
+    - Factorio 2.1 is now the only supported version. The Factorio 2.0 releases no longer get
+      updates.
+    - Same content as 0.1.0. This release lets the mod update automatically after moving
+      from Factorio 2.0 to 2.1.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-09-10
   Changes:
