@@ -9,6 +9,22 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-24 - 1.2.6 released above the last 2.0 build
+
+The owner reported that games moving from Factorio 2.0 to 2.1, stable since the day before,
+were not updating the mod. The 2.0/2.1 pairs had always shipped 2.1 first, so 1.2.5, a 2.0
+build, held the highest number, and the in-game updater offered nothing above it: 1.2.4 sat
+below. 1.2.6 is 1.2.4 again for 2.1, with a changelog section saying 2.1 is the only supported
+version; three other mods got the same fix, and the two that were not stuck got a matching
+release.
+
+The zip carries the README and comment edits since 1.2.4 and nothing else. Validated on 2.1.23
+(the owner moved the dev install that day): data stage, `-FullLoad` and
+`--check-unused-prototype-data` clean, and the suite green, 382/382 headless plus the graphics
+pass. Uploaded, tagged `upcycler-planner_1.2.6`, pushed. `fmtk upload` left the portal
+description as it was, still promising 2.0 support (`deferred.md`). The rule that the newest
+game version holds the highest number now lives in `factorio-release` → Versioning.
+
 ## 2026-10-23 - Factorio 2.1 went stable, and the 2.0 track was retired
 
 2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide: no

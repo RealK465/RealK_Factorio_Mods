@@ -35,8 +35,10 @@ repo. MIT's one condition — keep the copyright and permission notice in every 
   `robotworld-continued-realk_0.1.0`. **`0.1.1`** followed the same day with the fixes from
   the upstream discussion review (*Scope* below), and **`0.1.2`** is that build ported to
   Factorio 2.0, also the same day — the only 2.0 release (*Factorio 2.1 only* below); `git tag
-  -l 'robotworld-continued-realk_*'` is the list of what shipped. The next release goes above
-  0.1.2, not merely above `info.json`'s 0.1.1: the portal never takes a number twice.
+  -l 'robotworld-continued-realk_*'` is the list of what shipped. **`0.1.3`** (2026-10-24) is
+  0.1.1 again, numbered above 0.1.2 so a game moved from 2.0 to 2.1 is offered it: the in-game
+  updater only moves a player up. A release still goes above the highest tag on either branch,
+  because the portal never takes a number twice.
 - **Portal page:** license GNU GPLv3 (`default_gnugplv3`), category `tweaks` (it changes vanilla
   robots, roboports and inserters rather than adding content), description from `README.md`
   via `fmtk details`, run from `main`'s folder: it also sends `info.json`'s `homepage`, so it

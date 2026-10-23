@@ -9,8 +9,8 @@ A new recycler kind: **12.5% base quality chance built in (no modules needed), 2
 crafting speed, five module slots, a 4x4 footprint, unlocked after the first three planets with
 Space Age and after the rocket without it.** The verified mechanism
 and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **Published
-since 2026-09-12** — 0.1.0 and then 0.1.2 for Factorio 2.1 from `main`; 0.1.1, 0.1.3 and 0.1.4
-were Factorio 2.0 builds from `legacy/2.0`, now a frozen backup. Run the `factorio-release`
+since 2026-09-12** — 0.1.0, 0.1.2 and 0.1.5 for Factorio 2.1 from `main`; 0.1.1, 0.1.3 and
+0.1.4 were Factorio 2.0 builds from `legacy/2.0`, now a frozen backup. Run the `factorio-release`
 skill's "Published or open?" check rather than trusting a number written here. The balance is
 a guess rather than a measurement — see `.ai-support/deferred.md`.
 
@@ -268,9 +268,9 @@ feature flag, and why the optional dependency carries no version — are in
 
 - Name `quality-recycler`, title "Quality Recycler". `embedded-quality-recycler` and
   `recycler-quality` were the alternatives considered; all three were free on the mod portal.
-- Factorio 2.1 only. Versions continue the sequence the 2.0 builds shared, so the next release
-  goes above 0.1.4 — the last 2.0 build — not merely above `info.json`'s 0.1.2
-  (`factorio-release` → Versioning).
+- Factorio 2.1 only. Versions continue the sequence the 2.0 builds shared; 0.1.5 went above the
+  last 2.0 build, 0.1.4, on 2026-10-24, and a release still goes above the highest tag on either
+  branch (`factorio-release` → Versioning).
 - **`package.ignore` needs `images/**`, not `images`.** A bare folder name matches nothing and
   the gallery would ship in the zip; verified by listing the zip on the first release.
 - Dependencies and feature flags as above.

@@ -21,7 +21,8 @@ with cream panels, dark composite frames and khaki ribbed hoses, and gave it a t
 condenser, a sight dome, a light line over the window and a console (the design document's
 *The Aquilo pass*). Nothing has been played beyond screenshots. **Published 2026-09-13**: 0.1.0 for Factorio 2.1
 from `main` and 0.1.1 for Factorio 2.0 from `legacy/2.0`; **2026-09-14**: 0.1.2 for 2.0 and
-0.1.3 for 2.1 with a shorter description; all four tagged; run the
+0.1.3 for 2.1 with a shorter description; **2026-10-24**: 0.1.4 for 2.1, the same content,
+saying 2.1 is the only supported version; all five tagged; run the
 `factorio-release` skill's "Published or open?" check rather than trusting a number written
 here. The 2.0 builds get no further work; `legacy/2.0` is a frozen backup.
 
@@ -115,7 +116,7 @@ a sidecar written against the entity centre puts the stub a full tile past the p
 
 ```
 info.json                  base, quality, optional space-age
-changelog.txt              0.1.0 to 0.1.3, all shipped
+changelog.txt              0.1.0 to 0.1.4, all shipped
 LICENSE
 README.md
 locale/en/quality-assembler.cfg
@@ -211,7 +212,7 @@ Full reasoning in `.ai-support/decisions.md`; these are the rules.
   2026-09-13.
 - Factorio 2.1 only. Versions continue the sequence the 2.0 builds shared: 0.1.0 for Factorio
   2.1 and 0.1.1 for Factorio 2.0 on 2026-09-13, then 0.1.2 for 2.0 and 0.1.3 for 2.1 on
-  2026-09-14 — `factorio-release` → Versioning.
+  2026-09-14, then 0.1.4 for 2.1 on 2026-10-24 — `factorio-release` → Versioning.
 - Dependencies and feature flags as above.
 - **The mechanic: `effect_receiver.base_effect.quality = 0.125`, `crafting_speed = 2`, five
   module slots, 1600 kW, a 3x3 footprint** at `collision_box = {{-1.2,-1.2},{1.2,1.2}}`.

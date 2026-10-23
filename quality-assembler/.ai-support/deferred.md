@@ -91,11 +91,12 @@ watching in play:
   set to GPLv3, its category to content, its description synced from the README and a
   three-shot gallery (production line, Factoriopedia card, night) — the owner dropped the
   close-up before the release. 0.1.2 (Factorio 2.0) and 0.1.3 (Factorio 2.1) followed on
-  2026-09-14 with the shorter description, both tagged; the next version opens a new changelog
-  section.
+  2026-09-14 with the shorter description, both tagged, and 0.1.4 (Factorio 2.1, same content)
+  on 2026-10-24, tagged; the next version opens a new changelog section.
 - **The portal description still says a Factorio 2.0 build is released separately.**
-  `README.md` now says the 2.0 releases no longer get updates; the page catches up at the next
-  approved release or `fmtk details --readme`.
+  `README.md` now says the 2.0 releases no longer get updates. The 0.1.4 upload did not change
+  the page, since `fmtk upload` never syncs it (measured 2026-10-24); it catches up only at an
+  approved `fmtk details --readme`.
 - **`images/`** holds four gallery shots from a composed harness scene (the Factoriopedia page,
   a production line by day and by night, a close-up). They are engine-true but not a *real*
   base: if the owner has a screenshot of the machine in their own factory, it belongs here

@@ -2,7 +2,7 @@
 
 Parked and open work. The single owner of this list — `CLAUDE.md` doesn't keep a second copy.
 
-The mod is **published (0.1.1 for Factorio 2.1, plus 0.1.2 for Factorio 2.0, unmaintained since
+The mod is **published (0.1.3 for Factorio 2.1, plus 0.1.2 for Factorio 2.0, unmaintained since
 2026-10-23), validated and unplayed**.
 
 ## Nothing has been played
@@ -65,3 +65,7 @@ A cleanup review (2026-10-16) suggested two behaviour changes, both left for the
 
 The gallery holds two mod settings screenshots (`images/`) and nothing in game; shots of robots
 at work would need a played game. No FAQ.
+
+**The portal description still says "for Factorio 2.0 and 2.1".** `README.md` names 2.1 only
+since 2026-10-23, but `fmtk upload` never syncs the page, so the 0.1.3 upload left it as it was
+(read back 2026-10-24). It catches up only at an approved `fmtk details --readme`.

@@ -59,9 +59,10 @@ ships (leading dot).
   their source as a frozen backup. No 2.0 work and no 2.0 releases.
 - **Version numbers continue above every number ever shipped, 2.0 builds included.** Both
   tracks drew from one sequence — the first pair was `0.1.0` for 2.0 and `0.1.1` for 2.1, on
-  2026-08-16 — and the portal never takes a number twice, so the next release goes above the
-  highest `upcycler-planner_*` tag on either branch: 1.2.5, a 2.0 build, while `info.json` on
-  `main` still reads 1.2.4.
+  2026-08-16 — and the portal never takes a number twice, so a release goes above the highest
+  `upcycler-planner_*` tag on either branch. 1.2.6, on 2026-10-24, is 1.2.4 again numbered above
+  the last 2.0 build, 1.2.5: with a 2.0 build on top, a game moved from 2.0 to 2.1 was never
+  offered the lower 2.1 release, since the in-game updater only moves a player up.
 - **No flib dependency.** Its save/load-safe GUI handler registry is ~43 lines and worth
   reproducing by hand for one small frame; flib has nothing for shortcuts, and 0.17.0 was a
   breaking release. Copy the pattern, not the dependency.

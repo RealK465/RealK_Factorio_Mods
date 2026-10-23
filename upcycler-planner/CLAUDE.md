@@ -52,8 +52,9 @@ long played session, where rolls arrive by probability rather than scripted seed
 Factorio 2.0 builds, last 1.2.5, came from `legacy/2.0`, now a frozen backup. Run the
 `factorio-release` skill's "Published or open?" check rather than trusting a number written
 here: `git tag -l 'upcycler-planner_*'` is what has shipped, and a changelog section still
-stamped `Date: ????` is what has not. The 2.0 tags count too: the next release goes above
-1.2.5, not merely above `info.json`'s 1.2.4 (`factorio-release` → Versioning).
+stamped `Date: ????` is what has not. The 2.0 tags count too: 1.2.6 (2026-10-24) went above
+the last of them, 1.2.5, so a new release still goes above the highest tag on either branch
+(`factorio-release` → Versioning).
 
 ## The five technical facts worth not re-deriving
 

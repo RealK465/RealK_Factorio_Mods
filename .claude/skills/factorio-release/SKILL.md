@@ -70,13 +70,26 @@ A release is one atomic change: bump `info.json`, add the changelog section, ren
 **A new version goes above the highest `<name>_*` tag, not merely above `info.json`.** Until
 2026-10-23 a mod could also ship a Factorio 2.0 build from the `legacy/2.0` branch, drawing
 from the same sequence as `main`, and the portal takes each number only once per mod, whichever
-game it was for. So on four mods `main` sits below a number a 2.0 build already spent, and
-`fmtk version`, which bumps from `info.json`, would hand out a taken one: upcycler-planner
-1.2.4 → 1.2.5, quality-recycler 0.1.2 → 0.1.3, extra-qualities 0.1.0 → 0.1.1,
-robotworld-continued-realk 0.1.1 → 0.1.2 — every one already published. Read
-`git tag -l '<name>_*' --sort=v:refname` before the bump, grade it against the highest tag,
-and set the number by hand when the tool's pick is taken. `legacy/2.0` is a frozen backup;
-nothing ships from it, and no digit is reserved for a game version.
+game it was for. Since the 2026-10-24 releases every mod's `info.json` on `main` is its
+highest tag again, so `fmtk version`, which bumps from `info.json`, picks a free number — but
+read `git tag -l '<name>_*' --sort=v:refname` before the bump anyway, grade it against the
+highest tag, and set the number by hand when the tool's pick is taken. `legacy/2.0` is a frozen
+backup; nothing ships from it, and no digit is reserved for a game version.
+
+**The newest game version must hold the highest number.** Players move forward, and the in-game
+updater offers only a release numbered above the one installed. The 2.0/2.1 pairs were shipped
+2.1 first, so on four mods a 2.0 build held the top number. When 2.1 went stable, a game that
+moved from 2.0 to 2.1 kept that 2.0 build and was never offered the lower-numbered 2.1 one.
+The owner reported it on 2026-10-24, and it was fixed that day by releasing every mod above its
+2.0 numbers. Two rules follow for any future spell of two tracks, such as a stable and an
+experimental game version shipped side by side:
+
+- **Ship each pair older game first**, so the build for the newer game version takes the higher
+  number and every player who upgrades the game finds an update waiting.
+- **When a track retires, release the surviving one at once**, above every number either track
+  spent, even with nothing else to ship: a changelog section saying the old game version no
+  longer gets updates is enough. Waiting for the next real change strands every upgrading
+  player until then — 2.1 went stable on 2026-10-23 and the fix shipped a day late.
 
 **`changelog.txt` keeps the 2.0 builds' sections.** The portal renders one changelog per mod,
 taken from the newest upload, so those sections are the only public record of what the 2.0
@@ -84,7 +97,7 @@ releases changed. Never prune them.
 
 ## Sequence
 
-1. `fmtk version` — bumps `version` in `info.json` and opens a new changelog section stamped `Date: ????`. **Skip when the top section is already open** — the work belongs in it (see "Published or open?"). Check the number it picked against the tags first: where `main` trails a spent 2.0 number, it picks a taken one (*Versioning*).
+1. `fmtk version` — bumps `version` in `info.json` and opens a new changelog section stamped `Date: ????`. **Skip when the top section is already open** — the work belongs in it (see "Published or open?"). Check the number it picked against the tags first: it bumps from `info.json`, which knows nothing of numbers spent elsewhere (*Versioning*).
 2. Write the changelog entries under that section by hand — see the `factorio-changelog` skill. The section keeps `Date: ????` for as long as the version is open, however many sessions that spans.
 3. Validate the data stage — see the `factorio-validate` skill — **and run it once more with
    `-FullLoad`.** The headless run never opens a sprite or sound file; a misspelled
@@ -93,12 +106,16 @@ releases changed. Never prune them.
    the mod carries a `tests/` suite, it must be green too** — headless plus one graphics pass,
    via the `factorio-testing` skill. A release is exactly the checkpoint the suite exists for;
    suites are per-mod opt-in, so a mod without one skips this sentence.
-4. **Settle every player-facing file before packaging.** `README.md` ships *inside the zip* **and** becomes the portal description, so a wrong claim in it gets baked into a release that can never be re-uploaded. Read it against what this release actually contains, not against what the mod is meant to become. Same for `info.json`'s `description` and the locale strings.
+4. **Settle every player-facing file before packaging.** `README.md` ships *inside the zip* **and** becomes the portal description at the next `fmtk details --readme` (the upload does not sync it — step 7), so a wrong claim in it gets baked into a release that can never be re-uploaded. Read it against what this release actually contains, not against what the mod is meant to become. Same for `info.json`'s `description` and the locale strings.
 5. `fmtk package` — builds `<name>_<version>.zip`. Local only, safe, and the right way to sanity-check what would ship. A sanity zip may still carry `Date: ????`; the shipping one is rebuilt after the datestamp.
 6. Verify the zip contents, then **stop and ask**.
 7. The release itself, on approval — one approval covers this chain for this version and nothing after it: `fmtk datestamp` (replaces `????` with today's date; format from `package.datestamp_format`, **defaulting to `isoDate`**, which is why ISO is the house format) → rebuild the zip → `fmtk upload` → commit the release → tag `<name>_<version>` → push, tag included.
 
    **Nothing that ships may change between building the zip and making the commit.** The tag is meant to reproduce the uploaded artifact exactly, and the portal can never be corrected in place. Pure Modules 1.0.0 got this wrong — its `README.md` was fixed *after* the upload, so the shipped zip and the `pure-modules-realk_1.0.0` tag differ by that one file, permanently. If something genuinely must change after an upload, it belongs in the next version; record the discrepancy rather than quietly re-tagging.
+
+   **Compare zip and tag by content, not by bytes.** With `core.autocrlf=true` the zip packs the CRLF working tree while most blobs are stored LF, so a byte comparison shows line-ending-only differences on every release (measured on all six releases of 2026-10-24). Normalise `\r\n` before comparing; a difference that survives that is real.
+
+   **`fmtk upload` leaves the portal page alone.** A `README.md` changed since the last sync ships in the zip but reaches the portal description only through `fmtk details --readme`, a separate public write that needs its own approval (*The portal page after a first publish*). Measured 2026-10-24: six uploads, and every description stayed as it was, three of them still promising Factorio 2.0 support. Diff the README against the last tag at step 4, and when it changed, say the page needs a sync rather than assuming the upload did it.
 8. `fmtk publish` — the all-in-one alternative, only on explicit instruction. Requires a clean git tree on the publish branch, then: prepublish script → datestamp → commit → tag → package → upload → details sync → postpublish script → version bump → commit → push. Two catches in this repo: it **pushes to git and uploads to the portal in one go**, and its default git tag is the bare version number, which collides across mods in a multi-mod repository — set `"no_git_tag": true` in `package` and create the `<name>_<version>` tag by hand. When the steps should stay separable, use step 6 instead.
 
 ## Tooling: `fmtk`
@@ -138,7 +155,9 @@ Every mod in this repo is GPLv3 (repo `CLAUDE.md` → License). Two separate thi
 
 Uniqueness is the only version rule — the portal does **not** require an upload to be numerically
 newer than the last one, and a number spent on one game version's release is spent for every
-other. The retired 2.0 builds still hold theirs (*Versioning* above).
+other. The retired 2.0 builds still hold theirs (*Versioning* above). The in-game updater is
+the one that cares about order: it only moves a player up, which is why the newest game version
+must hold the highest number (*Versioning*).
 
 Names are unique across every account that has ever published — deleted accounts included: `pure-modules` is held by one, which is why this repo's Pure Modules ships as `pure-modules-realk` and which only the read-only GET could have revealed. Check the name *before* the first release conversation, not during it.
 

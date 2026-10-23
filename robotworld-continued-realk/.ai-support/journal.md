@@ -2,6 +2,17 @@
 
 Append-only, newest first. Entries may go stale; they are history.
 
+## 2026-10-24 — 0.1.3 released above the 2.0 build
+
+The owner reported that games moving from Factorio 2.0 to 2.1 were not updating the mod: 0.1.2,
+the 2.0 build, held the highest number, and the in-game updater offered nothing above it. 0.1.3
+is 0.1.1 again for 2.1, with a changelog section saying 2.1 is the only supported version, plus
+the README edits since 0.1.1. The Krastorio 2 Spaced Out line in 0.1.2's changelog needed no
+port: on 2.1 Spaced Out runs on top of Krastorio 2, which the quick start already checks for
+(`decisions.md`). Validated on 2.1.23 with every expansion and with none, with `-FullLoad` and
+`--check-unused-prototype-data` clean; uploaded, tagged, pushed. The portal description still
+says 2.0 and 2.1 (`deferred.md`).
+
 ## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
 
 A week after the 2.0 port below, 2.1 became the stable release at 2.1.23 and the owner retired

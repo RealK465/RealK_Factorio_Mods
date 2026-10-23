@@ -3,6 +3,15 @@
 Dated sessions, newest first. Append-only: entries are history and may go stale. Only a moved
 file path is ever repaired in place.
 
+## 2026-10-24 — 0.1.2 released above the 2.0 build
+
+The owner reported that games moving from Factorio 2.0 to 2.1 were not updating the mod: 0.1.1,
+the 2.0 build, held the highest number, and the in-game updater offered nothing above it. 0.1.2
+is 0.1.0 again for 2.1, with a changelog section saying 2.1 is the only supported version, plus
+the README's *Check my other mods* list. Validated on 2.1.23, with `-FullLoad` and
+`--check-unused-prototype-data` clean; uploaded, tagged, pushed. The rule that the newest game
+version holds the highest number now lives in `factorio-release` → Versioning.
+
 ## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
 
 2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide: 0.1.1

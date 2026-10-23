@@ -114,5 +114,7 @@ the file is written.
 
 Since 2026-10-23, when 2.1 went stable at 2.1.23 and the repo owner retired the 2.0 track. The
 2.0 build, 0.1.1, stays on the portal unmaintained, and `legacy/2.0` keeps its source as a
-frozen backup — no 2.0 work and no 2.0 releases. The next release goes above 0.1.1, not merely
-above `info.json`'s 0.1.0: the portal never takes a number twice, whichever game it was for.
+frozen backup — no 2.0 work and no 2.0 releases. 0.1.2, on 2026-10-24, is 0.1.0 again
+numbered above 0.1.1, so a game moved from 2.0 to 2.1 is offered it: the in-game updater only
+moves a player up. A release still goes above the highest tag on either branch, because the
+portal never takes a number twice, whichever game it was for.

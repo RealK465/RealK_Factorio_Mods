@@ -18,9 +18,9 @@ for them stays visible in `README.md` and `UPSTREAM-LICENSES.txt`. Treat a desig
 "what did upstream intend" before "what would be better".
 
 **Published 2026-10-16: 0.1.0 and 0.1.1 for Factorio 2.1, then 0.1.2 for Factorio 2.0**, the
-one 2.0 build, now unmaintained (`legacy/2.0` is a frozen backup); `git tag -l
-'robotworld-continued-realk_*'` is the list of what shipped, and the next release goes above
-0.1.2. **The data stage loads clean on 2.1.17 and 2.1.22, with every expansion and with none,
+one 2.0 build, now unmaintained (`legacy/2.0` is a frozen backup); **0.1.3 for 2.1 on
+2026-10-24**, the same content as 0.1.1, numbered above it. `git tag -l
+'robotworld-continued-realk_*'` is the list of what shipped. **The data stage loads clean on 2.1.17 and 2.1.22, with every expansion and with none,
 at default and at edge settings, and quick start, the starting armor, the early robotics flags
 and the AAI Containers and Factorissimo 3 interactions were proven on created saves. Nothing
 has been played.** See `.ai-support/deferred.md`.

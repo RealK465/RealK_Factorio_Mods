@@ -3,6 +3,15 @@
 Dated sessions, newest first. Append-only: an entry is history and is never edited once written,
 except to repair a moved file path.
 
+## 2026-10-24 — 0.1.4 released, 2.1 only
+
+Released at the owner's ask beside the fix for four other mods, whose 2.0 builds held their
+highest numbers and kept games moving from 2.0 to 2.1 from updating. This mod was not stuck:
+0.1.3, a 2.1 build, already held the top number. So 0.1.4 carries only a changelog section
+saying 2.1 is the only supported version, plus the README edits since 0.1.3. Validated on 2.1.23
+in both configurations, with `-FullLoad` and `--check-unused-prototype-data` clean; uploaded,
+tagged, pushed. The upload left the portal description as it was (`deferred.md`).
+
 ## 2026-10-23 — 2.1 went stable, and the 2.0 track was retired
 
 2.1 became the stable release at 2.1.23, and the owner retired the 2.0 track repo-wide.
