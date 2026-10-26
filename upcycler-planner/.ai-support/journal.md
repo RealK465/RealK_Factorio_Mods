@@ -9,6 +9,19 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-26 - 1.2.7 released: the combinator retune and the recycler gate
+
+At the owner's ask, the same session. The gates ran first on 2.1.23: data stage and `-FullLoad`
+clean (`--check-unused-prototype-data` silent in the session's hand-built runs of the same
+data stage), the suite green at 397/397 headless and through the graphics pass. The zip — 25
+files, `tests/**`, `CLAUDE.md` and `images/**` held out — matched the tag file for file once line
+endings were normalised. Uploaded, then `fmtk details --readme --faq` synced the changed
+paragraphs: the page read back with 1.2.7 on top, both README lines and the FAQ line live, and
+license, category and the six gallery shots unchanged. Committed as the luacheck config
+(`repo` scope), the work and the datestamp; tagged `upcycler-planner_1.2.7`; pushed. The one
+check left is in game: a player's edit of C in the combinator window driving the retune
+(`analysis/api.md` §35).
+
 ## 2026-10-26 - pacak's two reports: C retunes network mode, and the gate follows the recycler (1.2.7 opened)
 
 pacak's portal thread `6adf1377b78a5422a7d25325` ("Some small issues") reported two things.
