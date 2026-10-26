@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.7
-Date: ????
+Date: 2026-10-26
   Changes:
     - With Count the whole logistic network ticked, changing C on the combinator now changes
       the maximum on every machine and recycler. Raising it after the loop has finished starts
