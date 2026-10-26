@@ -11,8 +11,10 @@ read_globals = {
   -- control stage
   "game", "script", "remote", "commands", "rendering", "rcon", "helpers", "prototypes",
   "defines", "settings", "serpent", "log", "localised_print", "table_size", "util",
-  -- data stage
-  "data", "mods", "feature_flags",
+  -- data stage; data.raw is patched in place, which is what data-updates and data-final-fixes
+  -- are for
+  data = { other_fields = true, fields = { raw = { read_only = false, other_fields = true } } },
+  "mods", "feature_flags",
 }
 
 -- The one global a mod writes.
