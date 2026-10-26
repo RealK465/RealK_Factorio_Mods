@@ -31,9 +31,13 @@ move since; the front matter names the latest. The JSON files are minified, so c
 Runtime: `LuaPlayer.set_shortcut_available / is_shortcut_available / set_shortcut_toggled /
 is_shortcut_toggled`.
 
-Gate tech is **`"recycling"`** (`data/recycler/data.lua:71-96`). The quality techs, if ever
-needed, are `quality-module`, `quality-module-2`, `quality-module-3`, `epic-quality`,
-`legendary-quality` (`data/quality/prototypes/technology.lua:3-145`).
+Vanilla's gate tech is **`"recycling"`** (`data/recycler/data.lua:71-96`), which Space Age
+turns into a Fulgora research trigger (`data/space-age/base-data-updates.lua:921-927`: mine a
+`fulgoran-ruin-vault`). Since 2026-10-26 the shortcut names it only as a default:
+`data-final-fixes.lua` moves the gate to whichever technology first unlocks a recycler —
+§35 has the runs. The quality techs, if ever needed, are `quality-module`,
+`quality-module-2`, `quality-module-3`, `epic-quality`, `legendary-quality`
+(`data/quality/prototypes/technology.lua:3-145`).
 
 ## 2. Selection tool
 
@@ -1560,8 +1564,8 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
   `LuaConstantCombinatorControlBehavior`, `LuaDisplayPanelControlBehavior` and
   `LuaRoboportControlBehavior` throw *doesn't contain key connect_to_logistic_network*. So
   the display panel can never read the network; a roboport WRITES the network onto a wire
-  instead (`LuaRoboportControlBehavior.read_items_mode = logistics`), the unbuilt alternative
-  in `../deferred.md`.
+  instead (`LuaRoboportControlBehavior.read_items_mode = logistics`), the alternative
+  `../decisions.md` rejects under *Count the whole logistic network*.
 - **Outside any logistic network the entity is disabled outright, whatever the condition.**
   Two machines and two recyclers 200 tiles from the only roboport, conditioned `gear < 50` and
   `gear > 50`, all read `disabled_by_control_behavior` with zero crafts and
@@ -1577,8 +1581,9 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
 - **The condition compares against a constant.** `logistic_condition` is a `CircuitCondition`
   and `second_signal` is legal in the shape, but the network carries items only, so a virtual
   signal there can only read 0 — the documented surface (§4), not separately measured, since
-  the constant form is what the mod writes. The cap is therefore baked per entity, which is
-  what costs the combinator its retune of the maximum.
+  the constant form is what the mod writes. The cap is therefore baked per entity, where no
+  combinator row can reach it; `scripts/retune.lua` copies an edited C onto the constants
+  instead (§35).
 - **Blueprint shape, both directions.** `create_blueprint` over a conditioned machine, recycler,
   inserter and lamp captured `control_behavior = { connect_to_logistic_network = true,
   logistic_condition = { comparator = "<", constant = 50, first_signal = { name =
@@ -1593,8 +1598,8 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
   entities built at constant 50; a blueprint of the same positions at constant 70 through
   `build_blueprint` in `defines.build_mode.normal` returned 0 ghosts and every entity read
   `constant == 70` five ticks later; a third at 90 in `defines.build_mode.forced` read 90, no
-  ghost left on the surface. That is the FAQ's "set it in the planner and place the blueprint
-  over the loop".
+  ghost left on the surface. So a re-planned blueprint placed over the loop changes the max
+  too, beside the C retune of §35.
 - **The prototype-level opt-out.** 2.1.7 added the `EntityPrototypeFlag`
   `"no-logistic-connection"` (*"For entities with control behavior that supports logistic
   connection, if this flag is set then entity will not be able to connect to logistic
@@ -1610,3 +1615,55 @@ the stamp") and `tests/planner_spec.lua` (the flag test). The feature that stand
   logistic network"* only makes sense if that section shows on assembling machines; furnaces
   gained circuit connection in 2.0.35 (`data/changelog.txt`). A screenshot of a stamped loop's
   machine GUI is the one check left.
+
+## 35. Retuning a stamped loop from the combinator, and the gate read off the data — measured 2026-10-26
+
+Measured on 2.1.23 through a throwaway probe (`tests/probe_spec.lua`, registered, run with
+`-Filter probe`, deleted after; the findings grep as `UPL-PROBE` in that run's log), then
+pinned by `tests/loop_spec.lua` ("retuning network mode from the combinator"),
+`tests/gui_spec.lua` (the open hotkey's gate tests) and `tests/pure/gate_spec.lua`. What stands
+on it: `../decisions.md` → *Count the whole logistic network* and the shortcut gate bullet.
+
+- **`on_entity_logistic_slot_changed` fires for a constant combinator, synchronously.**
+  `LuaLogisticSection::set_slot` on a live combinator raised it once per call, inside the call,
+  with `entity` the combinator, `section` index 1, the slot index and no `player_index` (a
+  script edit). A ghost combinator's section — `get_control_behavior()` on the ghost gives a
+  `LuaConstantCombinatorControlBehavior` with its sections — raised it with `entity` the ghost
+  (`type == "entity-ghost"`, `ghost_type == "constant-combinator"`). **A player's GUI edit is
+  not measured** — no input faking exists — but Wube fixed exactly that path in 2.0.10: *"Fixed
+  that on_entity_logistic_slot_changed did not fire for constant combinators"*
+  (`data/changelog.txt:4038`).
+- **What raises nothing:** assigning `LuaLogisticSection::filters` wholesale; switching the
+  combinator off; reviving its ghost; a blueprint stamped over the live combinator through
+  `build_blueprint`, which did rewrite its rows (88 to 123); and `LuaEntity::copy_settings`
+  between two combinators. A player's settings paste raises `on_entity_settings_pasted` instead
+  (documented; script cannot raise it), which is why `control.lua` registers both.
+- **The read-back shapes.** A section filter comes back `{value = {type = "virtual", name =
+  "signal-C", quality = "rare", comparator = "="}, min = 90}`, the quality a string. A logistic
+  condition comes back `{comparator = "<" or "≥", constant = 77, first_signal = {name =
+  "iron-gear-wheel", quality = "rare"}, fulfilled = false}`, the item `type` omitted as
+  everywhere (§34). Written back verbatim — the unicode `≥` and the type-less signal included —
+  it is accepted. `LuaEntity::combinator_description` reads on a ghost as on an entity.
+- **The green walk reaches ghosts, and a condition written onto a ghost survives its revive.**
+  From the revived combinator of a stamped network-mode gear loop,
+  `LuaEntity::get_wire_connector` (green) → `LuaWireConnector::connections` → `target.owner`
+  walked 12 entities, 11 of them ghosts: 3 machines, 2 recyclers, 2 lamps, the panel and 3
+  census chests. On a ghost, `get_control_behavior()` returns the specific class
+  (`LuaAssemblingMachineControlBehavior`, `LuaFurnaceControlBehavior`,
+  `LuaLampControlBehavior`), so an `object_name` test for the generic one finds nothing — the
+  probe's first pass fell for it. A `logistic_condition` written onto each of the 7 gated ghosts
+  took, and after `revive` every machine, recycler and lamp read the new constant.
+- **The gate, read off the data in four configurations** — hand-built `--dump-data
+  --check-unused-prototype-data` runs, `data-final-fixes.lua` reading `defines.prototypes.item`,
+  which the data stage has. Every official expansion: `recycling`, `unavailable_until_unlocked`
+  kept. Space Age and elevated rails off: `recycling` in its science-pack form. A throwaway mod
+  adding `unlock-recipe recycler` to `quality-module` in its data-updates — Early Quality &
+  Recyclers' shape, whose portal page says "The first quality module technology unlocks the
+  recycler" (community, its 2.1 release) — gives `quality-module`. A throwaway mod enabling the
+  `recycler` recipe from the start gives no `technology_to_unlock` and no
+  `unavailable_until_unlocked`, which the loader accepts. Zero unused-property warnings in every
+  run.
+- **Not measured: whether the engine re-evaluates a shortcut's availability when its
+  `technology_to_unlock` changes between mod versions.** A save carrying the old gate cannot be
+  built inside one test run. `gui.unlock_shortcut`, run on every configuration change, makes the
+  answer moot: it grants once the gate stands researched and never revokes.

@@ -195,9 +195,30 @@ per-release approval.
   on nothing, re-picking the same value — and the next E then closes the modal unconfirmed
   instead of placing. The owner accepts that cost: choices are kept, the shortcut reopens, and
   the button always works. Evidence, including why nothing better exists: `analysis/api.md` §23.
-- **Gated on the `recycling` technology** (plus `unavailable_until_unlocked = true`), not on
-  quality. The loop is unbuildable without a recycler, so gating on quality alone would offer a
-  button that cannot yet produce anything.
+- **Gated on the technology that delivers a recycler** (plus `unavailable_until_unlocked =
+  true`), not on quality. The loop is unbuildable without a recycler, so gating on quality alone
+  would offer a button that cannot yet produce anything. **The technology is read off the
+  finished data** (2026-10-26, pacak's portal report `6adf1377b78a5422a7d25325`: *"the quick
+  bar icon is disabled until something related to Fulgora is researched, but upcycling can be
+  possible earlier with mods like early quality"*; the owner chose this over a runtime gate and
+  over no gate). `data-final-fixes.lua` hands `data.raw` to `prototypes/planner/gate.lua`,
+  which follows every crafting machine in the `recycling` category to the items placing it,
+  the recipes making those (planner.lua's producer rules: no recycling recipe, nothing hidden
+  in Factoriopedia) and the technologies unlocking those recipes, and names the one with the
+  fewest prerequisites — one disabled at the start ranks last, ties go to the name. A recycler
+  recipe enabled from the start removes the gate; no recycler at all leaves `recycling`, still
+  vanilla's answer. One technology rather than a runtime "can this force build a recycler"
+  check, because the engine then keeps greying the button and saying *"This shortcut requires
+  the X technology"*, and the key's refusal keeps naming it off the prototype — a runtime gate
+  loses both and needs research-event wiring. Accepted with it: two independent recycler
+  unlocks gate on one of them, a recycler a scenario enables by script raises nothing to
+  follow, and a mod that moves the recycler's technology in a data-final-fixes of its own,
+  loading after this mod, goes unseen. The recycler test is looser than the planner's (no module or quality check) on
+  purpose: opening on a recycler the planner refuses costs only its message. The engine opens
+  a shortcut when its technology finishes, and whether it re-checks a save whose gate a mod
+  change moved onto a technology already researched is unmeasured — if not, the button would
+  stay grey for good. So `gui.unlock_shortcut` runs on every configuration change, granting
+  once the gate stands researched and never revoking. Evidence: `analysis/api.md` §35.
 - **A rebindable hotkey toggles the planner** — CTRL+U by default, requested by the repo
   owner 2026-08-20 (first shipped draft was CTRL+SHIFT+U; the owner re-picked the lighter
   combo the same day after rebinding to it in game, and both the dev install's mods and the
@@ -205,10 +226,10 @@ per-release approval.
   shortcut's own `upl-open` prototype name — the Krastorio 2 pairing shape (its jackhammer
   ships a shortcut and an input under one name), which is what lets the shortcut's
   `associated_control_input` advertise the binding in the button's tooltip and the three rename
-  together. The key honours the same recycling gate as the button, through
+  together. The key honours the same gate as the button, through
   `gui.toggle_key` reading `is_shortcut_available` — a custom input fires whether or not the
-  shortcut is unlocked, and without the check the key would open a planner the recycling
-  technology has not delivered a recycler for. `[controls]` locale key `upl-open` names it in
+  shortcut is unlocked, and without the check the key would open a planner no technology has
+  delivered a recycler for yet. `[controls]` locale key `upl-open` names it in
   the controls menu. **A refused press prints why** (2026-08-20, after the silent refusal was
   reported as a broken key): the button greys out visibly but a dead key looks unbound, so
   `gui.toggle_key` names the gating technology, read off the shortcut prototype's
@@ -1037,13 +1058,22 @@ per-release approval.
   owner's call; a network-wide floor is a different feature, `deferred.md`). Three engine
   facts shape the rest (`analysis/api.md` §34). The condition compares against a CONSTANT —
   the network carries items, no `signal-C` can reach it — so the max is baked into each gated
-  entity and **the combinator no longer retunes it**: the C row still shows the planned max,
-  and the wire condition beside the logistic one becomes the pause alone, `C > 0` (a circuit
-  and a logistic condition AND together, measured), so the switch, a C of 0 and Start paused
-  all still work; changing the max is "plan again and place the blueprint over the loop",
-  which the engine applies to the standing entities in place (measured, normal and forced
-  build both). An entity outside any logistic network is disabled outright whatever its
-  numbers, so the box is off by default and the tooltip, the combinator's description (a
+  entity. **The C row still retunes it, through the mod** (2026-10-26, pacak's portal report
+  `6adf1377b78a5422a7d25325`: *"some limits are set with circuits, but some - direct constant.
+  If you increase the limit after reaching the original limit - it won't start working"*; the
+  owner chose this over C as a bare run switch and over a reply alone): `scripts/retune.lua`
+  copies an edited C onto every logistic-gated machine, recycler and lamp in the combinator's
+  own green network, ghosts included, on `on_entity_logistic_slot_changed` and on
+  `on_entity_settings_pasted` (a paste raises no slot event). The combinator is known by the
+  opening words its three descriptions share, so a player's own combinator retunes nothing; a
+  C of 0 or below is the wire's pause and leaves the constants at the last real maximum, which
+  keeps the green lamp honest while paused. It is the one thing the mod does to a stamped loop
+  — no storage, no tick. Placing a re-planned blueprint over the loop changes the max too
+  (measured: the engine updates the standing entities in place, normal and forced build both,
+  raising no slot event and needing none). The wire condition beside the logistic one is the
+  pause alone, `C > 0` (a circuit and a logistic condition AND together, measured), so the
+  switch, a C of 0 and Start paused all still work. An entity outside any logistic network is
+  disabled outright whatever its numbers, so the box is off by default and the tooltip, the combinator's description (a
   third constant), the README and the FAQ all say the loop only runs inside roboport range —
   no status-line warning: the planner cannot know where a blueprint will land, and vanilla's
   own checkbox warns no more. The lamps take the same logistic condition (green: done on the
@@ -1055,9 +1085,11 @@ per-release approval.
   `no-logistic-connection` (vanilla's captive biter spawner is the one case), because the
   engine would ignore the condition without a word. Rejected: keeping today's chest cap on the wire beside the
   network one (two caps, the lower of them silent); dropping the C row in network mode (no
-  pause left); a roboport of the mod's own reading the network onto the green wire, which
-  would have kept C retunable — a 4x4 in the layout, power and a network to merge with, for a
-  request the vanilla checkbox answers (parked, `deferred.md`). Nothing else moves — wiring,
+  pause left); C as a bare 1/0 run switch with the max spelled out in the description
+  (honest, but still no retune); a roboport of the mod's own reading the network onto the
+  green wire — a 4x4 in the layout, power and a network to merge with, and (found 2026-10-26)
+  its counts would land on the very wire the reserves read, so every M comparison would add
+  the network's stock of that tier to its own chest's. Nothing else moves — wiring,
   reach, M rows, the pole memo's presence token, footprint: the pure spec pins a network-mode
   plan against the wire-mode one field for field outside the gated crafters and indicators,
   and the flag without a cap is inert exactly like Start paused.

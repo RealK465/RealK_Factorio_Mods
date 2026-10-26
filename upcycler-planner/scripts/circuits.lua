@@ -33,14 +33,16 @@
 -- evaluated by the entity against the network it stands in, no wire involved. Three things
 -- follow, all measured (analysis/api.md S34). A logistic condition compares against a
 -- CONSTANT -- the network carries items only, so no combinator row can reach it -- which is
--- why the max is baked into each gated entity and changed by re-planning and stamping over
--- the loop (the engine updates the entities in place). The wire condition beside it becomes
--- the pause alone, `C > 0`: a circuit and a logistic condition AND together, so the switch
--- and a C of 0 still stop the loop, while the C row now only DISPLAYS the planned max. And
--- an entity outside any logistic network is disabled outright whatever the numbers, so the
--- description says the loop needs roboport range. The lamps take the same logistic
--- condition; the panel cannot (no such surface on it), so it keeps the paused row alone and
--- shows the product icon otherwise. The reserves are untouched: a floor is a local reading.
+-- why the max is baked into each gated entity. The C row still carries it, and is still
+-- where the player changes it: scripts/retune.lua copies an edited C onto every one of them
+-- (2026-10-26, a portal report -- a C that only displayed the max left a loop stopped at
+-- the cap stopped for good). The wire condition beside it becomes the pause alone,
+-- `C > 0`: a circuit and a logistic condition AND together, so the switch and a C of 0
+-- still stop the loop. And an entity outside any logistic network is disabled outright
+-- whatever the numbers, so the description says the loop needs roboport range. The lamps
+-- take the same logistic condition; the panel cannot (no such surface on it), so it keeps
+-- the paused row alone and shows the product icon otherwise. The reserves are untouched: a
+-- floor is a local reading.
 --
 -- What stays combinator-free is the LOGIC: the layout already separates what the conditions
 -- need -- the stock chests hold exactly one tier's product each, the output chest alone holds
@@ -70,23 +72,29 @@ local circuits = {}
 
 local SIGNAL_MIN = "signal-M"
 local SIGNAL_CAP = "signal-C"
+circuits.SIGNAL_CAP = SIGNAL_CAP
 
 -- A combinator row's count and a logistic request are int32; the wizard caps a typed
 -- minimum at exactly this and the hand goes on top, so the sums are clamped here.
 local INT32_MAX = 2147483647
 
+-- Every description opens with these words, which is how scripts/retune.lua tells the limits
+-- combinator from any other the player wires in -- the 1.2.4 network wording included.
+local DESCRIPTION_PREFIX = "Upcycler limits. "
+circuits.DESCRIPTION_PREFIX = DESCRIPTION_PREFIX
+
 -- Two descriptions, because the switch means two things -- see the header.
-local DESCRIPTION_CAPPED = "Upcycler limits. C = maximum in the output chest (0 stops the loop; "
-  .. "type a big number for no limit). M = minimum kept of that quality plus one inserter hand "
-  .. "per column (no row = no reserve). Switch off to pause the loop."
-local DESCRIPTION_UNCAPPED = "Upcycler limits. M = minimum kept of that quality plus one "
+local DESCRIPTION_CAPPED = DESCRIPTION_PREFIX .. "C = maximum in the output chest (0 stops the "
+  .. "loop; type a big number for no limit). M = minimum kept of that quality plus one inserter "
+  .. "hand per column (no row = no reserve). Switch off to pause the loop."
+local DESCRIPTION_UNCAPPED = DESCRIPTION_PREFIX .. "M = minimum kept of that quality plus one "
   .. "inserter hand per column (no row = no reserve). Keep it switched on: off removes every "
   .. "reserve."
--- Network mode's own, since C no longer retunes anything there -- see the header.
-local DESCRIPTION_NETWORK = "Upcycler limits. The maximum is counted across the logistic network "
-  .. "and set on each machine and recycler: plan again and place the blueprint over the loop to "
-  .. "change it. C at 0, or the switch off, pauses the loop. M = minimum kept of that quality "
-  .. "plus one inserter hand per column (no row = no reserve). Only runs inside roboport range."
+-- Network mode's own, for the count it reads and the roboport range it needs -- see the header.
+local DESCRIPTION_NETWORK = DESCRIPTION_PREFIX .. "C = maximum across the logistic network (0 "
+  .. "stops the loop; type a big number for no limit). M = minimum kept of that quality plus one "
+  .. "inserter hand per column (no row = no reserve). Switch off to pause the loop. Only runs "
+  .. "inside roboport range."
 local COLOR_DONE = { r = 0, g = 1, b = 0, a = 1 }
 local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
 local ICON_DONE = { type = "virtual", name = "signal-check" }

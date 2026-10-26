@@ -1977,7 +1977,7 @@ describe("the open hotkey", function()
   -- The custom input that opens the planner from the keyboard. The keypress itself is the
   -- untestable wiring every key here shares; what these pin is the prototype pairing and
   -- gui.toggle_key's gate -- driven through set_shortcut_available, the same engine state the
-  -- recycling unlock manages, so the gate is proven without depending on how the engine maps
+  -- technology unlock manages, so the gate is proven without depending on how the engine maps
   -- technologies onto availability.
   before_all(function()
     assert(#game.connected_players > 0,
@@ -2025,6 +2025,29 @@ describe("the open hotkey", function()
 
   test("an unlocked key returns no refusal", function()
     assert(gui.toggle_key(player()) == nil, "an ordinary toggle must not report a refusal")
+  end)
+
+  test("with only the official expansions loaded, the gate resolves to recycling", function()
+    -- The scan on real data. It cannot see the wiring -- shortcut.lua's own default is the same
+    -- answer -- which the hand-built runs of analysis/api.md S35 proved instead; the modded
+    -- shapes that move the gate are tests/pure/gate_spec.lua's.
+    local tech = prototypes.shortcut[gui.SHORTCUT].technology_to_unlock
+    assert(tech and tech.name == "recycling", "the gate resolved to " .. tostring(tech and tech.name))
+  end)
+
+  test("a configuration change opens a gate that stands researched, and never closes one", function()
+    player().set_shortcut_available(gui.SHORTCUT, false)
+    gui.unlock_shortcut(player())
+    assert(player().is_shortcut_available(gui.SHORTCUT), "a researched gate stayed shut")
+
+    research.fresh(player().force)
+    player().set_shortcut_available(gui.SHORTCUT, false)
+    gui.unlock_shortcut(player())
+    assert(not player().is_shortcut_available(gui.SHORTCUT), "an unresearched gate was opened")
+
+    player().set_shortcut_available(gui.SHORTCUT, true)
+    gui.unlock_shortcut(player())
+    assert(player().is_shortcut_available(gui.SHORTCUT), "the unlock closed an open shortcut")
   end)
 end)
 

@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.7
+Date: ????
+  Changes:
+    - With Count the whole logistic network ticked, changing C on the combinator now changes
+      the maximum on every machine and recycler. Raising it after the loop has finished starts
+      it again.
+  Compatibility:
+    - The planner now unlocks with the first technology that gives you a recycler. With mods
+      that unlock it early, such as Early Quality & Recyclers, it no longer waits for Fulgora.
+---------------------------------------------------------------------------------------------------
 Version: 1.2.6
 Date: 2026-10-24
   Changes:

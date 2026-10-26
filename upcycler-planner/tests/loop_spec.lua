@@ -15,7 +15,9 @@
 -- way they land is a finding for .ai-support, not a pass/fail.
 
 local planner = require("scripts.planner")
+local circuits = require("scripts.circuits")
 local research = require("tests.support.research")
+local stamping = require("tests.support.stamp")
 
 local UNCOMMON_PLATE = { name = "iron-plate", quality = "uncommon" }
 
@@ -522,6 +524,113 @@ describe("a logistic-network cap on a live machine", function()
             "the machine crafted " .. (inside.products_finished - before) .. " with the combinator off")
           assert(inside.status == gated, "switched off, the machine reads " .. tostring(inside.status))
         end)
+      end)
+    end)
+  end)
+end)
+
+describe("retuning network mode from the combinator", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  -- The portal report behind scripts/retune.lua: C raised after the loop had stopped at the
+  -- cap changed nothing, because network mode's maximum is a constant on each machine
+  -- (analysis/api.md S34). Driven through the real event: set_slot raises
+  -- on_entity_logistic_slot_changed synchronously (S35); a player's GUI edit is the one path
+  -- no spec can drive.
+  local CAP = { type = "virtual", name = "signal-C", quality = "rare" }
+
+  local function network_plan()
+    return assert(planner.plan(force(), {
+      recipe = "iron-gear-wheel", quality = "rare",
+      machine = "assembling-machine-3", recycler = "recycler",
+      pole = "medium-electric-pole",
+      circuit_enabled = true, circuit_max_rare = 77, circuit_network = true,
+    }), "plan failed in test setup")
+  end
+
+  -- With no minimum set, C is the plan's only row, so slot 1 -- as on the rig below.
+  local function set_cap(combinator, count)
+    combinator.get_control_behavior().get_section(1).set_slot(1, { value = CAP, min = count })
+  end
+
+  -- The constant on every network-gated entity on the surface, ghosts included.
+  local function caps()
+    local out = {}
+    for _, e in pairs(nauvis().find_entities_filtered({})) do
+      local kind = e.type == "entity-ghost" and e.ghost_type or e.type
+      if kind == "assembling-machine" or kind == "furnace" or kind == "lamp" then
+        local cb = e.get_control_behavior()
+        if cb and cb.connect_to_logistic_network then
+          out[#out + 1] = cb.logistic_condition.constant
+        end
+      end
+    end
+    return out
+  end
+
+  test("an edited C reaches every machine, recycler and lamp, ghosts included, and a 0 pauses without it", function()
+    stamping.place(network_plan(), nauvis(), force())
+    -- Only the combinator built: a loop retuned while the bots are still building it.
+    local ghost = nauvis().find_entities_filtered({ ghost_name = "constant-combinator" })[1]
+    local _, combinator = ghost.revive()
+    set_cap(combinator, 500)
+    local seen = caps()
+    assert(#seen == 7, #seen .. " network-gated entities, expected three machines, two recyclers, two lamps")
+    for _, cap in pairs(seen) do assert(cap == 500, "a ghost kept the cap " .. cap) end
+
+    stamping.revive_all(nauvis())
+    for _, cap in pairs(caps()) do assert(cap == 500, "a revived entity came back at " .. cap) end
+
+    -- The wire's C > 0 holds a paused loop; the constants keep the last real maximum.
+    set_cap(combinator, 0)
+    for _, cap in pairs(caps()) do assert(cap == 500, "the pause rewrote a cap to " .. cap) end
+  end)
+
+  test("a combinator without the planner's description retunes nothing", function()
+    stamping.place(network_plan(), nauvis(), force())
+    stamping.revive_all(nauvis())
+    local combinator = nauvis().find_entities_filtered({ name = "constant-combinator" })[1]
+    combinator.combinator_description = "my own notes"
+    set_cap(combinator, 500)
+    for _, cap in pairs(caps()) do assert(cap == 77, "a stranger's combinator rewrote a cap to " .. cap) end
+  end)
+
+  test("a machine stopped at the cap runs again once C is raised past the network's count", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+    s.create_entity({ name = "roboport", position = { 14, 10 }, force = f })
+    s.create_entity({ name = "passive-provider-chest", position = { 4.5, 6.5 }, force = f })
+      .insert({ name = "iron-gear-wheel", count = 100, quality = "rare" })
+
+    local combinator = s.create_entity({ name = "constant-combinator", position = { 4.5, 3.5 }, force = f })
+    combinator.combinator_description = circuits.DESCRIPTION_PREFIX .. "test rig"
+    combinator.get_or_create_control_behavior().get_section(1).set_slot(1, { value = CAP, min = 50 })
+
+    -- circuits.lua's network-mode shape, through the runtime names.
+    local machine = s.create_entity({ name = "assembling-machine-2", position = { 1.5, 1.5 }, force = f })
+    machine.set_recipe("iron-gear-wheel", "normal")
+    machine.get_inventory(defines.inventory.crafter_input)
+      .insert({ name = "iron-plate", count = 100, quality = "normal" })
+    local cb = machine.get_or_create_control_behavior()
+    cb.connect_to_logistic_network = true
+    cb.logistic_condition = {
+      comparator = "<", first_signal = { type = "item", name = "iron-gear-wheel", quality = "rare" },
+      constant = 50,
+    }
+    cb.circuit_enable_disable = true
+    cb.circuit_condition = { comparator = ">", first_signal = CAP, constant = 0 }
+    machine.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+      .connect_to(combinator.get_wire_connector(defines.wire_connector_id.circuit_green, true))
+
+    after_ticks(240, function()
+      assert(machine.products_finished == 0
+        and machine.status == defines.entity_status.disabled_by_control_behavior,
+        "the network holds 100 against a cap of 50, yet the machine crafted " .. machine.products_finished)
+      set_cap(combinator, 150)
+      after_ticks(240, function()
+        assert(machine.products_finished > 0, "C raised to 150 over a count of 100, and the machine stayed stopped")
       end)
     end)
   end)

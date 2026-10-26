@@ -14,6 +14,7 @@
 local state = require("scripts.state")
 local dispatch = require("scripts.dispatch")
 local gui = require("scripts.gui")
+local retune = require("scripts.retune")
 
 -- The shortcut and its hotkey share gui.SHORTCUT as their prototype name; only the confirm
 -- input's name lives here.
@@ -23,10 +24,13 @@ script.on_init(state.init)
 
 script.on_configuration_changed(function()
   -- A removed mod can leave a choice pointing at a prototype that no longer exists, and an
-  -- open frame would still be showing the old one.
+  -- open frame would still be showing the old one. A changed mod set can also move the
+  -- shortcut's gate onto a technology this save already has -- gui.unlock_shortcut says why
+  -- the engine would not open it then.
   state.prune()
   for _, player in pairs(game.players) do
     gui.close(player)
+    gui.unlock_shortcut(player)
   end
 end)
 
@@ -37,7 +41,7 @@ end)
 
 -- The same toggle from the keyboard -- CTRL+U by default, rebindable in the controls
 -- menu. The custom input shares the shortcut's prototype name, and gui.toggle_key is what
--- keeps the key behind the same recycling unlock as the button: a custom input fires whether
+-- keeps the key behind the same technology gate as the button: a custom input fires whether
 -- or not the shortcut is available.
 script.on_event(gui.SHORTCUT, function(event)
   gui.toggle_key(game.get_player(event.player_index))
@@ -96,6 +100,17 @@ end)
 -- everything after that is the engine's. What that buys, and why none of it is ours to
 -- reimplement, is in scripts/blueprint.lua.
 
+-- The one thing the mod does to a stamped loop: an edit to the limits combinator's C row is
+-- copied onto network mode's per-machine maximum. A settings paste raises no slot event, hence
+-- the second registration; scripts/retune.lua has the rest.
+script.on_event(defines.events.on_entity_logistic_slot_changed, function(event)
+  retune.from_combinator(event.entity)
+end)
+
+script.on_event(defines.events.on_entity_settings_pasted, function(event)
+  retune.from_combinator(event.destination)
+end)
+
 -- Both settings arrive here whichever surface changed them: the modal's own settings
 -- window writes the setting rather than keeping a private copy, so its ticks and the game's
 -- settings menu take one path.
@@ -144,6 +159,7 @@ if script.active_mods["factorio-test"] then
     "tests.pure.poles_spec",
     "tests.pure.circuits_spec",
     "tests.pure.quality_math_spec",
+    "tests.pure.gate_spec",
     "tests.state_spec",
     "tests.planner_spec",
     "tests.plan_spec",

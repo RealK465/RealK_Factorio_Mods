@@ -39,9 +39,9 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (379 tests as of 2026-09-12) — planner, layout, poles,
-circuits, the quality maths, blueprint, state, the eject loop, the fluid mechanisms, the
-beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
+suite under `tests/` (397 tests as of 2026-10-26) — planner, layout, poles,
+circuits, the quality maths, the shortcut gate, blueprint, state, the eject loop, the fluid
+mechanisms, the combinator retune, the beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the relief inserter under it — one nameless *above this tier*
 filter since 2026-09-09 — is what keeps the loop alive
@@ -142,11 +142,13 @@ The shape follows the community convention in the `factorio-mod-setup` skill: gr
 
 ```
 data.lua                            entry point; requires the prototype files
+data-final-fixes.lua                moves the shortcut's gate to the technology gate.lua names
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
 settings.lua                        the two per-player settings the modal's window edits
-prototypes/planner/                 the shortcut, the icon layers it is built from, and the two
-                                    custom-inputs: the CTRL+U toggle and the linked one
-                                    that points the Confirm key at Place
+prototypes/planner/                 the shortcut, the icon layers it is built from, the two
+                                    custom-inputs (the CTRL+U toggle and the linked one that
+                                    points the Confirm key at Place), and gate.lua: which
+                                    technology delivers a recycler first -- pure over data.raw
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
   layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
@@ -156,14 +158,16 @@ scripts/                            one file per runtime concern, required by co
                layout.lua, and strictly after the pole pass (layout.lua stands the entities)
   quality_math.lua the per-tier quality/productivity mix and the loop's expected yield --
                pure like layout.lua, the engine's roll chances injected by planner.lua
+  retune.lua   network mode's max kept editable: an edited C on a stamped loop's combinator
+               copied onto every logistic-gated entity in its green network
   state.lua    persistent choices   dispatch.lua  tag-based GUI handler registry
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
   *_spec.lua                        in-game specs: planner, plan, blueprint, beacon, state,
                                     loop, fluid, gui
-  pure/                             layout + poles + circuits geometry and the quality maths,
-                                    runs on host Lua too
+  pure/                             layout + poles + circuits geometry, the quality maths and
+                                    the shortcut gate's data scan, runs on host Lua too
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
   support/layout_params.lua         the canonical vanilla layout fixture the pure specs share,
@@ -257,7 +261,10 @@ re-opening any of these, and don't restate a reason here.
 - Hard `quality >= 2.1.0` dependency. Space Age flags declared: `quality_required` and
   `expansion_required`. No flib dependency.
 - **The plan becomes a blueprint; the engine builds it.** See fact 1 above.
-- Shortcut → modal → Confirm → a blueprint in the cursor, gated on the `recycling` technology.
+- Shortcut → modal → Confirm → a blueprint in the cursor, gated on the first technology that
+  delivers a recycler — `recycling` in vanilla, read off the finished data by
+  `data-final-fixes.lua` so a mod that unlocks a recycler sooner moves the gate with it, and
+  re-granted by `gui.unlock_shortcut` on every configuration change.
   A rebindable hotkey (CTRL+U default) toggles the modal too, honouring the same gate
   through `is_shortcut_available` — pairing shape and reasons in `decisions.md`.
   The mod handles no placement event: a normal click refuses over obstacles, shift-click builds
@@ -378,10 +385,12 @@ re-opening any of these, and don't restate a reason here.
   **Count the whole logistic network** (2026-09-12), a checkbox above Start paused, makes
   the cap the engine's own logistic condition on every machine and recycler —
   `product@target < max`, a constant baked per entity — with the wire keeping only the pause
-  (`C > 0`); the lamps follow it, the panel keeps its Paused row alone, validate refuses a
+  (`C > 0`), and an edit to C on the combinator copied onto every one of those constants by
+  `scripts/retune.lua` (2026-10-26), the one thing the mod does to a stamped loop; the lamps
+  follow it, the panel keeps its Paused row alone, validate refuses a
   `no-logistic-connection` machine (2.1 only), and the loop then only runs inside roboport
   range. Max only; the reasons and rejected shapes in `decisions.md`, the engine facts in
-  `analysis/api.md` §34. Fixed
+  `analysis/api.md` §34 and §35. Fixed
   prototypes, no research gate, one green network, footprint unchanged. The
   planner normalises the thresholds once (`planner.circuit_limits`) BEFORE the layout, and
   the pole memo keys on circuit presence, never the numbers — typing a threshold re-solves

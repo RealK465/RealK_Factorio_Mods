@@ -9,6 +9,62 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-10-26 - pacak's two reports: C retunes network mode, and the gate follows the recycler (1.2.7 opened)
+
+pacak's portal thread `6adf1377b78a5422a7d25325` ("Some small issues") reported two things.
+In network mode *"some limits are set with circuits, but some - direct constant. If you
+increase the limit after reaching the original limit - it won't start working"*: the max has
+been a constant on every machine's logistic condition since 2026-09-12, C only displaying it,
+so a loop stopped at the cap stayed stopped when C was raised. And *"the quick bar icon is
+disabled until something related to Fulgora is researched, but upcycling can be possible
+earlier with mods like early quality"*: the shortcut gated on `recycling`, which Space Age
+puts behind a Fulgoran vault, while Early Quality & Recyclers hands the recycler out with the
+first quality module.
+
+The 2.1 API settled the first report's shape before any option was put: only a roboport
+writes logistic-network counts onto a wire, and the roboport parked in `deferred.md` would also
+have fed those counts into the reserves' readings on the same green wire — a flaw the parked
+entry never recorded. The owner was offered a script hook copying an edited C onto the
+constants, C as a bare run switch, or a reply alone, and took the hook; for the gate, a
+technology read off the finished data, a runtime "can build a recycler" check, or no gate, and
+took the data read, which keeps the engine's greyed button and its "requires the X technology"
+text.
+
+Measured first, through a throwaway `tests/probe_spec.lua` (registered, `-Filter probe`,
+deleted): `on_entity_logistic_slot_changed` fires synchronously for `set_slot` on a live or a
+ghost combinator and for nothing else tried — a wholesale `filters` write, a revive, a
+blueprint stamped over, `copy_settings`; the green walk from the combinator reaches all 11
+ghosts of a stamped loop; a logistic condition written onto a ghost survives the revive,
+unicode `≥` and all. The probe's first pass found no gated entity at all: it tested
+`object_name` against the generic control-behaviour class, and ghosts report the specific one.
+A player's GUI edit cannot be driven headless; Wube's 2.0.10 changelog line fixing that event
+for constant combinators stands in for it. `analysis/api.md` §35.
+
+Built: `scripts/retune.lua` — the walk and the copy, matched on the C row's quality, the
+combinator known by the opening words its three descriptions share, a C of 0 left to the
+wire's pause — registered in `control.lua` on the slot event and on `on_entity_settings_pasted`;
+the network description now says C is the maximum, and the README and FAQ follow.
+`prototypes/planner/gate.lua`, pure over `data.raw`, names the earliest technology unlocking a
+recycler; `data-final-fixes.lua` applies it, and `gui.unlock_shortcut` re-grants on every
+configuration change, in case the engine never re-checks a save whose gate moved onto a
+technology it already has (unmeasured).
+Hand-built data-stage runs gave `recycling` with every expansion and with Space Age off,
+`quality-module` beside a throwaway mod in Early Quality & Recyclers' shape, and no gate when
+the recycler recipe starts enabled — no unused-property warning in any. luacheck needed
+`data.raw` declared writable in the repo's `.luacheckrc`, this being the first checked mod to
+patch it in place. Fifteen specs joined (pure 10, gui 2, loop 3): static clean, pure 127/127,
+headless 397/397 on 2.1.23. 1.2.7 opened, a patch: no prototype added or renamed, the network
+cap's own release (1.2.4) the precedent.
+
+The three-reviewer pass (correctness, simplicity, conventions) found no defect. It caught
+§34 still saying the baked cap cost the combinator its retune, `retune.lua`'s header calling
+the player's paths measured, and an unmeasured "grey for good" stated as fact — all corrected
+— and simplified `retune.lua` (`util.string_starts_with`, a stack walk, the entry point
+renamed `retune.from_combinator`) and the new specs. Recorded below its bar: the walk matches
+on the target's quality alone, the description's opening words are the combinator's only
+identity, and a mod moving the recycler's technology in a later data-final-fixes goes unseen.
+Suite unchanged after the fixes, 397/397.
+
 ## 2026-10-24 - the portal description drops Factorio 2.0
 
 At the owner's ask, `README.md`'s requirements line lost its sentence about the 2.0 releases and

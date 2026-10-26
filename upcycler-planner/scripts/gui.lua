@@ -1659,9 +1659,9 @@ end
 -- What the HOTKEY runs, as opposed to the shortcut button. A custom input fires whether or not
 -- the shortcut is unlocked, so the key re-checks the same per-save availability the button
 -- stands behind (technology_to_unlock plus unavailable_until_unlocked on the shortcut
--- prototype) -- without this, the key would open a planner the recycling technology has not
--- delivered a recycler for yet. is_shortcut_available is the engine's own answer, so a
--- scenario that grants or revokes the shortcut by script is honoured the same way.
+-- prototype) -- without this, the key would open a planner no technology has delivered a
+-- recycler for yet. is_shortcut_available is the engine's own answer, so a scenario that
+-- grants or revokes the shortcut by script is honoured the same way.
 --
 -- A refused press says why: the button greys out visibly, but a dead key reads as a broken
 -- binding. The message names the gating technology off the shortcut prototype, so the two
@@ -1677,6 +1677,18 @@ function gui.toggle_key(player)
     return refusal
   end
   gui.toggle(player)
+end
+
+-- The gate technology is chosen at startup (prototypes/planner/gate.lua), so adding, removing
+-- or updating a mod can move it onto a technology this save researched long ago. The engine
+-- opens a shortcut when its technology finishes, and whether it re-checks such a save is
+-- unmeasured (analysis/api.md S35). Run on every configuration change: grants once the gate
+-- stands researched, never revokes -- so a scenario's scripted revoke holds until the next one.
+function gui.unlock_shortcut(player)
+  local tech = prototypes.shortcut[SHORTCUT].technology_to_unlock
+  if not tech or player.force.technologies[tech.name].researched then
+    player.set_shortcut_available(SHORTCUT, true)
+  end
 end
 
 -- Opens a panel in the modal's body. A panel touches player.opened not at all -- the modal

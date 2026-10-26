@@ -36,7 +36,7 @@ If you ticked **Count the whole logistic network** in the Limits window, every m
 
 Open the same combinator. The **M** rows are the minimum kept of each quality plus the inserter's hand size for every column of that quality, so a full hand never dips below your minimum: keep 20 with a 12-item hand and one column, and M reads 32. **C** is the maximum in the output chest. Edit the numbers, no new blueprint needed. To lift the maximum, type a big number: a C at 0 stops the loop. If you raise a minimum above what the stock chest requests while **Trash unrequested items** is on, raise the chest's request too, or that tier stops recycling.
 
-With **Count the whole logistic network** ticked, the maximum is set on each machine, not on the combinator. To change it, set the new number in the planner and place the blueprint over the loop: the game updates the machines in place. The combinator's **C** row still pauses: set C to 0 or switch it off.
+With **Count the whole logistic network** ticked, **C** is the maximum across your logistic network. Edit it the same way: every machine and recycler picks up the new number. Set C to 0 or switch the combinator off to pause.
 
 ## Why is my fluid recipe refused?
 

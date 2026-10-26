@@ -28,7 +28,7 @@ By default only researched options are offered, but it can be changed in the pla
 
 ## How to use it
 
-1. The mod is only enabled after the **Recycling** tech has been researched. Then this button appears in your shortcut bar:
+1. The mod is only enabled after the **Recycling** tech has been researched, or an earlier one if a mod unlocks the recycler sooner. Then this button appears in your shortcut bar:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
    You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
 2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
@@ -76,7 +76,7 @@ The numbers live on a constant combinator inside the loop, so you can change the
 Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on.
 Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full or the loop is paused, and the panel's icon is visible on the map.
 
-A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, set it in the planner and place the new blueprint over the loop: the game updates the machines in place. The combinator still pauses: switch it off, or set its C row to 0. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
+A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, edit the combinator's C row: every machine and recycler picks up the new number. The combinator still pauses: switch it off, or set its C row to 0. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 
