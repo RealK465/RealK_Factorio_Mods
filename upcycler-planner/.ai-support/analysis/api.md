@@ -1128,8 +1128,9 @@ survive `set_blueprint_entities` → `build_blueprint`, read back off the ghosts
 **The rename trap has a second instance.** The blueprint field is `circuit_enabled`; the same
 flag on a live control behaviour is `circuit_enable_disable` — exactly the belt's
 `circuit_contents_read_mode` / `read_contents_mode` split §21 records. A spec that read
-`.circuit_enabled` off a ghost would get nil and prove nothing. (Third spelling, unused here:
-`LuaLogisticContainerControlBehavior` gates its request with `circuit_condition_enabled`.)
+`.circuit_enabled` off a ghost would get nil and prove nothing. (Third spelling, used since
+2026-11-13: `LuaLogisticContainerControlBehavior` gates its request with
+`circuit_condition_enabled` — §36.)
 
 **A wire signal is per-quality, and a condition picks one exact tier.** `SignalID` carries an
 optional `quality` (*"Defaults to `normal`"*), so `first_signal = {type = "item", name = P,
@@ -1144,8 +1145,9 @@ compare must treat nil as normal.
 
 **Wired chests broadcast without any control_behavior.** `ContainerBlueprintControlBehavior`
 and `LogisticContainerBlueprintControlBehavior` both default `read_contents` to **true**; a
-plain container's control behaviour parents `LuaControlBehavior`, not GenericOnOff, so a chest
-can never be enable/disabled — it only reports. Same for a wired transport belt the other way:
+plain container's control behaviour parents `LuaControlBehavior`, not GenericOnOff, so a plain
+chest can never be enable/disabled — it only reports. (A LOGISTIC chest can, through a
+condition of its own that cuts its requests: §36.) Same for a wired transport belt the other way:
 with no control_behavior at all it neither reads nor gates (`circuit_enabled` defaults false)
 — measured on stamped ghosts, `get_control_behavior()` nil.
 
@@ -1207,7 +1209,9 @@ these words so nobody mistakes them for citations): a buffer chest provides to p
 logistics, construction robots and requesters with "request from buffers" ticked, and never
 requests from another buffer chest. These are the vanilla logistics rules the decision in
 `../decisions.md` reasons from, checked at 2.1.16 only insofar as the suite exercises
-requests INTO buffer ghosts.
+requests INTO buffer ghosts. One of them has been measured since: a buffer chest provides to a
+requester with request-from-buffers ticked — measured with the buffer chest circuit-disabled,
+the harder case (§36, 2.1.23).
 
 ## 28. The closes the engine performs without raising `on_gui_closed` — measured 2026-08-26
 
@@ -1667,3 +1671,103 @@ on it: `../decisions.md` → *Count the whole logistic network* and the shortcut
   `technology_to_unlock` changes between mod versions.** A save carrying the old gate cannot be
   built inside one test run. `gui.unlock_shortcut`, run on every configuration change, makes the
   answer moot: it grants once the gate stands researched and never revokes.
+
+## 36. A logistic chest's circuit condition, the trash skim, and two belt facts — measured 2026-11-13
+
+Measured on **2.1.23** — this section alone; the front matter's 2.1.22 still describes the rest
+of the file — through a throwaway probe mod (`upl-probe`, one spec run with the
+`factorio-testing` runner from the session scratchpad into a scratch data directory; its
+findings were logged as `UPL-PROBE` lines, and neither the mod nor the log outlives that
+session). Everything the mod relies on is pinned permanently, by `tests/loop_spec.lua` ("the
+chests stop asking with the loop"), `tests/blueprint_spec.lua` ("circuit limits survive the
+stamp", "the request opt-outs survive the stamp") and `tests/pure/circuits_spec.lua`
+("circuits.decorate requesting chests"). **Four bullets are one-off probe readings with no
+spec behind them** — the restamp, the live-only window, the splitter filter and the lanes —
+since the mod writes none of them. What stands on the rest: `../decisions.md` → circuit
+limits (*the chests stop asking with the loop*) and the two request opt-outs.
+
+- **A logistic chest takes a circuit enable condition, and the engine has since 2.0.7** —
+  *"Logistic Chests have an optional circuit condition to enable / disable their connection to
+  the network"* (`data/changelog.txt:4194`). Runtime:
+  `LuaLogisticContainerControlBehavior::circuit_condition_enabled` and
+  `LuaLogisticContainerControlBehavior::circuit_condition`. The class parents
+  `LuaControlBehavior`, not the generic on/off one, so it has **no**
+  `connect_to_logistic_network` and no `logistic_condition`: a chest can follow a wire and
+  never the logistic network's own count. Blueprint: `LogisticContainerBlueprintControlBehavior`
+  = `{circuit_condition, circuit_condition_enabled (default false), read_contents (default
+  true), read_empty_slots, set_requests, empty_slots_signal}`. **No rename in this one** —
+  blueprint and runtime both spell `circuit_condition_enabled`, the third spelling of the flag
+  beside the crafters' `circuit_enabled` / `circuit_enable_disable` (§26).
+- **The blueprint shape round-trips.** `control_behavior = {circuit_condition_enabled = true,
+  circuit_condition = {comparator, first_signal, constant | second_signal}, read_contents =
+  false}` on a requester chest, and the same without `read_contents` on a buffer chest, came
+  back from `get_blueprint_entities` verbatim plus a default `empty_slots_signal` (`signal-E`),
+  read off the ghosts through `get_control_behavior()` as `circuit_condition_enabled == true`
+  with `read_contents` false and true respectively, and survived the revive. The condition
+  reads back with a read-only `fulfilled`, like every other (§34).
+- **Disabled cuts the REQUESTS, and nothing else a chest does in this loop.** A wired requester
+  whose condition was false received nothing in 600 ticks beside a provider holding 400 plates,
+  40 once the combinator was switched on, and nothing again once switched off and emptied —
+  with its section slot still reading `min = 40` throughout. `LuaEntity::status` reads
+  `disabled_by_control_behavior`; `LuaLogisticPoint::enabled` stays `true` (that one is the
+  player-and-spidertron switch). Wube's own wording, FFF-428, written for 2.0: *"Disabling
+  requesters - Stops new deliveries being ordered (current orders will finish)"* [web, read
+  2026-11-13].
+- **A disabled BUFFER chest keeps handing its items out; a disabled passive provider stops.**
+  The network's only copper sat in a disabled buffer chest and its only steel in a disabled
+  passive provider: a requester with `LuaEntity::request_from_buffers` set was delivered all 40
+  copper and no steel, and the 40 steel only once the combinator was switched on. The buffer
+  chest's own request stayed unserved while it was disabled. So a buffer chest's condition
+  gates its requesting half alone — the fact that lets the stock chests follow the pause
+  without hiding their items from the player, and the reason the output chest is never gated.
+  FFF-428 says the provider half (*"Disabling providers - Stops the items being provided to
+  the logistic network"*) and is silent on buffer chests; this is the measurement. It also
+  measures one of the rules §27 lists as relied on: a buffer chest provides to a requester
+  with request-from-buffers ticked.
+- **A disabled chest is still a chest.** Inserters filled and emptied a disabled buffer chest
+  (10 sticks in, 10 gears and the sticks out), and a disabled chest with `read_contents` at its
+  default kept its contents on the wire (7 plastic read at the combinator). So gating a census
+  chest costs neither the reserve's reading nor the loop's own flow through it.
+- **Trash-unrequested is a real skim, and it pauses with the chest.** With
+  `LuaLogisticPoint::trash_not_requested` set, a chest holding 100 plates against a request of
+  40 was drawn down to exactly 40, the 60 landing in storage, and 20 plates of an item it never
+  requested were all taken. While its condition was false nothing was skimmed — 900 ticks in
+  the probe, 1200 in the suite, requester and buffer chest alike. The design leans on that
+  half hardest: trash is on by default and every requesting chest is disabled at each pause,
+  so a skim that ignored the condition would have bots empty the loop's chests every time.
+  `LuaLogisticSection::set_slot` accepts `min = 0`, and a zero-count request shields nothing:
+  all 50 of that item were taken too. This is the first measurement of what `../decisions.md`
+  reasons from — bots skim anything above the request — and it is why a stock chest planned
+  without its request must carry no trash flag at all, or bots would empty it. The mod's
+  serialiser writes the flag only beside a request (`request_filters`), so no request means no
+  flag.
+- **A condition with no wire gates nothing; one on a wire without the combinator stops for
+  good.** A requester chest carrying the condition and no wire at all was delivered its 40
+  plates — the machines' rule (§26), so a chest whose wire is not built yet, or is cut,
+  simply keeps asking (pinned in `tests/loop_spec.lua`). The same chest wired to a plain
+  chest and nothing else was delivered nothing in 900 ticks (a probe reading): the signal is
+  0 on a network no combinator feeds. That second half is the reason `circuits.decorate`
+  writes a condition only onto what can hear the combinator.
+- **Stamped over a standing loop, the blueprint upgrades it in place.** A loop built in the
+  1.2.7 shape (no chest conditions, no feed wires), then the 1.2.8 blueprint of the same plan
+  stamped on top through `build_blueprint` in `defines.build_mode.normal`: no ghost was left,
+  every feed chest gained the condition, `read_contents == false` and its one green wire,
+  every stock chest the condition, the combinator the new description, and the loop went on
+  being delivered to. The same in-place update §34 measured for the crafters' constants.
+- **One live-only window.** A request and a false condition written in the same tick on a
+  LIVE chest let one robot out before the condition was read (4 plates, the cargo at full
+  research). A chest stamped with both — ghost, then revive — showed none in 600 ticks, which
+  is the only way the mod ever writes one.
+- **A splitter filter may name a quality and no item.** `LuaEntity::splitter_filter = {quality
+  = "uncommon", comparator = ">="}` was accepted and read back `{comparator = "≥", quality =
+  "uncommon"}`; with `LuaEntity::splitter_output_priority = "left"`, an uncommon and a rare
+  plate left by the left output and two normal ones by the right. The inserter filter's
+  nameless form (§24) on a splitter. Unused by the mod — recorded for the per-quality-loop
+  layout parked in `../deferred.md`.
+- **Which lane each half of the ring's traffic rides.** A belt side-loading a west-flowing belt
+  from the south put both of its lanes onto that belt's LEFT lane (transport line 1); an
+  inserter dropping from the north onto an east-flowing belt landed on its RIGHT lane (line 2).
+  On the counter-clockwise ring the left lane is the inside one, so the product (side-loaded
+  off each column's product belt) rides the inside lane and the rolled-up ingredients (dropped
+  by the unload inserters) the outside lane — they never share a lane.
+  `layout-belt-ring.md` → *The ring under a flood* reasons from this.

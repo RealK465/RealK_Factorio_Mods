@@ -8,7 +8,9 @@
 -- (moved down from the top block, owner's call 2026-08-28: they tune the build, not what it
 -- makes), the circuit-limits
 -- checkbox and the Limits... button opening its wizard, whether the stock chests are buffer
--- chests the base can draw on, and whether the chests trash their surplus.
+-- chests the base can draw on, whether they request the item from the base at all, whether
+-- the final machine's chest requests its ingredients, and whether the chests trash their
+-- surplus.
 -- The build options are six captioned rows, one per concept -- Transport, Chests, Modules,
 -- Beacons, Power, Circuits -- because one flat grid of a dozen icon-only pickers left hovering
 -- as the only way to tell them apart (owner's ask, 2026-08-22).
@@ -1189,6 +1191,10 @@ local function apply_defaults(player, choices)
   if choices.trash_unrequested == nil then
     choices.trash_unrequested = true
   end
+  -- The two request checkboxes share that rule, read through the planner's own accessors so
+  -- the widgets bind real booleans and plan() cannot disagree about what nil means.
+  choices.stock_requests = planner.stock_requests(choices)
+  choices.terminal_requests = planner.terminal_requests(choices)
 
   -- The circuit thresholds, whenever a product is known to size them from. circuit_enabled
   -- itself needs no default: nil already means off, the beacon's own rule.
@@ -1605,7 +1611,7 @@ function gui.open(player)
   limits_button.style.left_margin = 8
   -- Enabled state left to gui.refresh, the split button's reason.
 
-  -- Always shown like the trash checkbox below it: the tick IS the choice, and the picker it
+  -- Always shown like the checkboxes below it: the tick IS the choice, and the picker it
   -- re-lists sits hidden with the other chests.
   local buffer_stock = options.add({
     type = "checkbox", name = "upl-buffer-stock", state = choices.buffer_stock,
@@ -1616,6 +1622,24 @@ function gui.open(player)
   -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
   -- box graphic stays put, so the mark ends up hanging half out of the square.
   buffer_stock.style.top_margin = 8
+
+  -- The two requests a player may not want (2026-11-13): the stock chests drawing the base's
+  -- own stock of the item into the loop, and the final machine's chest drawing back the
+  -- target-quality ingredients. Always shown, ticked by default -- what every loop did before
+  -- the boxes existed.
+  -- One handler serves both, the choice it writes riding in the tags like the chests' role.
+  for _, opt_out in ipairs({
+    { name = "stock-requests", key = "stock_requests" },
+    { name = "terminal-requests", key = "terminal_requests" },
+  }) do
+    local box = options.add({
+      type = "checkbox", name = "upl-" .. opt_out.name, state = choices[opt_out.key],
+      caption = { "upl-gui." .. opt_out.name },
+      tooltip = { "upl-gui." .. opt_out.name .. "-tooltip" },
+      tags = dispatch.tags("request-toggle", { key = opt_out.key }),
+    })
+    box.style.top_margin = 8
+  end
 
   local trash = options.add({
     type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
@@ -2491,6 +2515,20 @@ dispatch.register("buffer-stock", function(event)
   -- can be built at any researched tier.
   choices.stock = nil
   gui.open(game.get_player(event.player_index))
+end)
+
+-- The two request checkboxes, told apart by the key in their tags. No geometry moves on
+-- either -- a request is decoration, and the final machine's chest only changes name on its
+-- tile -- so a plain refresh behind the double-fire guard, Start paused's shape. The refresh
+-- is for the one line that can follow them: the count of buildings a circuit wire cannot
+-- reach.
+dispatch.register("request-toggle", function(event)
+  local choices = state.of(event.player_index).choices
+  local key = event.element.tags.key
+  local settled = settled_on(choices, key)
+  choices[key] = event.element.state
+  if settled() then return end
+  gui.refresh(game.get_player(event.player_index))
 end)
 
 dispatch.register("circuit-enabled", function(event)

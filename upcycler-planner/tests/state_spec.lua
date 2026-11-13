@@ -54,6 +54,8 @@ describe("state.prune -- drop what no longer qualifies", function()
       machine_quality = "uncommon",
       inserter_quality = "rare",
       trash_unrequested = false,
+      stock_requests = false,
+      terminal_requests = false,
       feed_minutes = 5,
     })
     state.prune()
@@ -74,6 +76,10 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.provider == "passive-provider-chest", "provider pruned wrongly")
     assert(c.inserter_quality == "rare", "inserter_quality pruned wrongly")
     assert(c.trash_unrequested == false, "boolean choice touched by prune")
+    -- The two request checkboxes: plain booleans whose names sit OUTSIDE the request_<item>
+    -- family on purpose -- that sweep would read them as ingredients and drop them.
+    assert(c.stock_requests == false and c.terminal_requests == false,
+      "a request checkbox was swept by prune")
     -- A plain number outside every keyed family -- and outside request_<item>, whose sweep
     -- would read it as an ingredient called "minutes" and drop it.
     assert(c.feed_minutes == 5, "the minutes were pruned")

@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.8
+Date: ????
+  Features:
+    - New build option, Upcycle items from the network. Untick it and the stock chests stop
+      requesting the item, so the loop only recycles what it makes and leaves your own stock
+      alone.
+    - New build option, Final machine requests ingredients. Untick it to place a plain chest
+      in front of the final machine, so ingredients at your target quality are not pulled
+      back into the loop.
+  Changes:
+    - With a maximum set, the loop's chests now stop requesting while it is paused or has
+      reached its maximum. With Count the whole logistic network ticked, they stop only
+      while it is paused.
+---------------------------------------------------------------------------------------------------
 Version: 1.2.7
 Date: 2026-10-26
   Changes:

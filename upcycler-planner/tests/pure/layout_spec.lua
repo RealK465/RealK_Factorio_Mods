@@ -426,6 +426,62 @@ describe("layout.build per-tier wiring", function()
     end
     assert(#by_name(built, "passive-provider-chest") == 1, "exactly one output chest")
   end)
+
+  test("without a product buffer the stock chests stand and request nothing", function()
+    -- The player's opt-out from feeding the loop out of the base's own stock: the chests
+    -- still catch the tier's product off the belt, they just ask the network for none. No
+    -- request table at all, so the serialiser writes no request_filters -- and with them no
+    -- trash flag, which on a chest requesting nothing would have bots empty it.
+    local with_request = layout.build(params_with())
+    local built = layout.build(params_with({ product_buffer = false }))
+    local stock = by_name(built, "buffer-chest")
+    assert(#stock == 2, "stock chest count " .. #stock)
+    for _, c in pairs(stock) do
+      assert(c.requests == nil, "an opted-out stock chest still requests")
+      assert(c.circuit_role == "census", "an opted-out stock chest lost its census tag")
+    end
+    assert(#built.entities == #with_request.entities and built.width == with_request.width,
+      "dropping a request moved the plan")
+    for _, c in pairs(by_name(built, "requester-chest")) do
+      assert(c.requests and c.requests[1].name == "iron-plate", "the feed chests lost their request")
+    end
+  end)
+
+  test("the final machine's chest can be a plain one that requests nothing", function()
+    -- params.terminal_feed swaps the target tier's feed chest for a plain chest on the same
+    -- tile: the harvest and feed inserters around it are untouched, the lower tiers keep
+    -- their requesters, and nothing about the footprint moves.
+    local with_request = layout.build(params_with())
+    local built = layout.build(params_with({
+      terminal_feed = { name = "wooden-chest", quality = "uncommon" },
+    }))
+    assert(#built.entities == #with_request.entities and built.width == with_request.width,
+      "swapping one chest moved the plan")
+    local feed = by_name(built, "requester-chest")
+    assert(#feed == 2, "requesting feed chests " .. #feed .. ", expected the two lower tiers")
+    local plain = by_name(built, "wooden-chest")
+    assert(#plain == 1, "plain feed chests " .. #plain)
+    assert(plain[1].requests == nil and plain[1].circuit_role == nil,
+      "the plain chest carries a request or a circuit tag")
+    assert(plain[1].quality == "uncommon", "the plain chest lost its quality")
+    -- Same tile as the requester it replaces: the terminal column's feed sub-column.
+    local terminal
+    for _, e in pairs(with_request.entities) do
+      if e.circuit_role == "feed" and e.circuit_tier == 3 then terminal = e end
+    end
+    assert(terminal and plain[1].dx == terminal.dx and plain[1].dy == terminal.dy,
+      "the plain chest stands somewhere else")
+  end)
+
+  test("a two-stack recipe swaps both of the final machine's chests", function()
+    local built = layout.build(big_params(6, {
+      terminal_feed = { name = "wooden-chest", quality = "normal" },
+    }))
+    assert(#by_name(built, "wooden-chest") == 2, "plain feed chests "
+      .. #by_name(built, "wooden-chest") .. ", expected both stacks of the last column")
+    assert(#by_name(built, "requester-chest") == 4, "requesting feed chests "
+      .. #by_name(built, "requester-chest"))
+  end)
 end)
 
 describe("layout.build ring circulation", function()
@@ -802,13 +858,19 @@ describe("layout.build circuit tags", function()
     return count
   end
 
-  test("machines, recyclers, censuses, reserves and the perimeter carry tags; nothing else does", function()
+  test("machines, recyclers, censuses, reserves, feed chests and the perimeter carry tags; nothing else does", function()
     local built = layout.build(params_with())
     local count = tally(built)
     assert(count.machine == 3, "tagged machines " .. tostring(count.machine))
     assert(count.recycler == 2, "tagged recyclers " .. tostring(count.recycler))
     -- One census per tier: the stock chest below, or the output chest on the terminal.
     assert(count.census == 3, "tagged censuses " .. tostring(count.census))
+    -- One feed chest per tier, each requesting: what the circuit pass stops asking.
+    assert(count.feed == 3, "tagged feed chests " .. tostring(count.feed))
+    for role in pairs(count) do
+      assert(role == "machine" or role == "recycler" or role == "census" or role == "reserve"
+        or role == "feed" or role == "ring", "an unexpected circuit role: " .. role)
+    end
     -- One reserve point per lower tier: the stock-to-recycler inserter, the only hand that
     -- can draw a tier's chest below its floor.
     assert(count.reserve == 2, "tagged reserves " .. tostring(count.reserve))
@@ -835,6 +897,11 @@ describe("layout.build circuit tags", function()
       if e.circuit_role == "census" and e.circuit_tier < 3 then
         assert(e.requests and e.requests[1].quality == tiers[e.circuit_tier],
           "census tier " .. e.circuit_tier .. " buffers " .. tostring(e.requests
+            and e.requests[1].quality))
+      end
+      if e.circuit_role == "feed" then
+        assert(e.requests and e.requests[1].quality == tiers[e.circuit_tier],
+          "feed tier " .. e.circuit_tier .. " requests at " .. tostring(e.requests
             and e.requests[1].quality))
       end
     end

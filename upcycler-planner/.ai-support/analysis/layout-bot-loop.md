@@ -71,9 +71,12 @@ that makes it safer than it first appears — the `SignalFilter` rule (quoted in
 `api.md` §4): a request with a non-zero minimum must name an exact quality.
 
 **Every real logistic request is quality-exact, enforced by the engine.** "Request iron gears of
-any quality" is not expressible. So tiers 1 and above are hermetically sealed from the rest of
-the base: the base's normal-gear requests physically cannot drain the loop's uncommon or rare
-stock, and the loop's uncommon-plate request cannot be satisfied by the base's normal plates.
+any quality" is not expressible. So tiers 1 and above are sealed from a base that holds only
+normal quality: the base's normal-gear requests physically cannot drain the loop's uncommon or
+rare stock, and the loop's uncommon-plate request cannot be satisfied by the base's normal plates.
+**Sealed only that far** — a base that holds the same items at a tier's own quality trades
+with that tier freely, the case a portal report raised against the belt ring on 2026-11-13
+(`layout-belt-ring.md` → *How much it leans on the logistic network*).
 Passive providers only give when asked, so the output does not scatter into storage either.
 
 Two real costs remain, and both are why the belt ring went first:

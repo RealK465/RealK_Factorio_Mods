@@ -37,8 +37,10 @@ must be fixed before it ships:
    will drain the player's own production of that item;
 2. bot flight distance is unbounded in a large shared network.
 
-Higher tiers are safe either way — the engine forces every real logistic request to be
-quality-exact, so nothing above normal can leak or be stolen.
+Higher tiers are safer, not sealed: the engine forces every real logistic request to be
+quality-exact, so a tier takes and gives only its own quality — which keeps it apart from the
+base only while the base holds nothing at that quality (`analysis/layout-belt-ring.md` → *How
+much it leans on the logistic network*, corrected 2026-11-13).
 
 ### The full-height ladder, as an alternative to the overflow tap
 **Status:** not built, and recorded so it is not rediscovered from scratch. **The problem it
@@ -83,8 +85,54 @@ now shows nothing it does not store. `decisions.md` → the columns-per-tier bul
 contract; the recyclers
 still ride 1:1 per column as deliberate over-provision, preserving the eject-and-relief
 mechanism. What stays parked here: the ring is the eventual ceiling (one belt of shared
-circulation), and the wild's builds past that point are bot farms — which is what the
-bot-loop toggle above becomes at scale.
+circulation — measured on 2026-11-13 as each tier's harvest inserter rather than the belt,
+*The ring's ceiling* below), and the wild's builds past that point are bot farms — which is
+what the bot-loop toggle above becomes at scale.
+
+### The ring's ceiling: one harvest inserter per tier — measured, three ways past it parked
+**Status:** declined for now by the owner (2026-11-13: *"the separate loops not now, that's
+more complex, let's skip it"*), with the measurements kept so the next report does not start
+from zero. `analysis/layout-belt-ring.md` → *The ring under a flood* has the table.
+
+pacak's portal thread `6adf98818a80f07f3a9dfde3` reported a belt *"full of low quality
+materials to the point it couldn't offload high quality materials from the recycler"*, and
+proposed a belt loop per quality, with splitters passing anything above the tier to the next
+loop. Reproduced on a stamped legendary electromagnetic-plant loop: with legendary quality
+modules and a stockpile of the item in the network, the ring's outside lane sits near 225 of
+about 288 and every unload inserter waits a third to two thirds of the time. Without a
+stockpile the same loop idles at 39. The cause got its fix — the stock request can be
+unticked (`decisions.md` → the two request opt-outs) — and the ceiling itself was left alone.
+What limits it is each tier's single harvest inserter, not the belt, and under saturation
+the first tier, the one flooding, wins every free gap, because the bottom ring flows away
+from it.
+
+Three ways past it, cheapest first, none built:
+
+- **Run the ring the other way round.** One block of belt directions in `layout.build`. The
+  upper tiers then get the gaps first (waiting 1 to 15 % of the time instead of 32 to 47 %)
+  and the flooding tier takes the back-pressure into its own relay chest. The hour's output
+  did not measurably change. The catch: above-target PRODUCT would then meet the terminal
+  catcher before the overflow tap, undoing the order `decisions.md` records under the tap —
+  the catcher would have to go back to an exact match and stop being the backstop, or
+  above-target product lands in the output chest again, where nothing requests it.
+- **A second harvest stack on every recipe with two or more ingredients.** The mechanism
+  exists — the two-stack feed for recipes past five ingredients — and two inserters, each
+  filtering half the ingredients, more than halved the lane (225 to 94). The cost is three
+  entities a column and, on 3-wide machines under medium poles, the pole columns that second
+  stack is known to open (`analysis/poles.md` → Performance), so it would have to be a choice
+  and not the default.
+- **A loop per quality.** The only one that isolates the tiers completely, and a second
+  layout family rather than a patch: two more belt columns per tier, splitter rows, blueprint
+  fields the serialiser has never written (a splitter's filter and priority), and every pinned
+  width, wire path and pole scenario derived again. The engine is not the obstacle — a
+  splitter accepts a quality-only filter (`analysis/api.md` §36). If it is ever built it is a
+  named layout beside the belt ring, the shape *Bot transport as an alternative layout* above
+  already describes.
+
+Revisit if a stalled upper tier is reported from a loop that is NOT eating a stockpile.
+Repeated columns on the first tiers are the likely trigger, since they multiply the same
+traffic: one scratch run of four normal and two uncommon columns, legendary modules and no
+stockpile, averaged 97 on the lane — busier, not saturated.
 
 ### Circuit reserves under repeated columns: summed, or per chest? — needs the owner's call
 **Status:** surfaced by the 2026-08-29 full review; behaviour shipped as-is in the columns
@@ -139,7 +187,9 @@ buffer chests included, since buffer contents count) holds fewer than the minimu
 make the M rows, the hand pin and the per-column sum moot for that mode, and it carries the
 same roboport-range caveat. Revisit if a player asks for "keep N rare in my network" — and
 `scripts/retune.lua` would then have to copy the M rows too, since the floors would become
-per-inserter constants the way the cap is.
+per-inserter constants the way the cap is. The nearest ask so far (2026-11-13, pacak: a stock
+of 200 the loop ground through) wanted the pull switched OFF rather than a number kept, and
+got the stock opt-out (`decisions.md` → the two request opt-outs); the floor stays parked.
 
 ### Roboports
 **Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
@@ -315,6 +365,12 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 ## Housekeeping
 
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
+- **An output chest out of wire reach voids the cap but still plans.** Counted in the unlinked
+  warning since 2026-11-13 (wire mode only — every gate reads the product's count off that
+  chest, so unheard, the cap never trips). What is left is the wording: the warning says N
+  buildings "will run without limits", and here N is 1 while the truth is the whole loop.
+  The hop is about two tiles and no shape seen so far can miss it, so the count was judged
+  enough; a message of its own is the fuller answer if a modded footprint ever reaches it.
 - **`settings.lua` exists since 2026-08-15**, carrying two per-player settings as of
   2026-08-17: `upcycler-planner-show-all` (offer unresearched items — the game's own
   selection-list option is not mod-readable) and `upcycler-planner-show-all-build-options` (show
@@ -325,7 +381,8 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
     its own checkbox in the modal on 2026-08-15 (repo owner's call, checked by default);
     request-from-buffers stayed fixed because it is purely additive. A per-player setting
     could expose it, and could also set the checkbox's default.
-  - product buffer size (currently one stack of the item).
+  - product buffer size (currently one stack of the item; whether the stock chests request
+    it at all is the player's since 2026-11-13, *Upcycle items from the network*).
   - whether to place obstacle-clearing deconstruction orders at all.
 - **The ingredient request default is two minutes of crafting; the game's own convention is
   30 seconds** (noted 2026-08-27, the default raised from one minute on 2026-09-09).

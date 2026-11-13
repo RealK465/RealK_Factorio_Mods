@@ -588,6 +588,99 @@ describe("planner.plan", function()
       .. ", never the pair's " .. (own + other))
   end)
 
+  describe("the two request opt-outs", function()
+    test("ticked is what every plan always was: an explicit tick builds the untouched plan", function()
+      assert(deep_equal(planner.plan(force(), choices_with()),
+          planner.plan(force(), choices_with({ stock_requests = true, terminal_requests = true }))),
+        "an explicit tick diverged from the untouched plan")
+    end)
+
+    test("unticking the stock request leaves every stock chest asking for nothing", function()
+      local plain = planner.plan(force(), choices_with())
+      local plan = planner.plan(force(), choices_with({ stock_requests = false }))
+      assert(plan.width == plain.width and #plan.entities == #plain.entities,
+        "dropping a request moved the plan")
+      local stock = 0
+      for _, e in pairs(plan.entities) do
+        if e.name == "buffer-chest" then
+          assert(e.requests == nil, "a stock chest still requests " .. serpent.line(e.requests))
+          stock = stock + 1
+        end
+      end
+      assert(stock == 2, "stock chests " .. stock)
+      assert(plate_request(plan) == 480, "the feed chests lost their request with it")
+    end)
+
+    test("a floor still holds without the stock request, and the chest is left ungated", function()
+      -- No request to raise and none to stop: the census stays wired and broadcasting, the
+      -- reserve inserter keeps the floor on its own.
+      local plan = planner.plan(force(), choices_with({
+        stock_requests = false, circuit_enabled = true,
+        circuit_max_rare = 50, circuit_min_uncommon = 25,
+      }))
+      assert(plan.circuit_unlinked == nil, "unlinked " .. tostring(plan.circuit_unlinked))
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "census" and e.circuit_tier < 3 then
+          assert(e.requests == nil and e.control_behavior == nil,
+            "a stock chest with no request was given one, or gated")
+          assert(e.circuit_wire_to, "the census left the network")
+        end
+        if e.circuit_role == "reserve" and e.circuit_tier == 2 then
+          assert(e.control_behavior and e.override_stack_size == 12, "the reserve lost its floor")
+        end
+      end
+    end)
+
+    test("unticking the final machine's request stands the relay role's plain chest there", function()
+      local plain = planner.plan(force(), choices_with())
+      local plan = planner.plan(force(), choices_with({ terminal_requests = false }))
+      assert(plan.width == plain.width and plan.height == plain.height
+        and #plan.entities == #plain.entities, "swapping one chest moved the plan")
+      assert(plan.unpowered == nil, "unpowered " .. tostring(plan.unpowered))
+      assert(count_by_name(plan, "requester-chest") == 2,
+        "requesting feed chests " .. count_by_name(plan, "requester-chest"))
+      -- Two relay chests and the final machine's feed.
+      assert(count_by_name(plan, "steel-chest") == 3,
+        "plain chests " .. count_by_name(plan, "steel-chest"))
+      for _, e in pairs(plan.entities) do
+        if e.name == "steel-chest" then
+          assert(e.requests == nil, "a plain chest was given a request")
+        end
+      end
+      assert(plate_request(plan) == 480, "the lower feed chests lost their request with it")
+
+      -- The player's relay pick, at its quality, is what stands there.
+      local picked = planner.plan(force(), choices_with({
+        terminal_requests = false, container = "iron-chest", container_quality = "rare",
+      }))
+      assert(count_by_name(picked, "iron-chest") == 3, "the relay pick did not reach the final machine")
+      for _, e in pairs(picked.entities) do
+        if e.name == "iron-chest" then
+          assert(e.quality == "rare", "a plain chest came out " .. tostring(e.quality))
+        end
+      end
+    end)
+
+    test("under a cap the plain chest joins nothing, and nothing is left unlinked", function()
+      local plan = planner.plan(force(), choices_with({
+        terminal_requests = false, circuit_enabled = true, circuit_max_rare = 50,
+      }))
+      assert(plan.circuit_unlinked == nil, "unlinked " .. tostring(plan.circuit_unlinked))
+      local feeds = 0
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "feed" then
+          assert(e.control_behavior and e.circuit_wire_to, "a lower feed chest was left asking")
+          feeds = feeds + 1
+        end
+        if e.name == "steel-chest" then
+          assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+            "a plain chest was wired or gated")
+        end
+      end
+      assert(feeds == 2, "gated feed chests " .. feeds)
+    end)
+  end)
+
   describe("circuit limits", function()
     local function stack_of(plan)
       return (circuit_stack.of(plan.entities))
@@ -669,6 +762,49 @@ describe("planner.plan", function()
         and rows[1].count == 37 and rows[2].name == "signal-C" and rows[2].quality == "rare"
         and rows[2].count == 123, "the combinator rows read " .. serpent.line(rows))
       assert(stack.limits.control_behavior.is_on == nil, "an unpaused plan switched the combinator off")
+    end)
+
+    test("under a cap the requesting chests stop asking with the loop; without one they stay off the wire", function()
+      local plan = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 123,
+      }))
+      assert(plan.circuit_unlinked == nil, "unlinked " .. tostring(plan.circuit_unlinked))
+      -- The design claim itself: a chest stops on the very comparison its machines make.
+      local machines_stop
+      for _, e in pairs(plan.entities) do
+        if e.circuit_role == "machine" then machines_stop = e.control_behavior.circuit_condition end
+      end
+      assert(machines_stop, "no gated machine to compare against")
+      local feeds, stocks = 0, 0
+      for _, e in pairs(plan.entities) do
+        local stock = e.circuit_role == "census" and e.name == "buffer-chest"
+        if e.circuit_role == "feed" or stock then
+          local cb = e.control_behavior
+          assert(cb and cb.circuit_condition_enabled == true
+            and deep_equal(cb.circuit_condition, machines_stop),
+            e.name .. " stops on " .. serpent.line(cb))
+          assert(e.circuit_wire_to, e.name .. " is not on the wire")
+          if stock then stocks = stocks + 1 else feeds = feeds + 1 end
+        end
+        if e.name == "passive-provider-chest" then
+          assert(e.control_behavior == nil, "the output chest was gated")
+        end
+      end
+      assert(feeds == 3 and stocks == 2, feeds .. " feed and " .. stocks .. " stock chests gated")
+
+      -- A reserve alone has no stop for a chest to follow.
+      local uncapped = planner.plan(force(), choices_with({
+        circuit_enabled = true, circuit_max_rare = 0, circuit_min_uncommon = 25,
+      }))
+      for _, e in pairs(uncapped.entities) do
+        if e.circuit_role == "feed" then
+          assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+            "a feed chest joined a loop with no cap")
+        end
+        if e.circuit_role == "census" then
+          assert(e.control_behavior == nil, "a census was gated with no cap")
+        end
+      end
     end)
 
     test("the hand: the chosen inserter's researched hand by default, the wizard's number when typed", function()
@@ -772,10 +908,21 @@ describe("planner.plan", function()
             and cb.circuit_condition.first_signal.name == "signal-C"
             and cb.circuit_condition.comparator == ">" and cb.circuit_condition.constant == 0,
             e.circuit_role .. " gates on " .. serpent.line(cb))
-        elseif e.circuit_role == "reserve" or e.circuit_role == "census" then
-          assert(deep_equal(e.control_behavior, p.control_behavior)
-            and deep_equal(e.requests, p.requests),
-            e.circuit_role .. " changed under network mode")
+        elseif e.circuit_role == "reserve" then
+          assert(deep_equal(e.control_behavior, p.control_behavior),
+            "a reserve changed under network mode")
+        elseif e.circuit_role == "census" or e.circuit_role == "feed" then
+          -- What a chest requests never moves; its stop does, where it has one. A chest
+          -- carries no logistic condition, so it follows the wire's pause alone.
+          assert(deep_equal(e.requests, p.requests),
+            e.circuit_role .. " requests changed under network mode")
+          local c = e.control_behavior and e.control_behavior.circuit_condition
+          assert((c == nil) == (p.control_behavior == nil), e.name .. " gained or lost its stop")
+          if c then
+            assert(c.first_signal.name == "signal-C" and c.comparator == ">" and c.constant == 0
+              and e.control_behavior.logistic_condition == nil,
+              e.name .. " stops on " .. serpent.line(e.control_behavior))
+          end
         end
       end
       local stack = stack_of(plan)

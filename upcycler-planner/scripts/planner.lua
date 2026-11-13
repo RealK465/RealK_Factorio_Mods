@@ -463,6 +463,21 @@ function planner.stock_buffered(choices)
   return choices.buffer_stock ~= false
 end
 
+-- Two more checkboxes read the same way -- nil means ticked, which is what every loop did
+-- before either existed (2026-11-13, portal reports; decisions.md). The first: whether each
+-- lower tier's stock chest requests the product, which draws the base's own stock of the item
+-- into the loop and recycles it. The second: whether the final machine's ingredient chest
+-- requests at the target quality, which pulls back the very ingredients a player recycles the
+-- result for. Neither key starts with request_ -- that prefix is the per-item override
+-- family, swept by state.prune and cleared on an item pick.
+function planner.stock_requests(choices)
+  return choices.stock_requests ~= false
+end
+
+function planner.terminal_requests(choices)
+  return choices.terminal_requests ~= false
+end
+
 -- Placeability is load-bearing here, not defensive: base ships 1x1 CONTAINERS for the crash
 -- site and the tips-and-tricks simulations (red-chest, blue-chest, crash-site-chest-1/2) that no
 -- item can place, so a footprint test alone puts scenery in the picker (analysis/api.md S15).
@@ -2358,8 +2373,12 @@ function planner.plan(force, choices, gathered)
     },
     requests = requests,
     -- One stack of the product in front of each recycler: enough to keep it busy through a
-    -- gap on the belt, and self-limiting rather than hoarding.
-    product_buffer = product_stack,
+    -- gap on the belt, and self-limiting rather than hoarding. nil once the player unticked
+    -- the stock request.
+    product_buffer = planner.stock_requests(choices) and product_stack or nil,
+    -- The plain chest the final machine's feed uses once the player unticked its request:
+    -- the relay role's pick, the one chest in the loop that never talks to the network.
+    terminal_feed = not planner.terminal_requests(choices) and r.container or nil,
   }
   -- With poles, the layout and the pole pass are solved together -- the columns a plan opens
   -- are the ones poles turned out to need. Without them there is nothing to weigh, so the
@@ -2376,9 +2395,11 @@ function planner.plan(force, choices, gathered)
     -- nothing, only crossing zero does. The feed-stack count is in for the same reason:
     -- a second stack is three occupied tiles and two consumers per column, on the very
     -- ground a compact plan's poles stood in -- the recipe itself stays out, since which
-    -- ingredients they are moves nothing.
+    -- ingredients they are moves nothing. And whether the final machine's feed is the
+    -- requester or the plain chest: same tile, but a different NAME in the consumer set.
     local memo_key = table.concat({
       #expanded_tiers, tostring(overflow_tap), #fluids, r.feed_stacks,
+      tostring(planner.terminal_requests(choices)),
       circuit and (circuit.capped and "capped" or "reserved") or "off",
       machine_footprint.name, machine_footprint.width, machine_footprint.height,
       tostring(machine_footprint.direction),
@@ -2417,6 +2438,11 @@ function planner.plan(force, choices, gathered)
       hand = circuit.hand,
       product = product.name,
       reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),
+      -- The feed chests' own hop to their machine, kept OUT of the shared minimum above: a
+      -- modded chest with a short wire then costs its own link and a warning, never the
+      -- spine every other condition hangs on.
+      feed_reach = math.min(machine.get_max_circuit_wire_distance(machine_quality),
+        prototypes.entity[r.requester.name].get_max_circuit_wire_distance(r.requester.quality)),
     })
     -- Reported like the pole pass's unpowered: only the built geometry knows it, and the loop
     -- still runs -- an unwired entity just runs without its limit.

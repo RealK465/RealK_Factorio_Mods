@@ -73,10 +73,10 @@ You can define a minimum amount of the lower quality items to keep as reserve in
 and also a maximum amount for the target quality item that stops the loop after the target amount is reached.
 
 The numbers live on a constant combinator inside the loop, so you can change them in place without a new blueprint.
-Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on.
+Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on. While a loop with a maximum is paused or done, its chests stop requesting too.
 Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full or the loop is paused, and the panel's icon is visible on the map.
 
-A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, edit the combinator's C row: every machine and recycler picks up the new number. The combinator still pauses: switch it off, or set its C row to 0. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
+A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, edit the combinator's C row: every machine and recycler picks up the new number. The combinator still pauses: switch it off, or set its C row to 0. In this mode the loop's chests stop requesting only while it is paused. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 

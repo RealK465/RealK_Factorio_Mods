@@ -635,3 +635,274 @@ describe("retuning network mode from the combinator", function()
     end)
   end)
 end)
+
+-- The chests stop asking with the loop (circuits.lua's header). Three engine facts carry
+-- that design, measured through a throwaway probe (analysis/api.md S36) and pinned here,
+-- and above them the whole thing end to end on a stamped plan.
+describe("the chests stop asking with the loop", function()
+  before_all(function() research.full(force()) end)
+  after_each(wipe)
+
+  local CAP = { type = "virtual", name = "signal-C", quality = "rare" }
+
+  local function request(chest, slot, name, count)
+    local point = chest.get_requester_point()
+    local section = point.get_section(1) or point.add_section()
+    section.set_slot(slot, { value = { type = "item", name = name, quality = "normal" }, min = count })
+    return point
+  end
+
+  local function green(entity)
+    return entity.get_wire_connector(defines.wire_connector_id.circuit_green, true)
+  end
+
+  -- The network-mode shape circuits.lua writes on a chest -- the pause alone, C > 0 --
+  -- through the runtime names, which for this one flag are the blueprint's own.
+  local function gate(chest, combinator)
+    local cb = chest.get_or_create_control_behavior()
+    cb.circuit_condition_enabled = true
+    cb.circuit_condition = { comparator = ">", first_signal = CAP, constant = 0 }
+    green(chest).connect_to(green(combinator))
+  end
+
+  local function switched_off_combinator(position)
+    local combinator = nauvis().create_entity({
+      name = "constant-combinator", position = position, force = force(),
+    })
+    local behaviour = combinator.get_or_create_control_behavior()
+    behaviour.get_section(1).set_slot(1, { value = CAP, min = 50 })
+    behaviour.enabled = false
+    return combinator
+  end
+
+  -- A capped rare gear loop, stamped and revived but left dark on purpose: these specs read
+  -- chests, and a running inserter would move what they count.
+  local function stand_loop(overrides)
+    local choices = {
+      recipe = "iron-gear-wheel", quality = "rare",
+      machine = "assembling-machine-3", recycler = "recycler",
+      pole = "medium-electric-pole",
+      circuit_enabled = true, circuit_max_rare = 50,
+    }
+    for key, value in pairs(overrides or {}) do choices[key] = value end
+    local plan = assert(planner.plan(force(), choices), "plan failed in test setup")
+    stamping.place(plan, nauvis(), force())
+    stamping.revive_all(nauvis())
+  end
+
+  -- A network that reaches the loop from a power island of its own, and a base holding
+  -- normal plates and normal gears -- what the first tier's feed and stock chests ask for.
+  local function stand_base()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 28, 8 }, force = f })
+    s.create_entity({ name = "medium-electric-pole", position = { 25.5, 8.5 }, force = f })
+    local roboport = s.create_entity({ name = "roboport", position = { 22, 8 }, force = f })
+    roboport.insert({ name = "logistic-robot", count = 50 })
+    local base = s.create_entity({ name = "passive-provider-chest", position = { 22.5, 12.5 }, force = f })
+    base.insert({ name = "iron-plate", count = 2000 })
+    base.insert({ name = "iron-gear-wheel", count = 200 })
+    return roboport
+  end
+
+  local function held(name, item)
+    local total = 0
+    for _, chest in pairs(nauvis().find_entities_filtered({ name = name })) do
+      total = total + chest.get_item_count(item)
+    end
+    return total
+  end
+
+  test("a paused loop asks the network for nothing, and asks again once switched on", function()
+    local s = nauvis()
+    stand_loop({ circuit_paused = true })
+    local roboport = stand_base()
+
+    after_ticks(600, function()
+      assert(roboport.logistic_network
+        and #s.find_entities_filtered({ name = "requester-chest" }) == 3, "the rig did not stand")
+      assert(held("requester-chest", "iron-plate") == 0,
+        "paused, the feed chests were still delivered " .. held("requester-chest", "iron-plate") .. " plates")
+      assert(held("buffer-chest", "iron-gear-wheel") == 0,
+        "paused, the stock chests were still delivered " .. held("buffer-chest", "iron-gear-wheel") .. " gears")
+
+      local combinator = s.find_entities_filtered({ name = "constant-combinator" })[1]
+      combinator.get_control_behavior().enabled = true
+      after_ticks(900, function()
+        assert(held("requester-chest", "iron-plate") > 0, "switched on, the feed chests ask for nothing")
+        assert(held("buffer-chest", "iron-gear-wheel") > 0, "switched on, the stock chests ask for nothing")
+      end)
+    end)
+  end)
+
+  test("at its maximum the loop asks for nothing, and asks again once the output chest is drawn down", function()
+    local s = nauvis()
+    stand_loop()
+    -- The maximum is in the output chest before any network exists, so the wire has settled
+    -- on the count by the time a robot could be sent.
+    local output = s.find_entities_filtered({ name = "passive-provider-chest" })[1]
+    output.insert({ name = "iron-gear-wheel", count = 50, quality = "rare" })
+
+    after_ticks(10, function()
+      stand_base()
+      after_ticks(600, function()
+        for _, chest in pairs(s.find_entities_filtered({ name = { "requester-chest", "buffer-chest" } })) do
+          assert(chest.status == defines.entity_status.disabled_by_control_behavior,
+            "at the maximum a " .. chest.name .. " reads status " .. tostring(chest.status))
+        end
+        assert(held("requester-chest", "iron-plate") == 0,
+          "at the maximum the feed chests were delivered " .. held("requester-chest", "iron-plate") .. " plates")
+        assert(held("buffer-chest", "iron-gear-wheel") == 0,
+          "at the maximum the stock chests were delivered " .. held("buffer-chest", "iron-gear-wheel") .. " gears")
+
+        output.remove_item({ name = "iron-gear-wheel", count = 10, quality = "rare" })
+        after_ticks(900, function()
+          assert(held("requester-chest", "iron-plate") > 0, "below the maximum the feed chests ask for nothing")
+          assert(held("buffer-chest", "iron-gear-wheel") > 0, "below the maximum the stock chests ask for nothing")
+        end)
+      end)
+    end)
+  end)
+
+  -- Why the stock chests can follow the pause at no cost to the player, why the output chest
+  -- must never be gated, and why a gated chest can stay in the loop's own path: disabled, a
+  -- BUFFER chest stops asking and keeps handing its items out, a PROVIDER stops providing,
+  -- and either still takes and gives to inserters and still reads on the wire.
+  test("engine: disabled, a buffer chest stops asking and keeps sharing; a provider stops providing", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+    s.create_entity({ name = "roboport", position = { 14, 10 }, force = f })
+      .insert({ name = "logistic-robot", count = 50 })
+    local combinator = switched_off_combinator({ 2.5, 8.5 })
+
+    -- The network's only copper sits in a gated buffer chest, its only steel in a gated
+    -- provider, and a third gated chest just holds plastic for the wire to read.
+    local buffer = s.create_entity({ name = "buffer-chest", position = { 4.5, 6.5 }, force = f })
+    buffer.insert({ name = "copper-plate", count = 40 })
+    gate(buffer, combinator)
+    local provider = s.create_entity({ name = "passive-provider-chest", position = { 8.5, 6.5 }, force = f })
+    provider.insert({ name = "steel-plate", count = 40 })
+    gate(provider, combinator)
+    local census = s.create_entity({ name = "buffer-chest", position = { 8.5, 8.5 }, force = f })
+    census.insert({ name = "plastic-bar", count = 7 })
+    gate(census, combinator)
+    s.create_entity({ name = "passive-provider-chest", position = { 6.5, 6.5 }, force = f })
+      .insert({ name = "iron-plate", count = 400 })
+    local requester = s.create_entity({ name = "requester-chest", position = { 2.5, 6.5 }, force = f })
+    requester.request_from_buffers = true
+
+    -- The same condition with NO wire at all: what a stamped chest is until its wire is
+    -- built, and after a player cuts it. It must keep asking, or a missing wire would stall
+    -- a loop -- the machines' own rule (api.md S26), here for a chest.
+    local unwired = s.create_entity({ name = "requester-chest", position = { 10.5, 6.5 }, force = f })
+    local loose = unwired.get_or_create_control_behavior()
+    loose.circuit_condition_enabled = true
+    loose.circuit_condition = { comparator = ">", first_signal = CAP, constant = 0 }
+
+    -- A gated buffer between two inserters: one filling it, one emptying it.
+    local source = s.create_entity({ name = "steel-chest", position = { 2.5, 10.5 }, force = f })
+    source.insert({ name = "iron-stick", count = 10 })
+    s.create_entity({ name = "fast-inserter", position = { 3.5, 10.5 },
+      direction = defines.direction.west, force = f })
+    local middle = s.create_entity({ name = "buffer-chest", position = { 4.5, 10.5 }, force = f })
+    middle.insert({ name = "iron-gear-wheel", count = 10 })
+    gate(middle, combinator)
+    s.create_entity({ name = "fast-inserter", position = { 5.5, 10.5 },
+      direction = defines.direction.west, force = f })
+    local sink = s.create_entity({ name = "steel-chest", position = { 6.5, 10.5 }, force = f })
+
+    -- The requests go in only once the disabled state has settled. Written in the same tick
+    -- as the condition on a LIVE chest, one robot is dispatched before the condition is read
+    -- (measured: 4 plates); a stamped chest has no such window, the test above shows.
+    after_ticks(10, function()
+      request(buffer, 1, "iron-plate", 40)
+      request(requester, 1, "copper-plate", 40)
+      request(requester, 2, "steel-plate", 40)
+      request(unwired, 1, "iron-plate", 40)
+      after_ticks(600, function()
+        assert(unwired.get_item_count("iron-plate") == 40,
+          "a condition with no wire stopped the chest asking: it holds "
+          .. unwired.get_item_count("iron-plate"))
+        assert(buffer.status == defines.entity_status.disabled_by_control_behavior,
+          "the gated buffer chest reads status " .. tostring(buffer.status))
+        assert(buffer.get_item_count("iron-plate") == 0,
+          "disabled, the buffer chest was still delivered " .. buffer.get_item_count("iron-plate"))
+        assert(requester.get_item_count("copper-plate") == 40,
+          "disabled, the buffer chest stopped sharing: " .. requester.get_item_count("copper-plate"))
+        assert(requester.get_item_count("steel-plate") == 0,
+          "disabled, the provider still provided " .. requester.get_item_count("steel-plate"))
+        local wire = combinator.get_circuit_network(defines.wire_connector_id.circuit_green)
+        assert(wire and wire.get_signal({ type = "item", name = "plastic-bar" }) == 7,
+          "a disabled chest stopped reading its contents onto the wire")
+        assert(source.get_item_count("iron-stick") == 0 and sink.get_item_count("iron-gear-wheel") == 10,
+          "an inserter could not fill or empty a disabled chest")
+
+        combinator.get_control_behavior().enabled = true
+        after_ticks(900, function()
+          assert(buffer.get_item_count("iron-plate") >= 40, "enabled, the buffer chest never asked")
+          assert(requester.get_item_count("steel-plate") == 40, "enabled, the provider never provided")
+        end)
+      end)
+    end)
+  end)
+
+  -- Why a stock chest planned without its request carries no trash flag at all, why the
+  -- reserve raises a request rather than exempting the chest (decisions.md), and why the
+  -- chests can be stopped at every pause with trash-unrequested on: the skim is real, down
+  -- to the request and to nothing where there is none, and it PAUSES with the chest. Were
+  -- that last half ever to change, bots would empty the loop's chests at every pause.
+  test("engine: bots skim a trash-flagged chest down to its request, and leave a disabled one alone", function()
+    local s, f = nauvis(), force()
+    s.create_entity({ name = "electric-energy-interface", position = { 12, 4 }, force = f })
+    s.create_entity({ name = "substation", position = { 8, 4 }, force = f })
+    s.create_entity({ name = "roboport", position = { 14, 10 }, force = f })
+      .insert({ name = "logistic-robot", count = 50 })
+    local storage_chest = s.create_entity({ name = "storage-chest", position = { 6.5, 6.5 }, force = f })
+    local combinator = switched_off_combinator({ 2.5, 8.5 })
+
+    -- Sixty plates over the request, and twenty of an item never asked for.
+    local function overfill(chest)
+      request(chest, 1, "iron-plate", 40).trash_not_requested = true
+      chest.insert({ name = "iron-plate", count = 100 })
+      chest.insert({ name = "copper-plate", count = 20 })
+    end
+    local open = s.create_entity({ name = "requester-chest", position = { 2.5, 6.5 }, force = f })
+    overfill(open)
+    local shut = {}
+    for i, name in ipairs({ "requester-chest", "buffer-chest" }) do
+      shut[i] = s.create_entity({ name = name, position = { 2.5 + 2 * i, 10.5 }, force = f })
+      gate(shut[i], combinator)
+    end
+
+    -- Overfilled only once the disabled state has settled, for the live-only window's reason.
+    after_ticks(10, function()
+      for _, chest in pairs(shut) do overfill(chest) end
+      after_ticks(1200, function()
+        assert(open.get_item_count("iron-plate") == 40,
+          "the chest holds " .. open.get_item_count("iron-plate") .. " plates against a request of 40")
+        assert(open.get_item_count("copper-plate") == 0,
+          "the chest kept " .. open.get_item_count("copper-plate") .. " plates it never asked for")
+        assert(storage_chest.get_item_count("iron-plate") == 60
+          and storage_chest.get_item_count("copper-plate") == 20, "the skim did not reach storage")
+        for _, chest in pairs(shut) do
+          assert(chest.status == defines.entity_status.disabled_by_control_behavior,
+            "the gated " .. chest.name .. " reads status " .. tostring(chest.status))
+          assert(chest.get_item_count("iron-plate") == 100 and chest.get_item_count("copper-plate") == 20,
+            "disabled, the " .. chest.name .. " was skimmed to " .. chest.get_item_count("iron-plate")
+            .. " plates and " .. chest.get_item_count("copper-plate") .. " copper")
+        end
+
+        -- Switched on, the same two chests are skimmed like the open one: the rig could
+        -- skim them all along, so the wait above proved something.
+        combinator.get_control_behavior().enabled = true
+        after_ticks(1500, function()
+          for _, chest in pairs(shut) do
+            assert(chest.get_item_count("iron-plate") == 40 and chest.get_item_count("copper-plate") == 0,
+              "enabled, the " .. chest.name .. " still holds " .. chest.get_item_count("iron-plate")
+              .. " plates and " .. chest.get_item_count("copper-plate") .. " copper")
+          end
+        end)
+      end)
+    end)
+  end)
+end)

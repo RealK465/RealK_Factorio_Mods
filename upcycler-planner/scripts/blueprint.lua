@@ -94,7 +94,8 @@ local function request_filters_of(entity, trash_unrequested)
   local filters = {}
   for index, request in ipairs(entity.requests) do
     -- A request carrying a count is quality-exact by engine rule, which is what keeps each
-    -- tier's items separate from the player's base and from each other.
+    -- tier to its own quality -- apart from the other tiers, and from a base only while the
+    -- base holds nothing at that quality.
     filters[index] = {
       index = index, name = request.name, quality = request.quality,
       comparator = "=", count = request.count,
@@ -147,7 +148,8 @@ function blueprint.entities(plan)
       -- on every other inserter, which then keeps whatever hand research allows.
       override_stack_size = entity.override_stack_size,
       -- Written by the circuit pass in blueprint shape already (circuit_enabled plus a
-      -- circuit_condition), so it passes through verbatim; nil on everything ungated.
+      -- circuit_condition; circuit_condition_enabled on a requesting chest), so it passes
+      -- through verbatim; nil on everything ungated.
       control_behavior = entity.control_behavior,
       -- The circuit stack's own fields, blueprint-shaped by the circuit pass like the
       -- behaviour above: the combinator's description, the lamps' colour and always-on,

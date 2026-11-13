@@ -44,11 +44,22 @@
 -- the paused row alone and shows the product icon otherwise. The reserves are untouched: a
 -- floor is a local reading.
 --
+-- THE CHESTS STOP ASKING WITH THE LOOP (2026-11-13, a portal report: a paused loop kept
+-- pulling ingredients the base needed elsewhere). Under a cap every chest that requests --
+-- each feed chest, and each stock chest while it still requests the product -- carries the
+-- machines' own wire condition as a logistic chest's circuit condition, which cuts its
+-- REQUESTS and nothing else it does here (measured, analysis/api.md S36): inserters still
+-- fill and empty it, a buffer chest still hands its items out, the census still reads. So a
+-- paused or finished loop asks the network for nothing. Two limits. A chest has no logistic
+-- condition, so in network mode it hears the pause alone and keeps topping up at the cap.
+-- And the output chest is never gated: a disabled provider stops providing, and handing the
+-- result out is its whole job.
+--
 -- What stays combinator-free is the LOGIC: the layout already separates what the conditions
 -- need -- the stock chests hold exactly one tier's product each, the output chest alone holds
 -- the target's, and a wire signal is distinct per quality -- so every rule is one comparison,
 -- no decider anywhere, and the census needs no reading config at all (a wired chest
--- broadcasts by default).
+-- broadcasts by default, with or without a condition of its own).
 --
 -- WIRES FIRST, CONDITIONS SECOND. A condition is written only onto an entity that can hear
 -- the combinator over the wires actually placed: an entity wired into a fragment WITHOUT the
@@ -86,15 +97,15 @@ circuits.DESCRIPTION_PREFIX = DESCRIPTION_PREFIX
 -- Two descriptions, because the switch means two things -- see the header.
 local DESCRIPTION_CAPPED = DESCRIPTION_PREFIX .. "C = maximum in the output chest (0 stops the "
   .. "loop; type a big number for no limit). M = minimum kept of that quality plus one inserter "
-  .. "hand per column (no row = no reserve). Switch off to pause the loop."
+  .. "hand per column (no row = no reserve). Switch off to pause the loop and its requests."
 local DESCRIPTION_UNCAPPED = DESCRIPTION_PREFIX .. "M = minimum kept of that quality plus one "
   .. "inserter hand per column (no row = no reserve). Keep it switched on: off removes every "
   .. "reserve."
 -- Network mode's own, for the count it reads and the roboport range it needs -- see the header.
 local DESCRIPTION_NETWORK = DESCRIPTION_PREFIX .. "C = maximum across the logistic network (0 "
   .. "stops the loop; type a big number for no limit). M = minimum kept of that quality plus one "
-  .. "inserter hand per column (no row = no reserve). Switch off to pause the loop. Only runs "
-  .. "inside roboport range."
+  .. "inserter hand per column (no row = no reserve). Switch off to pause the loop and its "
+  .. "requests. Only runs inside roboport range."
 local COLOR_DONE = { r = 0, g = 1, b = 0, a = 1 }
 local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
 local ICON_DONE = { type = "virtual", name = "signal-check" }
@@ -158,6 +169,20 @@ local function network_gate(product, quality, maximum, cap)
   return behaviour
 end
 
+-- A requesting chest's stop: the same comparison its machines make on the wire -- the cap,
+-- or in network mode the pause alone, a chest having no logistic condition to carry the cap
+-- on. The flag's third spelling: circuit_condition_enabled, the same in a blueprint and on a
+-- live chest (api.md S36). Nothing is said about reading, so the engine's default stands and
+-- a census keeps broadcasting.
+local function chest_gate(product, quality, cap, network)
+  return {
+    circuit_condition_enabled = true,
+    circuit_condition = network
+      and { comparator = ">", first_signal = cap, constant = 0 }
+      or { comparator = "<", first_signal = product_signal(product, quality), second_signal = cap },
+  }
+end
+
 -- The combinator's rows, chain order so two identical plans decorate identically: signal-M
 -- at each reserved quality -- the minimum plus one hand per column of that quality, the
 -- number the reserve inserters really run at -- then signal-C at the target's. tiers is
@@ -197,15 +222,17 @@ end
 -- per quality name, not on array shape); minimums -- quality name -> reserve floor, SPARSE:
 -- the planner normalises "zero means off" before calling, so an absent tier simply has no
 -- reserve and its inserter stays out of the network; maximum -- the cap counted in the
--- output chest at the TARGET quality, gating every machine and recycler, or nil for no cap
--- at all (they then stay ungated, and the layout stood no lamps or panel); paused -- ship
--- the combinator switched off; network -- the header's network mode, the cap counted across
+-- output chest at the TARGET quality, gating every machine and recycler and stopping every
+-- feed and stock chest that requests, or nil for no cap at all (they then stay ungated, the
+-- feed chests unwired, and the layout stood no lamps or panel); paused -- ship the
+-- combinator switched off; network -- the header's network mode, the cap counted across
 -- the logistic network, ignored without a maximum; product -- the item the conditions
 -- count; hand -- items per swing of the reserve inserters: every M row is the minimum plus
 -- it per column and every
 -- reserved inserter is pinned to it, required whenever a minimum is set (api.md S33);
 -- reach -- tiles, the shortest circuit wire distance among the wired prototypes, since a
--- wire is refused past its shorter end.
+-- wire is refused past its shorter end; feed_reach -- the same for a feed chest's hop to its
+-- machine alone, required whenever a maximum is set.
 --
 -- Returns how many entities that should be gated cannot hear the combinator: 0 normally,
 -- more on extreme modded footprints. Each is left without its condition, so it simply runs
@@ -214,13 +241,16 @@ function circuits.decorate(entities, opts)
   local tiers, minimums = opts.tiers, opts.minimums
   local target = tiers[#tiers]
 
-  local machines, recyclers, censuses, reserves, ring, stack = {}, {}, {}, {}, {}, {}
+  -- feeds is a flat list where the rest are keyed by column: a column stands one feed chest
+  -- or two, and each finds its machine through its own circuit_tier.
+  local machines, recyclers, censuses, reserves, feeds, ring, stack = {}, {}, {}, {}, {}, {}, {}
   for index, e in ipairs(entities) do
     local role = e.circuit_role
     if role == "machine" then machines[e.circuit_tier] = index
     elseif role == "recycler" then recyclers[e.circuit_tier] = index
     elseif role == "census" then censuses[e.circuit_tier] = index
     elseif role == "reserve" then reserves[e.circuit_tier] = index
+    elseif role == "feed" then feeds[#feeds + 1] = index
     elseif role == "ring" then ring[#ring + 1] = index
     elseif STACK_ROLES[role] then stack[role] = index
     end
@@ -258,8 +288,8 @@ function circuits.decorate(entities, opts)
   -- The margin turns an exact-boundary hop into a relay or an honest unlinked count, where
   -- guessing wrong would drop the wire silently at build and split the network unwarned.
   local usable = opts.reach - 0.5
-  local function link(from, to)
-    if from and to and span(entities[from], entities[to]) <= usable then
+  local function link(from, to, limit)
+    if from and to and span(entities[from], entities[to]) <= (limit or usable) then
       entities[from].circuit_wire_to = to
     end
   end
@@ -274,6 +304,18 @@ function circuits.decorate(entities, opts)
     link(reserve_at(k), censuses[k])
     link(censuses[k], recyclers[k] or machines[k])
     link(recyclers[k], machines[k])
+  end
+
+  -- Under a cap the feed chests stop asking with the loop, so each joins its own machine:
+  -- a hop of a few tiles up the column, whatever the pitch. Without a cap nothing would be
+  -- written on them, so they stay off the wire and a reserve-only plan stands what it did.
+  -- Measured against a reach of their OWN, so a chest with a short wire loses its own link
+  -- and never shortens the shared reach every other hop is held to.
+  if capped then
+    assert(type(opts.feed_reach) == "number", "circuits.decorate: a cap needs the feed chests' reach")
+    for _, index in ipairs(feeds) do
+      link(index, machines[entities[index].circuit_tier], opts.feed_reach - 0.5)
+    end
   end
 
   -- The cross-tier spine rides the machine row: every machine shares its rows, so these hops
@@ -383,6 +425,37 @@ function circuits.decorate(entities, opts)
           unlinked = unlinked + 1
         end
       end
+    end
+
+    -- The wire's cap is counted in the output chest. Unheard, every gate above compares
+    -- against a count that never arrives and the cap never trips, so it is counted too.
+    -- Network mode reads the logistic network instead and does not need it.
+    local output = censuses[#tiers]
+    if not network and output and not heard[output] then unlinked = unlinked + 1 end
+
+    -- And the chests that request stop asking at the same stop; an unheard one is counted
+    -- like any other building left without its limit.
+    local function stop_asking(index)
+      if not heard[index] then
+        unlinked = unlinked + 1
+        return nil
+      end
+      entities[index].control_behavior = chest_gate(opts.product, target, cap, network)
+      return entities[index].control_behavior
+    end
+    for _, index in ipairs(feeds) do
+      local behaviour = stop_asking(index)
+      -- Only a census may put an item count on this wire. A recipe that takes its own
+      -- product as an ingredient would otherwise add the feed chest's stock to the very
+      -- count the cap compares.
+      if behaviour then behaviour.read_contents = false end
+    end
+    -- A stock chest is gated only while it still requests the product -- the player can plan
+    -- it without -- and never the terminal census: that is the output chest, which requests
+    -- nothing and must keep providing.
+    for k = 1, #tiers - 1 do
+      local census = censuses[k] and entities[censuses[k]]
+      if census and census.requests then stop_asking(censuses[k]) end
     end
   end
   for k = 1, #tiers do

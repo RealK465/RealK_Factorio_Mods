@@ -9,6 +9,123 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-13 - pacak's two threads: the chests stop asking, two requests become optional, the separate loops are declined (1.2.8 opened)
+
+pacak's portal threads `6adf98818a80f07f3a9dfde3` ("Some more small issues") and
+`6adfa5af23424550c396d89e` ("And one more :)") asked for four things. *"Disabling the upcycler
+via circuit network should also disable the requester/buffer chests. For example upcycler for
+electromagnetic plant would hold 1.8k holmium plates"*. *"Consider adding an option to disable
+buffer chests with the circuit network ... I had about 200 EM plants, before upcycler started,
+then it ate everything"*. *"Does it make sense to make separate loops for different qualities
+with items going between loops with splitters/inserters? While I had EM plants - the belt was
+full of low quality materials to the point it couldn't offload high quality materials from the
+recycler"*. And *"A chest in front of the final quality assembler should not be a requester
+chest ... if the goal is to also recycle it back to ingredients ... this becomes
+counterproductive"*. The owner had answered on the portal that he would check whether the API
+can disable a logistic chest without changing its requests, and asked here whether the first
+two were feasible without regressions and what to make of the third, "a radical change".
+
+**Measured first**, through a throwaway mod in the session scratchpad (`upl-probe`, one spec,
+the `factorio-testing` runner pointed at a scratch data directory with the framework zip
+copied in so nothing was downloaded): a logistic chest takes a circuit condition from a
+blueprint and keeps it through ghost and revive; a false condition cuts its requests and
+nothing else; a disabled buffer chest keeps handing its items out where a disabled provider
+stops; the trash skim is real, down to the request, and pauses with the chest; a splitter
+accepts a quality-only filter; and the two halves of the ring's traffic ride different lanes.
+`analysis/api.md` §36. Two of the probe's own first answers were wrong. A request and a
+condition written in one tick on a live chest let a robot out before the condition is read,
+which read as "a disabled chest is still delivered to" — recorded there, since the mod's own
+specs must avoid it. And two `insert_at_back` calls on one lane in one tick place one item,
+which read as "the splitter passed nothing".
+
+**Then the jam itself, reproduced** on a scratch copy of the mod: a legendary
+electromagnetic-plant loop planned by `planner.plan`, stamped, powered and fed inside a
+logistic network, one game-hour a run. The first pass measured nothing — the plant's recipe
+only crafts under Fulgora's magnetic field, so on Nauvis every machine sat idle; a lab surface
+with `set_property("magnetic-field", 99)` fixed it. With normal quality modules a 2000-plant
+stockpile did not jam. With legendary ones a 4000-plant stockpile held the ring's outside lane
+near 225 of about 288 and every unload inserter waiting a third to two thirds of the hour —
+the report, exactly — while the same loop with no stockpile idled at 39. So the flood is the
+stock request eating the base's items at recycler speed, the choke is each tier's one harvest
+inserter rather than the belt, and under saturation the flooding tier wins every gap. Two
+levers were measured on the same flood (the ring run clockwise; a second harvest stack per
+column) and neither was built. `analysis/layout-belt-ring.md` → *The ring under a flood*,
+`deferred.md` → *The ring's ceiling*.
+
+**What the owner chose.** Shown the assessment — three of the four small and safe, the
+separate loops a second layout rather than a patch — he took it as "what I had in mind",
+dropped the loops ("not now, that's more complex, let's skip it") and the ring changes with
+them, and left the three shapes to the agent: "whatever is best". Its picks, recorded in
+`decisions.md`: the chests follow the stop whenever a cap is set, with no checkbox; the stock
+request becomes a build option rather than pacak's combinator row; and the final machine alone
+gets the plain chest, as asked.
+
+**Built.** `layout.build` tags every requesting feed chest (`circuit_role = "feed"`), plans
+the stock chest without a request when `product_buffer` is absent, and stands
+`params.terminal_feed` in front of the final machine when the planner hands one over.
+`circuits.decorate` links each feed chest to its own machine under a cap and writes
+`chest_gate` — the machines' wire condition under the chest's own flag — onto every heard
+feed chest and every heard stock chest that requests; the output chest is never touched.
+`planner.plan` reads the two new choices through `planner.stock_requests` /
+`planner.terminal_requests`, adds one token to the pole memo's key, and hands the decorator a
+`feed_reach` of its own: folded into the shared reach, a modded chest with a short wire would
+have shortened the spine every other condition hangs on, so it is kept apart and such a chest
+costs only its own link. Two checkboxes in Build options, between the buffer-chests and trash
+boxes, sharing one tag-keyed handler; four locale strings; the two capped descriptions on the
+combinator now say "pause the loop and its requests"; one sentence each in the README's two
+circuit paragraphs and two FAQ entries, worded by the `user-facing-text` agent. An unheard
+chest is counted in the unlinked warning — which also starts counting an unheard stock chest,
+uncounted until now.
+
+**Notes corrected along the way.** `analysis/layout-belt-ring.md` said no higher tier can
+drain the base; that holds only while the base has nothing at that quality, which is the case
+the fourth report broke, and the file now says so. Its per-tier table still called the stock
+chest a requester chest, stale since the buffer default. And `decisions.md`'s "bots skim
+anything above the request" was an assertion until this session's probe measured it.
+
+Twenty-one specs joined: pure 10 (circuits 7, layout 3), in-game 11 (plan 6, loop 3,
+blueprint 1, gui 1), with five pins moved in `circuits_spec` and three in `blueprint_spec` and
+`plan_spec` for the chests now on the wire. Static clean, pure 137/137, headless 418/418 on
+2.1.23. The one pure spec that failed in game and passed on the host had called `require`
+inside a test body, which the game refuses outside `control.lua` parsing. No graphics pass:
+the owner was away with the screens off, and that pass belongs to the release. 1.2.8 opened, a
+patch like 1.2.2 and 1.2.4 before it: two options and one behaviour, no prototype touched.
+Nothing committed, nothing published.
+
+The three-reviewer pass (correctness, simplicity, conventions) found no defect in the Lua.
+It caught a README sentence that was wrong for network mode — "paused or done" where a chest
+there hears the pause alone — and the same sealed-from-the-base claim standing in
+`deferred.md` and `analysis/layout-bot-loop.md` that this session had just corrected in
+`layout-belt-ring.md`; four more sentences in `decisions.md` the change had made stale; and
+comments in `blueprint.lua` and `gui.lua` likewise. It simplified the decorator — `link()`
+takes the feed chests' limit instead of a second copy of itself, `chest_gate` lost a
+positional flag whose reason nobody had written down (now stated where it is set: a recipe
+taking its own product would add a feed chest's stock to the cap's count), one closure owns
+"heard, or counted" for both kinds of chest, and `feed_reach` is required under a cap rather
+than defaulted — and the GUI, one tag-keyed handler in place of a factory. One spec that
+pinned a wire edge against its own file's connectivity rule was dropped, which is the
+twenty-second. Left alone, recorded in `deferred.md`: an output chest that cannot reach its
+machine is still not counted in the unlinked warning.
+
+**A second review, at the owner's ask** ("make sure no regressions and everything is fine").
+Two differentials, both of the released code against the working tree in scratch copies.
+This session's: 37 configurations planned by each and `blueprint.entities` dumped — the 23
+without a cap, three of them reserve-only, came out identical, and the 14 with one differed
+only by a condition on each requesting chest, one wire per feed chest and the description's
+three words. The independent reviewer's, wider: 819 uncapped and 1,941 capped plans across
+all 210 upcyclable items in game, tens of thousands of layouts and decorations on host Lua,
+and the released 397-spec suite run against the new code, where only the eight specs pinning
+an intended difference failed. Its verdict was no regression and ready to merge, with one
+thing to pin: the skim pausing on a disabled chest, which the design leans on at every pause
+and no spec held. Pinned, for a requester and a buffer chest. Taken with it: the stop at the
+maximum exercised live on a stamped loop, where only the pause had been; a chest carrying the
+condition with no wire, which keeps asking; the output chest out of reach, counted after all
+in wire mode with a pure spec isolating it; and one FAQ sentence owning up to the plain
+chest's missing skim. Two of the reviewer's probe readings were re-run here before being
+written into `analysis/api.md` §36 — the unwired condition, and a 1.2.8 blueprint stamped
+over a standing 1.2.7-shaped loop, which upgrades it in place. Static clean, pure 138/138,
+headless 420/420 on 2.1.23: twenty-three specs more than 1.2.7 shipped with.
+
 ## 2026-10-26 - 1.2.7 released: the combinator retune and the recycler gate
 
 At the owner's ask, the same session. The gates ran first on 2.1.23: data stage and `-FullLoad`

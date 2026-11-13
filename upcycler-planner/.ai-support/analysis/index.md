@@ -13,7 +13,7 @@ dot on `.ai-support`).
 | File | What is in it |
 |---|---|
 | `blueprints.md` | The decoded reference designs, the recycler eject mechanism, the scaling law, coordinate conventions |
-| `layout-belt-ring.md` | **The chosen layout family — kept matching what the mod actually builds** |
+| `layout-belt-ring.md` | **The chosen layout family — kept matching what the mod actually builds**, and what the ring does under a flood of rolled-up ingredients (measured 2026-11-13) |
 | `layout-bot-loop.md` | The deferred second family, specified so it can be picked up as a GUI toggle later |
 | `poles.md` | The pole coverage pass, and how the planner decides which utility columns a plan opens — read before changing the footprint or the pole count |
 | `api.md` | Every verified API shape this mod needs, plus what could not be verified |

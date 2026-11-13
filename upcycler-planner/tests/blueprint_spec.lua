@@ -438,6 +438,33 @@ describe("stamping the blueprint", function()
         "recycler condition " .. serpent.line(cb.circuit_condition))
     end
 
+    -- The chests that request carry the same stop, under the chest's own spelling of the
+    -- flag: circuit_condition_enabled, the one in this family with NO blueprint-to-runtime
+    -- rename (api.md S36). A feed chest keeps its ingredients off the wire; a stock chest is
+    -- a census and keeps broadcasting, on the engine's default.
+    local function asks_until_the_cap(name, reads, expected)
+      local ghosts = ghosts_of(nauvis(), name)
+      assert(#ghosts == expected, name .. " ghost count " .. #ghosts)
+      for _, ghost in pairs(ghosts) do
+        local cb = ghost.get_control_behavior()
+        assert(cb and cb.circuit_condition_enabled == true, "a " .. name .. " ghost lost its stop")
+        local c = cb.circuit_condition
+        assert(c.comparator == "<" and c.first_signal.name == "iron-gear-wheel"
+          and c.first_signal.quality == "rare" and c.second_signal
+          and c.second_signal.name == "signal-C" and c.second_signal.quality == "rare",
+          name .. " condition came back as " .. serpent.line(c))
+        assert(cb.read_contents == reads,
+          name .. " reads its contents onto the wire: " .. tostring(cb.read_contents))
+      end
+    end
+    asks_until_the_cap("requester-chest", false, 3)
+    asks_until_the_cap("buffer-chest", true, 2)
+    -- The output chest hands the result out, and a disabled provider would stop.
+    for _, ghost in pairs(ghosts_of(nauvis(), "passive-provider-chest")) do
+      local cb = ghost.get_control_behavior()
+      assert(not cb or cb.circuit_condition_enabled == false, "the output chest ghost was gated")
+    end
+
     -- The reserve inserters hold their floors, at or above, at their own tiers, each
     -- against signal-M at its own quality, and each pinned to the hand the floor was raised
     -- by -- 12, the bulk inserter's at full research, read back off the ghost as
@@ -487,13 +514,13 @@ describe("stamping the blueprint", function()
       "an unpaused combinator stamped switched off")
 
     -- One green component spanning every gated entity, every census chest and the stack:
-    -- 3 machines, 2 recyclers, 2 reserve inserters, 2 buffer chests, the output chest, the
-    -- combinator, the two lamps and the panel.
+    -- 3 machines, 2 recyclers, 2 reserve inserters, 3 feed chests, 2 buffer chests, the
+    -- output chest, the combinator, the two lamps and the panel.
     local start
     for _, ghost in pairs(ghosts_of(nauvis(), "passive-provider-chest")) do start = ghost end
     assert(start, "no output chest ghost to walk from")
     local reached = reachable(start, defines.wire_connector_id.circuit_green)
-    assert(reached == 14, "the green network spans " .. reached .. " ghosts, expected 14")
+    assert(reached == 17, "the green network spans " .. reached .. " ghosts, expected 17")
 
     -- Direct mode on a vanilla plan: the ring must carry no wires and no behaviour -- a belt
     -- that grew either would gate or read the very path the limits leave alone.
@@ -659,9 +686,41 @@ describe("stamping the blueprint", function()
     end
     all_reached("chemical-plant", 3)
     all_reached("recycler", 2)
-    -- The two census stock chests belong on the network; the three feed requesters do not.
+    -- The two census stock chests belong on the network, and under a cap so do the three
+    -- feed requesters -- each a short hop up its own column, whatever the pitch.
     all_reached("buffer-chest", 2)
-    all_reached("requester-chest", 0)
+    all_reached("requester-chest", 3)
+  end)
+
+  test("the request opt-outs survive the stamp: stock chests ask for nothing, a plain chest feeds the final machine", function()
+    stamp(gear_plan({ stock_requests = false, terminal_requests = false }))
+
+    -- No request on an opted-out stock chest -- and no trash flag with it: a chest that
+    -- requests nothing under trash-unrequested is one bots empty (measured, api.md S36),
+    -- which here would be the loop's own product.
+    local stock = ghosts_of(nauvis(), "buffer-chest")
+    assert(#stock == 2, "stock ghosts " .. #stock)
+    for _, ghost in pairs(stock) do
+      local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
+      assert(point, "stock ghost has no logistic point")
+      assert(point.trash_not_requested == false, "an opted-out stock ghost trashes what it holds")
+      local slot = point.sections[1] and point.sections[1].get_slot(1)
+      assert(not (slot and slot.value), "an opted-out stock ghost still requests "
+        .. serpent.line(slot))
+    end
+
+    -- The two lower tiers keep their requester; the target tier's feed is the relay role's
+    -- plain chest, beside the two relay chests themselves.
+    local feeds = ghosts_of(nauvis(), "requester-chest")
+    assert(#feeds == 2, "requester ghosts " .. #feeds .. ", expected the two lower tiers")
+    for _, ghost in pairs(feeds) do
+      local point = ghost.get_logistic_point(defines.logistic_member_index.logistic_container)
+      local slot = point.sections[1] and point.sections[1].get_slot(1)
+      assert(slot and slot.value and slot.value.name == "iron-plate" and slot.min == 480,
+        "a lower feed ghost lost its request: " .. serpent.line(slot))
+    end
+    assert(#ghosts_of(nauvis(), "steel-chest") == 3,
+      "plain chest ghosts " .. #ghosts_of(nauvis(), "steel-chest"))
   end)
 end)
 

@@ -423,11 +423,21 @@ function layout.build(params)
     for i, names in pairs(stacks) do
       inserter(stack_columns[i], ROW_HARVEST, NORTH, tier_filters.harvest[i], "whitelist")
 
-      local requests = {}
-      for _, name in pairs(names) do
-        requests[#requests + 1] = { name = name, quality = quality, count = params.requests[name] }
+      if is_terminal and params.terminal_feed then
+        -- The player's opt-out for the target tier: a plain chest that asks the network for
+        -- nothing, so target-quality ingredients recycled out of the product somewhere else
+        -- are not drawn straight back in. The ring fills it exactly as before.
+        chest(params.terminal_feed, stack_columns[i], ROW_FEED_CHEST)
+      else
+        local requests = {}
+        for _, name in pairs(names) do
+          requests[#requests + 1] = { name = name, quality = quality, count = params.requests[name] }
+        end
+        -- Tagged like the census below: a chest that requests is one the circuit pass can
+        -- stop asking, and only those carry the tag.
+        local feed = chest(params.requester, stack_columns[i], ROW_FEED_CHEST, requests)
+        feed.circuit_role, feed.circuit_tier = "feed", index
       end
-      chest(params.requester, stack_columns[i], ROW_FEED_CHEST, requests)
 
       inserter(stack_columns[i], ROW_INSERTERS, NORTH)
     end
@@ -513,18 +523,19 @@ function layout.build(params)
       -- lets the recycler keep working while the ring is busy with other tiers.
       --
       -- It requests the product as well as catching it off the belt, so bots can top it up
-      -- when the ring is slow. On the first tier that also means the player's own production
-      -- of the item feeds the loop, which is how an upcycler is normally fed; the higher tiers
-      -- cannot pull from the base at all, because the engine forces every request to name an
-      -- exact quality. Which KIND the planner hands over is the player's checkbox: a buffer
-      -- chest shares the tier's items with the base, a requester chest keeps them in.
+      -- when the ring is slow -- and so whatever the base already holds of the item at this
+      -- tier's quality is drawn in and recycled, which is how an upcycler is normally fed.
+      -- Every request names an exact quality, so a tier takes only its own. The player can
+      -- opt out (product_buffer nil): the chest then requests nothing and the loop recycles
+      -- only what it makes. Which KIND the planner hands over is the player's checkbox too:
+      -- a buffer chest shares the tier's items with the base, a requester chest keeps them in.
       inserter(col_buffer, r.unload_inserter, SOUTH,
         { { name = params.recipe.product, quality = quality } }, "whitelist")
       -- Also this tier's census chest: it is where the tier's product settles, so its count
       -- is what the reserve below and the cap on the machines read.
-      local buffer = chest(params.stock, col_buffer, r.lower_chest, {
+      local buffer = chest(params.stock, col_buffer, r.lower_chest, params.product_buffer and {
         { name = params.recipe.product, quality = quality, count = params.product_buffer },
-      })
+      } or nil)
       buffer.circuit_role, buffer.circuit_tier = "census", index
       -- The reserve point: gating THIS inserter is what keeps a tier's floor in the chest --
       -- the recycler only ever eats what the inserter hands it.

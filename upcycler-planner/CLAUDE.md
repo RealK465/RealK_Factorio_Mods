@@ -24,7 +24,7 @@ panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fift
 2026-08-28 — per-tier column counts; both rows moved down from
 the MAKES block the same day, and the balanced-columns hint the panel first carried was
 removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
-2026-08-26, a Start paused checkbox at its foot since 2026-09-07 and a Count the whole logistic network checkbox above it since 2026-09-12), the buffer-chests checkbox (since 2026-08-26), and the trash-unrequested checkbox.
+2026-08-26, a Start paused checkbox at its foot since 2026-09-07 and a Count the whole logistic network checkbox above it since 2026-09-12), the buffer-chests checkbox (since 2026-08-26), the two request checkboxes (since 2026-11-13: *Upcycle items from the network* and *Final machine requests ingredients*), and the trash-unrequested checkbox.
 Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
 a picker with only one option is hidden, as is the whole beacon group whatever the count
 (until show-all or an actual pick), and the five chests, so a vanilla game
@@ -39,9 +39,9 @@ What it emits is the belt-ring family — see
 what was deliberately left out (a second fluid network, fluid products, bot transport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (397 tests as of 2026-10-26) — planner, layout, poles,
+suite under `tests/` (420 tests as of 2026-11-13) — planner, layout, poles,
 circuits, the quality maths, the shortcut gate, blueprint, state, the eject loop, the fluid
-mechanisms, the combinator retune, the beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
+mechanisms, the combinator retune, the chests' circuit stop, the beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the relief inserter under it — one nameless *above this tier*
 filter since 2026-09-09 — is what keeps the loop alive
@@ -284,8 +284,8 @@ re-opening any of these, and don't restate a reason here.
   then a **Build options** block for what it is built **out of**, sorted into six captioned
   concept groups — Transport (belt, inserter, pipe), Chests (the five roles), Modules (quality
   and final machine), Beacons (beacon, its module, the per-tier count), Power (pole), Circuits
-  (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests and
-  trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
+  (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests, the
+  two request and the trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
   own quality except the belt and the pipe, which the engine gives no quality bonus.
   **Every label-and-button row in Build options shares one `ROW_LABEL_WIDTH`** — a fifth such
   row uses the same constant rather than a width of its own, or its button leaves the column.
@@ -404,6 +404,13 @@ re-opening any of these, and don't restate a reason here.
   description and the panel's words are blueprint strings, English constants in
   `circuits.lua`. Reasons and the rejected shapes (the first-built demand cascade included):
   `decisions.md`; the verified engine surface: `analysis/api.md` §26, §32 and §33.
+- **Under a cap the chests stop asking with the loop** (2026-11-13): every feed chest, and
+  every stock chest that still requests, carries the machines' own wire condition as a chest
+  circuit condition (`circuit_condition_enabled`), so a paused or finished loop requests
+  nothing. Network mode gives a chest the pause alone (`C > 0`); a reserve-only plan is
+  untouched. **Never gate the output chest.** Feed chests link to their own machine against
+  `feed_reach`, kept out of the shared reach, and write `read_contents = false`. Reasons:
+  `decisions.md`; the measurements: `analysis/api.md` §36.
 - Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
   (active provider): it is the loop's one sink that empties itself.
@@ -415,6 +422,15 @@ re-opening any of these, and don't restate a reason here.
   `decisions.md`. Inserters reach one tile, are never fuelled and never belt-stacking. Both
   picker lists also gate on `items_to_place_this`, or show-all offers base's unplaceable 1x1
   scenery chests.
+- **Two requests are the player's to switch off, both ticked by default** (2026-11-13).
+  *Upcycle items from the network* (`stock_requests`): unticked, the stock chests request
+  nothing and the loop recycles only what it makes. *Final machine requests ingredients*
+  (`terminal_requests`): unticked, the target tier's feed chest is the relay role's plain
+  chest. Read only through `planner.stock_requests` / `planner.terminal_requests` (nil means
+  ticked), and never named with the `request_` prefix, which is the per-item override
+  family. **A chest with no request carries no trash flag.**
+  Geometry never moves; the pole memo keys on the final machine's chest. Reasons, costs and
+  the rejected combinator row: `decisions.md`; the measurements: `analysis/api.md` §36.
 - **A recipe past one inserter's filter slots feeds each machine from two stacks** (2026-09-09):
   a second harvest inserter, feed chest and feed inserter in the buffer sub-column above the
   machine, the ingredients split into balanced halves, never a third stack — the engine caps

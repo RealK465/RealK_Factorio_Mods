@@ -18,8 +18,9 @@ idea.
 1. **No belt gates.** The reference throttles the loop with `< 20` belt gates, `>= 20` skim
    inserters and logistic conditions. The loop runs without any of them; what the mod offers
    instead, opt-in since 2026-08-26, is enable conditions on the machines, recyclers and
-   reserve inserters against one limits combinator (`../decisions.md` → circuit limits) —
-   the ring itself carries no gate, and a wired belt appears only as a relay.
+   reserve inserters — and since 2026-11-13 on the chests that request — against one limits
+   combinator (`../decisions.md` → circuit limits) — the ring itself carries no gate, and a
+   wired belt appears only as a relay.
 2. **A buffer chest in front of each recycler**, which the reference does not have — it feeds
    its recyclers straight off the ring. The chest decouples the recycler from ring traffic, and
    it is the only thing a chest can usefully do here without circuit control (a buffer on the
@@ -113,7 +114,7 @@ Every tier:
 |---|---|---|
 | Machine `k` | cols `x0 .. x0+Wm-1`, rows `4 .. 3+Hm` | dir N; `set_recipe(R, q_k)`; `insert_plan` = `Sm` x (`k<t` -> Qmod, `k=t` -> Pmod) |
 | Harvest inserter | `(xf, 1)` dir **N** | top ring -> feed chest; `use_filters`, whitelist `ING @ q_k` |
-| Feed chest (`requester-chest`) | `(xf, 2)` | a slot per ingredient at `q_k`, the Minutes field's crafting minutes (2 by default) with no stack cap since 1.2.2 -- an ask past the chest warns (`request_overflow`) instead of clipping; `request_from_buffers`; trash per the modal checkbox |
+| Feed chest (`requester-chest`) | `(xf, 2)` | a slot per ingredient at `q_k`, the Minutes field's crafting minutes (2 by default) with no stack cap since 1.2.2 -- an ask past the chest warns (`request_overflow`) instead of clipping; `request_from_buffers`; trash per the modal checkbox. Under a circuit cap it is wired to its machine and stops asking with it (`../decisions.md` → circuit limits). **On the terminal column the player can swap it for the relay role's plain chest, which requests nothing** (2026-11-13, *Final machine requests ingredients* unticked) |
 | Feed inserter | `(xf, 3)` dir **N** | feed chest -> machine |
 | **Second feed stack** — only when the recipe has more ingredients than the chosen inserter has filter slots | `(x0+1, 1)`, `(x0+1, 2)`, `(x0+1, 3)` | the same three again in the buffer sub-column, empty above the machine on every tier: harvest dir **N** whitelisting its half, feed chest requesting its half, feed inserter dir **N**. The list splits into balanced halves (6 → 3+3, 7 → 4+3); never a third stack, since `xp` carries the product, so `layout.MAX_FEED_STACKS = 2` caps a loop at ten ingredients with the engine's five slots. No footprint cost — but these were the only upper-band tiles a medium pole covered the harvest row from, so the pole ladder opens a column about every two tiers on such plans (`poles.md`); a substation opens none |
 | Out inserter | `(xp, 3)` dir **S** | machine -> `(xp, 2)`: the product belt on non-terminal tiers, the provider on the terminal one; unfiltered, so a lucky above-tier roll leaves too |
@@ -125,7 +126,7 @@ Non-terminal tiers (`k < t`) additionally:
 | Recycler `k` | cols `x0 .. x0+Wr-1`, rows `4+Hm .. 3+Hm+Hr` | direction from `planner.recycler_orientation()` (vanilla: N; AoP salvager: W); `insert_plan` = `Sr` x Qmod (a recycler's `allowed_effects` has quality but **not** productivity) |
 | Product belt | `(xp, 2)` and `(xp, 1)`, both dir **N** | the machine's output riding up to the top ring |
 | Product-fill inserter | `(x0+1, 6+Hm+Hr)` dir **S** | bottom ring -> product buffer; whitelist `P @ q_k` |
-| Product buffer chest (`requester-chest`) | `(x0+1, 5+Hm+Hr)` | one stack of `P @ q_k`; `request_from_buffers`; trash per the modal checkbox |
+| Stock chest (a buffer chest by default, a requester when *Use buffer chests* is unticked) | `(x0+1, 5+Hm+Hr)` | one stack of `P @ q_k`; `request_from_buffers`; trash per the modal checkbox. **No request at all, and so no trash flag, when *Upcycle items from the network* is unticked** (2026-11-13). Under a circuit cap a requesting one stops asking with the loop |
 | Recycler-feed inserter | `(x0+1, 4+Hm+Hr)` dir **S** | product buffer -> recycler |
 | Extract inserter | `(xf, 4+Hm+Hr)` dir **N** | recycler -> extract chest; `use_filters`, whitelist, **one nameless filter `{q_k, ">"}`** — anything above this tier, exactly what the eject cannot deliver, at one slot whatever the recipe (the tap's shape). It was a blacklist of `ING @ q_k`, one slot per ingredient, until 2026-09-09; the recycler only ever holds `ING @ q_k` or rolled-up `ING @ >q_k`, so the two select the same items (`api.md` §9.6) |
 | Extract chest (plain container) | `(xf, 5+Hm+Hr)` | rolled-up ingredients on their way back to the ring |
@@ -330,18 +331,22 @@ so compute it directly:
 count = math.max(1, math.min(stack_size(i), math.ceil(amount_of_i / R.energy * 60)))
 ```
 
-The buffer in front of each recycler is a **requester chest** asking for one stack of the
-product at that tier. It catches product off the belt *and* requests it, so bots top it up when
-the ring is slow — and on the first tier that means the player's own production of the item
-feeds the loop, which is how an upcycler is normally fed. Higher tiers cannot pull from the base
-at all, because the engine forces every request with a non-zero minimum to name an exact
-quality.
+The stock chest in front of each recycler asks for one stack of the product at that tier. It
+catches product off the belt *and* requests it, so bots top it up when the ring is slow — and
+whatever the base holds of the item at that tier's quality is drawn in and recycled, which is
+how an upcycler is normally fed. Every request with a non-zero minimum names an exact quality,
+so a tier takes only its own; in a base that holds the item at normal alone, that is the first
+tier and nothing else. **The request is the player's to switch off** (2026-11-13, *Upcycle
+items from the network*): unticked, the chest requests nothing and the loop recycles only what
+it makes — the portal report behind it was a stock of 200 the loop ground through.
 
-**Every requester chest gets `request_from_buffers`, and by default `trash_not_requested`**
-(both verified settable on a ghost and to survive being built, 2.1.14). Trash-unrequested keeps
-a wrong-quality roll from occupying a slot forever, but makes bots haul surplus off to storage,
-so it is a checkbox in the modal — on by default, carried on the plan; request-from-buffers is
-purely additive and stays always-on.
+**Every requesting chest gets `request_from_buffers`, and by default `trash_not_requested`**
+(both verified settable on a ghost and to survive being built, 2.1.14). Trash-unrequested is a
+real skim (measured 2.1.23, `api.md` §36): bots take anything the chest did not ask for, and
+anything above what it did ask for, off to storage. That is what keeps a feed chest from
+silting up with one ingredient, so it is a checkbox in the modal — on by default, carried on
+the plan; request-from-buffers is purely additive and stays always-on. A chest with no request
+carries neither flag: under the skim a chest that asks for nothing is one bots empty.
 
 The extract chest on the other side stays a **plain container** — it is an output on its way to
 the belt, not something to request.
@@ -380,6 +385,69 @@ top-ups rather than the transport: ingredients into the feed chests, product int
 front of each recycler, and a passive provider handing out the result.
 
 That still touches the player's base at **normal quality**, deliberately — the first tier's
-requests are how an upcycler gets fed from existing production. Everything above normal is
-sealed off by the engine's quality-exact request rule, so no higher tier can drain the base or
-be drained by it.
+requests are how an upcycler gets fed from existing production. Above normal the engine's
+quality-exact request rule keeps each tier to its own quality — **which seals a tier off only
+while the base holds nothing at that quality.** This file said "no higher tier can drain the
+base" until 2026-11-13, and a portal report showed the case it missed: a player who recycles
+the finished item for its ingredients holds target-quality ingredients, and the terminal feed
+chest asked for two minutes' worth of them (1800 legendary holmium plates for an
+electromagnetic plant) and drew them straight back. Two opt-outs answer it, both ticked by
+default: the stock request above, and the terminal feed chest swapped for a plain one
+(`../decisions.md` → the two request opt-outs).
+
+## The ring under a flood — measured 2026-11-13
+
+Measured on **2.1.23** (this section alone; the front matter's 2.1.22 covers the rest) on a
+scratch copy of the mod: a legendary electromagnetic-plant loop planned by `planner.plan` at
+full research (22x16, turbo belt, bulk inserter, electromagnetic plants as the machines),
+stamped on a lab surface carrying Fulgora's magnetic field, powered, inside a logistic network
+with endless normal ingredients, one game-hour per run, sampled every 30 ticks. The findings
+grep as `UPL-FLOOD` in those runs' logs; nothing of it is in the suite.
+
+**Which lane carries what** (`api.md` §36): the product rides the ring's inside lane, the
+rolled-up ingredients its outside lane. They never share one, so a belt "full of low-quality
+materials" is the OUTSIDE lane full of the first tier's rolled-up ingredients.
+
+| Run | Outside lane, mean (of ~288) | Unload inserters waiting, tier 1 → 4 |
+|---|---|---|
+| No stockpile, normal quality modules | 20 | 4 / 1 / 0 / 0 % |
+| No stockpile, legendary quality modules | 39 | 7 / 3 / 1 / 0 % |
+| 4000-plant stockpile, legendary quality modules | 225 | 61 / 46 / 47 / 32 % |
+| the same, fast belt and fast inserter | 204 | 39 / 35 / 34 / 20 % |
+| the same stockpile, two harvest stacks per column | 94 | 26 / 13 / 9 / 1 % |
+| the same stockpile, ring run clockwise | 181 | 71 / 15 / 3 / 1 % |
+
+One more run, outside the table because it has nine columns rather than five: four normal and
+two uncommon columns, legendary quality modules, no stockpile. The lane averaged 97 of about
+416 on that longer ring and no column's unload inserter waited more than 14 % of the hour —
+busier, not saturated.
+
+What the numbers say:
+
+- **At its own pace the ring is nowhere near full.** One machine per tier makes the item
+  slower than its recycler grinds it, so the outside lane carries a trickle whatever the
+  modules.
+- **A stockpile is what floods it.** The first tier's stock chest requests the item, the
+  recycler runs flat out on the base's stock (about half a plant a second here), and with
+  legendary quality modules a quarter of what it returns rolls up — more than the second
+  tier's single harvest inserter lifts off the belt (roughly 7 items a second of a four-item
+  mix on this hardware: an estimate from that tier's craft count, not a direct reading). The
+  surplus laps the ring. With normal quality modules a 2000-plant stockpile peaked at 140 on
+  the lane and never held up the upper tiers.
+- **The belt is not the limit; the harvest inserter is.** The lane holds about 288 items and
+  saturated near 225 on a turbo belt and near 204 on a fast one, while a second harvest stack
+  per column — two inserters, each filtering half the ingredients — more than halved it.
+- **Under saturation the first tier wins every gap.** Gaps open at the harvest inserters on
+  the top ring and reach the first tier's unload inserter before any other, because the bottom
+  ring flows away from tier one. So the tier causing the flood keeps unloading and the upper
+  tiers wait — what the report described. Run the other way round the order reverses: the
+  upper tiers wait 1 to 15 % and the first tier takes the back-pressure into its relay chest
+  (4390 items after the hour).
+- **Not a deadlock, in any run.** Every tier kept recycling and crafting, and the hour's output
+  of finished items was the same within noise (a handful either way).
+
+**The portal's remedy is a different layout**: a belt loop per quality, splitters passing
+anything above the tier on. Possible on this engine — a splitter filter may name a quality and
+no item (`api.md` §36) — and declined with the two cheaper levers above, all in
+`../deferred.md` → *The ring's ceiling*. What shipped instead removes the cause: the stock
+request is the player's to untick.

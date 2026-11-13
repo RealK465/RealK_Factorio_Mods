@@ -452,7 +452,8 @@ per-release approval.
   inside that wizard), Beacons (beacon,
   its module, the per-tier count drop-down), Power (pole), Circuits (the enable checkbox and
   the Limits button) — each a `semibold_caption_label` over a horizontal flow of
-  icon pickers, the trash checkbox below them all. Twelve icon-only pickers in one flat grid
+  icon pickers, with the buffer-chests, the two request and the trash-unrequested checkboxes
+  below them all. Twelve icon-only pickers in one flat grid
   left hovering as the only way to tell them apart; small captions name the concepts while the
   pickers stay icons — chosen from three offered shapes over per-picker labelled rows and over
   two side-by-side group columns. No group holds more than four icons, so a plain flow needs
@@ -758,6 +759,43 @@ per-release approval.
   and keeps the quality. One asymmetry accepted: a buffered loop cannot seed itself from stock
   the base holds in OTHER buffer chests, since buffers never request from buffers — the
   requester-kind untick restores that.
+- **Two requests are the player's to switch off, both ticked by default** (2026-11-13, on
+  pacak's portal threads `6adf98818a80f07f3a9dfde3` and `6adfa5af23424550c396d89e`; the owner
+  left the shapes to the agent — "whatever is best" — and these are its picks).
+  *Upcycle items from the network* (`choices.stock_requests`): unticked, no stock chest
+  requests the product, and the loop recycles only what it makes. The report: *"I had about
+  200 EM plants, before upcycler started, then it ate everything"* — the first tier's stock
+  chest asks for a stack and the recycler keeps emptying it, so the base's whole stock of the
+  item goes through. *Final machine requests ingredients* (`choices.terminal_requests`):
+  unticked, the target tier's feed chest is the relay role's plain chest and requests
+  nothing. The report: *"A chest in front of the final quality assembler should not be a
+  requester chest ... if the goal is to also recycle it back to ingredients ... this becomes
+  counterproductive"* — a player who recycles the result for its ingredients holds exactly
+  what that chest asks for, two minutes' worth at the target quality, and it draws them back
+  in. The machine loses nothing it needs: its ingredients come off the ring.
+  **Why ticked**: both requests are how the loop has always fed itself, so the default is
+  what every earlier release did, and a stored choices table without the keys reads as
+  ticked (`planner.stock_requests` / `planner.terminal_requests`, the `~= false` idiom).
+  Neither key starts with `request_`, the per-item override family's prefix.
+  **Why a plain chest, not a requester with its requests dropped**: it is what the report
+  asked for, it is cheaper to build, and nothing about it can be mistaken for a chest that
+  talks to the network; it is the relay pick because that is the one plain chest the player
+  already chooses. **Why no request means no trash flag**: under trash-unrequested bots empty
+  a chest that requests nothing (measured, `analysis/api.md` §36), and the serialiser writes
+  the flag only beside a request, so an opted-out chest carries neither.
+  **What it costs, accepted**: no request means no skim, so nothing trims an uneven pile of
+  one ingredient in the final machine's chest — 48 slots of headroom against a slow drift —
+  and a stock chest without its request is never topped up from the base; a Min floor still
+  holds, on the reserve inserter alone. Geometry never moves: the same tiles, and under a cap
+  the plain chest simply joins no wire where the requester would have. The pole memo's key
+  gained one token, because the final machine's chest changes NAME and a modded chest can be
+  an electric consumer.
+  **Rejected**: the combinator row pacak proposed for the stock chests (a switch on a running
+  loop, but a new row, a wizard box and a second meaning for the combinator, where the
+  plan-time box answers the report for players without circuits too); flipping either
+  default; "only the first tier requests ingredients" (wider than the report, and the middle
+  tiers' top-ups are what a base's spare uncommon and rare stock is for); and a sixth chest
+  picker for the final machine.
 - **Both new pickers gate on `items_to_place_this`**, the same test the machine list uses. Found
   on 2026-08-17 by reading the data dump rather than by reasoning: base ships 1x1 *containers*
   for the crash site and the tips-and-tricks simulations (`red-chest`, `blue-chest`,
@@ -923,8 +961,9 @@ per-release approval.
   needs: stock chests hold one tier's product each, the output chest alone holds the
   target's, and a wire signal is distinct per quality (`SignalID.quality`, api.md §26) —
   every rule is a single comparison on an entity that inherits on/off behaviour (machines,
-  the furnace recycler, inserters alike), no decider anywhere, and the census chests
-  broadcast by default with no configuration.
+  the furnace recycler, inserters alike; a requesting chest carries the same comparison
+  through a condition of its own kind since 2026-11-13, its bullet below), no decider
+  anywhere, and the census chests broadcast by default with no configuration.
   **The NUMBERS live on one vanilla constant combinator** (2026-09-07, the owner's call on
   pacak's portal request — retune a stamped loop without re-stamping it): a `signal-M` row
   per reserved tier at that tier's quality and a `signal-C` row at the target's, every
@@ -1044,6 +1083,43 @@ per-release approval.
   because the switch only pauses anything through the cap — an uncapped reserve reads
   `count >= 0` with the combinator off, which is no reserve, not a pause. Rejected: shipping
   every loop paused (a dead loop for whoever does not open the combinator).
+- **The chests stop asking with the loop** (2026-11-13, on pacak's portal thread
+  `6adf98818a80f07f3a9dfde3` — *"Disabling the upcycler via circuit network should also
+  disable the requester/buffer chests ... would hold 1.8k holmium plates"*; the owner left
+  the shape to the agent). Under a cap every chest that requests — each feed chest, and each
+  stock chest while it still requests the product — carries the machines' own wire condition
+  as a logistic chest's circuit condition (`circuit_condition_enabled`), so a paused loop, a
+  loop at its cap and a Start-paused loop all ask the network for nothing. The recyclers
+  joined the cap so a parked loop would stop "pulling the player's base production" (above);
+  this closes the half that missed.
+  **Always under a cap, no checkbox** — it is what paused means. Without a cap there is no
+  pause to follow, so a reserve-only plan is untouched and its feed chests stay off the wire.
+  **Measured before designing** (`analysis/api.md` §36): a false condition cuts a chest's
+  requests and nothing else it does here — inserters still fill and empty it, its contents
+  still read on the wire, the trash skim pauses with it — and a disabled BUFFER chest keeps
+  handing its items out, which is why the stock chests follow the pause without hiding their
+  items from personal logistics. A disabled PROVIDER stops providing, so the output chest is
+  never gated.
+  **Network mode: the pause alone.** A chest has no logistic condition to carry the network's
+  count, so there it follows `C > 0` and keeps topping up at the cap; reading the network
+  onto the wire takes the roboport already rejected under *Count the whole logistic network*.
+  **The wiring adds, and moves nothing.** Each feed chest links to its own machine, a few
+  tiles up its own column whatever the pitch (3.2 for an assembling machine 3, growing with
+  the machine's height), measured against a reach of its own (`feed_reach`: the
+  machine and the requester chest) kept OUT of the shared minimum — a modded chest with a
+  short wire costs its own link and a count in the unlinked warning, never the spine. Feed
+  chests keep their ingredients off the wire (`read_contents = false`): only a census may put
+  an item count on it, or a recipe that takes its own product as an ingredient — nothing in
+  `is_upcyclable` rules one out — would add a feed chest's stock to the count the cap
+  compares. A census states nothing and keeps broadcasting on the engine's default. An
+  unheard chest is left asking and counted like any building left without its limit, which
+  also starts counting an unheard stock chest, uncounted until now — and, in wire mode, an
+  output chest the wire cannot reach: every gate reads the product's count off it, so
+  unheard it voids the cap, which used to pass in silence. The two capped descriptions on
+  the combinator say "pause the loop and its requests".
+  **Rejected**: an opt-in checkbox (a pause that keeps requesting is the defect, not a
+  preference); gating the output chest; and a separate signal for the stock chests — pacak's
+  second suggestion, answered by the plan-time box in the chest bullets above.
 - **Count the whole logistic network: the cap read off the logistic network, opt-in per plan**
   (2026-09-12, the owner's calls on yopoke's portal request `6aa368194915925bf804753f` —
   *"an option to switch to logistic network limit instead of circuit limit"*; four options
@@ -1091,8 +1167,10 @@ per-release approval.
   its counts would land on the very wire the reserves read, so every M comparison would add
   the network's stock of that tier to its own chest's. Nothing else moves — wiring,
   reach, M rows, the pole memo's presence token, footprint: the pure spec pins a network-mode
-  plan against the wire-mode one field for field outside the gated crafters and indicators,
-  and the flag without a cap is inert exactly like Start paused.
+  plan against the wire-mode one field for field outside the gated crafters, the indicators
+  and the requesting chests' stop (a chest keeps its requests and swaps the cap for the
+  pause, its own bullet above), and the flag without a cap is inert exactly like Start
+  paused.
 - **Hand size: every minimum is raised by the reserve inserter's hand, and the inserter is
   pinned to it** (2026-09-07, the owner's call on Chatastroph's portal report
   `6a9ab547b795dcac42f8323c` — *"if I configure to keep 20 and I'm using bulk inserters, it

@@ -210,6 +210,10 @@ describe("the modal", function()
     widget({ "upl-options", "upl-power-strip", "upl-pole" })
     assert(widget({ "upl-options", "upl-buffer-stock" }).state == true,
       "buffer chests default checked")
+    assert(widget({ "upl-options", "upl-stock-requests" }).state == true,
+      "the stock request defaults checked")
+    assert(widget({ "upl-options", "upl-terminal-requests" }).state == true,
+      "the final machine's request defaults checked")
     assert(widget({ "upl-options", "upl-trash" }).state == true, "trash defaults checked")
 
     -- The paths above pin which picker lives in which concept group; what is left is that each
@@ -956,6 +960,50 @@ describe("the modal", function()
     -- harmless repeat because the handler reads the element, not the event.
     fire(box)
     assert(choices().trash_unrequested == false, "the double-fire changed the answer")
+  end)
+
+  test("the two request checkboxes reach the choices and the plan, and survive a rebuild", function()
+    open_with_gears()
+    for _, entry in pairs({
+      { box = "upl-stock-requests", key = "stock_requests" },
+      { box = "upl-terminal-requests", key = "terminal_requests" },
+    }) do
+      assert(choices()[entry.key] == true, entry.key .. " did not default to ticked")
+      local box = widget({ "upl-options", entry.box })
+      box.state = false
+      fire(box)
+      assert(choices()[entry.key] == false, "unticking " .. entry.box .. " did not reach the choices")
+      -- The double-fire rule: the second event must be a harmless repeat.
+      fire(box)
+      assert(choices()[entry.key] == false, "the double-fire changed " .. entry.key)
+    end
+
+    -- The plan the modal would hand over: stock chests that request nothing, and a plain
+    -- chest in front of the final machine.
+    local plan = planner.plan(player().force, choices())
+    assert(plan, "the unticked choices no longer plan")
+    local requesters, stock_requests = 0, 0
+    for _, e in pairs(plan.entities) do
+      if e.name == "requester-chest" then requesters = requesters + 1 end
+      if e.name == "buffer-chest" and e.requests then stock_requests = stock_requests + 1 end
+    end
+    -- One machine per tier and one feed chest each, the final machine's now a plain chest.
+    assert(requesters == plan.machines - 1, "requesting feed chests " .. requesters
+      .. " for " .. plan.machines .. " machines, expected every tier but the last")
+    assert(stock_requests == 0, stock_requests .. " stock chests still request")
+
+    -- An item change sweeps the per-item request_<item> overrides. The two checkboxes are
+    -- not of that family -- which is why neither key may start with request_ -- and ride
+    -- through it, as they do through the rebuild the pick causes.
+    local recipe = widget({ "upl-content", "upl-table", "upl-recipe" })
+    recipe.elem_value = "copper-cable"
+    fire(recipe)
+    assert(choices().recipe == "copper-cable", "test setup: the item did not change")
+    assert(choices().stock_requests == false and choices().terminal_requests == false,
+      "an item change swept a request checkbox")
+    assert(widget({ "upl-options", "upl-stock-requests" }).state == false
+      and widget({ "upl-options", "upl-terminal-requests" }).state == false,
+      "a rebuilt modal re-ticked a request the player had unticked")
   end)
 
   test("the buffer-chests checkbox swaps the stock picker's kind, refilling its best", function()

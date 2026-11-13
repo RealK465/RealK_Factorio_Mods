@@ -20,6 +20,14 @@ Mixing a few productivity modules in with the quality modules often makes the lo
 
 Press **Edit...** beside **Ingredient amounts** in the planner. The **Minutes** field at the top sizes every amount at once: each ingredient is requested for that many minutes of crafting, two by default. Below it you get one field per ingredient of the recipe, and each tier's chest requests that many. If the amounts need more slots than the ingredient chest has, the planner warns you.
 
+## The loop used up my own stock of the item. How do I stop that?
+
+The stock chests request the item from your logistic network, so the loop also upcycles what you already have. Untick **Upcycle items from the network** in the planner and it only recycles what it makes.
+
+## Why does the final machine take my high quality ingredients?
+
+Its ingredient chest requests at your target quality, like every other tier. If you recycle the finished items for their ingredients, untick **Final machine requests ingredients**: the planner places a plain chest there instead, and the machine still gets its ingredients off the belt. Bots don't tidy a plain chest, so on a recipe with several ingredients it can slowly fill with one of them.
+
 ## What is the active provider chest for?
 
 Machines and recyclers sometimes roll an item above the quality you asked for. Nothing left in the loop can use it, so it would ride the belt forever and slowly fill it up. The planner taps it into an active provider chest instead, and your bots carry it away.

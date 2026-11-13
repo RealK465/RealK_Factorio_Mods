@@ -12,6 +12,7 @@ local layout = require("scripts.layout")
 local circuits = require("scripts.circuits")
 
 local params_with = require("tests.support.layout_params").vanilla
+local big_params = require("tests.support.layout_params").big
 local deep_equal = require("tests.support.deep_equal")
 local component = require("tests.support.component")
 local circuit_stack = require("tests.support.circuit_stack")
@@ -35,9 +36,9 @@ local function stack_for(minimums, maximum)
   return circuit_stack.params(maximum ~= nil)
 end
 
--- opts: reach, minimums, maximum, paused, hand, tiers -- maximum false stands in for "no
--- cap" and hand false for "no hand" (the planner passes nil there, which an opts table
--- cannot carry past the fixture default).
+-- opts: reach, feed_reach, minimums, maximum, paused, hand, tiers -- maximum false stands in
+-- for "no cap" and hand false for "no hand" (the planner passes nil there, which an opts
+-- table cannot carry past the fixture default).
 local function decorated(overrides, opts)
   opts = opts or {}
   local maximum = opts.maximum
@@ -60,6 +61,9 @@ local function decorated(overrides, opts)
     hand = hand,
     product = "iron-gear-wheel",
     reach = opts.reach or 9,
+    -- The feed chests' own reach; the same prototype family as the rest in vanilla, so it
+    -- follows the shared one unless a spec pulls the two apart.
+    feed_reach = opts.feed_reach or opts.reach or 9,
   })
   return built, unlinked
 end
@@ -281,13 +285,170 @@ describe("circuits.decorate conditions", function()
     end
   end)
 
-  test("census chests, the ring and everything untagged stay ungated", function()
+  test("the output chest, the ring and everything untagged stay ungated", function()
+    -- The output chest above all: a disabled provider stops providing (measured, api.md
+    -- S36), and handing the result out is its whole job.
     local built = decorated()
     for _, e in pairs(built.entities) do
-      if e.circuit_role ~= "machine" and e.circuit_role ~= "recycler"
-        and e.circuit_role ~= "reserve" and not STACK_ROLES[e.circuit_role] then
+      local output = e.circuit_role == "census" and e.circuit_tier == #TIERS
+      if output or e.circuit_role == "ring" or e.circuit_role == nil then
         assert(e.control_behavior == nil,
           (e.circuit_role or e.name) .. " grew a control_behavior it must not have")
+      end
+    end
+  end)
+end)
+
+-- The chests that request stop asking with the loop (circuits.lua's header): under a cap
+-- each feed chest and each requesting stock chest carries the machines' own wire condition
+-- as a logistic chest's circuit condition, which cuts its requests and nothing else.
+describe("circuits.decorate requesting chests", function()
+  local PRODUCT_AT_TARGET = { type = "item", name = "iron-gear-wheel", quality = "rare" }
+
+  local function stock_chests(built)
+    local out = {}
+    for _, c in pairs(by_role(built, "census")) do
+      if c.entity.circuit_tier < #TIERS then out[#out + 1] = c end
+    end
+    return out
+  end
+
+  -- Every chest the cap stops: the feed chests, then the lower tiers' stock chests.
+  local function requesting_chests(built)
+    local out = by_role(built, "feed")
+    for _, c in pairs(stock_chests(built)) do out[#out + 1] = c end
+    return out
+  end
+
+  test("under a cap every feed and stock chest stops asking at the machines' own stop", function()
+    local built, unlinked = decorated()
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    local feeds, stocks = by_role(built, "feed"), stock_chests(built)
+    assert(#feeds == 3 and #stocks == 2, #feeds .. " feed and " .. #stocks .. " stock chests")
+    for _, c in pairs(requesting_chests(built)) do
+      local cb = c.entity.control_behavior
+      local what = c.entity.circuit_role .. " tier " .. c.entity.circuit_tier
+      -- The chest's own spelling of the flag, never the machines' circuit_enabled: the
+      -- engine would read that one as nothing at all and leave the chest asking.
+      assert(cb and cb.circuit_condition_enabled == true and cb.circuit_enabled == nil,
+        what .. " carries no chest condition")
+      local condition = cb.circuit_condition
+      assert(condition.comparator == "<" and condition.constant == nil
+        and same_signal(condition.first_signal, PRODUCT_AT_TARGET)
+        and same_signal(condition.second_signal, CAP),
+        what .. " does not stop at the cap")
+      assert(cb.connect_to_logistic_network == nil and cb.logistic_condition == nil,
+        what .. " carries a logistic condition a chest does not have")
+    end
+    -- A feed chest's ingredients stay off the wire, and stopping it changes nothing it
+    -- requests; a census has to keep broadcasting, and says nothing so the engine's default
+    -- of true stands.
+    for _, c in pairs(feeds) do
+      assert(c.entity.control_behavior.read_contents == false,
+        "feed tier " .. c.entity.circuit_tier .. " would broadcast its ingredients")
+      assert(c.entity.requests and c.entity.requests[1].count == 100,
+        "gating a feed chest changed what it requests")
+    end
+    for _, c in pairs(stocks) do
+      assert(c.entity.control_behavior.read_contents == nil,
+        "census tier " .. c.entity.circuit_tier .. " states a read mode")
+    end
+  end)
+
+  test("no cap: nothing pauses, so the chests carry nothing and the feed chests stay unwired", function()
+    local built, unlinked = decorated(nil, { maximum = false })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    for _, c in pairs(by_role(built, "feed")) do
+      assert(c.entity.control_behavior == nil and c.entity.circuit_wire_to == nil,
+        "feed tier " .. c.entity.circuit_tier .. " joined a loop with no stop")
+    end
+    for _, c in pairs(by_role(built, "census")) do
+      assert(c.entity.control_behavior == nil,
+        "census tier " .. c.entity.circuit_tier .. " is gated with no cap")
+    end
+  end)
+
+  test("network mode: a chest hears the pause alone", function()
+    -- No logistic condition exists on a chest to carry the network's count, so the wire's
+    -- C > 0 is all it can follow: paused it stops asking, at the cap it does not.
+    local built = decorated(nil, { network = true })
+    local chests = requesting_chests(built)
+    assert(#chests == 5, "gated chests " .. #chests)
+    for _, c in pairs(chests) do
+      local cb = c.entity.control_behavior
+      local condition = cb and cb.circuit_condition
+      assert(cb and cb.circuit_condition_enabled == true and condition.comparator == ">"
+        and condition.constant == 0 and condition.second_signal == nil
+        and same_signal(condition.first_signal, CAP),
+        c.entity.circuit_role .. " tier " .. c.entity.circuit_tier .. " does not follow the pause")
+      assert(cb.connect_to_logistic_network == nil and cb.logistic_condition == nil,
+        "a chest was handed the crafters' logistic condition")
+    end
+  end)
+
+  test("a stock chest that requests nothing is left alone", function()
+    -- The player's opt-out: params.product_buffer absent, so there is no request to stop.
+    -- The chest stays the census -- wired, broadcasting -- and the reserve's request bump
+    -- finds nothing to raise.
+    local built, unlinked = decorated({ product_buffer = false })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    for _, c in pairs(stock_chests(built)) do
+      assert(c.entity.requests == nil, "census tier " .. c.entity.circuit_tier .. " grew a request")
+      assert(c.entity.control_behavior == nil,
+        "census tier " .. c.entity.circuit_tier .. " is gated with nothing to stop")
+      assert(c.entity.circuit_wire_to, "census tier " .. c.entity.circuit_tier .. " left the network")
+    end
+    for _, r in pairs(by_role(built, "reserve")) do
+      assert(r.entity.control_behavior, "a reserve lost its floor with the request")
+    end
+  end)
+
+  test("a plain chest in front of the final machine joins nothing", function()
+    local built, unlinked = decorated({ terminal_feed = { name = "wooden-chest", quality = "normal" } })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    assert(#by_role(built, "feed") == 2, "the plain chest was tagged as a feed chest")
+    for _, e in pairs(built.entities) do
+      if e.name == "wooden-chest" then
+        assert(e.control_behavior == nil and e.circuit_wire_to == nil and e.requests == nil,
+          "the final machine's plain chest was wired, gated or given a request")
+      end
+    end
+  end)
+
+  test("two feed stacks: both chests of a column join its machine and stop with it", function()
+    -- The shared six-ingredient fixture's recipe and requests, laid over the vanilla one.
+    local big = big_params(6)
+    local built, unlinked = decorated({
+      recipe = big.recipe, requests = big.requests, feed_stacks = 2,
+    })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    local feeds = by_role(built, "feed")
+    assert(#feeds == 6, "feed chests " .. #feeds)
+    local per_tier = {}
+    for _, c in pairs(feeds) do
+      assert(c.entity.control_behavior and c.entity.circuit_wire_to,
+        "a second-stack feed chest was left asking")
+      per_tier[c.entity.circuit_tier] = (per_tier[c.entity.circuit_tier] or 0) + 1
+    end
+    for tier = 1, #TIERS do
+      assert(per_tier[tier] == 2, "column " .. tier .. " gates " .. tostring(per_tier[tier]))
+    end
+  end)
+
+  test("a feed chest with a short wire of its own costs only its own link", function()
+    -- feed_reach is the planner's separate minimum for this one hop: a modded chest that
+    -- cannot reach its machine is left asking and counted, while every hop the spine and
+    -- the stock chests make is measured against the shared reach exactly as before.
+    local plain = decorated()
+    local built, unlinked = decorated(nil, { feed_reach = 2 })
+    assert(unlinked == 3, "unlinked " .. unlinked .. ", expected the three feed chests")
+    for index, e in pairs(built.entities) do
+      if e.circuit_role == "feed" then
+        assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+          "an unreachable feed chest was gated on a signal it cannot hear")
+      else
+        assert(deep_equal(e, plain.entities[index]),
+          (e.circuit_role or e.name) .. " changed with the feed chests' reach")
       end
     end
   end)
@@ -331,11 +492,16 @@ describe("circuits.decorate network mode", function()
     for index, e in pairs(plain.entities) do
       local n = built.entities[index]
       assert(e.circuit_wire_to == n.circuit_wire_to, "network mode rewired entity " .. index)
-      if e.circuit_role == "reserve" or e.circuit_role == "census" then
+      -- The reserves are untouched; a census keeps its request but, like every chest that
+      -- asks, swaps the cap for the pause -- pinned with the requesting chests above.
+      if e.circuit_role == "reserve" then
         assert(deep_equal(e.control_behavior, n.control_behavior)
-          and e.override_stack_size == n.override_stack_size
-          and deep_equal(e.requests, n.requests),
-          "network mode changed the " .. e.circuit_role .. " at " .. index)
+          and e.override_stack_size == n.override_stack_size,
+          "network mode changed the reserve at " .. index)
+      end
+      if e.circuit_role == "census" or e.circuit_role == "feed" then
+        assert(deep_equal(e.requests, n.requests),
+          "network mode changed what the " .. e.circuit_role .. " at " .. index .. " requests")
       end
     end
     assert(deep_equal(rows_of(plain), rows_of(built)), "network mode changed the combinator rows")
@@ -376,7 +542,7 @@ describe("circuits.decorate network mode", function()
 end)
 
 describe("circuits.decorate wiring", function()
-  test("direct mode: one component spans the gated set, the censuses and the stack; the ring stays unwired", function()
+  test("direct mode: one component spans the gated set, the censuses, the feed chests and the stack; the ring stays unwired", function()
     local built, unlinked = decorated()
     assert(unlinked == 0, "unlinked " .. unlinked .. " on a vanilla-sized plan")
 
@@ -385,7 +551,7 @@ describe("circuits.decorate wiring", function()
     for index, e in pairs(built.entities) do
       if e.circuit_role == "machine" or e.circuit_role == "recycler"
         or e.circuit_role == "census" or e.circuit_role == "reserve"
-        or STACK_ROLES[e.circuit_role] then
+        or e.circuit_role == "feed" or STACK_ROLES[e.circuit_role] then
         expected[index] = true
         start = start or index
       end
@@ -443,11 +609,14 @@ describe("circuits.decorate wiring", function()
     -- lower column is then a wired island without the combinator: with a condition it would
     -- read C and M as 0, stop for good and lose its floor, so it gets none, and the count
     -- says how many gated buildings run without their limit. The terminal column still
-    -- hears the combinator (2.2 tiles) and keeps its gate.
+    -- hears the combinator (2.2 tiles) and keeps its gate -- its feed chest included, a
+    -- 3.2-tile hop to a machine that is heard, where the two lower columns' feed and stock
+    -- chests sit on their islands and are left asking.
     local built, unlinked = decorated({ column_gaps = { 0, 4, 4 } }, { reach = 5 })
-    assert(unlinked == 6, "unlinked " .. unlinked .. ", expected 2 machines, 2 recyclers, 2 reserves")
+    assert(unlinked == 10, "unlinked " .. unlinked
+      .. ", expected 2 machines, 2 recyclers, 2 reserves, 2 feed chests, 2 stock chests")
     local heard = component_of(built.entities, one(built, "limits").index)
-    for _, role in pairs({ "machine", "recycler", "reserve" }) do
+    for _, role in pairs({ "machine", "recycler", "reserve", "feed" }) do
       for _, entry in pairs(by_role(built, role)) do
         if heard[entry.index] then
           assert(entry.entity.control_behavior, role .. " tier " .. entry.entity.circuit_tier
@@ -499,9 +668,10 @@ describe("circuits.decorate wiring", function()
     -- At reach 1 the half-tile safety margin leaves 0.5 usable, under even the one-tile
     -- hops: no link lands, nothing hears the combinator, so nothing is gated -- the loop is
     -- the uncircuited one plus an idle combinator -- and the count names every building that
-    -- should have been: three machines, two recyclers, two reserves.
+    -- should have been: three machines, two recyclers, two reserves, three feed chests and
+    -- two stock chests, plus the output chest the cap would have been read from.
     local built, unlinked = decorated(nil, { reach = 1 })
-    assert(unlinked == 7, "unlinked " .. unlinked .. ", expected all 7 gated buildings")
+    assert(unlinked == 13, "unlinked " .. unlinked .. ", expected all 13 limited buildings")
     for _, e in pairs(built.entities) do
       if e.circuit_role ~= "limits" then
         assert(e.control_behavior == nil,
@@ -514,6 +684,29 @@ describe("circuits.decorate wiring", function()
       end
     end
     assert(#rows_of(built) == 3, "the combinator still carries its rows for a later wire")
+  end)
+
+  test("an output chest the wire cannot reach voids the cap, and is counted -- in wire mode only", function()
+    -- Every gate compares the product's count in the output chest. At reach 3.5 (3.0
+    -- usable) the terminal machine still hears the combinator standing under it, but the
+    -- output chest's own hop to that machine no longer fits: the machines would read 0 for
+    -- ever and never stop. Network mode reads the logistic network, so there the same
+    -- unheard chest costs nothing and the two counts differ by exactly that one building.
+    local built, unlinked = decorated(nil, { reach = 3.5 })
+    local heard = component_of(built.entities, one(built, "limits").index)
+    local output
+    for _, c in pairs(by_role(built, "census")) do
+      if c.entity.circuit_tier == #TIERS then output = c end
+    end
+    assert(output and not heard[output.index],
+      "test premise: at this reach the output chest must be off the combinator's network")
+    local terminal = by_role(built, "machine")[#TIERS]
+    assert(heard[terminal.index] and terminal.entity.control_behavior,
+      "test premise: the terminal machine must still hear the combinator and keep its gate")
+    local _, unlinked_network = decorated(nil, { reach = 3.5, network = true })
+    assert(unlinked == unlinked_network + 1,
+      "wire mode counts " .. unlinked .. ", network mode " .. unlinked_network
+      .. " -- expected the output chest to make the difference")
   end)
 
   test("no cap: the reserves are gated, and one network still carries the combinator to them", function()
