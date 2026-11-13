@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.2.8
-Date: ????
+Date: 2026-11-13
   Features:
     - New build option, Upcycle items from the network. Untick it and the stock chests stop
       requesting the item, so the loop only recycles what it makes and leaves your own stock

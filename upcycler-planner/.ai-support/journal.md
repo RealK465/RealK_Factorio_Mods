@@ -9,6 +9,20 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-13 - 1.2.8 released: the chests' circuit stop and the two request opt-outs
+
+At the owner's ask, the same day, after a fresh review of the working tree that found no defect;
+the three wording nits it offered were declined ("ship as is"). The gates ran on 2.1.23: data
+stage and `-FullLoad` clean, a hand-built `--check-unused-prototype-data` run silent at 703,013
+properties, the suite green at 420/420 headless and through the graphics pass, pure 138/138,
+static clean. The zip — 25 files, the same set as 1.2.7, `tests/**`, `CLAUDE.md` and
+`images/**` held out — matched the working tree file for file once line endings were
+normalised, and the portal's sha1 for the upload matched the local zip. Then
+`fmtk details --readme README.md --faq faq.md`: the page read back with 1.2.8 on top, the
+README's two new sentences and both FAQ entries live, and license, category and the six gallery
+shots unchanged. Committed as the work and the release, this entry riding in the release
+commit; tagged `upcycler-planner_1.2.8`; pushed.
+
 ## 2026-11-13 - pacak's two threads: the chests stop asking, two requests become optional, the separate loops are declined (1.2.8 opened)
 
 pacak's portal threads `6adf98818a80f07f3a9dfde3` ("Some more small issues") and
