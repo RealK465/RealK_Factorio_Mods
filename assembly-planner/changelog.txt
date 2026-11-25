@@ -1,0 +1,21 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-11-25
+  Major Features:
+    - Initial release.
+    - Pick an item and get a mall cell as a blueprint: the crafting machine with its modules,
+      inserters, a requester chest for ingredients, and output chests.
+    - Set ingredient requests by a number of crafts, by minutes of crafting, or by hand for
+      each ingredient.
+    - When the cell can make better quality, a second output chest catches the better items
+      while the first chest holds items at the recipe's quality.
+    - Limit stock by chest slots, by a count across your logistic network, or not at all.
+    - Add optional beacons beside and above the machine, and an optional electric pole.
+    - Recipes with a fluid ingredient get a pipe along the back of the cell. Cells placed
+      side by side share one pipe line, fed from either end.
+    - Every picker has its own quality and remembers your last choice.
+  Info:
+    - The shortcut button appears once requester chests are researched.
+    - Recipes that make a fluid, or that need two fluids, are not supported yet.
+    - Fuel-burning machines like the biochamber are not supported yet.
+    - Red messages block the Place button. Orange messages are warnings you can build through.

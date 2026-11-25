@@ -1,0 +1,11 @@
+{
+  "name": "assembly-planner",
+  "version": "0.1.0",
+  "title": "Assembly Planner",
+  "author": "RealK",
+  "factorio_version": "2.1",
+  "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/assembly-planner",
+  "description": "Pick an item and get a ready-made bot mall blueprint for it.",
+  "dependencies": ["base >= 2.1.0"],
+  "package": { "ignore": ["CLAUDE.md", "CLAUDE.local.md", "images/**", "tests/**"] }
+}

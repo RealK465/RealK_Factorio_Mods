@@ -1,0 +1,153 @@
+# Decisions — Assembly Planner
+
+What is settled, and why. Superseding means rewriting the entry here and telling the story in
+`journal.md`.
+
+## Identity
+
+- **Name `assembly-planner`, title Assembly Planner** — the owner's pick (2026-11-25), over the
+  suggested Mall Planner. Both portal names were free that day. It pairs with Upcycler Planner.
+- **Prefix `apl-`** for prototypes, GUI element names and tag keys; settings and locale
+  mod-level keys use the full `assembly-planner`. Upcycler Planner's convention (`upl-`), for
+  its reasons.
+- **No hard expansion dependency.** Only `base >= 2.1.0`, and no feature flags: a cell needs
+  nothing from Space Age or quality, and the quality pickers simply offer normal without them.
+- **Prior art: Quick Mall** (2.0 only when checked, 2026-11-25) generates the same kind of
+  blueprint but requests a fixed stack of each ingredient and has no beacons, no quality split
+  and no fluid plumbing. That gap, plus 2.1 support, is the reason this mod exists.
+
+## Interaction
+
+- **Shortcut → window → Place → a blueprint in the cursor**, Upcycler Planner's model and for
+  its reasons: the engine owns preview, rotation, flipping, undo and the build, and the mod
+  handles no placement event.
+- **Gated on the first technology that unlocks a requester chest**, read off the finished data
+  (`prototypes/planner/gate.lua`): the cell feeds its machine from one, so the planner is useless
+  before it. `logistic-system` in vanilla. The owner asked for "once logistics are researched".
+- **Hotkey CTRL+SHIFT+A**, rebindable; Upcycler Planner has CTRL+U. The game's Confirm key (E)
+  reaches Place through a linked input, with Upcycler Planner's chooser presumption.
+
+## The cell
+
+- **One cell per blueprint** (owner's call). A row of cells is deferred.
+- **The inserter row is on the machine's south edge, the chest row under it**, left to right:
+  input, output, quality output, left-aligned under the machine. The owner's blueprints all put
+  the row on one edge; the player rotates or flips the blueprint for any other side.
+- **The footprint is the bounding box**, so cells placed side by side abut exactly.
+- **A machine too narrow for the row and taller than wide lies on its side** — under three tiles
+  wide, rotatable, no fluid: Space Age's 2x3 crusher fits three inserters lying down and two
+  standing. A fluid recipe keeps the turn its fluid input needs.
+
+## Requests
+
+- **One requester chest holds every item ingredient.** Sized by **crafts' worth** (default 4)
+  or **minutes of crafting** (default 2, at the machine's real speed: its speed at quality and
+  the modules' and beacons' speed effects, floored at a fifth), plus a per-ingredient amount set
+  by hand. The owner asked for all three. The default of four crafts follows the owner's own
+  blueprints, which asked for three and four.
+- **Changing the rule or its number replaces every hand-set amount**, Upcycler Planner's
+  Minutes rule; picking a different item drops them too, a quality change on the same item does
+  not. A fluid-only recipe has no requester at all.
+- **The Ingredient amounts panel follows every refresh**, because in minutes mode its defaults
+  move with the pace — a module or beacon pick changes them. A field the player set by hand is
+  never rewritten, since it may be the one being typed in.
+- Requests come from buffer chests; **Trash unrequested items** is on by default.
+
+## The quality split
+
+- **Automatic whenever the cell's quality chance is above zero** — the machine's own base effect
+  (a machine with quality built in), its modules, its beacons — and a tier exists above the
+  recipe's quality.
+  The owner chose automatic with an override.
+- **The override is stored only while it disagrees**, and dropped when the automatic answer
+  comes round to it, so the box follows the modules again. A refused plan has no automatic
+  answer, so there the box keeps and shows whatever was clicked — unticking it is one way out
+  of a refusal the split caused.
+- **Filters are nameless**: the capped output takes `{recipe quality, "="}`, the second chest
+  `{recipe quality, ">"}`, so one slot each covers any recipe (measured, `analysis/api.md` §2).
+
+## The stock cap
+
+- **The player's pick per plan: chest slots, network count, or no limit** (owner's call; no
+  limit added because the owner's foundry and K2 blueprints have none).
+- **Chest slots** writes `bar` on the capped chest — the first output — default 2, the owner's
+  number. `bar` counts open slots (`analysis/api.md` §1). The quality chest is never capped.
+- **Network count** puts a logistic condition `product@quality < N` on the first output
+  inserter, default two stacks of the product; it warns that the inserter only runs inside a
+  logistic network (Upcycler Planner measured an entity disabled outright outside one).
+- A capped chest stops the machine, and with it the quality output too. Accepted: the cap is
+  what the player asked for.
+
+## Fluids
+
+- **A pipe row along the back, the cell's full width**, so cells side by side join into one
+  line the player feeds from either end (owner's pick). The machine turns so one input faces
+  north onto it (`proto.fluid_rotation`); vanilla machines need north, east (EM plant) or south
+  (foundry, cryogenic plant).
+- **Refused for now: recipes with a fluid product or two fluid ingredients** — an output box
+  with nowhere to drain stalls the machine, and a second fluid needs a second row.
+
+## Beacons
+
+- **Beside and above** (owner's pick): side columns stacked from the machine's top, never
+  taller than the machine plus its two rows; a row above spanning the cell (side columns
+  included), above the pipe row when there is one, filled from the middle. Off until a beacon is
+  picked; then every count defaults to as many as fit and reach, each a drop-down.
+- **The beacon module defaults to the best researched speed module** — the owner's blueprints
+  used speed. Upcycler Planner defaults to efficiency because a speed module's quality malus
+  costs a quality loop; a mall cell is usually there for speed, and the player can pick.
+
+## Power
+
+- **An optional pole, off by default** (owner's call). Free tiles first; only when they leave
+  something dark does the plan try more ground, in order: a column on the right, a row along the
+  top, then both. Each is kept only if it powers strictly more than the best so far, and the
+  ladder stops once nothing is dark. The row is for a short-reach pole under a full row of
+  beacons above: from no free tile below that row does a medium pole's 3.5-tile supply reach
+  both its ends, and a column on the right reaches only the right one.
+- **A solver of its own**, `scripts/poles.lua`: a greedy cover kept connected, with a bridging
+  step when the next useful spot is out of wire reach. Upcycler Planner's solver is tuned for
+  thousands of columns and full of loop-specific structure; a cell has a few dozen tiles.
+
+## Pickers
+
+- **Every picker is always shown, each with its quality** (owner's call). Only what cannot apply
+  hides: the recipe list with one recipe, the module picker on a machine with no slots, the pipe
+  without a fluid. One per-player setting, **Show unresearched items**.
+- **Machines**: assembling-machine type, electric or void energy, placeable, no fixed recipe;
+  module slots not required. **Inserters**: one-tile reach, electric — belt-stacking stack
+  inserters are allowed, since a cell has no belt. **Chests**: one-tile requester and passive
+  provider containers.
+- **The default recipe** among several: researched first, then one the chosen machine crafts,
+  then the one named like the item (`analysis/api.md` §6).
+- **A pick that no longer fits is dropped on the change that broke it** — a machine module after
+  a machine or recipe change, a beacon module after a beacon change — so the picker falls back
+  to its default instead of the plan refusing.
+
+## Portal
+
+- **The summary is one short sentence, and the README stays short** — "Pick an item and get a
+  ready-made bot mall blueprint for it." The owner turned down the longer "Choose an item, the
+  mod designs and gives you…" summary with its list of parts as too long and not human, and
+  asked for a shorter README (2026-11-25). The same line is in `info.json` and in the locale's
+  `[mod-description]`, which overrides it in game.
+- **The shortcut icon and the thumbnail are one picture**: vanilla's assembling machine 3 icon
+  with a requester chest in the corner (`prototypes/planner/icons.lua`); the thumbnail sets it on
+  vanilla's slot frame (`assets/assembly-planner/thumbnail/make_thumbnail.py`). The owner hoped
+  for an assembling machine 3.
+- **README images are absolute `raw.githubusercontent.com` URLs to `images/` on `main`.** A
+  relative image is uploaded into the portal gallery (`factorio-release` → the markdown images
+  rule), and these are meant as illustrations. They only show once `images/` is pushed.
+- **The portal page follows Upcycler Planner's where it applies**: GPLv3, category `utilities`,
+  tags blueprints, logistic-network, logistics and manufacturing. Upcycler's circuit-network,
+  storage and fluids tags fit a loop better than one cell. The gallery is `images/` in filename
+  order, so the planner window leads.
+- **The screenshots are built, not staged by hand**: `assets/assembly-planner/showcase/` stamps
+  real cells from the planner's own plans in a dev client and photographs them, so a change to
+  the cell shows on the next run. It needs a screen attached.
+
+## Rejected
+
+- **Forking Upcycler Planner and pruning it** (2026-11-25, owner's call between two designs):
+  about 3,000 lines of loop structure and comments to scrub, and two copies of shared code to
+  keep in step. Only generic pieces were lifted, each saying so where it lives.
