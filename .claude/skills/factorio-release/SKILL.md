@@ -107,7 +107,7 @@ releases changed. Never prune them.
    via the `factorio-testing` skill. A release is exactly the checkpoint the suite exists for;
    suites are per-mod opt-in, so a mod without one skips this sentence.
 4. **Settle every player-facing file before packaging.** `README.md` ships *inside the zip* **and** becomes the portal description at the next `fmtk details --readme` (the upload does not sync it — step 7), so a wrong claim in it gets baked into a release that can never be re-uploaded. Read it against what this release actually contains, not against what the mod is meant to become. Same for `info.json`'s `description` and the locale strings.
-5. `fmtk package` — builds `<name>_<version>.zip`. Local only, safe, and the right way to sanity-check what would ship. A sanity zip may still carry `Date: ????`; the shipping one is rebuilt after the datestamp.
+5. `fmtk package` — builds `<name>_<version>.zip`. Local only, safe, and the right way to sanity-check what would ship. A sanity zip may still carry `Date: ????`; the shipping one is rebuilt after the datestamp. **Give `--outdir` a relative path**: fmtk 2.1.8 joins it onto the working folder, so an absolute Windows path becomes `<mod>\C:\...` and the run dies with `ENOENT` (measured 2026-11-25).
 6. Verify the zip contents, then **stop and ask**.
 7. The release itself, on approval — one approval covers this chain for this version and nothing after it: `fmtk datestamp` (replaces `????` with today's date; format from `package.datestamp_format`, **defaulting to `isoDate`**, which is why ISO is the house format) → rebuild the zip → `fmtk upload` → commit the release → tag `<name>_<version>` → push, tag included.
 
@@ -205,8 +205,8 @@ and the release itself. Verified on a real first publish: `license` defaults to 
 wrong for every mod in this repo — leaving it published is a licensing error, not a cosmetic
 one. Fix all of it in the same session as the first upload.
 
-`fmtk details` only takes `--readme` and `--faq`. License, category and gallery have no fmtk
-surface at all and need the v2 API.
+`fmtk details` only takes `--readme` and `--faq`. License, category, tags and gallery have no
+fmtk surface at all and need the v2 API.
 
 **Three things `details` does that "uploads the README" does not describe** — all silent, all
 read out of its bundled source and confirmed on a live sync (2026-08-29):
@@ -232,9 +232,11 @@ calls `images/edit`, which is what makes a text-only sync safe to run without di
 shots.
 
 ```powershell
-# license + category (GPLv3 is `default_gnugplv3`; a mod adding content is `content`)
+# license, category and tags (GPLv3 is `default_gnugplv3`; a mod adding content is `content`).
+# The form repeats `tags` once per tag, which a -Body hashtable cannot do, so send it as a string
 Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/edit_details" -Method Post `
-  -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"; license="default_gnugplv3"; category="content"}
+  -Headers @{Authorization="Bearer $k"} -ContentType "application/x-www-form-urlencoded" `
+  -Body "mod=<name>&license=default_gnugplv3&category=content&tags=<tag1>&tags=<tag2>"
 
 # gallery: per image, init then POST it with the field name `image`, keeping the returned id
 $init = Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/images/add" -Method Post `
@@ -245,6 +247,10 @@ curl.exe -s -X POST -F "image=@<file>.jpg" $init.upload_url     # -> {"id": "...
 Invoke-RestMethod -Uri "https://mods.factorio.com/api/v2/mods/images/edit" -Method Post `
   -Headers @{Authorization="Bearer $k"} -Body @{mod="<name>"; images="<id1>,<id2>,<id3>"}
 ```
+
+The tags string was measured on Assembly Planner's first publish (2026-11-25): four repeated
+`tags=` fields read back as all four. Tag and category names come from the portal's fixed
+lists, on the wiki's *Mod details API* page.
 
 The first image in that list is the one the portal leads with — pick the hero shot
 deliberately. All of this is a **public write** and needs the repo owner's explicit approval
@@ -303,3 +309,10 @@ values immediately after three successful writes — license still `mit`, images
 description empty — which reads exactly like the writes silently failing. Add a cache-buster
 before concluding anything: `…/full?cb=<random>`. Trust the `{"success":true}` from the write
 over a stale read.
+
+**Then link the new mod from the rest of the repo.** Mark its row in the root `README.md`
+table published, and add it last to every other mod's README under *Check my other mods*,
+with its `info.json` summary, in one `docs(repo)` commit (`244f7d5` did it for Robot World
+Continued). Those portal pages show the link only after each is synced with
+`fmtk details --readme`, a public write that needs its own approval; an upload alone never
+carries a README to the page (step 7).
