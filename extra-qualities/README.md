@@ -59,6 +59,7 @@ The help tapers off, and from epic upward the odds are vanilla's. Better quality
 - [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
 - [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with built-in quality.
 - [Robot World Continued (RealK)](https://mods.factorio.com/mod/robotworld-continued-realk) — Tune your robots and roboports, or get robots early. A Factorio 2.1 port of Robot World Continued.
+- [Assembly Planner](https://mods.factorio.com/mod/assembly-planner) — Pick an item and get a ready-made bot mall blueprint for it.
 
 ## AI-Assisted Development
 

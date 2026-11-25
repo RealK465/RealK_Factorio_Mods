@@ -48,6 +48,7 @@ The companion mod Quality Recycler (same author) does the same for recycling.
 - [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
 - [Extra Qualities](https://mods.factorio.com/mod/extra-qualities) — Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.
 - [Robot World Continued (RealK)](https://mods.factorio.com/mod/robotworld-continued-realk) — Tune your robots and roboports, or get robots early. A Factorio 2.1 port of Robot World Continued.
+- [Assembly Planner](https://mods.factorio.com/mod/assembly-planner) — Pick an item and get a ready-made bot mall blueprint for it.
 
 ## AI-Assisted Development
 

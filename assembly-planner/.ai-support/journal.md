@@ -2,6 +2,15 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-25 (late night) — linked from the other mods
+
+The owner asked for the docs to be brought up to date after the release. Every other mod's
+README gained Assembly Planner under *Check my other mods*, as each did for Robot World
+Continued. Their portal pages were not re-synced: the link reaches each page only through its
+own `fmtk details --readme`. The release's two findings went into the `factorio-release` skill:
+`fmtk package --outdir` wants a relative path, and `edit_details` takes tags as a repeated
+form field.
+
 ## 2026-11-25 (night) — 0.1.0 published
 
 The owner asked to release and publish. Just before that, at the owner's request, the README was
