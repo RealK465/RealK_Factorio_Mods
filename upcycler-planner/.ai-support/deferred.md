@@ -364,6 +364,13 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 
 ## Housekeeping
 
+- **The summary sentence is split across its copies — needs the owner's call** (2026-11-27).
+  The README's bold line now reads *"Pick an item and a target quality, and get a ready-made
+  upcycling loop blueprint."*; `info.json` `description` (the portal summary), the locale
+  `[mod-description]`, the six other READMEs' "Check my other mods" entries and the root
+  `README.md` row still carry the 2026-08-26 sentence (`decisions.md`, Identity and packaging). Either carry
+  the new sentence to all of them, or put the old one back on the README. The root row is wrong
+  either way: it still says the loop is dropped "as ghosts".
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **An output chest out of wire reach voids the cap but still plans.** Counted in the unlinked
   warning since 2026-11-13 (wire mode only — every gate reads the product's count off that

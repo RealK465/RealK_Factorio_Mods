@@ -9,6 +9,25 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-27 - README simplified and synced to the portal page
+
+At the owner's ask ("simplify the readme of upcycler planner"), the README was rewritten by
+the `user-facing-text` agent, freshly moved to Opus 5.5 at high effort: 120 lines to 90, every
+embedded image kept at its URL, the "Check my other mods", AI-Assisted Development and License
+blocks byte-identical. The feature list became short bullets, the images moved under one
+Examples heading with one-line captions, the circuit-limit detail was left to `faq.md`, and the
+1.0 timing figures, the rebind path and the Maraxis beacon example went. One fact was wrong
+and is fixed: it said recipes with spoilable items are not supported, while they have only
+warned since the owner's 2026-08-27 call. The bold summary was rewritten too, which split it
+from `info.json` and the locale (`deferred.md`, Housekeeping).
+
+Synced with `fmtk details --readme` on the owner's ask the same day; read back with a
+cache-buster: the new description is live, license and the six gallery shots untouched, the
+portal summary still the `info.json` sentence. No release, so the 1.2.8 zip keeps the old
+README.
+
+---
+
 ## 2026-11-13 - 1.2.8 released: the chests' circuit stop and the two request opt-outs
 
 At the owner's ask, the same day, after a fresh review of the working tree that found no defect;

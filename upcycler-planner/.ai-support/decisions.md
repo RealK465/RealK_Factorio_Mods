@@ -29,10 +29,12 @@ ships (leading dot).
   and a target quality, the mod designs and gives you an entirely configurable upcycling loop
   blueprint."* — the owner's own wording, so correct an error in it, never restyle it to taste.
   The pair is still not resynced or reworded unprompted; when the owner does ask, **edit
-  both**. **The README's opening line is the third place the
-  sentence lives** — it is the portal's long description, and it was reworded to the same
-  sentence on the same day, at the owner's follow-up ask. Keep the three together; the README
-  half only reaches the portal at the next approved `fmtk details --readme`.
+  both**. **The README's bold opening line no longer carries the same sentence.** At the
+  owner's ask to simplify the README (2026-11-27) it became *"Pick an item and a target
+  quality, and get a ready-made upcycling loop blueprint."*, live on the portal page the same
+  day, while `info.json` and the locale keep the 2026-08-26 sentence above. Whether the pair
+  follows is open in `deferred.md` (Housekeeping); the README half reaches the portal only
+  through an approved `fmtk details --readme`.
 - **Prototype prefix `upl-`**, with settings and locale mod-level keys using the full
   `upcycler-planner`. Prototype names share one flat global namespace and a collision there is
   silent, which is the whole reason for a tag; settings are listed to players beside other mods'
@@ -73,8 +75,10 @@ Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-1
 `default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
 description, the six gallery shots below in filename order. Reworked wholesale for the 1.0.0
 page on 2026-08-29: new README and FAQ, five of the six shots re-taken, and the description's
-own images re-hosted. Every later upload or portal edit still needs the repo owner's
-per-release approval.
+own images re-hosted. Simplified on 2026-11-27 at the owner's ask (120 lines to 90, every
+image kept, the circuit detail left to the FAQ) and synced to the page the same day with
+`fmtk details --readme`; the shipped 1.2.8 zip still carries the longer README until the next
+release. Every later upload or portal edit still needs the repo owner's per-release approval.
 
 - **`README.md` is the portal description**, sent by `fmtk details --readme`. Not quite
   verbatim, and both departures are silent: fmtk **strips a leading depth-1 heading**

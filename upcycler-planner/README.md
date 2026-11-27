@@ -1,106 +1,76 @@
 # Upcycler Planner
 
-**Choose an item and a target quality, the mod designs and gives you an entirely configurable
-upcycling loop blueprint.**
+**Pick an item and a target quality, and get a ready-made upcycling loop blueprint.**
 
-Like [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner) designs mining outposts, or [P.U.M.P.](https://mods.factorio.com/mod/pump) designs oil outposts, Upcycler Planner designs quality upcycling loops.
-
-You can entirely configure the Upcycling Loop elements and let the mod design it:
+What [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner) does for mining outposts and [P.U.M.P.](https://mods.factorio.com/mod/pump) does for oil, this mod does for quality upcycling. It works with your mods: pick modded machines, recyclers, belts, modules or beacons, and the layout adapts to them.
 
 ![Planning a loop and stamping the blueprint](https://files.catbox.moe/u1qoct.gif)
 
-Some configuration options are:
+## What you can change
 
-- You can **configure every entity** you want to use (assembling machine, recycler, modules, poles, inserters, chests...)
-- Supports **beaconed layouts (enable "Show All Build Options" setting)** (useful for modded beacons like Maraxis quality beacon)
-- Supports **recipes with fluids**
-- You can define **circuit conditions** so the upcycling loop stops after a certain target amount is reached or a minimum amount of lower quality items to keep in the logistics network. The limits sit on a **constant combinator** you can edit in place, and **lamps** show when the loop is done. The maximum can also count your whole logistic network.
-- Automatically proposes the **best ratio of modules** (considering modded machines/modules), see: [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math).
-- You can **configure the number of columns** for each quality tier to boost output
+- Every building in the loop, from machines and recyclers to belts, inserters, chests, modules and poles, most at any quality
+- How many columns each quality tier gets, for more output from a bigger blueprint
+- How much of each ingredient the loop requests
+- Beacons, if you want them
+- Circuit limits: stop at a maximum, keep a minimum of each lower quality, or count your whole logistic network. The numbers sit on a combinator you can edit later, and lamps show when the loop is done.
 
-## Works with your mods
-
-This is the main advantage of it, no matter what mods you're using, you don't have to create new blueprints. The mod is entirely configurable.
-You can choose modded machines, recyclers, belts, modules, beacons... they can all be picked, and the layout adapts itself to whatever you choose.
-By default only researched options are offered, but it can be changed in the planner/mod settings.
-
-![Planning a loop with modded machines and recyclers](https://files.catbox.moe/mlwckl.gif)
+The planner works out the best mix of quality and productivity modules for you (see [Quality Math](https://wiki.factorio.com/Tutorial:Quality_upcycling_math)), and recipes with a fluid get their own pipes.
 
 ## How to use it
 
-1. The mod is only enabled after the **Recycling** tech has been researched, or an earlier one if a mod unlocks the recycler sooner. Then this button appears in your shortcut bar:
+1. Research **Recycling**, or whatever unlocks the recycler first in your mods. This button appears in your shortcut bar, or press **Ctrl+U**:
    ![the Upcycler Planner shortcut button](https://files.catbox.moe/08ae4j.jpg)
-   You can also press **Ctrl+U** (rebindable under Settings → Controls → Mods).
-2. After clicking it, pick the item you want to upcycle and the quality you are aiming for.
-3. Under **Build options** you can change what the loop is made of: belts, inserters, chests, modules, electric poles and more. Each one defaults to the best you have researched, and each can be built at a quality of your choice. The **Edit...** buttons there let you set how many of each ingredient the loop requests, and how many columns each quality builds. Options with only one choice are hidden, and so are the five chests and the beacons. Click **Settings** in the title bar and tick **Show all build options** to bring them all back.
-4. Press **Place**. The loop arrives as a blueprint in your hand, so you can look it over, move it, rotate it and flip it before you commit.
+2. Pick the item and the quality you are aiming for.
+3. Change anything under **Build options**. Chests, beacons and options with only one choice are hidden until you tick **Show all build options** in the planner's **Settings**.
+4. Press **Place**. The blueprint is now in your hand: move, rotate or flip it, then build.
 
-## Good to know
+## Examples
 
-- Layout processing algorithm is quite demanding in layouts with lots of columns, version 1.0 of the mod benchmarked 5s processing an 8000 column layout (this means like 8000 quality tiers or having 1000+ columns for each quality tier, it requires crazy mods to reach those numbers). Higher durations can cause the game to crash.
-- Recipes with more than 10 ingredients are not supported (an inserter filters at most 5 items, and the loop feeds each machine from up to two inserters).
-- Recipes with spoilable items are not supported.
-- Recipes that need two different fluids, or that give back a fluid (like the quantum processor), are not supported.
-- Items that recycle into themselves (like steel) are not supported.
+A loop built from modded machines and recyclers:
 
-## Highlighted Features
+![Planning a loop with modded machines and recyclers](https://files.catbox.moe/mlwckl.gif)
 
-### Best Ratios + Stats
-
-If the recipe you chose supports productivity modules, the mod is able to mix quality/productivity modules with the best ratio:
+When the recipe allows productivity, each tier gets the best mix of modules:
 
 ![Best Ratios](https://files.catbox.moe/n1yfnh.jpg)
 
-You can always take a look at the footer for the expected production stats so it can help you to tweak your settings.
+The footer shows what the loop costs and how fast it runs:
 
 ![Stats](https://files.catbox.moe/c48nt7.jpg)
 
-### Quality Tiers Column Count
-
-You can configure the column count for each quality tier in a way to increase the output of your upcycler at a cost of a bigger blueprint.
+More columns per tier for more output:
 
 ![Columns](https://files.catbox.moe/p60d73.jpg)
 
-### Pipes + Beaconed Layouts
-
-The mod fully supports layouts that require usage of pipes and beacons (**enable "Show All Build Options" to see beacon config settings**):
+A loop with beacons and pipes:
 
 ![Beaconed Layout](https://files.catbox.moe/heq3zl.jpg)
 
-### Circuit Conditions
-
-You can define a minimum amount of the lower quality items to keep as reserve in the logistics network,
-and also a maximum amount for the target quality item that stops the loop after the target amount is reached.
-
-The numbers live on a constant combinator inside the loop, so you can change them in place without a new blueprint.
-Switch the combinator off to pause a loop that has a maximum, or tick **Start paused** in the Limits window to place it switched off while your bots are still bringing the modules. Without a maximum the switch only removes the reserves, so leave it on. While a loop with a maximum is paused or done, its chests stop requesting too.
-Two lamps and a display panel show what the loop is doing: blue while it runs, green when the output chest is full or the loop is paused, and the panel's icon is visible on the map.
-
-A checkbox at the foot of the Limits window switches the maximum to count every item at the target quality across your logistic network, not just the output chest. The loop only runs inside roboport range in this mode. The minimum reserves stay on the combinator and work the same way. To change the maximum afterwards, edit the combinator's C row: every machine and recycler picks up the new number. The combinator still pauses: switch it off, or set its C row to 0. In this mode the loop's chests stop requesting only while it is paused. The lamps count the network too: blue while it runs, green once it is done. The panel shows Paused when paused, and only the product icon otherwise, because it cannot read the network.
+Setting circuit limits:
 
 ![Circuit Conditions Config](https://files.catbox.moe/0cddec.jpg)
 
-## Road Map
+## Good to know
 
-- Automatic placement of Lightning Collectors at Fulgora
-- Automatic placement of Heating Pipes at Aquilo
-- Possibility of exporting the layout as a parametrized blueprint
-- Done in 1.2.0, each machine is now fed by up to two inserters and recipes with up to 10 ingredients work: ~~Check possibility of adding more inserters/chests to overcome limitation of 5 ingredients (is the maximum allowed to filter inserters)~~
-- Small improvements
+- Only researched items are shown unless you tick **Show unresearched items** in the planner's **Settings**.
+- Not supported: recipes with more than 10 ingredients, recipes that need two fluids or give back a fluid (like the quantum processor), and items that recycle into themselves (like steel).
+- Items that spoil can be planned, but some may rot in the loop before they reach your target.
+- With **Count the whole logistic network** ticked, the loop only runs inside roboport range.
+- Huge layouts with thousands of columns take seconds to plan, and even bigger ones can crash the game.
+
+## Planned
+
+- Lightning collectors on Fulgora
+- Heating pipes on Aquilo
+- Exporting the layout as a parametrised blueprint
 
 ## Requirements
 
-Factorio with **Space Age**.
-Made for Factorio 2.1.
+Factorio 2.1 with **Space Age**.
 
 ## Credits
 
-Inspired by kvdveer's [Upcyclers](https://forums.factorio.com/viewtopic.php?t=121438) blueprint book.
-
-Also by two planners that showed how good this kind of mod can feel:
-
-- rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner)
-- Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
+Inspired by kvdveer's [Upcyclers](https://forums.factorio.com/viewtopic.php?t=121438) blueprint book, and by two planners that showed how good this kind of mod can feel: rimbas' [Mining Patch Planner](https://mods.factorio.com/mod/mining-patch-planner) and Xcone's [P.U.M.P.](https://mods.factorio.com/mod/pump).
 
 ## Check my other mods
 
