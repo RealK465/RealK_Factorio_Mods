@@ -70,14 +70,14 @@ ships (leading dot).
 
 Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-16 — license
 `default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
-description, the six gallery shots below in filename order. Reworked wholesale for the 1.0.0
+description, the seven gallery shots below in filename order. Reworked wholesale for the 1.0.0
 page on 2026-08-29: new README and FAQ, five of the six shots re-taken, and the description's
 own images re-hosted. Simplified on 2026-11-27 at the owner's ask (120 lines to 90, every image
-kept, the circuit detail left to the FAQ) and synced to the page the same day with `fmtk details
---readme`; the shipped 1.2.8 zip still carries the longer README until the next release.
-Rewritten again later the same day for the four-tab window, not synced yet: two videos and one
-still, hosted in the repo itself, replaced the demo gifs and the three screenshots of windows
-that no longer exist. Every later upload or portal edit still needs the repo owner's per-release
+kept, the circuit detail left to the FAQ), then rewritten the same day for the four-tab window:
+two videos and two stills, hosted in the repo itself, replaced the demo gifs and the
+screenshots of windows that no longer exist. Synced with the 2.0.0 release that day — the
+description, FAQ and summary by `fmtk details`, the gallery's new 01 and 02 by the
+`images/edit` pass. Every later upload or portal edit still needs the repo owner's per-release
 approval.
 
 - **`README.md` is the portal description**, sent by `fmtk details --readme`. Not quite
@@ -119,7 +119,7 @@ approval.
   has no order but the id list handed to `images/edit`, so the number prefix is the only place
   that intent survives until the release that uses it. The 03 to 07 shots were 02 to 06 until
   2026-11-27, renamed to make room for the bot loop; their bytes, and so their portal ids, are
-  unchanged.
+  unchanged. Live in exactly this order since the 2.0.0 release.
   - `01-planner-menu.jpg` — the four-tab window, Buildings tab, gears to legendary, beside the
     belt loop it built, running with its roboport. Re-taken 2026-11-27 from the scripted run
     that made the videos; the 1.0.0 shot showed the one-column window.
@@ -134,10 +134,10 @@ approval.
     quality tiers.
   - `07-big-upcycling-loop.jpg` — a whole large loop at map scale, for the size of the thing.
 - **A gallery image's id IS the sha1 of the uploaded bytes** — verified 2026-08-29 against all
-  six, and it is what `fmtk` itself keys on to skip an image the portal already holds. So
-  identifying what is live is exact arithmetic on the local files, never a guess from position
-  or a perceptual match: hash the six, compare to `GET /api/mods/<name>/full`, upload only the
-  misses. Re-uploading a file the portal already has is refused outright
+  six, again at 2.0.0 when both new uploads came back as their sha1, and it is what `fmtk`
+  itself keys on to skip an image the portal already holds. So identifying what is live is
+  exact arithmetic on the local files, never a guess from position or a perceptual match: hash
+  the shots, compare to `GET /api/mods/<name>/full`, upload only the misses. Re-uploading a file the portal already has is refused outright
   (`{"error":"InvalidRequest","message":"Image already exists"}`), which is what makes the
   check load-bearing rather than an optimisation.
 - **`fmtk details` does not touch the gallery here**, because `info.json#/package` carries no

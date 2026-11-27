@@ -369,15 +369,11 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 
 ## Housekeeping
 
-- **The portal page waits for a push and an approved sync** (2026-11-27). The new media are
-  in the repo: `images/description/belt-loop.mp4`, `bot-loop.mp4`, `planner-tabs.png` and
-  `beacons-and-pipes.jpg`, linked from the README as raw GitHub files on `main`, which resolve
-  only once pushed; and the
-  gallery's re-taken `01-planner-menu.jpg` and new `02-bot-loop.jpg`, which reach the portal
-  only through an approved release's `images/edit` pass (`decisions.md` → Portal presentation).
-  One linked picture is still out of date: `modded-upcycling.gif` shows the window before the
-  tabs. A re-take needs a modded game — the owner's own, or a scripted run loading this repo's
-  Quality Assembler, Quality Recycler and Extra Qualities.
+- **`modded-upcycling.gif` still shows the window before the tabs** (2026-11-27). The one
+  picture on the portal page the 2.0.0 media pass did not re-take — footage from a played
+  modded game, hosted on catbox. A re-take needs a modded game: the owner's own, or a scripted
+  run loading this repo's Quality Assembler, Quality Recycler and Extra Qualities, encoded as
+  an MP4 like the other two videos (`decisions.md` → Portal presentation).
 
 - **The other mods' portal pages still show the old summary** (2026-11-27). Their READMEs
   quote the new one since the owner asked for every doc to be kept up to date; each page

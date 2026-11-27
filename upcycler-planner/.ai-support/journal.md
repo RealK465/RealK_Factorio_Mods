@@ -9,6 +9,38 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-27 - 2.0.0 released: the bot loop and the four-tab window
+
+The owner: "can you keep all docs up to date, release and publish this to mod portal and
+everything commited and pushed?", the same day as the review. The gates ran on 2.1.25:
+`validate.ps1 -FullLoad` clean, every sprite and sound opened; `--check-unused-prototype-data`
+run by hand against a scratch copy, since `validate.ps1` does not pass it — 703,331 properties
+read, no warning; and the suite's graphics pass, 509 of 509, after the review's headless 509
+and pure 184.
+
+The zip held 26 files in 182,389 bytes — nothing from `images/`, `tests/` or these notes —
+identical to the working tree, and to the tag once line endings are normalised. `fmtk upload`
+answered "Published", and the portal's 2.0.0 sha1 is the local zip's (`b2d88386…`). The work
+went in as `f1de736`, the release skill's video note as `1bccaad`, the summary quoted in every
+README as `c8ce246` (the root row's "as ghosts" corrected with it), the datestamp as `6ba397b`,
+tagged `upcycler-planner_2.0.0` and pushed; the branch rule's pull-request notice is the
+owner's bypass going through.
+
+After the push the four raw GitHub media answered 200 at their local sizes, and `fmtk details
+--readme README.md --faq faq.md` synced the page: the new summary, both videos, the tabs and the
+beacons still — license, category and gallery untouched, read back with a cache-buster. The
+gallery pass uploaded only the two new shots, each id coming back as its sha1, and set the
+seven in filename order. The one live id with no local file, `020e27a8…`, was the old
+`01-planner-menu.jpg` — its sha1 matches the 1.2.8 tag's blob — and leaving it out of the list
+is what replaced the shot.
+
+Left open: `modded-upcycling.gif` still shows the window before the tabs, and the six other
+mods' portal pages show the old summary until each is synced (both in `deferred.md`). The
+journal had passed 4,400 lines, so everything from the 1.2.8 release back moved to
+`journal-archive/2026.md` the same day (`4e50ae2`).
+
+---
+
 ## 2026-11-27 - A full review of both sessions' work, and the fixes it earned
 
 The owner: "can you do now a full review on everything that was done? try to find for bugs,
