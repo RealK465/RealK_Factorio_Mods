@@ -205,8 +205,10 @@ and the release itself. Verified on a real first publish: `license` defaults to 
 wrong for every mod in this repo — leaving it published is a licensing error, not a cosmetic
 one. Fix all of it in the same session as the first upload.
 
-`fmtk details` only takes `--readme` and `--faq`. License, category, tags and gallery have no
-fmtk surface at all and need the v2 API.
+`fmtk details` only takes `--readme <file>` and `--faq <file>`, each naming the file it sends —
+`fmtk details --readme README.md --faq faq.md` from inside the mod folder, as on the 2.0.0
+sync of upcycler-planner (2026-11-27). License, category, tags and gallery have no fmtk
+surface at all and need the v2 API.
 
 **What `details` does that "uploads the README" does not describe** — all silent, all read out
 of its bundled source and confirmed on a live sync (2026-08-29):
