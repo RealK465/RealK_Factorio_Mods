@@ -293,9 +293,23 @@ approval.
   finds it where it already stands. The engine neither re-centres a frame whose content grew
   nor keeps one on screen, so a tall tab grown from a short one's centred spot ran past the
   bottom with Place out of reach; writing `auto_center` again re-centres it (both measured,
-  §38), and a rebuild keeps the centring when the old frame still had it. A moved window keeps
-  its place, on the reading that a player's drag clears `auto_center` — no input faking exists
-  to measure it (§38, **not verified**). **A tab scrolls past what the screen leaves**
+  §38). **A moved window keeps its place** — every fill, the panel and every rebuild, a
+  setting flip included — and **whether it moved is tracked, never read off the frame**
+  (2026-11-27, after the owner's report against 2.0.0). 2.0.0 read `auto_center` as "never
+  moved", but a drag leaves the flag on, so every dragged window jumped back to the centre on
+  the next change. The engine reports its own centring and a drag through the same
+  `on_gui_location_changed`, so the window is never left auto-centring. `recentre` asks for
+  each centring by jumping the frame to 0,0 first, because a centring that leaves the frame
+  where it stands raises no event and would leave the flag on for a drag to hide behind.
+  `gui.on_location_changed` then switches the flag off as the centring lands, and an event
+  that finds it off is a drag. It sets `window_moved` in `storage`, which lives and dies with
+  the open window, so a fresh open is centred. All of it measured, §39; the real drag itself
+  is not. Rejected: the 1.2.8 rule, keep the location on every rebuild and never re-centre,
+  which brings back the tall tab running off the bottom. Also rejected: timing the event
+  against the request, since in multiplayer it arrives a latency later. **A new resolution or
+  UI scale re-centres the window, moved or not**: a pinned frame no longer follows the screen
+  the way an auto-centring one did, and the spot it was dragged to may lie off the new screen.
+  **A tab scrolls past what the screen leaves**
   (`tab_max_height`, the review's ask): each tab is a scroll-pane capped at the screen's height
   at the player's scale less `WINDOW_CHROME` (560: the rest of the window measured 455 px at
   100%, plus room for a few warnings) — the tallest tab, Chests, makes the window 872 px at

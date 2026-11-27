@@ -97,6 +97,19 @@ script.on_event(defines.events.on_gui_closed, function(event)
   end
 end)
 
+-- The planner's position, which is about the frame like on_gui_closed: the engine reports its
+-- own centring and a player's drag through one event, and gui.on_location_changed tells them
+-- apart, so a moved window keeps its place. A new resolution or UI scale starts it over
+-- centred.
+script.on_event(defines.events.on_gui_location_changed, gui.on_location_changed)
+
+script.on_event({
+  defines.events.on_player_display_resolution_changed,
+  defines.events.on_player_display_scale_changed,
+}, function(event)
+  gui.on_display_changed(game.get_player(event.player_index))
+end)
+
 -- There is deliberately no placement handler: Confirm hands over an ordinary blueprint, and
 -- everything after that is the engine's. What that buys, and why none of it is ours to
 -- reimplement, is in scripts/blueprint.lua.

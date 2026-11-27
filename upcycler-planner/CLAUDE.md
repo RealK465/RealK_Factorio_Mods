@@ -38,7 +38,7 @@ between tiers; `.ai-support/deferred.md` keeps what was deliberately left out (a
 network, fluid products, a roboport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (509 tests as of 2026-11-27, 184 of them pure) — planner, layout, poles,
+suite under `tests/` (512 tests as of 2026-11-27, 184 of them pure) — planner, layout, poles,
 circuits, the quality maths, the shortcut gate, blueprint, state, the eject loop, the fluid
 mechanisms, the combinator retune, the chests' circuit stop, the beacons, the bot loop live
 and on paper, the belt goldens and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
@@ -295,7 +295,11 @@ re-opening any of these, and don't restate a reason here.
   the `TAB_BUILDERS` entry's `refill_on` reasons) — never build a tab by hand. A tab switch
   plans nothing; it repaints only the Circuits fields. A centred window is re-centred after
   every change of size (`recentre`: each fill, the settings panel opening or closing); a moved
-  one keeps its place. Each tab is a scroll-pane capped by `tab_max_height`, so the window fits
+  one keeps its place, rebuilds included. **Moved is tracked, never read off `auto_center`**,
+  which a drag leaves on: the window is never left auto-centring, `recentre` jumps it to 0,0
+  so each centring lands as an event, `gui.on_location_changed` pins it there, and an event
+  that finds the flag off is a drag, kept as `window_moved` until the window closes. A new
+  resolution or UI scale re-centres it. Each tab is a scroll-pane capped by `tab_max_height`, so the window fits
   a small screen. The selected tab is `entry.tab` in storage, a name, restored on every
   rebuild. Every row of a tab's table goes through `add_row` and hides through `show_row`,
   label and control together; every count row — per tier, per ingredient, Minutes, Hand size —

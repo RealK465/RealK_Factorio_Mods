@@ -717,8 +717,10 @@ is observable headless: a headless run never lays a frame out.
   screenshots). The event's `player_index` doc line ("the player who did the change",
   runtime-api.json 2.1.14) reads as player-action-only and is not. A location set **from script**
   raised nothing in the headless suite, matching Space Exploration 0.7.60, which snaps windows by
-  assigning `element.location` inside this very handler. Net: the event cannot answer "has the
-  player moved this frame", and the mod no longer listens to it at all.
+  assigning `element.location` inside this very handler. Net: the event alone cannot answer
+  "has the player moved this frame". §39 has how the planner answers it anyway, since
+  2026-11-27: the frame is never left auto-centring, so an event that finds the flag off is a
+  drag.
 - **Two "windows" that must stay glued are one screen element**: vanilla ships `invisible_frame`
   (`graphical_set = {}`, `padding = 0`, core `style.lua`) — an invisible `gui.screen` container
   whose children are ordinary window-styled frames looks like separate windows with the map
@@ -1860,9 +1862,9 @@ Measured the same day on **2.1.25**, in the graphics tier at 2560x1440 and 125% 
 - **The engine does not keep a screen frame on screen.** A `location` of `{30, 900}`, and a
   pinned window grown past the bottom from `{30, 500}`, both stood as written: the window was
   cut off at the screen's edge, Place out of reach.
-- **Not verified: whether a player dragging the window clears `auto_center`.** No input
-  faking exists to drag it; the planner's "a moved window keeps its place" rests on that
-  reading.
+- **A player's drag leaves `auto_center` on** — shown by the owner's report against 2.0.0
+  rather than measured here, and the reason 2.0.0 threw dragged windows back to the centre:
+  §39.
 - **A force made by `game.create_force` starts with no quality unlocked, `normal` included**:
   the planner's build-quality check warned that normal quality was not researched until
   `unlock_quality` ran for every tier. Researching a force the player is not on raises no
@@ -1884,3 +1886,56 @@ lines; an auto-centred frame's location is its size, §17):
 - **A capped `naked_scroll_pane` tab scrolls in place**: a vertical scrollbar inside the tab,
   the top block, status lines and buttons drawn as before (screenshot). Uncapped, the four tabs
   shot identical to the flow they replaced.
+
+## 39. Telling the engine's centring from a player's drag — measured 2026-11-27
+
+**The bug it answers.** 2.0.0 re-centred a window after every change of size only while it
+still read `auto_center == true`, on the reading that a drag clears the flag (§38). The owner
+reported a moved window jumping back to the centre on the next setting change. Every path
+that writes `auto_center` in that build was gated on the flag reading true, so **a drag
+leaves `auto_center` on** — from the report and the code, **not measured**: there is no input
+faking, and the client ignores mouse messages posted to its window (`WM_LBUTTONDOWN`, moves
+and `WM_LBUTTONUP` via `PostMessage`, 2026-11-27; the frame never moved). The documentation
+promises only "auto-centers on window resize" (`LuaGuiElement::auto_center`).
+
+**Measured on 2.1.25**, in a real client at 1920x1080 and scale 1, with a scratch probe mod: a
+`gui.screen` container of the planner's shape, a handler on `on_gui_location_changed` that
+logged and switched `auto_center` off whenever an event found it on, and one scripted step
+every 60 ticks, logged a tick later and 60 ticks later.
+
+- **A fresh `auto_center` frame raises the event once, the next tick, with the flag still
+  on**, at its centred spot (748,316). Switched off inside that handler, the frame stays
+  there: no further event, location unchanged 60 ticks on.
+- **A re-centre that leaves the frame where it stands raises nothing.** On a centred, pinned
+  frame, `auto_center = false` then `true` gave no event and left the flag on. Such a frame
+  would carry a later drag's event with the flag still on: indistinguishable from a centring.
+- **Jumping it to 0,0 first makes every centring land as an event.** `auto_center = false`,
+  `location = {0, 0}`, `auto_center = true` on the same centred frame: `location` read 0,0 in
+  that tick, then exactly one event the next tick, back at 748,316, the flag on.
+- **Script writes raise nothing.** `location = {100, 100}` on a pinned frame read back as
+  written, with no event in 60 ticks.
+- **A pinned frame keeps its top-left when its content grows**: 200 px of extra body height,
+  no event, still at 100,100. The 0,0 jump then centred it for the new size: one event, at
+  748,216.
+- **`force_auto_center()` switches `auto_center` on**, reading true at once. On a centred
+  frame it raised no event; on one moved by script to 200,200 it raised one, at the centred
+  spot. It is the flag write under another name, with the same blind spot.
+
+**What the planner stands on** (`../../scripts/gui.lua` → `recentre`, `gui.on_location_changed`):
+the window is never left auto-centring. Each centring is asked for with the 0,0 jump, so it
+always lands as an event, and that event switches the flag off where it landed. An event that
+finds the flag off can only be a player's drag, which `window_moved` in `storage` remembers
+until the window closes. A drag that lands before a requested centring has reported itself
+would be read as that centring. It would need a drag within a tick of a click, and costs one
+re-centre if it ever happens.
+
+**In the suite's graphics tier**, 2560x1440 at 125%: the engine's own event pinned the
+planner within one tick of opening, at x = 1040, and with the settings panel it re-centred and
+pinned at x = 896, the same numbers as §38. The framework runs at game speed 1000 and a GUI is
+laid out per drawn frame, so a spec waiting on a layout drops to speed 1. A copy of the mod
+whose handler did not pin failed that spec with the engine's own event: "the opening centring
+was not pinned where it landed: {x = 1040, y = 185}".
+
+**Not verified: a real drag.** That a drag of a pinned frame raises the event with the flag
+off follows from the event's purpose and from the flag being off before it starts. It has not
+been watched, and the specs raise the drag themselves (`tests/gui_spec.lua` → `drag_to`).

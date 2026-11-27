@@ -49,6 +49,44 @@ local function fire(element, name)
   })
 end
 
+-- An engine event, raised the way the engine raises it: through whatever control.lua
+-- registered, so the wiring is under test too. Absent registration, nothing hears it.
+local function raise(id, data)
+  local handler = script.get_event_handler(id)
+  data.name, data.tick, data.player_index = id, game.tick, player().index
+  if handler then handler(data) end
+end
+
+-- What the engine raises once its centring of the window lands (analysis/api.md S19, S39).
+-- A headless run never lays a frame out, so the specs raise it in the engine's place.
+local function engine_centres()
+  raise(defines.events.on_gui_location_changed, { element = frame() })
+end
+
+-- A player's drag: the window moves, auto_center is left as the drag found it -- trusting a
+-- drag to clear it was the 2.0.0 bug -- and the engine reports the move. The flag is lifted
+-- around the write only because a location written over auto_center does not stick (S38).
+local function drag_to(x, y)
+  local f = frame()
+  local was = f.auto_center
+  f.auto_center = false
+  f.location = { x = x, y = y }
+  f.auto_center = was
+  raise(defines.events.on_gui_location_changed, { element = f })
+end
+
+-- The framework runs the suite at game speed 1000, many ticks to each drawn frame, and the
+-- engine lays a GUI out per drawn frame -- so a spec waiting on a layout waits at speed 1.
+-- game.speed is writable (runtime-api.json); luacheck's std reads all of game as read-only.
+local function after_drawn_ticks(ticks, fn)
+  local speed = game.speed
+  game.speed = 1 -- luacheck: ignore 122
+  after_ticks(ticks, function()
+    game.speed = speed -- luacheck: ignore 122
+    fn()
+  end)
+end
+
 -- A player's tab click, as the engine reports one: the index written, then the event. Only
 -- the selected tab is filled, so this is also what makes a tab's controls exist at all.
 local function open_tab(key)
@@ -2338,34 +2376,121 @@ describe("the tabs and the layout", function()
     assert(choices().quality_module == nil, "a browse click wrote a module")
   end)
 
-  test("a fill keeps a centred window's centring and leaves a moved one where it was", function()
-    -- The engine neither re-centres a frame whose content grew nor keeps one on screen, so a
-    -- tall tab opened from a short one's centred spot ran past the bottom (S38). The re-centre
-    -- itself -- auto_center written again -- shows only on screen (measured in the graphics
-    -- tier, S38); what a headless run can pin is that no fill or panel drops the flag, and
-    -- that none sets it on a window the player moved.
-    open_with_gears()
-    assert(frame().auto_center == true, "test premise: the planner opens centred")
-    open_tab("chests")
-    assert(frame().auto_center == true, "a tab switch dropped the centring")
-    gui.open_settings(player())
-    assert(frame().auto_center == true, "opening the settings panel dropped the centring")
-    assert(gui.close_settings(player()) == true, "closing an open panel must say it closed one")
-    assert(gui.close_settings(player()) == false, "closing no panel must say so")
-    assert(frame().auto_center == true, "closing the settings panel dropped the centring")
-    frame().auto_center = false
-    frame().location = { x = 40, y = 60 }
-    open_tab("modules")
-    assert(frame().auto_center == false, "a tab switch re-centred a window the player moved")
-    local at = frame().location
-    assert(at.x == 40 and at.y == 60, "a tab switch moved the window to " .. serpent.line(at))
-    -- And a rebuild keeps the moved window where it was, too.
+  local function pick_machine_2()
     local machine = widget({ "upl-content", "upl-table", "upl-machine" })
     machine.elem_value = { name = "assembling-machine-2", quality = "normal" }
     fire(machine)
-    at = frame().location
-    assert(frame().auto_center == false and at.x == 40 and at.y == 60,
-      "a rebuild moved the window to " .. serpent.line(at))
+  end
+
+  test("a window the player never moved re-centres after every change of size", function()
+    -- The engine neither re-centres a frame whose content grew nor keeps one on screen, so a
+    -- tall tab grown from a short one's centred spot ran past the bottom (S38). Every change
+    -- of size asks for the centring again, and the engine's report of each centring pins the
+    -- window where it landed -- never read as a drag, or the next change would not re-centre.
+    open_with_gears()
+    assert(frame().auto_center == true, "test premise: the planner opens centring")
+    engine_centres()
+    assert(frame().auto_center == false, "the engine's centring was not pinned where it landed")
+    -- Someone else's screen frame moving is no drag of ours.
+    local other = player().gui.screen.add({ type = "frame", name = "upl-spec-other-frame" })
+    raise(defines.events.on_gui_location_changed, { element = other })
+    other.destroy()
+    local changes = {
+      { "a tab switch", function() open_tab("chests") end },
+      { "opening the settings panel", function() gui.open_settings(player()) end },
+      { "closing the settings panel", function()
+        assert(gui.close_settings(player()) == true, "closing an open panel must say it closed one")
+      end },
+      { "a rebuild", pick_machine_2 },
+    }
+    for _, change in ipairs(changes) do
+      change[2]()
+      assert(frame().auto_center == true, change[1] .. " did not re-centre an unmoved window")
+      engine_centres()
+      assert(frame().auto_center == false, "the centring after " .. change[1] .. " was not pinned")
+    end
+    assert(gui.close_settings(player()) == false, "closing no panel must say so")
+  end)
+
+  test("a window the player dragged stays where they dropped it, through every change", function()
+    -- The owner's report on 2.0.0: move the window, change a setting, and it jumps back to the
+    -- centre. 2.0.0 read auto_center as "never moved", and a drag leaves the flag on.
+    open_with_gears()
+    engine_centres()
+    drag_to(40, 60)
+    local function stays(what)
+      local at = frame().location
+      assert(frame().auto_center == false and at.x == 40 and at.y == 60,
+        what .. " moved the window to " .. serpent.line(at))
+    end
+    stays("the drag itself")
+    open_tab("chests")
+    stays("a tab switch")
+    gui.open_settings(player())
+    stays("opening the settings panel")
+    pick_machine_2()
+    stays("a rebuild")
+    -- The owner's own steps: the setting, ticked in the panel. The rebuild comes through
+    -- on_runtime_mod_setting_changed, a tick or so later.
+    local box = settings_widget(SHOW_ALL_BOX)
+    box.state = true
+    fire(box, defines.events.on_gui_checked_state_changed)
+    after_ticks(2, function()
+      assert(player().mod_settings[gui.SHOW_ALL_SETTING].value == true, "the tick never landed")
+      stays("flipping the setting")
+      assert(gui.close_settings(player()) == true, "the rebuild dropped the settings panel")
+      stays("closing the settings panel")
+      player().mod_settings[gui.SHOW_ALL_SETTING] = { value = false }
+      after_ticks(2, function()
+        stays("flipping the setting back from outside the window")
+        -- Closed and opened again, the window starts over centred.
+        gui.close(player())
+        gui.open(player())
+        assert(frame().auto_center == true, "a fresh open kept the last window's drag")
+      end)
+    end)
+  end)
+
+  test("a new resolution or UI scale re-centres even a moved window", function()
+    -- A pinned window no longer follows the screen the way an auto-centring one did, and the
+    -- old spot can lie off the new screen.
+    for _, id in ipairs({ defines.events.on_player_display_resolution_changed,
+      defines.events.on_player_display_scale_changed }) do
+      open_with_gears()
+      engine_centres()
+      drag_to(40, 60)
+      raise(id, {})
+      assert(frame().auto_center == true, "a display change left a moved window where it was")
+      engine_centres()
+      gui.open_settings(player())
+      assert(frame().auto_center == true, "after a display change the window stayed moved")
+      gui.close(player())
+    end
+  end)
+
+  test("in a real client, each centring lands as an event and is pinned there", function()
+    -- The specs above raise the engine's event themselves; this one waits for the engine. Only
+    -- a client lays frames out -- a headless run leaves every frame at 0,0 and raises nothing
+    -- -- so a bare frame of the spec's own tells the two tiers apart, whatever the planner
+    -- does. Measured on the way in: laid out and pinned within one tick at speed 1.
+    local bare = player().gui.screen.add({ type = "frame", name = "upl-spec-layout-probe" })
+    bare.auto_center = true
+    open_with_gears()
+    after_drawn_ticks(10, function()
+      local client = bare.location.x ~= 0 or bare.location.y ~= 0
+      bare.destroy()
+      if not client then return end
+      local alone = frame().location
+      assert(frame().auto_center == false and (alone.x ~= 0 or alone.y ~= 0),
+        "the opening centring was not pinned where it landed: " .. serpent.line(alone))
+      gui.open_settings(player())
+      after_drawn_ticks(10, function()
+        local pair = frame().location
+        assert(frame().auto_center == false, "the panel's re-centre was left auto-centring")
+        assert(pair.x < alone.x, "the wider pair did not re-centre: from " .. serpent.line(alone)
+          .. " to " .. serpent.line(pair))
+      end)
+    end)
   end)
 
   test("a kept tab nobody knows reads as the first", function()

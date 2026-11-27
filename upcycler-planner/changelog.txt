@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.0.1
+Date: ????
+  Bugfixes:
+    - Fixed that a moved planner window jumped back to the middle of the screen when you
+      changed an option.
+---------------------------------------------------------------------------------------------------
 Version: 2.0.0
 Date: 2026-11-27
   Features:

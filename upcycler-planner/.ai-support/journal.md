@@ -9,6 +9,40 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-27 - A moved window jumped back to the centre: 2.0.1 opened
+
+The owner, hours after 2.0.0 shipped: "if i move the upcycler planner gui in the screen then i
+change a setting it centers again the gui in the center of screen". The cause was the one
+reading the release had marked **not verified** (§38): that a player's drag clears
+`auto_center`. 2.0.0's `recentre` and its rebuild both re-centred only while the frame read the
+flag as on, and the report shows a dragged frame still reads it so. 1.2.8 had kept the location
+on every rebuild and never re-centred; 2.0.0 added re-centring for the window that now grows
+with its tab, and took the flag as the "never moved" test.
+
+A real drag could not be staged. Mouse messages posted to the client's window, a press, twenty
+moves and a release, never moved the frame. A Steam copy of the game was open, and the
+probe's window was never given the real cursor. A scratch probe in a scratch
+install measured what needs no input instead (§39). The engine's centring raises one event
+with the flag still on. A centring that leaves the frame where it stands raises none. Jumping
+the frame to 0,0 first always yields one. Script writes and content growth raise nothing.
+`force_auto_center()` just turns the flag on.
+
+So the window is never left auto-centring: `recentre` jumps it to 0,0 and asks again,
+`gui.on_location_changed` (newly wired in `control.lua`) switches the flag off as the
+centring lands, and an event that finds it off sets `window_moved`. A resolution or UI-scale
+change re-centres it, as the engine's auto-centring did. The old spec simulated a drag by
+writing `auto_center = false`, the same wrong model of the engine, and was replaced by four
+specs. Three raise the engine's event through whatever `control.lua` registered, and two of
+them failed on the 2.0.0 code before the fix. The fourth waits for the real engine in the
+graphics tier, behind a bare frame that tells a client from a headless run. It needed game
+speed 1, because the framework runs at 1000 and the client lays a GUI out per drawn frame. A
+mutant copy that never pinned failed it with the engine's own event. Headless 512 of 512,
+graphics 512 of 512, static clean.
+
+`info.json` went to 2.0.1 and the changelog opened its section, `Date: ????`: 2.0.0 is
+tagged, so this is the next release, not part of the last one. Still unwatched: a real drag
+of the pinned window (§39).
+
 ## 2026-11-27 - 2.0.0 released: the bot loop and the four-tab window
 
 The owner: "can you keep all docs up to date, release and publish this to mod portal and

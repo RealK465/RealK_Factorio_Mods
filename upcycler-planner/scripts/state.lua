@@ -1,6 +1,7 @@
 -- Everything this mod persists, which is deliberately almost nothing: the player's last GUI
--- choices, the Build options tab they last had open (`tab`, a name), and one transient flag
--- (`chooser_maybe_open`, owned by gui.lua) that lives and dies with the open modal. Plans are
+-- choices, the Build options tab they last had open (`tab`, a name), and two transient flags
+-- (`chooser_maybe_open` and `window_moved`, owned by gui.lua) that live and die with the open
+-- modal. Plans are
 -- never stored -- Confirm designs one, bakes it into the
 -- blueprint it hands over, and forgets it, so no half-finished plan can straddle a save and
 -- reopening the modal cannot change what is already in the player's hand.

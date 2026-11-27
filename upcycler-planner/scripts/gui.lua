@@ -31,7 +31,7 @@
 -- rendered size, so a separate window can only be placed beside this one by inferring the
 -- modal's width from its auto-centred position -- an inference a drag silently invalidates, and
 -- 2.1.14 raises on_gui_location_changed for the engine's own auto_center layout too (measured
--- in game, 2026-08-20), so "has the player moved it" cannot be answered reliably either. Making
+-- in game, 2026-08-20), so the event alone cannot even say whether the player moved it. Making
 -- the panel a sibling column hands the whole problem to the engine's layout: side by side by
 -- construction, dragging moves both, and there is nothing to measure. Even Distribution reaches
 -- the same conclusion from the other side -- its settings panel is anchored to the inventory
@@ -634,9 +634,13 @@ end
 function gui.close(player)
   -- The settings panel is a child, so it goes with the frame for free.
   destroy_modal(player)
-  -- A chooser dies with the picker button it hangs off, so the presumption goes with the frame.
+  -- A chooser dies with the picker button it hangs off, and a drag belongs to the window it
+  -- moved, so both go with the frame.
   local entry = state.peek(player.index)
-  if entry then entry.chooser_maybe_open = nil end
+  if entry then
+    entry.chooser_maybe_open = nil
+    entry.window_moved = nil
+  end
 end
 
 -- Finishes a close the engine started but never announced. Dying, turning spectator and
@@ -1359,11 +1363,22 @@ local TAB_BUILDERS = {
 -- The window's size follows its tab and its settings panel, and the engine neither re-centres
 -- a frame whose content grew nor keeps one on screen: grown from a short tab's centred spot,
 -- a tall one ran past the bottom with Place out of reach. Writing auto_center again
--- re-centres it (all three measured, analysis/api.md S38), so a window still centred -- one
--- the player never moved -- is re-centred after every change of size; a moved one stays
--- where it was put.
-local function recentre(frame)
-  if frame.auto_center then frame.auto_center = true end
+-- re-centres it (all three measured, analysis/api.md S38), so a window the player never moved
+-- is re-centred after every change of size; a moved one stays where it was put.
+--
+-- Moved is tracked, never read off the frame: a drag leaves auto_center as it found it, and
+-- 2.0.0, reading the flag as "never moved", threw every dragged window back to the centre on
+-- the next change. The engine reports its own centring and a drag through the same event, so
+-- the window is never left auto-centring -- gui.on_location_changed switches the flag off as
+-- each centring lands -- and an event that finds it off can only be a drag. The jump to 0,0
+-- makes every centring land as an event: one that leaves the frame where it stood raises
+-- none, and would leave the flag on for a later drag to hide behind (measured, S39).
+local function recentre(player)
+  local frame = frame_of(player)
+  if not frame or state.of(player.index).window_moved then return end
+  frame.auto_center = false
+  frame.location = { x = 0, y = 0 }
+  frame.auto_center = true
 end
 
 -- How tall a tab may grow before it scrolls: what the screen leaves around the rest of the
@@ -1389,7 +1404,7 @@ local function fill_tab(player)
   -- The clear took the old tab's pickers with it, and a chooser dies with its button -- so,
   -- as on a rebuild, no presumption of one survives.
   entry.chooser_maybe_open = nil
-  recentre(frame_of(player))
+  recentre(player)
 end
 
 -- What the loop is built out of, as a tabbed pane under the top block. A pane with tabs added
@@ -1421,16 +1436,15 @@ local function build_options(player, main, entry)
 end
 
 function gui.open(player)
-  -- A rebuild keeps the modal where it was: centred if the player never moved it -- recentre's
-  -- rule, so it stands where every fill and the settings panel already put it -- and where
-  -- they dropped it if they did, or flipping a setting, which re-enters here, would jump the
-  -- window out from under the cursor. Read off the OLD frame: a new one reports 0,0 until it
-  -- has been laid out. The settings panel is a child, so a rebuild takes it down with the
-  -- frame -- remembered here and re-created at the end.
+  -- A rebuild keeps the modal where it was: where the player dropped it if they dragged it,
+  -- or flipping a setting, which re-enters here, would jump the window out from under the
+  -- cursor -- and centred if they never did, recentre's rule, so it stands where every fill
+  -- and the settings panel already put it. Read off the OLD frame: a new one reports 0,0
+  -- until it has been laid out. A fresh open starts centred. The settings panel is a child,
+  -- so a rebuild takes it down with the frame -- remembered here and re-created at the end.
   local old = frame_of(player)
-  local centred = old == nil or old.auto_center
-  local keep = old and old.location
-  if keep and keep.x == 0 and keep.y == 0 then keep = nil end
+  local entry = state.of(player.index)
+  local keep = old and entry.window_moved and old.location
   local had_settings = gui.settings_open(player)
   destroy_modal(player)
   -- Before 0.4.2 the settings lived in a second gui.screen frame; a save from those builds can
@@ -1438,10 +1452,10 @@ function gui.open(player)
   local legacy = player.gui.screen[SETTINGS_FRAME]
   if legacy and legacy.valid then legacy.destroy() end
 
-  local entry = state.of(player.index)
   -- A rebuild destroys every picker button, and a chooser dies with its button -- so no
   -- presumption of one survives into the new frame.
   entry.chooser_maybe_open = nil
+  entry.window_moved = keep and true or nil
   local choices = entry.choices
   local offered_targets = apply_defaults(player, choices)
 
@@ -1451,7 +1465,7 @@ function gui.open(player)
   local frame = player.gui.screen.add({
     type = "frame", name = FRAME, style = "invisible_frame", direction = "horizontal",
   })
-  if keep and not centred then
+  if keep then
     frame.location = keep
   else
     frame.auto_center = true
@@ -1651,7 +1665,7 @@ function gui.open_settings(player)
   local frame = frame_of(player)
   if not frame or gui.settings_open(player) then return end
   build_settings_panel(player, frame)
-  recentre(frame)
+  recentre(player)
 end
 
 -- Closes the settings panel, and says whether one was open -- control.lua's close request
@@ -1664,8 +1678,30 @@ function gui.close_settings(player)
   local panel = settings_panel_of(player)
   if not panel then return false end
   panel.destroy()
-  recentre(frame_of(player))
+  recentre(player)
   return true
+end
+
+-- Every on_gui_location_changed lands here, any mod's screen frame. The planner's own arrives
+-- two ways only: the engine reporting a centring that recentre asked for, while auto_center
+-- is still on -- pinned where it landed, so the window is never left auto-centring -- or a
+-- player's drag, which finds the flag off. A location written by script raises nothing (S39).
+function gui.on_location_changed(event)
+  local frame = event.element
+  if not (frame and frame.valid and frame.name == FRAME) then return end
+  if frame.auto_center then
+    frame.auto_center = false
+  else
+    state.of(event.player_index).window_moved = true
+  end
+end
+
+-- A pinned window does not follow a new resolution or UI scale the way an auto-centring one
+-- did, and the spot it was dragged to may lie off the new screen, so it starts over centred.
+function gui.on_display_changed(player)
+  if not frame_of(player) then return end
+  state.of(player.index).window_moved = nil
+  recentre(player)
 end
 
 -- The one owner of refill-or-repaint: a handler names the KIND of change it made, and the
