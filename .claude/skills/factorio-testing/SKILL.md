@@ -139,6 +139,19 @@ fn)` for behaviour that unfolds over ticks, plain `assert(cond, message)`. Facts
   screens before retrying (`[System.Windows.Forms.Screen]::AllScreens` in PowerShell): a
   single virtual display cannot pass, however often it is retried, and each failed attempt
   costs ~5 min on the crash dialog. With the screen back it passed first time, 363/363.
+- **The framework runs the suite at game speed 1000**, and the client lays a GUI out once
+  per drawn frame. So a spec that waits on a layout, such as a frame's `location` or the
+  engine's `on_gui_location_changed`, must drop `game.speed` to 1 for the wait and restore
+  it after. At speed 1 a fresh frame was laid out within one tick (2026-11-27,
+  `upcycler-planner/tests/gui_spec.lua` → `after_drawn_ticks`). luacheck reads every field
+  of `game` as read-only; `speed` is writable, so those two lines carry
+  `-- luacheck: ignore 122`.
+- **A spec's own `log()` lands in the data dir's `factorio-current.log`**, not on the
+  runner's console. The console echoes only the framework's PASS and FAIL lines.
+- **No input can be staged from outside either.** Mouse messages posted to the client's
+  window never reached its GUI (2026-11-27, 2.1.25): a press, moves and a release via
+  `PostMessage` left the frame unmoved. A click or a drag stays untestable short of moving
+  the machine's real cursor, which is the owner's call.
 
 ## Static tier
 
