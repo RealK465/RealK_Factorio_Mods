@@ -2,6 +2,21 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-11-27 — 0.1.6 released, the page synced
+
+The owner asked for the release with Upcycler Planner 2.0.1's. `validate.ps1 -FullLoad` was
+clean with and without Space Age, every sprite and sound opened, and
+`--check-unused-prototype-data` reported nothing ignored in either configuration (705,137 and
+378,862 properties). The zip held 109 files in 11,951,584 bytes, nothing from `images/`,
+identical to the tag once line endings are normalised. `fmtk upload` answered "Published", and
+the portal's 0.1.6 sha1 is the local zip's (`61393956…`). The connector went in as `d9652e3`
+and the datestamp as `ad4fa7d`, tagged `quality-recycler_0.1.6` and pushed.
+
+The README had changed since 0.1.5: the circuit sentence, and Upcycler Planner's new summary
+in *Check my other mods*. So `fmtk details --readme README.md` synced the page, and a
+cache-busted read showed both live, with license, category, title, homepage and the two
+gallery shots as they were.
+
 ## 2026-11-27 — A circuit connector, 0.1.6 opened
 
 The owner reported Upcycler Planner's "42 buildings are too far for a circuit wire" warning on

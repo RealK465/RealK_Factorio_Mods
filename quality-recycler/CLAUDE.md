@@ -9,7 +9,7 @@ A new recycler kind: **12.5% base quality chance built in (no modules needed), 2
 crafting speed, five module slots, a 4x4 footprint, unlocked after the first three planets with
 Space Age and after the rocket without it.** The verified mechanism
 and how that compares to the vanilla recycler are in `.ai-support/decisions.md`. **Published
-since 2026-09-12** — 0.1.0, 0.1.2 and 0.1.5 for Factorio 2.1 from `main`; 0.1.1, 0.1.3 and
+since 2026-09-12** — 0.1.0, 0.1.2, 0.1.5 and 0.1.6 for Factorio 2.1 from `main`; 0.1.1, 0.1.3 and
 0.1.4 were Factorio 2.0 builds from `legacy/2.0`, now a frozen backup. Run the `factorio-release`
 skill's "Published or open?" check rather than trusting a number written here. The balance is
 a guess rather than a measurement — see `.ai-support/deferred.md`.

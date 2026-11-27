@@ -9,6 +9,22 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-27 - 2.0.1 released: the window stays put, and a wireless recycler costs itself
+
+The owner: "release and publish on mod portal, keep docs up to date and everything commited
+and pushed". The gates ran on 2.1.25: `validate.ps1 -FullLoad` clean, every sprite and sound
+opened; `--check-unused-prototype-data` by hand, 703,331 properties and no warning; the suite
+515 of 515 headless and again in the graphics tier, pure 187 of 187, static clean.
+
+The two fixes went in as two commits from one working tree: `060ef45`, the window, staged as
+the working files with the wireless blocks cut out, and `edc2b1e`, the rest. The zip held 26
+files in 183,765 bytes, nothing from `images/`, `tests/` or these notes, identical to the tag
+once line endings are normalised. `fmtk upload` answered "Published", and the portal's 2.0.1
+sha1 is the local zip's (`a499e653…`). The datestamp is `e816fde`, tagged
+`upcycler-planner_2.0.1` and pushed with Quality Recycler 0.1.6's release. The README and FAQ
+did not change since 2.0.0, so the page was not synced; license, category and the seven
+gallery shots read back as they were.
+
 ## 2026-11-27 - "42 buildings are too far for a circuit wire": a recycler with no wire
 
 The owner: "i have a warning '42 buildigns are too far for a circuit wire and will run without

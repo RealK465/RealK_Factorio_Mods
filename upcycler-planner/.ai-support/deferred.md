@@ -375,9 +375,11 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   run loading this repo's Quality Assembler, Quality Recycler and Extra Qualities, encoded as
   an MP4 like the other two videos (`decisions.md` → Portal presentation).
 
-- **The other mods' portal pages still show the old summary** (2026-11-27). Their READMEs
+- **Five other mods' portal pages still show the old summary** (2026-11-27). Their READMEs
   quote the new one since the owner asked for every doc to be kept up to date; each page
-  shows it only after that mod's own `fmtk details --readme`, a public write per mod.
+  shows it only after that mod's own `fmtk details --readme`, a public write per mod. Quality
+  Recycler's was synced with its 0.1.6 release. Left: Pure Modules, Quality Assembler, Extra
+  Qualities, Robot World Continued (RealK) and Assembly Planner.
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **An output chest out of wire reach voids the cap but still plans.** Counted in the unlinked
   warning since 2026-11-13 (wire mode only — every gate reads the product's count off that
