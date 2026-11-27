@@ -103,7 +103,8 @@ local function build(group)
   -- everything before placing anything.
   game.forces.player.research_all_technologies()
   clear(group)
-  for _, spawn in pairs(group.entities or {}) do
+  local placed = {}
+  for index, spawn in ipairs(group.entities or {}) do
     local ok, entity = pcall(function()
       return surf.create_entity {
         name = spawn.name,
@@ -198,6 +199,25 @@ local function build(group)
       note("placed %s at %s,%s -> engine position %s,%s (grid %dx%d)", spawn.name,
            spawn.x or 0, spawn.y or 0, entity.position.x, entity.position.y,
            proto.tile_width, proto.tile_height)
+      placed[index] = entity
+    end
+  end
+  -- `wire_to` names another entity of the group by its place in `entities`, 1-based, and
+  -- `wire` the colour ("red" unless "green"). A circuit connector is drawn only on an
+  -- entity with a wire attached, so photographing one takes the wire.
+  for index, spawn in ipairs(group.entities or {}) do
+    if spawn.wire_to then
+      local from, to = placed[index], placed[spawn.wire_to]
+      if not (from and to) then
+        note("wire %d -> %s FAILED: an end was not placed", index, tostring(spawn.wire_to))
+      else
+        local id = defines.wire_connector_id[spawn.wire == "green" and "circuit_green" or "circuit_red"]
+        local ok, linked = pcall(function()
+          return from.get_wire_connector(id, true).connect_to(to.get_wire_connector(id, true), false)
+        end)
+        note("wire %s -> %s: %s", from.name, to.name,
+             ok and tostring(linked) or ("FAILED: " .. tostring(linked)))
+      end
     end
   end
   -- Electric machines need real power or they render their idle state. An

@@ -298,7 +298,10 @@ item in a crafting machine (recycling runs at a sixteenth of the craft time), `i
 list of `{name, count}`) and `fluids` (a list of `{name, amount}`, put straight into the fluid
 box) feed a multi-ingredient or fluid recipe -- processing units at 10 s keep an assembler
 working for a whole run where a gear recipe hits `full_output` inside forty ticks --
-`mirror = true` photographs the `use_mirroring` set, and per group `shoot_ticks = [50, 58, ...]` shoots a
+`mirror = true` photographs the `use_mirroring` set, `wire_to` (another entity's 1-based place
+in the group's list, with `wire = "green"` for green) connects a circuit wire -- the only way
+to see a circuit connector, which the engine draws only on an entity with a wire attached --
+and per group `shoot_ticks = [50, 58, ...]` shoots a
 tick sequence tagged `-t<offset>` so a loop can be judged in motion (the benchmark renderer
 produces a new frame only every few ticks; sample eight apart). The probe researches every
 technology, powers each group from a substation at its centre, and logs every machine's
