@@ -56,7 +56,7 @@ Factorio 2.1. Space Age is not required.
 
 ## Check my other mods
 
-- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.
+- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Pick an item and a target quality, and get a ready-made upcycling loop blueprint.
 - [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
 - [Quality Recycler](https://mods.factorio.com/mod/quality-recycler) — A new recycler with quality built right in.
 - [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with built-in quality.

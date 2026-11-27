@@ -379,12 +379,9 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   tabs. A re-take needs a modded game — the owner's own, or a scripted run loading this repo's
   Quality Assembler, Quality Recycler and Extra Qualities.
 
-- **The other mods still quote the old summary — needs the owner's call** (2026-11-27). This
-  mod's README, `info.json` and locale summary read *"Pick an item and a target quality, and
-  get a ready-made upcycling loop blueprint."* since the text pass; the six other READMEs'
-  "Check my other mods" entries and the root `README.md` row still carry the 2026-08-26
-  sentence. Those lists are the owner's own lines, so they wait for the owner. The root row is
-  wrong either way: it still says the loop is dropped "as ghosts".
+- **The other mods' portal pages still show the old summary** (2026-11-27). Their READMEs
+  quote the new one since the owner asked for every doc to be kept up to date; each page
+  shows it only after that mod's own `fmtk details --readme`, a public write per mod.
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **An output chest out of wire reach voids the cap but still plans.** Counted in the unlinked
   warning since 2026-11-13 (wire mode only — every gate reads the product's count off that

@@ -14,7 +14,7 @@ needs the Quality mod.
 ## Check my other mods
 
 - [Pure Modules](https://mods.factorio.com/mod/pure-modules-realk) — Stronger end-game tiers of modules with reduced penalties. They require a powerful new beacon to work. Optional Quality and Space Age support.
-- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.
+- [Upcycler Planner](https://mods.factorio.com/mod/upcycler-planner) — Pick an item and a target quality, and get a ready-made upcycling loop blueprint.
 - [Quality Assembler](https://mods.factorio.com/mod/quality-assembler) — A fast assembling machine with built-in quality.
 - [Extra Qualities](https://mods.factorio.com/mod/extra-qualities) — Adds two new quality tiers above legendary: Mythic and Celestial. Also reworks vanilla quality progression so Space Age fits well with 6 quality tiers.
 - [Robot World Continued (RealK)](https://mods.factorio.com/mod/robotworld-continued-realk) — Tune your robots and roboports, or get robots early. A Factorio 2.1 port of Robot World Continued.
