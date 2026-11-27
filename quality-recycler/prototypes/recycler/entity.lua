@@ -113,6 +113,23 @@ data:extend({
     open_sound = sounds.metal_large_open,
     close_sound = sounds.metal_large_close,
 
+    -- The circuit network, as the vanilla recycler has it: the furnace wire reach, and a
+    -- connector placed on this machine's own body in each of the eight orientations, since
+    -- the vanilla recycler's are positioned for its 2x4 (see the header). Order N, E, S, W.
+    circuit_wire_max_distance = furnace_circuit_wire_max_distance,
+    circuit_connector = circuit_connector_definitions.create_vector(universal_connector_template, {
+      { variation = 26, main_offset = util.by_pixel(26, 34), shadow_offset = util.by_pixel(28, 38), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(22, 42), shadow_offset = util.by_pixel(24, 46), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(42, 34), shadow_offset = util.by_pixel(44, 38), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(40, 36), shadow_offset = util.by_pixel(42, 40), show_shadow = true },
+    }),
+    circuit_connector_flipped = circuit_connector_definitions.create_vector(universal_connector_template, {
+      { variation = 26, main_offset = util.by_pixel(-26, 34), shadow_offset = util.by_pixel(-24, 38), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(29, 36), shadow_offset = util.by_pixel(31, 40), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(-42, 34), shadow_offset = util.by_pixel(-40, 38), show_shadow = true },
+      { variation = 26, main_offset = util.by_pixel(-40, 36), shadow_offset = util.by_pixel(-38, 40), show_shadow = true },
+    }),
+
     resistances = {{ type = "fire", percent = 80 }}
   }
 })

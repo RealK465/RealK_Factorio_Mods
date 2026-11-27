@@ -19,8 +19,6 @@ technology are all settled — see `decisions.md`. What is left:
   better than none.
 - **No `water_reflection`.** Free when deriving from a vanilla entity, absent on one built from
   scratch. Worth adding.
-- **No circuit connector.** The vanilla recycler has one; this does not, because
-  `circuit_connector_definitions["recycler"]` is positioned for a 2x4 body.
 - **`corpse` and `dying_explosion` are the generic `big-remnants` / `big-explosion`.** The
   vanilla recycler has bespoke ones. A real remnant is its own art job — see
   `factorio-graphics` → *Remnants*, which is emphatic that a wreck follows almost none of the
@@ -63,5 +61,6 @@ anim (64f), shadow, fx (64f), light (64f), lamp. The v3 design is the last secti
 - **The `fx` sheet is the least efficient thing on the entity** (64 frames whose union box
   spans the whole route). Half-resolution packing the way the glow sheet is packed would
   quarter it; not done blind, because it is a colour layer rather than a blur.
-- **Sounds, `water_reflection`, a circuit connector and a real remnant** remain open -- see
-  *The entity* above. The remnant is the next art job once the entity is played.
+- **Sounds, `water_reflection` and a real remnant** remain open -- see *The entity* above. The
+  remnant is the next art job once the entity is played. The circuit connector landed in 0.1.6
+  (`decisions.md` -> *The circuit network*).

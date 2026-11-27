@@ -303,5 +303,10 @@ feature flag, and why the optional dependency carries no version — are in
   the force's belt stack size, exactly as the vanilla recycler's does -- measured in the
   engine, not assumed, since the prototype API has no field for it (`decisions.md`).
 
-Balance is unmeasured, and sounds, `water_reflection`, a circuit connector and a real remnant are
-still open. See `.ai-support/deferred.md`.
+- **Wired like the vanilla recycler** (0.1.6): the furnace wire reach and a connector of its
+  own in all eight orientations, vanilla's universal one at variation 26. A machine without
+  one reads a reach of 0 and took Upcycler Planner's circuit limits down with it. Placement
+  and the reason in `.ai-support/decisions.md` -> *The circuit network*.
+
+Balance is unmeasured, and sounds, `water_reflection` and a real remnant are still open. See
+`.ai-support/deferred.md`.

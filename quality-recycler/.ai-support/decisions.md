@@ -164,6 +164,27 @@ The dependency problem this once created — the planet science packs exist only
 Age — is resolved the other way round since 2026-09-11: Space Age is optional and the gate has a
 base-game twin (*Dependencies* above).
 
+## The circuit network
+
+**Wired like the vanilla recycler since 0.1.6** (2026-11-27): `furnace_circuit_wire_max_distance`
+(9) and a connector of its own in each of the eight orientations. Until then the machine had
+none, and `get_max_circuit_wire_distance` read 0. Upcycler Planner held its whole loop to the
+shortest reach among the buildings it wires. Its circuit limits then wired nothing at all,
+and the owner saw "42 buildings are too far for a circuit wire" on every loop. The planner
+has since been fixed to cost only the recycler; this fix is the source.
+
+**The connector is vanilla's universal one, variation 26, a box facing the viewer**, low on a
+south-facing face where every orientation shows it. Unwired it draws nothing (photographed
+2026-11-27, an unwired machine beside a wired one), so the art's cut of anything that implies
+circuit control (`quality-recycler-design.md`) still holds for the model. North sits on the dark panel beside the tank cluster, east on the vent block under the
+rotor, south on the plinth right of the output mouth, west on the block beside the valve post.
+The mirrored set uses its own four spots: two are the north and south ones mirrored, and east
+and west have their own, because a mirrored machine shows other faces. The offsets were read
+off the sheets on a tile grid, then moved where the engine showed the box hanging off an edge.
+One round of moves, photographed with a wire to a combinator in all eight
+(`shoot.ps1`, the probe's `wire_to`). The owner had that shot before asking for the 0.1.6
+release.
+
 ## Art direction
 
 Settled 2026-09-10 through a full `factorio-entity-design` session. The entity is a **salvaged

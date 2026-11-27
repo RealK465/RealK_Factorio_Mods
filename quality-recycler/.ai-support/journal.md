@@ -2,6 +2,30 @@
 
 Append-only, newest first. What happened, dated.
 
+## 2026-11-27 — A circuit connector, 0.1.6 opened
+
+The owner reported Upcycler Planner's "42 buildings are too far for a circuit wire" warning on
+every loop. A scratch spec with the repo mods loaded read this machine's circuit wire reach as
+0, where every other building in the loop reads 9: no `circuit_wire_max_distance`, no
+connector, the open item `deferred.md` had carried since the build. The planner's side was
+fixed there (its journal), and the owner asked for this one too: "we can envasige a fix for
+quality recycler too".
+
+The entity now declares `furnace_circuit_wire_max_distance` and a connector per orientation,
+built with `circuit_connector_definitions.create_vector` on the universal template, variation
+26 throughout. The offsets came off the base sheets on a tile grid centred on the entity. The
+engine then photographed all eight, each wired to a constant combinator. The screenshot probe
+gained `wire_to` for it, since a connector draws only once a wire is attached. The first round
+had east and both souths hanging off an edge, and west and the mirrored east and west a little
+low. One round of moves put all eight on a face.
+
+The data stage validated in both configurations. With the connector, the scratch spec read a
+reach of 9 and planned a loop with nothing unlinked, belts and bots alike. A stamped loop's
+four Quality Recyclers each carried the cap's condition and a green wire. `info.json` and the
+changelog opened 0.1.6, `Date: ????`, and the README gained one sentence saying the machine
+connects to the circuit network. The owner had the shot of the eight placements before asking
+for the release (`decisions.md` -> *The circuit network*).
+
 ## 2026-10-24 — 0.1.5 released above the 2.0 builds
 
 The owner reported that games moving from Factorio 2.0 to 2.1 were not updating the mod: 0.1.4,

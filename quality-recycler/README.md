@@ -4,7 +4,7 @@
 
 A 4x4 recycler that scraps items two and a half times as fast as the normal one. Each result
 has a 12.5% chance of higher quality, no modules needed. It has five module slots and draws more
-power than a normal recycler.
+power than a normal recycler. Like a normal recycler, it can be connected to the circuit network.
 
 With Space Age it unlocks once you have the sciences of Vulcanus, Fulgora and Gleba, and is
 built from a recycler plus parts from all three planets. Without Space Age it unlocks after the

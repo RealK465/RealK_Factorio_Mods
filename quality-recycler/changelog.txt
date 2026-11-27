@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.6
+Date: ????
+  Features:
+    - The Quality Recycler can now be connected to the circuit network, like the vanilla
+      recycler.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2026-10-24
   Changes:
