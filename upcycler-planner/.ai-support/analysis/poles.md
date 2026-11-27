@@ -155,7 +155,7 @@ is, so the worst case is well under a frame on a picker click at vanilla lengths
 That paragraph used to close with "no spatial indexing; at this size it would be the MPP-style
 machinery `reference-mods.md` argues against". **The size assumption died with the tier cap,
 later the same day.** `planner.quality_chain()` was bounded at 32 tiers, so no plan could ever
-be longer than 32 columns however many tiers a mod added. Removing that bound (`../journal.md`,
+be longer than 32 columns however many tiers a mod added. Removing that bound (`../journal-archive/2026.md`,
 2026-08-20) let a 254-tier mod ask for a 1018-tile-wide plan, and both of this pass's
 quadratic-or-worse terms became the whole cost of a solve.
 
@@ -184,7 +184,7 @@ margins — comparing the live file against the pre-change one recovered from gi
 every pole, `wire_to` included.
 
 **The harness was falsified before it was trusted**, because the false pass recorded earlier in
-`../journal.md` (2026-08-20) is exactly this trap: a comparison harness that cannot fail is
+`../journal-archive/2026.md` (2026-08-20) is exactly this trap: a comparison harness that cannot fail is
 worse than none, because it is believed. This one was first pointed at two deliberately broken
 copies — swapping the candidate scan order gave 2182 mismatches, and dropping *only* the
 second-end tie-break in the new spanning tree gave 43. The second number is the one that
@@ -196,7 +196,7 @@ solves a 64-tier ring, for precisely that reason.
 `gui.refresh` calls once — but nine of the eleven picker handlers used to run the whole refresh
 *twice* for one click, because `on_gui_click` and `on_gui_elem_changed` reach the same
 tag-routed handler and the first carries the value the button already held. Guarded the same
-day (`../journal.md`), which halves the whole table again for a player changing a picker, at
+day (`../journal-archive/2026.md`), which halves the whole table again for a player changing a picker, at
 every chain length including vanilla.
 
 ### The hang, and what the first pass missed

@@ -98,7 +98,7 @@ tier-2 modules, and cheat items with no real recipe (Editor Extensions) self-rec
 "some enabled recipe produces it" reads unresearched modules and infinity chests as unlocked.
 The producer map in `planner.lua` excludes the recycling category and Factoriopedia-hidden
 recipes, and the chest picker takes only real `logistic-container`s. Story and evidence:
-`.ai-support/journal.md` (2026-08-15, research gating) and `analysis/api.md` §8.
+`.ai-support/journal-archive/2026.md` (2026-08-15, research gating) and `analysis/api.md` §8.
 
 **5. Fluid geometry is direction arithmetic on measured facts.** A pipe connection authored
 pointing `dir` points `(dir + rotation) % 16` once the entity rotates, `positions[]` is the
@@ -190,6 +190,7 @@ images/                             portal page material, never shipped: gallery
 .ai-support/decisions.md            what is settled, and why
 .ai-support/deferred.md             parked work, each entry with enough context to pick up cold
 .ai-support/journal.md              dated sessions, newest first — what was built and what broke
+.ai-support/journal-archive/        the older sessions, one file per year, moved out unedited
 .ai-support/analysis/               the evidence: decoded blueprints, verified API, layout specs
 ```
 
@@ -222,7 +223,7 @@ does not:
 
 **The tag is settled**, because renaming a prototype costs a migration file and a major version
 bump from the first release onward. Which tags were rejected and why is in
-`.ai-support/decisions.md`; the `ua-` → `upl-` rename is in `.ai-support/journal.md`
+`.ai-support/decisions.md`; the `ua-` → `upl-` rename is in `.ai-support/journal-archive/2026.md`
 (2026-08-16).
 
 ## Working here

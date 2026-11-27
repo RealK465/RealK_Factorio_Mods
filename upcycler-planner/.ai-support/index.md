@@ -10,7 +10,8 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 |---|---|---|---|
 | `decisions.md` | register | what is settled and why — identity, interaction, what gets planned, what is refused, what was rejected | before any design change, and before re-opening a question |
 | `deferred.md` | register | parked work, each entry with enough context to pick up cold — the second fluid network, what stays open on the bot loop, the full-height ladder, the ring's ceiling and the three ways past it | scoping, or answering "why isn't X here?" |
-| `journal.md` | journal | dated sessions, newest first: what was built, what broke, what the harness proved | a bug smells familiar, or a decision needs the story behind it |
+| `journal.md` | journal | dated sessions, newest first: what was built, what broke, what the harness proved — the 2.0.0 cycle on | a bug smells familiar, or a decision needs the story behind it |
+| `journal-archive/` | journal | the older sessions, one file per year, moved out of `journal.md` unedited: `2026.md` holds the 1.2.8 release back to the first session | the story is older than the 2.0.0 cycle — a dated citation names the file |
 | `analysis/` | evidence | the research — decoded blueprints, verified API, layout specs, quality maths, reference mods. Start at its own `index.md` | before re-deriving anything about the engine or the layout |
 
 ## Which file does this go in?
