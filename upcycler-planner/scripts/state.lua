@@ -1,6 +1,7 @@
 -- Everything this mod persists, which is deliberately almost nothing: the player's last GUI
--- choices, plus one transient flag (`chooser_maybe_open`, owned by gui.lua) that lives and
--- dies with the open modal. Plans are never stored -- Confirm designs one, bakes it into the
+-- choices, the Build options tab they last had open (`tab`, a name), and one transient flag
+-- (`chooser_maybe_open`, owned by gui.lua) that lives and dies with the open modal. Plans are
+-- never stored -- Confirm designs one, bakes it into the
 -- blueprint it hands over, and forgets it, so no half-finished plan can straddle a save and
 -- reopening the modal cannot change what is already in the player's hand.
 --
@@ -53,6 +54,9 @@ function state.prune()
     if c.recycler and not recyclers[c.recycler] then c.recycler = nil end
     if c.belt and not planner.is_belt(c.belt) then c.belt = nil end
     if c.pipe and not planner.is_pipe(c.pipe) then c.pipe = nil end
+    -- The layout family is stored only when it is the bot loop; nil is the belt ring, so
+    -- anything else a hand-edited save holds goes back to it.
+    if c.layout ~= nil and c.layout ~= "bot" then c.layout = nil end
     if c.quality and not planner.is_quality(c.quality) then c.quality = nil end
     if c.quality_module and not planner.is_quality_module(c.quality_module) then
       c.quality_module = nil

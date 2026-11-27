@@ -42,6 +42,58 @@ function layout_params.vanilla(overrides)
   return params
 end
 
+-- Any fixture without what only the belt ring places -- no belt, no relay chest, no overflow
+-- tap, no plain terminal feed, no second feed stack. planner.plan hands the bot builder the
+-- same params as the ring's, belt and all; the bot builder reads none of these, and taking
+-- them out is what proves it.
+function layout_params.bot_of(params)
+  params.belt, params.container, params.overflow_tap = nil, nil, nil
+  params.terminal_feed, params.feed_stacks = nil, nil
+  return params
+end
+
+-- The vanilla loop as the bot builder gets it. Built from vanilla() so the two fixtures
+-- cannot drift on anything they share.
+function layout_params.bot(overrides)
+  local params = layout_params.bot_of(layout_params.vanilla())
+  for key, value in pairs(overrides or {}) do params[key] = value end
+  return params
+end
+
+-- A vanilla beacon with a module of its own, on top of any fixture. module_inventory is opaque
+-- to the layout -- a number the planner resolved, carried onto the entity for the serialiser
+-- -- so a sentinel proves the carry without touching defines.
+function layout_params.with_beacon(params, overrides)
+  params.beacon = {
+    name = "beacon", quality = "normal", width = 3, height = 3,
+    module_slots = 2, module_inventory = 99,
+  }
+  params.modules = {
+    quality_module = { name = "quality-module", quality = "normal" },
+    terminal_module = { name = "productivity-module", quality = "normal" },
+    beacon_module = { name = "efficiency-module", quality = "normal" },
+  }
+  for key, value in pairs(overrides or {}) do params[key] = value end
+  return params
+end
+
+-- Two modded recycler shapes both layout specs stand: Age of Production's 4x4 salvager,
+-- wider than its machine (ejecting east as authored, stood facing west by the planner), and
+-- a 1-tall one that leaves the circuit stack the least room.
+function layout_params.salvager()
+  return {
+    name = "aop-salvager", quality = "normal", width = 4, height = 4, module_slots = 2,
+    direction = defines.direction.west,
+  }
+end
+
+function layout_params.flat_recycler()
+  return {
+    name = "flat-recycler", quality = "normal", width = 2, height = 1, module_slots = 1,
+    direction = defines.direction.north,
+  }
+end
+
 -- The same loop over a synthetic recipe of `n` item ingredients, "ing-1" .. "ing-n" -- the
 -- i-th taking i per craft and requesting 10 * i -- asked for two feed stacks, as the planner
 -- hands over once a recipe outgrows one inserter's filter slots. Shared for vanilla()'s

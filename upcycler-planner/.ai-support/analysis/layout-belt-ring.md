@@ -10,8 +10,7 @@ per-tier and something the planner solves for rather than opens by default. The 
 assembling machine and leans on circuit control; this is the same idea written as a formula
 over any machine footprint, with three deliberate departures recorded in §"Departures" below.
 
-The bot-loop alternative is recorded in `layout-bot-loop.md` — a future toggle, not a discarded
-idea.
+The bot loop, the second layout family since 2026-11-27, is recorded in `layout-bot-loop.md`.
 
 ## Departures from the reference design
 
@@ -199,8 +198,8 @@ even a turbo underground belt's `max_distance` of 11
 of width, removes the underground entirely, and removes the belt-tier dependency with it.
 
 Belt tier: the fastest belt whose recipe is enabled for the force (P.U.M.P.'s "best researched"
-pattern, `reference-mods.md`) — as the **default**. The modal's **Build options** block has a
-belt picker that overrides it; a name that stops being a transport belt falls back to the researched best at plan time.
+pattern, `reference-mods.md`) — as the **default**. The Buildings tab's belt picker overrides
+it; a name that stops being a transport belt falls back to the researched best at plan time.
 
 ## Growth rule
 
@@ -247,7 +246,7 @@ eject reasoning above is untouched.
 
 ## Beacons — a stack per tier, in the column, off by default
 
-Added 2026-08-22 (one per tier), stacking the same day: opt-in from the Build options strip,
+Added 2026-08-22 (one per tier), stacking the same day: opt-in from the modal (Modules tab),
 no beacon planned unless the player picks one. When one is picked, **every tier's utility
 column floors at the beacon's width and stands a vertical stack of `beacon_count` beacons**,
 default one, capped at `layout.max_beacon_count = floor(interior_height / Hb)` — vanilla
@@ -317,8 +316,8 @@ column cannot carry a horizontal trunk plus a T-junction on one tile — is:
   `ammonia-rocket-fuel` in vanilla, and plain `rocket-fuel` covers the same item. Fluid
   PRODUCTS are already excluded by the single-item-product gate — the quantum processor stays
   out until a drain network is worth designing.
-- The **pipe is the fourth Build options picker** (no quality — nothing about a pipe scales
-  with it); the pipe-to-ground is derived, `<pipe>-to-ground` by Wube's own name convention
+- The **pipe has its own picker**, on the Buildings tab (no quality — nothing about a pipe
+  scales with it); the pipe-to-ground is derived, `<pipe>-to-ground` by Wube's own name convention
   with a longest-reach fallback, since no prototype links the pair.
 
 ## Request counts
@@ -355,7 +354,7 @@ the belt, not something to request.
 
 `k < t` -> quality; `k = t` -> productivity; recyclers -> quality; all at the best unlocked
 *tier*, at the **quality the player picked** — one quality covers every module the loop plans,
-normal unless they changed it. The module itself is overridable in the Build options block, and
+normal unless they changed it. The module itself is overridable in the Modules tab, and
 a name that stops being a quality module falls back to the researched best exactly as the belt
 does. Before productivity modules are researched the terminal machine falls back to quality
 modules — a small yield loss, not a broken loop.
@@ -380,9 +379,12 @@ should not be dropped permanently.
 
 ## How much it leans on the logistic network
 
-Product circulation is on the belts, so the loop runs without a network at all. The requests are
-top-ups rather than the transport: ingredients into the feed chests, product into the buffer in
-front of each recycler, and a passive provider handing out the result.
+Product circulation is on the belts, so between tiers the loop needs no network. Nothing seeds
+it without one, though: the feed chests' requests are what bring the ingredients in, so outside
+roboport range a ring runs only on what a player feeds it by hand (reasoned from the layout,
+not measured). The requests are top-ups rather than the transport: ingredients into the feed
+chests, product into the buffer in front of each recycler, and a passive provider handing out
+the result.
 
 That still touches the player's base at **normal quality**, deliberately — the first tier's
 requests are how an upcycler gets fed from existing production. Above normal the engine's

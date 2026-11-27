@@ -1,4 +1,26 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.0.0
+Date: ????
+  Features:
+    - New Bots layout, on the new Layout row. Your robots carry everything between tiers, so
+      the loop needs no belts and far fewer buildings. Beacons, fluids and circuit limits work
+      with it too.
+    - A Bots loop only runs inside roboport range, and always upcycles what your network holds
+      of the item. Finished items from its lower tiers go to your storage chests, so keep one
+      in the network.
+  Gui:
+    - The build options are now in four tabs: Buildings, Modules, Chests and Circuits.
+    - Every option now has its name next to it.
+    - Module ratios, columns per tier, circuit limits and ingredient amounts are now set in
+      their tabs instead of in extra windows.
+    - The recycler, the beacon and every chest your loop builds are always shown now, so
+      their quality is easy to change.
+    - The planner remembers which tab you left open.
+    - On a small screen, a tall tab now scrolls instead of pushing the window off the screen.
+  Changes:
+    - Removed the Show all build options setting. Every option your loop can use is now
+      shown.
+---------------------------------------------------------------------------------------------------
 Version: 1.2.8
 Date: 2026-11-13
   Features:

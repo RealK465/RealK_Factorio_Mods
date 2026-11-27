@@ -89,9 +89,9 @@ All 2.0-era analyses; mechanics unchanged.
   e.g. chemical plant ~332/~39/~11/~3 plus ~90 recyclers — stands as the same order of
   magnitude.) **The compact one-machine-per-tier column is a convenience casino, not a
   throughput build.** Scaling shipped 2026-08-28 exactly this way — the Columns per tier
-  wizard repeats columns per tier, the wild "bulk" variants' own shape; the pace line
+  counts repeat columns per tier, the wild "bulk" variants' own shape; the pace line
   divides `station_times` by the player's counts, and this table stays reference only
-  (the wizard's balanced-counts hint was removed 2026-08-29, decisions.md).
+  (the balanced-counts hint once beside them was removed 2026-08-29, decisions.md).
 - **Recycler timing**: recipe energy `craft_energy / 16 / result_count`, recycler speed 0.5, so
   wall-clock is about `craft_time / 8` — and **each item of a multi-output recipe recycles
   faster**, by the `result_count` divisor (`data/recycler/recycling.lua:105`; the 2.1.13

@@ -11,37 +11,37 @@ target quality, and the mod designs a complete upcycling loop and hands it over 
 **It has worked end to end since 2026-08-15**, when a shortcut opened a modal whose Confirm
 handed over a one-shot selection tool and the mod placed the ghosts itself. **Since 2026-08-18
 Confirm hands over an ordinary blueprint instead**, so preview, rotation, flipping, snapping,
-undo and every build mode are the engine's own and the mod handles no placement event at all. The modal is in two
-blocks since 2026-08-16 — what the loop MAKES (item, target quality, crafting machine and
-recycler, the last two with a quality of their own) above a
-**Build options** block for what it
-is built OUT OF: belt, inserter, ingredient chest, stock chest, relay chest, output chest,
-overflow chest, quality module, the mix checkbox with its Ratios wizard — the productivity
-module and its per-tier counts live inside it (since
-2026-08-28) — final machine module, electric pole, pipe, beacon, beacon module,
-a beacons-per-tier count, an Ingredient amounts row whose Edit... button opens the third side
-panel (since 2026-08-27) and a Columns per tier row whose Edit... opens the fifth (since
-2026-08-28 — per-tier column counts; both rows moved down from
-the MAKES block the same day, and the balanced-columns hint the panel first carried was
-removed at the owner's ask on 2026-08-29), the circuit-limits checkbox with its per-tier Limits wizard (since
-2026-08-26, a Start paused checkbox at its foot since 2026-09-07 and a Count the whole logistic network checkbox above it since 2026-09-12), the buffer-chests checkbox (since 2026-08-26), the two request checkboxes (since 2026-11-13: *Upcycle items from the network* and *Final machine requests ingredients*), and the trash-unrequested checkbox.
-Everything in that strip but the belt, the pipe and the count carries a quality of its own — and
-a picker with only one option is hidden, as is the whole beacon group whatever the count
-(until show-all or an actual pick), and the five chests, so a vanilla game
-sees five of the fourteen — laid out as **six captioned concept groups** (Transport, Chests,
-Modules, Beacons, Power, Circuits), each a row of icon pickers under a small caption; a fully
-hidden group takes its caption with it. A **settings panel** opens beside the pickers — a sibling column
-inside the planner's own screen element, styled as a window of its own — from a captioned
-**Settings** button in the titlebar, holding the two per-player settings: show unresearched
-items, and show every picker whatever the count.
-What it emits is the belt-ring family — see
-`.ai-support/analysis/layout-belt-ring.md` for the geometry and `.ai-support/deferred.md` for
-what was deliberately left out (a second fluid network, fluid products, bot transport).
+undo and every build mode are the engine's own and the mod handles no placement event at all.
+The modal is in two blocks — what the loop MAKES (item, target quality, crafting machine and
+recycler, the last two with a quality of their own, and since 2026-11-27 the **Layout** row:
+Belts or Bots) above what it is built OUT OF in **four tabs of labelled rows** since 2026-11-27,
+only the selected tab filled: **Buildings** (belt, inserter, pipe, electric pole, then the
+column count per lower tier), **Modules** (quality module, final machine module, beacon with its
+module and beacons-per-tier count, then the *Mix productivity modules* checkbox with the
+productivity module and the per-tier slot counts under it), **Chests** (the five chest pickers;
+the buffer-chests, the two request and the trash-unrequested checkboxes; the ingredient amounts
+— Minutes, then a field per ingredient) and **Circuits** (the circuit-limits checkbox and the
+limits — Min/Max per tier, Hand size, Count the whole logistic network, Start paused).
+Everything but the belt, the pipe and the count carries a quality of its own. Every row is a
+label beside its control, and everything the plan builds has its row: a row hides only while the
+loop as chosen does not build it — the belt, the relay chest and the two request boxes with
+bots, the overflow chest on a belt ring to the highest quality, the pipe without a fluid, the
+beacon's module and count without a beacon, the mix where no productivity module fits. A tab
+taller than the screen allows scrolls. A **settings panel** opens beside the window — a
+sibling column inside the planner's own screen element, styled as a window of its own — from a
+captioned **Settings** button in the titlebar, holding the one per-player setting: show
+unresearched items. What it
+emits is one of **two layout families**: the belt ring by default
+(`.ai-support/analysis/layout-belt-ring.md`) or the bot loop
+(`.ai-support/analysis/layout-bot-loop.md`, built 2026-11-27), where robots carry everything
+between tiers; `.ai-support/deferred.md` keeps what was deliberately left out (a second fluid
+network, fluid products, a roboport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (420 tests as of 2026-11-13) — planner, layout, poles,
+suite under `tests/` (509 tests as of 2026-11-27, 184 of them pure) — planner, layout, poles,
 circuits, the quality maths, the shortcut gate, blueprint, state, the eject loop, the fluid
-mechanisms, the combinator retune, the chests' circuit stop, the beacons and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
+mechanisms, the combinator retune, the chests' circuit stop, the beacons, the bot loop live
+and on paper, the belt goldens and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
 host-Lua and static tiers). The old standing question is answered by measurement: a rolled-up ingredient
 **wedges** the recycler, and the relief inserter under it — one nameless *above this tier*
 filter since 2026-09-09 — is what keeps the loop alive
@@ -114,7 +114,7 @@ measured, all guarded by `tests/fluid_spec.lua`; evidence in `.ai-support/analys
 **`.ai-support/` is this mod's local context — start at its `index.md`.** `decisions.md` holds
 what is settled and why, `deferred.md` the parked work, `journal.md` what happened, and
 `analysis/` the evidence: decoded blueprints and the scaling law, the chosen belt-ring layout as
-a formula, the deferred bot-loop layout, the verified API (including what is *not* verified),
+a formula, the bot-loop layout as built, the verified API (including what is *not* verified),
 the quality maths, and the reference-mod patterns.
 
 **Neither reference mod is in this workspace**, and both are open source — clone into a scratch
@@ -144,14 +144,16 @@ The shape follows the community convention in the `factorio-mod-setup` skill: gr
 data.lua                            entry point; requires the prototype files
 data-final-fixes.lua                moves the shortcut's gate to the technology gate.lua names
 control.lua                         lifecycle and event wiring only — the work lives in scripts/
-settings.lua                        the two per-player settings the modal's window edits
+settings.lua                        the one per-player setting the settings panel edits
 prototypes/planner/                 the shortcut, the icon layers it is built from, the two
                                     custom-inputs (the CTRL+U toggle and the linked one that
                                     points the Confirm key at Place), and gate.lua: which
                                     technology delivers a recycler first -- pure over data.raw
 scripts/                            one file per runtime concern, required by control.lua
   gui.lua      the modal            planner.lua   derivations and validation
-  layout.lua   pure geometry        blueprint.lua plan -> BlueprintEntity, and the cursor
+  layout.lua   pure geometry: the belt ring, and the parts both builders share
+  layout_bot.lua the bot loop's builder, layout.build's contract -- pure like layout.lua
+  blueprint.lua plan -> BlueprintEntity, and the cursor
   poles.lua    pole coverage and connectivity, utility columns first -- pure like layout.lua
   circuits.lua the opt-in circuit-limit conditions, the limits combinator's rows, the status
                lamps and panel, and the green wires, decorating a finished plan -- pure like
@@ -164,10 +166,13 @@ scripts/                            one file per runtime concern, required by co
 tests/                              the permanent suite (factorio-test); registered in
                                     control.lua behind the active_mods guard, excluded from
                                     the zip by package.ignore. Run via `factorio-testing`.
-  *_spec.lua                        in-game specs: planner, plan, blueprint, beacon, state,
-                                    loop, fluid, gui
-  pure/                             layout + poles + circuits geometry, the quality maths and
-                                    the shortcut gate's data scan, runs on host Lua too
+  *_spec.lua                        in-game specs: planner, plan, plan_golden, bot_plan,
+                                    blueprint, beacon, state, loop, bot_loop, fluid, gui
+  pure/                             layout + layout_bot + poles + circuits geometry, the belt
+                                    goldens, the quality maths and the shortcut gate's data
+                                    scan, runs on host Lua too
+  support/fingerprint.lua           the interpreter-neutral digest the goldens pin
+  support/footprint.lua             the no-overlap and in-bounds checks both layout specs run
   support/research.lua              the five research states as helpers
   support/stamp.lua                 stamps a plan and reports the plan-to-world offset
   support/layout_params.lua         the canonical vanilla layout fixture the pure specs share,
@@ -180,7 +185,7 @@ locale/en/upcycler-planner.cfg    every player-visible string
 migrations/                         still none: the 2026-08-16 `ua-` -> `upl-` rename needed no
                                     migration, because neither prototype persists into a save
 images/                             portal page material, never shipped: gallery shots numbered
-                                    in upload order, and description/ for the readme's demo gifs
+                                    in upload order, and description/ for the readme's videos and stills
 .ai-support/index.md                the map — read it first
 .ai-support/decisions.md            what is settled, and why
 .ai-support/deferred.md             parked work, each entry with enough context to pick up cold
@@ -226,7 +231,7 @@ bump from the first release onward. Which tags were rejected and why is in
 - **Never commit, push or publish unprompted** — repo `CLAUDE.md`, and approval is per request.
 - **`README.md` is the portal description** and **`faq.md` the portal FAQ tab**, uploaded
   verbatim by `fmtk details --readme` / `--faq`; `images/` is the gallery in filename order.
-  All are player-facing and settled; what each image is, and where the readme's demo gifs are
+  All are player-facing and settled; what each image is, and where the readme's videos and stills are
   hosted, is in `.ai-support/decisions.md` → *Portal presentation*. Gathering them is not a release — publishing still needs the owner's
   approval for that specific upload.
 - `LICENSE` at the mod root is the repo root's GPLv3 text, copied verbatim. Keep the two in
@@ -280,17 +285,29 @@ re-opening any of these, and don't restate a reason here.
   at the target quality as its `preview_icons` — so Q discards it like the old tool, and dragging
   it into the inventory keeps the design. It is **not** one-shot the way the tool was: it stays in
   hand, so the same loop can be stamped repeatedly.
-- The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler),
-  then a **Build options** block for what it is built **out of**, sorted into six captioned
-  concept groups — Transport (belt, inserter, pipe), Chests (the five roles), Modules (quality
-  and final machine), Beacons (beacon, its module, the per-tier count), Power (pole), Circuits
-  (the circuit-limits checkbox and its Limits wizard button) — with the buffer-chests, the
-  two request and the trash-unrequested checkboxes below them. A fully hidden group hides its caption with it. Every picker carries its
-  own quality except the belt and the pipe, which the engine gives no quality bonus.
-  **Every label-and-button row in Build options shares one `ROW_LABEL_WIDTH`** — a fifth such
-  row uses the same constant rather than a width of its own, or its button leaves the column.
-- Ingredient request amounts are editable in a side panel — an *Edit...* button beside the item
-  picker, dead until an item is picked. A **Minutes** field at its top sizes every amount
+- The modal is two blocks: what the loop **makes** (item, target quality, machine, recycler,
+  Layout), then the build options in **four tabs of labelled rows** — Buildings (belt, inserter,
+  pipe, pole, then Columns per tier), Modules (quality, final machine, beacon with its module
+  and count, then the mix and its per-tier counts), Chests (the five pickers; the buffer,
+  request and trash checkboxes; the ingredient amounts) and Circuits (the checkbox, then the
+  limits). **Only the selected tab is filled** (`fill_tab`, refilled in place on a switch and on
+  the `TAB_BUILDERS` entry's `refill_on` reasons) — never build a tab by hand. A tab switch
+  plans nothing; it repaints only the Circuits fields. A centred window is re-centred after
+  every change of size (`recentre`: each fill, the settings panel opening or closing); a moved
+  one keeps its place. Each tab is a scroll-pane capped by `tab_max_height`, so the window fits
+  a small screen. The selected tab is `entry.tab` in storage, a name, restored on every
+  rebuild. Every row of a tab's table goes through `add_row` and hides through `show_row`,
+  label and control together; every count row — per tier, per ingredient, Minutes, Hand size —
+  through `count_row` and `count_field`. Every picker carries its own quality except the belt
+  and the pipe, which the engine gives no quality bonus. **Every row label shares the
+  file-level `LABEL_WIDTH`** — a new row uses the same constant, or its control leaves the
+  column.
+- **What the chosen layout does not build is hidden** — the belt, the relay chest and the two
+  request boxes with bots, the overflow chest on a belt ring to the highest quality — through
+  `layout_rules`, the one place those decisions live; never written into choices, so a switch
+  back gets the player's own picks and ticks back.
+- Ingredient request amounts are editable inline in the Chests tab, the grey pick-an-item
+  hint until an item is picked. A **Minutes** field at its top sizes every amount
   (two minutes of crafting by default, 1–100, stored only on edit as the flat `feed_minutes`,
   never a `request_` key; a change replaces every per-ingredient override and survives an
   item change). Per-ingredient edits are stored as `request_<item>` flat numbers; they reset
@@ -301,63 +318,67 @@ re-opening any of these, and don't restate a reason here.
   all. That is the *plan* pipeline — `storage` still holds the two halves as flat strings, per
   the rule below.
 - Pickers offer only what is researched, unless the per-player `upcycler-planner-show-all` is on.
-- **The two settings are edited in a panel beside the pickers** — a sibling column inside the
-  planner's own screen element (an invisible container frame), never a second window, so the
-  pair cannot separate however the planner is moved. They are mod *settings* rather than a
-  private copy in `storage`; a change from the panel or the game's settings menu rebuilds the
-  modal, panel included, through one `on_runtime_mod_setting_changed` handler. The container
-  keeps `player.opened` throughout; `control.lua` turns a close request into "panel first".
-  Reasons: `decisions.md`; measurements: `analysis/api.md` §17 and §19.
-- **A picker with fewer than two options is hidden** — the recycler and the pipe in a vanilla
-  game — and the pipe is also hidden until the recipe takes a fluid. Exempt: item, target,
-  machine, belt, quality module, and the two whose *clear* is the second option (pole, final machine
-  module). **The five chests go the other way and are hidden whatever their count.** A hidden
-  picker still holds its default, and hides its row label with it. What that costs — a hidden
-  picker takes its quality box with it — is what *Show all build options* exists to undo, the
-  chests and the pipe's fluid condition included.
+- **The setting is edited in a panel beside the window** — a sibling column inside the planner's
+  own screen element (an invisible container frame), never a second window, so the pair cannot
+  separate however the planner is moved. It is a mod *setting* rather than a private copy in
+  `storage`; a change from the panel or the game's settings menu rebuilds the modal, panel
+  included, through one `on_runtime_mod_setting_changed` handler. The container keeps
+  `player.opened` throughout; `control.lua` turns a close request into "panel first". Reasons:
+  `decisions.md`; measurements: `analysis/api.md` §17 and §19.
+- **Everything the plan builds has its row; a row hides only while the loop as chosen does not
+  build it** — the layout's rows above, the pipe until the recipe takes a fluid, the beacon
+  module and count until a beacon is picked (the count also until a second one fits), the mix
+  where no productivity module fits. The recycler, the inserter, the beacon and every chest the
+  loop builds always show, so every quality is one click away. No setting reveals anything:
+  *Show all build options* went with the hide-by-count rule it undid (2026-11-27). A hidden row
+  still holds the default the plan uses.
 - Shortcut button style `green`. Icon layer `scale`/`shift` are written in item space and
   rescaled per prototype — they scale against the prototype's expected icon size, not the
   file's (`analysis/api.md` §11).
 - **`storage` holds flat strings only** — never a `{name, quality}` table.
-- Belt ring is the layout (`.ai-support/analysis/layout-belt-ring.md`); the bot loop is a
-  deferred toggle, not a dead idea (`analysis/layout-bot-loop.md`).
+- **Two layout families**: the belt ring by default (`analysis/layout-belt-ring.md`), the bot
+  loop on `choices.layout = "bot"` (`analysis/layout-bot-loop.md`, `scripts/layout_bot.lua`).
+  `planner.layout_kind` is the one reader and `GEOMETRY` the one dispatch to a builder; what
+  differs is owned by `planner.uses_chest`, `requests_forced`, `circuit_network` and
+  `filters_needed(recipe, choices)`, read by plan and validate alike. A rule both builders
+  share lives once, exported from `layout.lua`. **Belt plans are frozen**:
+  `tests/pure/belt_golden_spec.lua` and `tests/plan_golden_spec.lua` pin digests from before
+  the bot loop existed, so a change that moves one is re-captured on purpose, never quietly.
+  With bots: lower output and extract chests are the overflow pick (active providers, never a
+  circuit census), the two requests are forced on, the maximum always counts the network, and
+  the spine relays through the top-row inserters (`relay_out` / `relay_in`).
 - Modules are planned rather than requested. The final machine's module is its own picker,
   defaulting to the best researched **productivity** module and to **nothing** when the recipe or
   the machine refuses productivity — never to a quality module. Clearing it means "leave that
   machine empty".
 - **Each lower tier's machine carries the computed best quality/productivity mix by default**
-  (through the engine's `get_roll_chances`). A *Mix productivity modules*
-  checkbox, ticked by default, is the opt-out; unticking forces quality-only and parks the
-  per-tier overrides; the whole line shows only when some productivity module fits the
-  machine-and-recipe pair (show-all overrides, the pipe's rule). Solved per tier from engine data
-  in `scripts/quality_math.lua`; the *Ratios...* wizard (fourth side panel, only-on-edit
-  `split_prod_<quality>` keys) holds the productivity picker and the per-tier counts; the
-  picker is belt-shaped
-  with no clear-flag, and a productivity-refusing recipe forces all-quality with no refusal.
-  The status line shows the loop's expected items-in per item-out from the same solve, and
-  its pace — steady-state seconds per item, gated by the slowest station, from the solve's
-  flow pass plus real rates (build quality, module speed penalties, beacons; api.md §31).
-  Recyclers never split. Reasons and mechanics: `.ai-support/decisions.md`, engine facts
-  `analysis/api.md` §30.
-- **Each lower tier can repeat its whole column** (2026-08-28): a *Columns per tier* row in
-  Build options opens the fifth side panel — per-tier counts under only-on-edit
-  `column_count_<quality>` keys, floor one, cap `planner.MAX_COLUMNS_PER_TIER` (64, a
-  performance ceiling named in the field tooltip; it opened at 250, came down to 32 the
-  same day after big-layout crashes, and doubled to 64 on 2026-08-29 once the pole solve
-  went near-linear), the
-  target pinned at one column. The expansion lives in `planner.plan` alone (`tier_columns` /
-  `expand_columns`); layout, circuits, poles, blueprint and quality_math are untouched, and the
-  solve keeps the distinct chain. The wizard is rows and nothing else: its balanced-counts
-  hint was removed at the owner's ask on 2026-08-29, its one-click Apply having already
-  gone the day the feature landed, for the crashes above.
-  The counts and pace follow every keystroke; the yield line never moves with
-  columns. Reasons: `.ai-support/decisions.md`.
-- **The status area is one label per line** (2026-08-28): stats always plain white
-  (the machine/recycler counts — the footprint in their tooltip since the owner's same-day
-  call — then yield), a separator, then one line per message — orange with a
-  warning icon, red with an error icon on refusals — and a grey hint before an item is
-  picked; the wizards' placeholder sentences wear the same grey. Shape and reasons:
-  `.ai-support/decisions.md`.
+  (through the engine's `get_roll_chances`). A *Mix productivity modules* checkbox, ticked by
+  default, is the opt-out; unticking forces quality-only and parks the per-tier overrides; the
+  mix shows only when some productivity module fits the machine-and-recipe pair. Solved per tier
+  from engine data in `scripts/quality_math.lua`; the productivity picker and the per-tier
+  counts (only-on-edit `split_prod_<quality>` keys) stand under the checkbox in the Modules tab
+  while it is ticked; the picker is belt-shaped with no clear-flag, and a productivity-refusing
+  recipe forces all-quality with no refusal. The status line shows the loop's expected items-in
+  per item-out from the same solve, and its pace — steady-state seconds per item, gated by the
+  slowest station, from the solve's flow pass plus real rates (build quality, module speed
+  penalties, beacons; api.md §31). Recyclers never split. Reasons and mechanics:
+  `.ai-support/decisions.md`, engine facts `analysis/api.md` §30.
+- **Each lower tier can repeat its whole column** (2026-08-28): the per-tier counts stand at the
+  foot of the Buildings tab under *Columns per tier* — only-on-edit `column_count_<quality>`
+  keys, floor one, cap `planner.MAX_COLUMNS_PER_TIER` (64, a performance ceiling named in the
+  field tooltip; it opened at 250, came down to 32 the same day after big-layout crashes, and
+  doubled to 64 on 2026-08-29 once the pole solve went near-linear), the target pinned at one
+  column. The expansion lives in `planner.plan` alone (`tier_columns` / `expand_columns`);
+  layout, circuits, poles, blueprint and quality_math are untouched, and the solve keeps the
+  distinct chain. The counts are rows and nothing else: the balanced-counts hint was removed at
+  the owner's ask on 2026-08-29, its one-click Apply having already gone the day the feature
+  landed, for the crashes above. The counts and pace follow every keystroke; the yield line
+  never moves with columns. Reasons: `.ai-support/decisions.md`.
+- **The status area is one label per line** (2026-08-28): stats always plain white (the
+  machine/recycler counts — the footprint in their tooltip since the owner's same-day call —
+  then yield), a separator, then one line per message — orange with a warning icon, red with an
+  error icon on refusals — and a grey hint before an item is picked; the per-tier lists'
+  placeholder sentences wear the same grey. Shape and reasons: `.ai-support/decisions.md`.
 - A picker offers only modules the machine **and** the recipe accept, by the measured rule that
   only a module's *positive* effects must be allowed (`analysis/api.md` §16); both are
   re-resolved when either half of the pair changes.
@@ -368,42 +389,39 @@ re-opening any of these, and don't restate a reason here.
   pole. The terminal catcher is a single `">="` for the same reason. Why each part is as it is:
   `decisions.md`; the measurements: `analysis/api.md` §24.
 - **Circuit limits are opt-in: reserve and cap, the numbers on one combinator** (2026-08-26,
-  revised 2026-09-07). Every machine and recycler stops at one shared cap — the output
-  chest's count of the product at the target quality — and each lower tier's
-  buffer-to-recycler inserter holds that tier's floor, running at the minimum plus one hand
-  size per column of that quality and pinned to that hand so a full grab lands exactly on
-  the floor, never drawing the chest below the player's minimum (0 by default, meaning no
-  reserve, no wire, no pin and no row for that tier). The hand is the chosen inserter's
-  researched one, or the wizard's Hand size field (`circuit_hand`, only-on-edit).
-  Plain enable conditions on existing entities, each comparing against a `signal-M@tier` /
-  `signal-C@target` row on one vanilla `constant-combinator` the layout stands directly
-  under the terminal machine — so the loop is retuned in place, and switching the
-  combinator off pauses a capped loop (and lifts every reserve: the description says which,
-  per case); a *Start paused* checkbox at the foot of the Limits wizard ships it switched
-  off. A cap also stands two lamps (blue running, green done) and a display panel (paused /
-  done / running, on the map too) below it, each wired to the combinator alone.
-  **Count the whole logistic network** (2026-09-12), a checkbox above Start paused, makes
-  the cap the engine's own logistic condition on every machine and recycler —
-  `product@target < max`, a constant baked per entity — with the wire keeping only the pause
-  (`C > 0`), and an edit to C on the combinator copied onto every one of those constants by
-  `scripts/retune.lua` (2026-10-26), the one thing the mod does to a stamped loop; the lamps
-  follow it, the panel keeps its Paused row alone, validate refuses a
-  `no-logistic-connection` machine (2.1 only), and the loop then only runs inside roboport
-  range. Max only; the reasons and rejected shapes in `decisions.md`, the engine facts in
-  `analysis/api.md` §34 and §35. Fixed
-  prototypes, no research gate, one green network, footprint unchanged. The
-  planner normalises the thresholds once (`planner.circuit_limits`) BEFORE the layout, and
-  the pole memo keys on circuit presence, never the numbers — typing a threshold re-solves
-  nothing. `scripts/circuits.lua` decorates the finished plan (pure, strictly after the pole
-  pass); the numbers live in `storage` as flat `circuit_min_<quality>` /
-  `circuit_max_<quality>` values plus the `circuit_paused` boolean and the `circuit_hand`
-  number, edited in a wizard panel whose rows are labelled Min/Max, following the settings
-  panel's sibling-column mechanics.
-  Conditions go only onto what can hear the combinator over the wires placed; anything cut
-  off is left ungated and warned about (`circuit_unlinked`), never refused. The combinator's
-  description and the panel's words are blueprint strings, English constants in
-  `circuits.lua`. Reasons and the rejected shapes (the first-built demand cascade included):
-  `decisions.md`; the verified engine surface: `analysis/api.md` §26, §32 and §33.
+  revised 2026-09-07). Every machine and recycler stops at one shared cap — the output chest's
+  count of the product at the target quality — and each lower tier's buffer-to-recycler inserter
+  holds that tier's floor, running at the minimum plus one hand size per column of that quality
+  and pinned to that hand so a full grab lands exactly on the floor, never drawing the chest
+  below the player's minimum (0 by default, meaning no reserve, no wire, no pin and no row for
+  that tier). The hand is the chosen inserter's researched one, or the Circuits tab's Hand size field
+  (`circuit_hand`, only-on-edit). Plain enable conditions on existing entities, each comparing
+  against a `signal-M@tier` / `signal-C@target` row on one vanilla `constant-combinator` the
+  layout stands directly under the terminal machine — so the loop is retuned in place, and
+  switching the combinator off pauses a capped loop (and lifts every reserve: the description
+  says which, per case); a *Start paused* checkbox at the foot of the limits ships it switched
+  off. A cap also stands two lamps (blue running, green done) and a display panel (paused / done
+  / running, on the map too) below it, each wired to the combinator alone. **Count the whole
+  logistic network** (2026-09-12), a checkbox above Start paused, makes the cap the engine's own
+  logistic condition on every machine and recycler — `product@target < max`, a constant baked
+  per entity — with the wire keeping only the pause (`C > 0`), and an edit to C on the
+  combinator copied onto every one of those constants by `scripts/retune.lua` (2026-10-26), the
+  one thing the mod does to a stamped loop; the lamps follow it, the panel keeps its Paused row
+  alone, validate refuses a `no-logistic-connection` machine (2.1 only), and the loop then only
+  runs inside roboport range. Max only; the reasons and rejected shapes in `decisions.md`, the
+  engine facts in `analysis/api.md` §34 and §35. Fixed prototypes, no research gate, one green
+  network, footprint unchanged. The planner normalises the thresholds once
+  (`planner.circuit_limits`) BEFORE the layout, and the pole memo keys on circuit presence,
+  never the numbers — typing a threshold re-solves nothing. `scripts/circuits.lua` decorates the
+  finished plan (pure, strictly after the pole pass); the numbers live in `storage` as flat
+  `circuit_min_<quality>` / `circuit_max_<quality>` values plus the `circuit_paused` boolean and
+  the `circuit_hand` number, edited inline in the Circuits tab, rows labelled Min/Max, greyed by
+  `gui.refresh` while the checkbox is off and refilled in place when the target moves.
+  Conditions go only onto what can hear the combinator over the wires placed; anything cut off
+  is left ungated and warned about (`circuit_unlinked`), never refused. The combinator's
+  description and the panel's words are blueprint strings, English constants in `circuits.lua`.
+  Reasons and the rejected shapes (the first-built demand cascade included): `decisions.md`; the
+  verified engine surface: `analysis/api.md` §26, §32 and §33.
 - **Under a cap the chests stop asking with the loop** (2026-11-13): every feed chest, and
   every stock chest that still requests, carries the machines' own wire condition as a chest
   circuit condition (`circuit_condition_enabled`), so a paused or finished loop requests
@@ -413,7 +431,8 @@ re-opening any of these, and don't restate a reason here.
   `decisions.md`; the measurements: `analysis/api.md` §36.
 - Chests are 1x1, and each of the five roles offers only its own kind — the role is fixed, the
   chest is the player's. Only the overflow chest's role is forced to a specific logistic mode
-  (active provider): it is the loop's one sink that empties itself.
+  (active provider): on belts it is the loop's one sink that empties itself, and with bots it is
+  every lower tier's out and extract chest, the way each tier hands its items to the network.
 - **The stock chests are buffer chests by default** (2026-08-26): the stock role's kind follows
   the "Use buffer chests" checkbox — buffer chests share each tier's items with personal
   logistics and construction bots, requester chests keep them in the loop. Toggling refills the
@@ -434,8 +453,9 @@ re-opening any of these, and don't restate a reason here.
 - **A recipe past one inserter's filter slots feeds each machine from two stacks** (2026-09-09):
   a second harvest inserter, feed chest and feed inserter in the buffer sub-column above the
   machine, the ingredients split into balanced halves, never a third stack — the engine caps
-  every inserter at five slots, so ten ingredients is the cap everywhere
-  (`layout.MAX_FEED_STACKS`, `planner.min_filter_slots`). Plans that fit one inserter are
+  every inserter at five slots, so ten ingredients is the belt ring's cap on every machine
+  (`layout.MAX_FEED_STACKS`, `planner.min_filter_slots`); bots filter no ingredient and have
+  none, and their refusals name the missing filter slot. Plans that fit one inserter are
   byte-identical to before. A chosen inserter short of the split's larger half is named in the
   refusal **only when a better one exists** — otherwise the recipe is blamed, naming the
   ceiling, which is every vanilla case. The default pick tries an inserter that filters the
@@ -449,14 +469,13 @@ re-opening any of these, and don't restate a reason here.
 - **Beacons are opt-in: off by default, a vertical stack per tier in the utility column when
   picked**, the machine-only terminal tier included. The player chooses the count from a
   drop-down offering exactly 1..`layout.max_beacon_count` (vanilla: 4); stacking costs rows,
-  never width, and an outgrown count clamps, never refuses. **The whole beacon group is hidden
-  by default, researched or not** — *Show all build options* reveals it, and a chosen beacon
-  keeps it visible. The beacon-module picker defaults to the best researched **efficiency**
-  module, never speed (why: `decisions.md`). Its clear means "place the beacon empty"
-  (`no_beacon_module`); the beacon itself needs no clear-flag, since nil already means off.
-  Short reach warns per receiver (some beacon reaches the machine, some the recycler); a
-  beacon taller than the interior refuses. Measured facts: `analysis/api.md` §25; geometry:
-  `analysis/layout-belt-ring.md` §Beacons.
+  never width, and an outgrown count clamps, never refuses. The beacon row always shows, empty
+  meaning none; its module and count rows appear once a beacon is picked. The beacon-module
+  picker defaults to the best researched **efficiency** module, never speed (why:
+  `decisions.md`). Its clear means "place the beacon empty" (`no_beacon_module`); the beacon
+  itself needs no clear-flag, since nil already means off. Short reach warns per receiver (some
+  beacon reaches the machine, some the recycler); a beacon taller than the interior refuses.
+  Measured facts: `analysis/api.md` §25; geometry: `analysis/layout-belt-ring.md` §Beacons.
 - Poles default to the best researched 1x1 and are clearable to none. **A plan is as narrow as
   full coverage allows**: the planner solves for its utility columns rather than opening one at
   every machine, keeping only a column a pole turned out to need — so most plans open none and
@@ -468,8 +487,8 @@ re-opening any of these, and don't restate a reason here.
   built outside the ring** — the player taps the stubs from outside and wires the columns as
   they like.
 - Refused, each with a message: recipes with two or more fluids, recipes with more
-  ingredients than two inserters can filter (ten in vanilla), machines no rotation can
-  pipe, self-recycling items, and recipes that refuse quality modules.
+  ingredients than two inserters can filter on belts (ten in vanilla), machines no rotation
+  can pipe, self-recycling items, and recipes that refuse quality modules.
 - **Spoiling items warn, never refuse** (`item-spoils`), and the warning is placed first among
   the warnings. Ten of the 210 upcyclable items are affected. The runtime read is
   `LuaItemPrototype.get_spoil_ticks(quality)` — a **method**; there is no `spoil_ticks`
@@ -484,5 +503,4 @@ cannot drift apart. The two questions that used to gate everything are both answ
 blueprint carry the loop faithfully* (yes, measured). **Modded quality tiers are no longer one
 of them either** — the chain walk carries no ceiling and the pole solve was rebuilt for long
 chains on 2026-08-20; what is left there is solve *cost* at the extreme, which `deferred.md`
-owns. So the rest is mostly scope: whether the GUI should show expected output, and
-`thumbnail.png`.
+owns. What is left beyond that is scope, and `deferred.md` holds it.

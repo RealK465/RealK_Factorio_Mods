@@ -76,7 +76,7 @@
 -- words are blueprint strings, which no locale key can reach -- English, kept short.
 --
 -- Strictly AFTER the pole pass, never solved with it: every entity this touches was stood by
--- layout.build, so nothing here moves a tile -- which is what lets this be a true decorator
+-- the layout builder, so nothing here moves a tile -- which is what lets this be a true decorator
 -- where poles could not be.
 
 local circuits = {}
@@ -85,8 +85,8 @@ local SIGNAL_MIN = "signal-M"
 local SIGNAL_CAP = "signal-C"
 circuits.SIGNAL_CAP = SIGNAL_CAP
 
--- A combinator row's count and a logistic request are int32; the wizard caps a typed
--- minimum at exactly this and the hand goes on top, so the sums are clamped here.
+-- A combinator row's count and a logistic request are int32; the GUI caps a typed minimum
+-- at exactly this and the hand goes on top, so the sums are clamped here.
 local INT32_MAX = 2147483647
 
 -- Every description opens with these words, which is how scripts/retune.lua tells the limits
@@ -111,8 +111,8 @@ local COLOR_RUNNING = { r = 0.15, g = 0.45, b = 1, a = 1 }
 local ICON_DONE = { type = "virtual", name = "signal-check" }
 local ICON_PAUSED = { type = "virtual", name = "signal-deny" }
 
--- The stack layout.build stands under the terminal machine, found by role like every other
--- tagged entity.
+-- The stack the layout builder stands under the terminal machine, found by role like every
+-- other tagged entity.
 local STACK_ROLES = { limits = true, lamp_done = true, lamp_running = true, panel = true }
 
 local function centre(e)
@@ -212,13 +212,13 @@ local function rows_of(tiers, minimums, maximum, hand)
   return rows
 end
 
--- entities: plan.entities, mutated in place. Only entries layout.build tagged (circuit_role,
+-- entities: plan.entities, mutated in place. Only entries the builder tagged (circuit_role,
 -- plus circuit_tier on the per-column ones) are touched; everything else is left alone,
 -- which a pure spec pins.
 --
 -- opts: tiers -- the plan's quality names, normal first, one entry per PHYSICAL column with
 -- repeats allowed (the planner's expanded array, parallel to the circuit_tier tags; the
--- GUI's wizard stays keyed by the distinct chain, and the two agree on the values resolved
+-- GUI's limits stay keyed by the distinct chain, and the two agree on the values resolved
 -- per quality name, not on array shape); minimums -- quality name -> reserve floor, SPARSE:
 -- the planner normalises "zero means off" before calling, so an absent tier simply has no
 -- reserve and its inserter stays out of the network; maximum -- the cap counted in the
@@ -232,7 +232,8 @@ end
 -- reserved inserter is pinned to it, required whenever a minimum is set (api.md S33);
 -- reach -- tiles, the shortest circuit wire distance among the wired prototypes, since a
 -- wire is refused past its shorter end; feed_reach -- the same for a feed chest's hop to its
--- machine alone, required whenever a maximum is set.
+-- machine alone, required whenever a maximum is set; relay_reach -- the same for the bot loop's
+-- spine relay through its top-row inserters, falling back to reach when absent.
 --
 -- Returns how many entities that should be gated cannot hear the combinator: 0 normally,
 -- more on extreme modded footprints. Each is left without its condition, so it simply runs
@@ -242,8 +243,10 @@ function circuits.decorate(entities, opts)
   local target = tiers[#tiers]
 
   -- feeds is a flat list where the rest are keyed by column: a column stands one feed chest
-  -- or two, and each finds its machine through its own circuit_tier.
+  -- or two, and each finds its machine through its own circuit_tier. relay_out and relay_in
+  -- are the bot loop's top-row inserters, its stand-in for a ring to relay along.
   local machines, recyclers, censuses, reserves, feeds, ring, stack = {}, {}, {}, {}, {}, {}, {}
+  local relay_out, relay_in = {}, {}
   for index, e in ipairs(entities) do
     local role = e.circuit_role
     if role == "machine" then machines[e.circuit_tier] = index
@@ -252,6 +255,8 @@ function circuits.decorate(entities, opts)
     elseif role == "reserve" then reserves[e.circuit_tier] = index
     elseif role == "feed" then feeds[#feeds + 1] = index
     elseif role == "ring" then ring[#ring + 1] = index
+    elseif role == "relay_out" then relay_out[e.circuit_tier] = index
+    elseif role == "relay_in" then relay_in[e.circuit_tier] = index
     elseif STACK_ROLES[role] then stack[role] = index
     end
   end
@@ -335,6 +340,28 @@ function circuits.decorate(entities, opts)
   if worst <= usable then
     for k = 1, #tiers - 1 do
       link(machines[k], machines[k + 1])
+    end
+  elseif #ring == 0 then
+    -- No ring to relay along -- the bot loop. Each hop goes direct where it fits, and
+    -- otherwise through the two inserters at the top of the columns either side: this
+    -- machine's out inserter, at its east edge, and the next machine's feed inserter -- a hop
+    -- of the gap plus a tile, more under a recycler wider than its machine. A wired inserter
+    -- with no behaviour of its own keeps working and reads nothing (measured,
+    -- analysis/api.md S37), so the relay puts no count on the wire. Each entity spends its one
+    -- outgoing link once: the machine's goes to the relay, the relay's to the next relay, the
+    -- last to the next machine.
+    local relay_usable = (opts.relay_reach or opts.reach) - 0.5
+    for k = 1, #tiers - 1 do
+      local a, b = machines[k], machines[k + 1]
+      if a and b then
+        if span(entities[a], entities[b]) <= usable then
+          link(a, b)
+        else
+          link(a, relay_out[k], relay_usable)
+          link(relay_out[k], relay_in[k + 1], relay_usable)
+          link(relay_in[k + 1], b, relay_usable)
+        end
+      end
     end
   else
     -- The top row of the ring, found by geometry rather than a row constant this file has

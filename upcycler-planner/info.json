@@ -1,11 +1,11 @@
 {
   "name": "upcycler-planner",
-  "version": "1.2.8",
+  "version": "2.0.0",
   "title": "Upcycler Planner",
   "author": "RealK",
   "factorio_version": "2.1",
   "homepage": "https://github.com/RealK465/RealK_Factorio_Mods/tree/main/upcycler-planner",
-  "description": "Choose an item and a target quality, the mod designs and gives you an entirely configurable upcycling loop blueprint.",
+  "description": "Pick an item and a target quality, and get a ready-made upcycling loop blueprint.",
   "dependencies": ["base >= 2.1.0", "quality >= 2.1.0"],
   "expansion_required": true,
   "quality_required": true,

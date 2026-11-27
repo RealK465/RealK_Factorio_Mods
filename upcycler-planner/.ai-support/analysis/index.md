@@ -14,7 +14,7 @@ dot on `.ai-support`).
 |---|---|
 | `blueprints.md` | The decoded reference designs, the recycler eject mechanism, the scaling law, coordinate conventions |
 | `layout-belt-ring.md` | **The chosen layout family — kept matching what the mod actually builds**, and what the ring does under a flood of rolled-up ingredients (measured 2026-11-13) |
-| `layout-bot-loop.md` | The deferred second family, specified so it can be picked up as a GUI toggle later |
+| `layout-bot-loop.md` | **The second family, built 2026-11-27** — the bot loop's geometry, where its items go, what it costs the network, and how poles, beacons, fluids and circuits differ from the belt ring |
 | `poles.md` | The pole coverage pass, and how the planner decides which utility columns a plan opens — read before changing the footprint or the pole count |
 | `api.md` | Every verified API shape this mod needs, plus what could not be verified |
 | `quality-math.md` | Quality roll maths, recycler mechanics, known failure modes of closed loops |

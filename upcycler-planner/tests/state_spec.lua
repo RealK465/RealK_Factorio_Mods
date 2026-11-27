@@ -229,6 +229,18 @@ describe("state.prune -- drop what no longer qualifies", function()
     assert(c.column_count_gone == nil, "a removed tier's column count survived")
   end)
 
+  test("the layout keeps only the bot loop; anything else goes back to belts", function()
+    -- nil IS the belt ring, so a stored "belt" or a hand-edited junk value prunes to nil.
+    local entry = seeded({ layout = "bot" })
+    state.prune()
+    assert(entry.choices.layout == "bot", "the bot layout was pruned")
+    for _, junk in pairs({ "belt", "hexagon", 7 }) do
+      entry = seeded({ layout = junk })
+      state.prune()
+      assert(entry.choices.layout == nil, "layout " .. tostring(junk) .. " survived the prune")
+    end
+  end)
+
   test("ingredient-amount overrides prune by the chosen recipe's own ingredients", function()
     -- request_<item> holds the player's number for one of the CHOSEN recipe's ingredients,
     -- claimed structurally in the key loop like the circuit families. Gears eat iron plates

@@ -23,18 +23,15 @@ ships (leading dot).
   move together.** The locale key overrides `info.json` in the in-game mod browser
   (`mod-structure.html`), so the two reach different readers — the locale one in game, the
   `info.json` one as the portal's short summary — which is why they are worth keeping equal
-  rather than letting one drift. They did drift: the 0.6.0 text pass (commit `930d192`) updated
-  only `info.json`, leaving the locale key claiming the loop is "placed as ghosts", untrue since
-  0.4.0. **Both were rewritten on 2026-08-26 at the repo owner's request** to *"Choose an item
-  and a target quality, the mod designs and gives you an entirely configurable upcycling loop
-  blueprint."* — the owner's own wording, so correct an error in it, never restyle it to taste.
-  The pair is still not resynced or reworded unprompted; when the owner does ask, **edit
-  both**. **The README's bold opening line no longer carries the same sentence.** At the
-  owner's ask to simplify the README (2026-11-27) it became *"Pick an item and a target
-  quality, and get a ready-made upcycling loop blueprint."*, live on the portal page the same
-  day, while `info.json` and the locale keep the 2026-08-26 sentence above. Whether the pair
-  follows is open in `deferred.md` (Housekeeping); the README half reaches the portal only
-  through an approved `fmtk details --readme`.
+  rather than letting one drift. They did drift once: the 0.6.0 text pass (commit `930d192`)
+  updated only `info.json`, leaving the locale key claiming the loop is "placed as ghosts".
+  **Both read *"Pick an item and a target quality, and get a ready-made upcycling loop
+  blueprint."* since 2026-11-27**, the README's bold opening line too: the owner asked for all
+  the player text to be made simple, and the text pass carried the README's sentence to the
+  pair, replacing the owner's 2026-08-26 one (*"Choose an item and a target quality, the mod
+  designs and gives you an entirely configurable upcycling loop blueprint."*). The portal
+  summary follows only through an approved `fmtk details`. The other mods' "Check my other mods"
+  lists still quote the old sentence — the owner's own lines (`deferred.md`, Housekeeping).
 - **Prototype prefix `upl-`**, with settings and locale mod-level keys using the full
   `upcycler-planner`. Prototype names share one flat global namespace and a collision there is
   silent, which is the whole reason for a tag; settings are listed to players beside other mods'
@@ -75,10 +72,13 @@ Material for the mod portal page. Live since the 0.1.0 / 0.1.1 pair of 2026-08-1
 `default_gnugplv3`, category `utilities` (Mining Patch Planner's own), the README as the
 description, the six gallery shots below in filename order. Reworked wholesale for the 1.0.0
 page on 2026-08-29: new README and FAQ, five of the six shots re-taken, and the description's
-own images re-hosted. Simplified on 2026-11-27 at the owner's ask (120 lines to 90, every
-image kept, the circuit detail left to the FAQ) and synced to the page the same day with
-`fmtk details --readme`; the shipped 1.2.8 zip still carries the longer README until the next
-release. Every later upload or portal edit still needs the repo owner's per-release approval.
+own images re-hosted. Simplified on 2026-11-27 at the owner's ask (120 lines to 90, every image
+kept, the circuit detail left to the FAQ) and synced to the page the same day with `fmtk details
+--readme`; the shipped 1.2.8 zip still carries the longer README until the next release.
+Rewritten again later the same day for the four-tab window, not synced yet: two videos and one
+still, hosted in the repo itself, replaced the demo gifs and the three screenshots of windows
+that no longer exist. Every later upload or portal edit still needs the repo owner's per-release
+approval.
 
 - **`README.md` is the portal description**, sent by `fmtk details --readme`. Not quite
   verbatim, and both departures are silent: fmtk **strips a leading depth-1 heading**
@@ -86,30 +86,53 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   and the body is re-serialised through remark, which rewrites `-` bullets as `*`. Line breaks
   and everything else survive. Written for a player skimming the page rather than for a
   contributor.
-- **A relative image URL in the README is uploaded INTO the gallery**, not left alone —
-  fmtk's default `package.markdown.images` is `"gallery"`, and only a URL matching
+- **A relative image URL in the README is uploaded INTO the gallery**, not left alone — fmtk's
+  default `package.markdown.images` is `"gallery"`, and only a URL matching
   `^((https?|data):|#)` is passed through untouched. That is the real reason every embedded
-  image is an absolute catbox link: it is what keeps demo gifs out of the gallery strip.
+  image is an absolute URL — catbox for the older ones, the repo's own raw GitHub files since
+  2026-11-27: it is what keeps the description's media out of the gallery strip.
+- **The description's videos are MP4s linked as images** (owner's call, 2026-11-27: "github,
+  preferably use videos not gifs"). The portal renders a markdown image whose URL ends in `.mp4`
+  as `<video controls autoplay muted loop>` with `type="video/mp4"` — read off the rendered
+  Mining Patch Planner and P.U.M.P. pages the same day — and P.U.M.P. hosts its own video in its
+  GitHub repo the same way (`github.com/<repo>/raw/...mp4?raw=true`, which redirects to
+  raw.githubusercontent.com). raw.githubusercontent.com serves an MP4 as
+  `application/octet-stream` with `nosniff`, and Chromium 158 played one in exactly that tag
+  (Playwright, 2026-11-27); **Firefox and Safari are not verified**. Both videos came out of a
+  scripted graphics run — frames by `game.take_screenshot`, each held for a set number of video
+  frames, alt-mode on once the loop runs (the owner's ask), encoded by ffmpeg to 1080p H.264 —
+  about 5 MB for 22 to 26 seconds, P.U.M.P.'s own being 3.8 MB. **Limited-range BT.709
+  `yuv420p`, tagged** (the 2026-11-27 review): JPEG frames decode full range, and the first cut
+  went out as full-range `yuvj420p`, which players may show with shifted contrast; the frames
+  are now converted, not relabelled (`scale` with `in_range=full:out_range=limited` and the
+  601-to-709 matrix, then `setparams` for the tags).
 - **`faq.md` is the portal FAQ tab**, synced by `fmtk details --faq` and shipped in the zip
   like `README.md` — deliberately not in `package.ignore`, it is a few hundred bytes of player
-  help. The 1.0.0 set is six questions: where the unresearched machines went, why some build
-  options are missing, why some machines get productivity modules, how to change the requested
-  ingredient amounts, what the active provider chest is for, and why a two-fluid recipe is
-  refused.
+  help. Twelve questions since the 2026-11-27 rewrite, in the order a player meets them: where
+  the unresearched machines went, Belts or Bots, why an option disappeared, why some machines
+  get productivity modules, how to get more output, how to change the requested ingredient
+  amounts, keeping the network's own stock out, why the final machine takes high-quality
+  ingredients, what the overflow chest is for, why a loop will not run, changing the limits
+  after building, and why a fluid recipe is refused.
 - **`images/` holds the gallery shots, numbered in the order they are uploaded**: the planner
   window first, then the vanilla loops, then the modded ones, then the scale shot. The gallery
   has no order but the id list handed to `images/edit`, so the number prefix is the only place
-  that intent survives until the release that uses it.
-  - `01-planner-menu.jpg` — the modal, legendary target. The one shot that survived the 1.0.0
-    rework unchanged.
-  - `02-legendary-upcycling-poles.jpg` — a vanilla legendary loop, pole columns visible.
-  - `03-legendary-upcycling-big-miners.jpg` — the big mining drill's molten-iron loop to
+  that intent survives until the release that uses it. The 03 to 07 shots were 02 to 06 until
+  2026-11-27, renamed to make room for the bot loop; their bytes, and so their portal ids, are
+  unchanged.
+  - `01-planner-menu.jpg` — the four-tab window, Buildings tab, gears to legendary, beside the
+    belt loop it built, running with its roboport. Re-taken 2026-11-27 from the scripted run
+    that made the videos; the 1.0.0 shot showed the one-column window.
+  - `02-bot-loop.jpg` — a bot loop to legendary running beside its roboport, alt-mode on (new
+    2026-11-27, the same run).
+  - `03-legendary-upcycling-poles.jpg` — a vanilla legendary loop, pole columns visible.
+  - `04-legendary-upcycling-big-miners.jpg` — the big mining drill's molten-iron loop to
     legendary in foundries on Vulcanus — pole columns, per-column pipe runs, and the player's
     underground taps visible beneath the bottom ring.
-  - `04-modded-upcycling.jpg` — the same planner against modded machines and belts.
-  - `05-modded-upcycling-extra-quality.jpg` — a modded loop climbing through mod-added
+  - `05-modded-upcycling.jpg` — the same planner against modded machines and belts.
+  - `06-modded-upcycling-extra-quality.jpg` — a modded loop climbing through mod-added
     quality tiers.
-  - `06-big-upcycling-loop.jpg` — a whole large loop at map scale, for the size of the thing.
+  - `07-big-upcycling-loop.jpg` — a whole large loop at map scale, for the size of the thing.
 - **A gallery image's id IS the sha1 of the uploaded bytes** — verified 2026-08-29 against all
   six, and it is what `fmtk` itself keys on to skip an image the portal already holds. So
   identifying what is live is exact arithmetic on the local files, never a guess from position
@@ -126,20 +149,29 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   all — checked against `pure-modules-realk` on 2026-08-16. The repo `CLAUDE.md` says the portal
   displays the filename, which holds for the description's own links but not for the gallery.
 - **`images/description/` is not gallery material.** It holds what the README embeds, which the
-  portal can only take as URLs, so each file is mirrored on catbox — the mapping as of the
-  2026-08-29 rework:
-  - `vanilla-upcycling.gif` → https://files.catbox.moe/u1qoct.gif
-  - `modded-upcycling.gif` → https://files.catbox.moe/mlwckl.gif
+  portal can only take as URLs. The local copies are the masters — a host can drop a file, and
+  replacing one is a description edit — so the mapping has to survive:
+  - `belt-loop.mp4` → raw GitHub (below) — the planner used, the blueprint stamped, the belt
+    loop built and run; the page's top video since 2026-11-27.
+  - `bot-loop.mp4` → raw GitHub — the same for a bot loop, robots carrying everything.
+  - `planner-tabs.png` → raw GitHub — the four tabs side by side, gears to legendary.
+  - `beacons-and-pipes.jpg` → raw GitHub — a battery belt loop to legendary in cryogenic
+    plants, two beacons a tier and a pipe run a column, the planner beside it on the Modules
+    tab (2026-11-27 review, in place of `beaconed layout.jpg`).
   - `shortcut-button.jpg` → https://files.catbox.moe/08ae4j.jpg (shown inline in the
-    how-to-use steps; the one link that survived the rework)
-  - `ratios.jpg` → https://files.catbox.moe/n1yfnh.jpg
+    how-to-use steps)
   - `stats.jpg` → https://files.catbox.moe/c48nt7.jpg
-  - `columns.jpg` → https://files.catbox.moe/p60d73.jpg
-  - `beaconed layout.jpg` → https://files.catbox.moe/heq3zl.jpg
-  - `circuit-conditions.jpg` → https://files.catbox.moe/0cddec.jpg
+  - `modded-upcycling.gif` → https://files.catbox.moe/mlwckl.gif — still linked, though it
+    shows the window before the tabs.
+  - No longer linked since 2026-11-27, kept as the record: `vanilla-upcycling.gif`
+    (https://files.catbox.moe/u1qoct.gif), `ratios.jpg` (`n1yfnh.jpg`), `columns.jpg`
+    (`p60d73.jpg`), `circuit-conditions.jpg` (`0cddec.jpg`) and `beaconed layout.jpg`
+    (`heq3zl.jpg`) — the windows they show are gone.
 
-  The local copies are the masters — catbox is not ours and can drop a file, and replacing one
-  is a description edit, so the mapping has to survive.
+  Raw GitHub is
+  `https://raw.githubusercontent.com/RealK465/RealK_Factorio_Mods/main/upcycler-planner/images/description/<file>`:
+  a new file reaches the page only once it is pushed to `main`, so a README sync waits for the
+  push.
 - **The whole `images/` tree stays out of the zip** via `package.ignore`'s `images/**`. Tracked
   in git so a shot travels with the build it was taken from.
 
@@ -240,40 +272,54 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   `technology_to_unlock` at runtime so message and gate cannot drift. A scripted revoke with
   no gating tech stays silent — the scenario chose to hide the planner. The refusal is
   returned as a value because `player.print` is unobservable from a spec.
-- **The modal is two blocks.** The top frame is what the loop **makes** — item, target quality,
-  crafting machine, recycler. Under a *Build options* caption sits what it is built **out of**:
-  belt, inserter, ingredient chest, stock chest, relay chest, output chest, overflow chest,
-  quality module, final machine module, electric pole, pipe, and the trash-unrequested checkbox
-  (checked by default). The
-  inserter, the first three chests and the final machine's module joined the strip on 2026-08-17 at
-  the repo owner's request, closing the parked chest picker and the parked productivity-module one;
-  the overflow chest joined them on 2026-08-20 with the tap it feeds;
-  **nothing the plan places is auto-picked any more** except the underground pipe, which is
-  derived from the pipe rather than chosen. The strip is six captioned concept groups — see
-  its own bullet below.
-  The pipe (added 2026-08-17 with fluid support, the repo owner's call for a picker
-  over an auto-pick) carries no quality — like the belt, nothing about it scales with quality —
-  and matters only when the recipe takes a fluid; its underground counterpart is derived, not
-  picked, since no prototype links the pair (`<name>-to-ground` convention first, longest
-  researched reach as the fallback).
-  The Build options pickers carry no per-picker row labels on purpose: each row reads by icon
-  under its group's caption, the way the game's own tool settings do, so each tooltip opens
-  with its own name in `[font=default-bold]`.
-- **Ingredient amounts are editable in a third side panel** (2026-08-27, the owner's ask; entry
-  point, reset rule, floor and scope each the owner's pick from offered options). An
-  *Ingredient amounts* row — a captioned *Edit...* button, dead until an
-  item is picked, sitting in **Build options directly above the Circuits group** since the
-  owner's 2026-08-28 follow-up (it tunes the build, not what the loop makes; the Columns row
-  shares the shape and the spot) — opening a panel in the settings panel's slot: a **Minutes**
-  field, then one numeric field per item ingredient, at the amount the plan would really use.
+- **The modal is two blocks, and the build options are four tabs of labelled rows** (2026-11-27:
+  three tabs that morning, the owner's pick from four offered shapes to keep a window that had
+  grown to the full screen height short; four tabs of labelled rows that afternoon, the owner's
+  pick over the icon groups with the side windows folded in, and over fixing the blank space
+  alone). The top frame is what the loop **makes** — item, target quality, crafting machine,
+  recycler and the **Layout** row, because the layout decides which build options exist at all.
+  Under it a tabbed pane holds what it is built **out of**: **Buildings** (belt, inserter, pipe,
+  electric pole, then the column counts), **Modules** (quality module, final machine module,
+  beacon with its module and count, then the mix and its per-tier counts), **Chests** (the five
+  chest pickers, the buffer, request and trash checkboxes, the ingredient amounts) and
+  **Circuits** (the circuit-limits checkbox and the limits). **Only the selected tab is filled**
+  (`fill_tab`): the pane sizes to its tallest tab (`analysis/api.md` §38), so with every tab
+  built a short one sat over a band of blank space (the owner's screenshot) — the window's
+  height now follows its tab, refilled in place on a switch, never a rebuild. A switch plans
+  nothing again — no choice the plan reads moves, and a huge layout takes seconds to plan — so
+  it repaints only the Circuits fields' enabled states (2026-11-27 review). **A window the
+  player never moved re-centres after every change of size** (`recentre`): each fill, and the
+  settings panel opening or closing, so the pair moves as one and a later fill or rebuild
+  finds it where it already stands. The engine neither re-centres a frame whose content grew
+  nor keeps one on screen, so a tall tab grown from a short one's centred spot ran past the
+  bottom with Place out of reach; writing `auto_center` again re-centres it (both measured,
+  §38), and a rebuild keeps the centring when the old frame still had it. A moved window keeps
+  its place, on the reading that a player's drag clears `auto_center` — no input faking exists
+  to measure it (§38, **not verified**). **A tab scrolls past what the screen leaves**
+  (`tab_max_height`, the review's ask): each tab is a scroll-pane capped at the screen's height
+  at the player's scale less `WINDOW_CHROME` (560: the rest of the window measured 455 px at
+  100%, plus room for a few warnings) — the tallest tab, Chests, makes the window 872 px at
+  100% for a one-ingredient recipe, past a 768-pixel laptop and past 1080p at 125% (§38). The
+  selected tab is kept per player in
+  storage as `entry.tab`, a name, beside `choices` rather than in them, and every rebuild and
+  reopen lands on it and fills it. **Nothing the plan places is auto-picked** except the
+  underground pipe, derived from the pipe rather than chosen (`<name>-to-ground` convention
+  first, longest researched reach as the fallback, since no prototype links the pair). The pipe
+  carries no quality — like the belt, nothing about it scales with quality.
+- **Ingredient amounts are editable inline in the Chests tab** (2026-08-27, the owner's ask;
+  entry point, reset rule, floor and scope each the owner's pick from offered options; a side
+  panel behind an *Edit...* row until the owner moved it into the tab on 2026-11-27, with the
+  tabs): under an *Ingredient amounts* caption, a **Minutes** field, then one numeric field per
+  item ingredient, at the amount the plan would really use — the grey pick-an-item hint
+  before an item is picked.
   **Only an edit is stored** (`request_<item>`, flat numbers, the circuit families' key shape,
   claimed structurally in `state.prune` ahead of the `_quality$` sweep): an untouched
   ingredient keeps following `request_count` — the Minutes figure of crafting at the
   recipe's own pace, whole items, floor one — so a recipe retune or a new minutes figure moves
   the default instead of freezing a number the player never chose. That no-backfill rule is
-  the one deliberate divergence from the wizard, whose numbers ARE the plan's and so must be
-  written back. **Picking a different item clears the family**: the amounts were sized against
-  the old recipe, and the rebuilt panel opens on the new recipe's own defaults. **The floor is
+  the one deliberate divergence from the circuit limits, whose numbers ARE the plan's and so
+  must be written back. **Picking a different item clears the family**: the amounts were sized
+  against the old recipe, and the rebuilt rows open on the new recipe's own defaults. **The floor is
   one, never zero** — every ingredient keeps a request, so a zeroed field cannot strand items
   for the trash pass to bin; Enter on an *emptied* field is the way back to automatic, and
   deletes the override outright. The per-tier product buffer stayed out on the same call —
@@ -340,88 +386,72 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   "show all items in selection lists" option, which is not exposed to the runtime API. An empty
   researched subset falls back to the full list so the modal never dead-ends. Ticked in the
   settings panel below as well as in the game's settings menu.
-- **A picker is only shown when it has something to choose between** (repo owner's call,
-  2026-08-17). One option is not a choice, so a picker offering exactly one thing is hidden —
-  which in a vanilla game is the recycler and the pipe, and
-  a modset that adds an alternative brings each of them back. The count is taken on the list the
-  picker would really offer, so the setting above moves it too. Seven pickers are exempt: the
-  item, the target quality, the machine, the belt and the quality module are the choice whatever
-  the count, and the pole and the final machine's module have a *clear* that is itself the second
-  option ("no poles", "leave it empty") — the rule that resolved the pole appearing on both halves
-  of the request. The pipe carries one extra condition of its own: it stays out of the strip until
-  the chosen recipe takes a fluid, since it plumbs nothing otherwise.
-  **The beacon group goes the chests' way, and further** (owner's call, 2026-08-22, same
-  session the pickers landed): hidden by default whatever the count **and whatever is
-  researched** — a beacon is an opt-in extra, and a beacon button in the default strip reads
-  as a decision every player has to make before pressing Place. Show-all reveals the group,
-  and a *chosen* beacon keeps it visible with show-all off again, so the opt-in stays on
-  display and clearable rather than riding the plan as a hidden passenger. One predicate
-  (`beacon_visible`) serves the whole group — beacon, module and the count drop-down, the
-  count additionally following `worth_showing` inside it, since a max of one is not a choice;
-  clearing the beacon returns the group to hidden.
-  **The chests are the exception the other way** (owner's call, 2026-08-18): all four are
-  hidden whatever the count, so the buffer goes even though wooden, iron and steel are a real
-  choice. The default — the largest inventory the force has researched — is the right answer
-  nearly every time, and a chest button apiece in a ten-button strip reads as that many decisions
-  the player has to make before pressing Place. Show-all brings them all back, quality included.
-  A hidden picker is still built, still holds the default the plan uses, and hides its row label
-  with it; only the widget is gone. `visible` is documented as *"taking no space in the layout"*,
-  which is what lets a hidden row reflow instead of leaving a hole.
-  **What hiding costs, and the way out.** A hidden picker takes its *quality* with it, so hiding
-  alone would put legendary recyclers and legendary logistic chests out of reach in a vanilla
-  game. That is why the **`upcycler-planner-show-all-build-options`** setting exists (owner's
-  call, 2026-08-17): with it on, every picker is shown whatever the count — the pipe included even
-  for a recipe with no fluid, since a player asking to see everything means everything. So the
-  count rule is the default rather than a ceiling: a hidden picker's quality is reached through
-  the setting, not through a permanently visible row.
-- **The two settings live in the modal, in a window-styled panel** (owner's call, 2026-08-17,
-  patterned on Factory Planner's Preferences dialog): a **Settings** button in the titlebar opens
-  a small panel holding *Show unresearched items* and *Show all build options*. It is called
-  Settings rather than Preferences throughout — panel, button and locale — because that is what
-  the two values are: the mod's own per-player settings, editable from the game's menu as well.
-  **The button is captioned rather than drawn** (owner's call, 2026-08-17). The base game ships no
-  gear, and its settings-sliders glyph (`preset`, for map-generation presets) reads as a preset
-  switcher; `frame_button` — `frame_action_button`'s own parent — gives a caption the same chrome
-  as the close X beside it, without the fixed 24x24 square. **The caption is white and darkens on
-  hover**, set on the element rather than in a style prototype: `frame_button` inherits `button`'s
-  font colours, which are black in both states and read inside out on a titlebar. That is the same
-  reversal `frame_action_button`'s picture inversion performs for a glyph — and an icon button here
-  would still need a *white* one, plus a sprite prototype of its own: `analysis/api.md` §18, kept
-  for the next one.
-  **They stay mod SETTINGS rather than moving into `storage`**, which is where Factory Planner
-  keeps its own: a mod may overwrite its own per-player settings and doing so raises
-  `on_runtime_mod_setting_changed` exactly as the settings menu does (both measured,
-  `analysis/api.md` §17). So the window is a second face on one value instead of a second value —
-  one repaint path serves both surfaces, and a setting follows the player into their next save,
-  which a storage-backed one would not. FP's reason for storage does not apply here: it has thirty
-  preferences of many widget types and no use for the settings menu.
-  **It is a sibling COLUMN inside the planner's own screen element, not a second window**
-  (owner's demand after two failed placements, 2026-08-20: "always side by side no matter
-  what"). The screen element is an **invisible container** — vanilla's `invisible_frame`, no
-  graphics, no padding — holding two window-styled frames: the planner, and the panel while it
-  is open, with a 12px left margin standing in for the gap two windows used to have. So the
-  pair still *looks* like two windows, titlebars level, map visible between them, while
-  "beside" is the engine's layout and there is nothing to place, measure, or follow. Both
-  titlebars drag the container (`drag_target` must name a `gui.screen` element). What killed
-  placement-by-arithmetic, in order: no API reads an element's rendered size, so a second
-  window's x had to come from the modal's auto-centred location (width = resolution − 2x) — an
-  inference any drag silently invalidates, with a moderate drag still *plausible-looking*
-  (owner's screenshots: the window opened across the screen); and the repair, gating
-  measurement on an `on_gui_location_changed` drag flag, died the same day because **2.1.14
-  raises that event for the engine's own auto_center layout too** (`analysis/api.md` §19), so
-  the flag was set before any drag and the width was never learned. A visible container was
-  also tried and rejected — one wide slab with dead background under the short panel (owner's
-  screenshot). Even Distribution lands on the same principle from the other side: its settings
-  panel is *anchored* to the inventory GUI, never positioned by coordinates. Opening the
-  planner also **sweeps a leftover `upl-settings` screen window** a pre-0.4.2 save can carry,
-  as does `gui.close_settings`. `gui_spec` pins the containment, the sweep, and the rebuild
-  keeping an open panel open.
+- **Everything the plan builds has its row; a row hides only while the loop as chosen does not
+  build it** (2026-11-27, the owner's pick, retiring the hide-by-count rule of 2026-08-17 and
+  the hidden-by-default beacons of 2026-08-22). Hidden, then: the belt, the relay chest and the
+  two request boxes with bots, and the overflow chest on a belt ring to the highest quality,
+  where nothing can roll above the target (`layout_rules`, structural, read off
+  `planner.uses_chest`; the overflow row added in the 2026-11-27 review, so the Chests tab
+  refills on a target change); the pipe until the recipe takes a fluid; the beacon module and
+  the beacons-per-tier count until a beacon is picked, the count also until a second one fits
+  (a max of one is no choice); and the mix where no productivity module fits the
+  machine-and-recipe pair (`planner.mix_possible`, research aside). The recycler, the
+  inserter, the beacon itself and every chest the loop builds always show. Why the old rules
+  went: with the options in tabs a short window no longer needed them, and hiding a
+  single-option picker hid its **quality** — the legendary recycler and the legendary logistic
+  chests were out of reach in a vanilla game without the *Show all build options* setting, which
+  existed only to undo the hiding and went with it. A hidden row is still built and still holds
+  the default the plan uses, and its label hides with it (`show_row`).
+- **The setting lives in the modal, in a window-styled panel** (owner's call, 2026-08-17,
+  patterned on Factory Planner's Preferences dialog): a **Settings** button in the titlebar
+  opens a small panel holding *Show unresearched items* — the one setting left since *Show all
+  build options* went on 2026-11-27. It is called Settings rather than Preferences throughout —
+  panel, button and locale — because that is what the value is: the mod's own per-player
+  settings, editable from the game's menu as well. **The button is captioned rather than drawn**
+  (owner's call, 2026-08-17). The base game ships no gear, and its settings-sliders glyph
+  (`preset`, for map-generation presets) reads as a preset switcher; `frame_button` —
+  `frame_action_button`'s own parent — gives a caption the same chrome as the close X beside it,
+  without the fixed 24x24 square. **The caption is white and darkens on hover**, set on the
+  element rather than in a style prototype: `frame_button` inherits `button`'s font colours,
+  which are black in both states and read inside out on a titlebar. That is the same reversal
+  `frame_action_button`'s picture inversion performs for a glyph — and an icon button here would
+  still need a *white* one, plus a sprite prototype of its own: `analysis/api.md` §18, kept for
+  the next one. **They stay mod SETTINGS rather than moving into `storage`**, which is where
+  Factory Planner keeps its own: a mod may overwrite its own per-player settings and doing so
+  raises `on_runtime_mod_setting_changed` exactly as the settings menu does (both measured,
+  `analysis/api.md` §17). So the window is a second face on one value instead of a second value
+  — one repaint path serves both surfaces, and a setting follows the player into their next
+  save, which a storage-backed one would not. FP's reason for storage does not apply here: it
+  has thirty preferences of many widget types and no use for the settings menu. **It is a
+  sibling COLUMN inside the planner's own screen element, not a second window** (owner's demand
+  after two failed placements, 2026-08-20: "always side by side no matter what"). The screen
+  element is an **invisible container** — vanilla's `invisible_frame`, no graphics, no padding —
+  holding two window-styled frames: the planner, and the panel while it is open, with a 12px
+  left margin standing in for the gap two windows used to have. So the pair still *looks* like
+  two windows, titlebars level, map visible between them, while "beside" is the engine's layout
+  and there is nothing to place, measure, or follow. Both titlebars drag the container
+  (`drag_target` must name a `gui.screen` element). What killed placement-by-arithmetic, in
+  order: no API reads an element's rendered size, so a second window's x had to come from the
+  modal's auto-centred location (width = resolution − 2x) — an inference any drag silently
+  invalidates, with a moderate drag still *plausible-looking* (owner's screenshots: the window
+  opened across the screen); and the repair, gating measurement on an `on_gui_location_changed`
+  drag flag, died the same day because **2.1.14 raises that event for the engine's own
+  auto_center layout too** (`analysis/api.md` §19), so the flag was set before any drag and the
+  width was never learned. A visible container was also tried and rejected — one wide slab with
+  dead background under the short panel (owner's screenshot). Even Distribution lands on the
+  same principle from the other side: its settings panel is *anchored* to the inventory GUI,
+  never positioned by coordinates. Opening the planner also **sweeps a leftover `upl-settings`
+  screen window** a pre-0.4.2 save can carry, as does `gui.close_settings`. `gui_spec` pins the
+  containment, the sweep, and the rebuild keeping an open panel open.
 - **A picker handler does nothing unless its value actually changed.** `on_gui_click` and
   `on_gui_elem_changed` share one dispatcher, so a click reaches the handler carrying the value
   already in the button — and the two handlers that rebuild the modal would otherwise destroy the
-  element while the engine was opening its chooser on it (`analysis/api.md` §20). One
-  consequence worth keeping: **a rebuild leaves the modal exactly where it was** rather than
-  re-centring, so it does not jump out from under the cursor when a setting is flipped.
+  element while the engine was opening its chooser on it (`analysis/api.md` §20). A click on
+  an empty module picker is a browse for the same reason, never a default filled in: the fill
+  would refill the tab and take the chooser down with the picker. One consequence worth
+  keeping: **a rebuild keeps the modal where it stands** — a moved window at its spot, a
+  centred one centred on the size it already had — so flipping a setting does not jump it out
+  from under the cursor.
   **The container keeps `player.opened` whether or not the panel is open** — the panel is a
   child, never a window of its own — and `control.lua` turns a close request on the container
   into "panel first": with the panel up, Esc, the engine's confirm, or another GUI taking over
@@ -449,56 +479,41 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   would close the planner out from under that chest. Remote view needs no branch at all, having
   destroyed the frame before the handler runs. Measurements, including the two that were read
   wrong first: `analysis/api.md` §28.
-- **The build options are six captioned concept groups** (owner's call, 2026-08-22,
-  superseding the 2026-08-17 six-column grid; Circuits joined 2026-08-26): Transport (belt,
-  inserter, pipe), Chests (the five roles), Modules (quality, final machine, and since
-  2026-08-28 the Mix checkbox with its Ratios... button — the productivity picker lives
-  inside that wizard), Beacons (beacon,
-  its module, the per-tier count drop-down), Power (pole), Circuits (the enable checkbox and
-  the Limits button) — each a `semibold_caption_label` over a horizontal flow of
-  icon pickers, with the buffer-chests, the two request and the trash-unrequested checkboxes
-  below them all. Twelve icon-only pickers in one flat grid
-  left hovering as the only way to tell them apart; small captions name the concepts while the
-  pickers stay icons — chosen from three offered shapes over per-picker labelled rows and over
-  two side-by-side group columns. No group holds more than four icons, so a plain flow needs
-  no wrap rule the way the old table did (an invisible child takes no space in either —
-  `analysis/api.md` §19). A group whose every picker is hidden — the chests by default, the
-  beacon group until show-all or a pick — hides caption and row together, the rule owned once
-  by the group rather than by each button.
-- **Every label-and-button row in Build options shares one label width** (owner's screenshot,
-  2026-08-30: "some buttons are misaligned which is annoying"). The mix line, the two
-  *Edit...* doors and the circuits line are four independent flows, so each button started
-  wherever its own caption happened to end and the four left edges staggered across ~90px.
-  One `ROW_LABEL_WIDTH` (200) on each row's first element — checkbox or label — puts them in
-  a column; the buttons need no width of their own, since all four captions are short enough
-  to sit at `button`'s own 108px minimum. **A fifth such row uses the same constant** — that
-  is the whole point of it being one. This is the side panels' own rule (`minimal_width = 110`
-  on every wizard row label, or the fields stagger with the tier names) applied one level up.
-  A caption that outgrows the width pushes its own button right rather than overlapping, so
-  the worst a long translation can do is bring back the ragged edge. **A `table` would have
-  computed the width instead of naming it**, and was rejected: the Circuits caption sits
-  between the rows and Factorio tables have no column span, so the four rows cannot be
-  contiguous cells without moving a group heading.
-- **The beacon count drop-down is centred, not top-aligned** (same session): the beacons group
-  is the only one mixing control heights, and a flow with no `vertical_align` hung the 28px
-  drop-down off the top edge of the 40px pickers beside it. An 8px left margin goes with it —
-  it is a different kind of control, not a third icon in the row. Keeping it in the strip
-  rather than giving it a labelled row of its own was the owner's pick from the two offered.
+- **Every row is a label beside its control** (2026-11-27, the owner's pick from previewed
+  shapes), the top block's own shape carried into the tabs (`add_row`). An icon shows which
+  chest or module the plan uses, never its JOB, so five chests and two module pickers in
+  captioned icon strips could only be told apart by hovering. It reverses the owner's two
+  earlier calls for icons — the flat grid of 2026-08-17 and the captioned concept groups of
+  2026-08-22. A tab row's label and control share one tooltip, so hovering either explains it;
+  the top block's pickers keep the engine's own item tooltip, their labels carrying the
+  explanation. The per-tier lists — columns, ratios, circuit limits — are rows of the same
+  shape, a tier's icon and name in the label column.
+- **Every row label shares one width** (`LABEL_WIDTH`, 160; the rule's first case was the
+  owner's screenshot of 2026-08-30, "some buttons are misaligned which is annoying"): the top
+  block's labels, every tab's, and the per-tier lists' name labels, so the controls stand in one
+  column down the whole window. A row that spends part of the column on something else first —
+  the circuit rows' Min/Max — shortens its name label by that much. A label that outgrows the
+  width pushes its own control right rather than overlapping. Each tab's rows are one `table`,
+  so the label column is measured once; captions and checkboxes stand between the tables. The
+  tab content's left padding is 4 px slimmer than its right — the pane's own frame insets the
+  content that much — so the tabs' column lines up under the top block's (measured off
+  screenshots, 2026-11-27), and `TAB_MIN_WIDTH` gives every tab one floor so a switch does not
+  jump the window's width.
 - **The player-facing vocabulary is fixed, and the code keys are not renamed to match it**
   (2026-08-26, owner's clarity pass over every string a player sees). One word per concept,
   used identically in the locale, the README and the FAQ:
 
   | Concept | Player word | Code key |
   |---|---|---|
-  | the strip of pickers | *build options* — never "selectors" or "pickers" | — |
+  | the tabs' controls | *build options* — never "selectors" or "pickers" | — |
   | `requester` role | **Ingredient chest** | `requester` |
   | `stock` role | **Stock chest** (was *Item chest*, and *Buffer chest* before that) | `stock` |
   | `container` role | **Relay chest** (was *Plain chest*) | `container` |
   | `provider` role | **Output chest** | `provider` |
   | `overflow` role | **Overflow chest** | `overflow` |
   | the machine at the target tier | **Final machine** — never "top" or "last" | `terminal_module` |
-  | the per-tier module mix | **ratio** — the *Ratios...* wizard, "best ratio" | `split_prod_<quality>` |
-  | the per-tier column counts | **columns** — the *Columns per tier* wizard, never "ratio" | `column_count_<quality>` |
+  | the per-tier module mix | **ratio** — "best ratio", the Modules tab's counts | `split_prod_<quality>` |
+  | the per-tier column counts | **columns** — *Columns per tier*, never "ratio" | `column_count_<quality>` |
 
   Three renames landed at once and all three were free, because 0.6.0 had not shipped: *Item
   chest* was spending the word "Item" that `Item to upcycle` already owned; *Plain chest* was
@@ -538,57 +553,90 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   poles. The alternative — counting a `pole` flag downstream — made three modules depend on an
   invariant none of them owned, and it cannot express a wire between two unlike entities at all,
   which is exactly what the deferred circuit garnish needs.
-- **Belt ring first**, specified in `analysis/layout-belt-ring.md`. Chosen over the smaller bot
-  loop because product circulation stays on its own belts, so it behaves identically in an
-  isolated pocket and in a base-wide logistic network — the right default for a mod strangers
-  install into arbitrary bases. The **bot loop is a deferred toggle, not a dead idea**: fully
-  specified in `analysis/layout-bot-loop.md`, with its two blockers in `deferred.md`.
+- **Two layout families, picked on a Layout row: the belt ring by default, the bot loop by
+  choice** (2026-11-27, the owner's ask — "implement the bot layout now"). The belt ring
+  (`analysis/layout-belt-ring.md`) stays the default because product circulation rides its own
+  belts, so it behaves identically in an isolated pocket and in a base-wide network — the right
+  default for a mod strangers install into arbitrary bases; nil in `choices.layout`, and every
+  save from before the row, reads as it. The bot loop (`analysis/layout-bot-loop.md`,
+  `scripts/layout_bot.lua`) moves everything by robot: a third of the entities, no belts. A
+  named choice in the modal's top block, the genre's shape (Mining Patch Planner's named
+  layouts), never a checkbox; `planner.layout_kind` is the one reader, `GEOMETRY` the one
+  dispatch to a builder module. **The belt builder's shared rules moved out of `layout.build`
+  into exported helpers** (module slots, column spacing, the beacon stack, the pipe run, the
+  circuit stack, the above-tier filter) so the two builders cannot drift on them, and **belt
+  plans are pinned byte-identical** by fingerprints captured before the move
+  (`tests/pure/belt_golden_spec.lua`, `tests/plan_golden_spec.lua` — a self-comparing
+  determinism spec proves nothing about a refactor). The owner's calls on the bot loop's scope
+  and shape, each picked from offered options:
+  - **Beacons, fluids and circuit limits are all supported**, the first two through the belt
+    ring's own utility columns; no roboport (bot coverage stays the player's, `deferred.md`).
+  - **Items a lower tier rolls early go to storage**: every lower tier's output chest and
+    every extract chest is the overflow pick, an active provider, so robots deliver each item
+    where it is requested and store the rest — finished items and anything above the target
+    included; a passive one would hold those forever and fill (`analysis/api.md` §37). The
+    final machine's output stays the player's passive output chest.
+  - **The two request opt-outs are forced on and hidden**: the return chest's request and the
+    final feed chest's are the loop's only transport (`planner.requests_forced`). So the bot
+    loop always draws on the network, at every tier — deferred.md's old first blocker, settled
+    as stated rather than fixed, since no layout trick avoids it without belts; the Layout
+    tooltip and the FAQ say so and suggest a network of its own. The stored ticks are never
+    written over: belts get them back.
+  - **The maximum always counts the whole logistic network** (`planner.circuit_network`): a
+    lower tier's finished items go to storage, out of the output chest's count. The box shows
+    ticked and greyed with bots.
+  Three calls the agent made, recorded so they are not re-derived: the spine relays through
+  the top-row inserters when a machine hop outruns the wire (no ring to relay along); one feed
+  chest a tier, since the feed inserters filter nothing — the two-stack feed and its
+  ten-ingredient ceiling are the belt ring's alone, and the inserter refusals say so with bots,
+  naming the missing filter slot rather than the recipe (`no-filter-inserter`,
+  `inserter-no-filter`, 2026-11-27 review); and the return inserter is unfiltered, the belt
+  ring's reserve inserter's own shape. The spine's relay is pinned live by
+  `tests/bot_loop_spec.lua` on 2.1.25: a foundry loop with beacons relays every hop, its built
+  green network matches the plan, and a wired relay inserter carries items with no gate and
+  no read on the wire.
 - **One machine per tier by default; each lower tier can repeat its whole column** (2026-08-28,
   closing deferred.md's "Scaling beyond one machine per tier" along its own recorded shape —
   repeat columns, never invent geometry; the owner's calls from offered options: lower tiers
-  only, a row with an Edit... button, and the cap. The owner revised the shape twice after
-  playing it: the row lives in **Build options** above the Circuits group rather than the top
-  block, and the balanced-counts hint the wizard first carried is **gone entirely** — its
-  one-click Apply went the day the feature landed, after a click on a big layout crashed the
-  game, and the hint line itself followed at the owner's ask on 2026-08-29, so the wizard is
-  rows and nothing else and shows nothing it does not store. The compact one-per-tier
-  "casino" stays the default and the
-  honest framing — a convenience build, sustained ratios taper about tenfold per tier — and a
-  player chasing throughput sets per-tier counts in the **Columns per tier** wizard, the fifth
-  side panel. **The target tier is pinned at one column**: the single output chest is what the
-  catcher, the overflow tap and the circuit cap all stand on, and the taper never asks for more
-  terminals (...: 2.9 : 1). Mechanics: `column_count_<quality>` only-on-edit keys — the
-  two-token prefix is the tier-keyed families' own shape (`circuit_min_`, `split_prod_`), so
-  the prune sweep can never claim a future `columns_*` flag — floor one;
-  `planner.MAX_COLUMNS_PER_TIER` = 64 is a **performance ceiling, not a ratio**: the first cap
-  (250, sized to clear the wiki's AM3 sustained ratio of 208) let a few maxed tiers ask the
-  engine for a plan it could not survive — the owner's big-layout crashes, 2026-08-28 — so it
-  came down to 32 that day, and doubled to 64 on 2026-08-29 once the pole solve went
-  near-linear and 64-column plans measured comfortably inside a refresh
-  (`analysis/poles.md`); the wizard's field tooltip names the cap and the reason, and the
-  AM3 sustained ratio stays deliberately out of reach. `planner.tier_columns` +
-  `planner.expand_columns` expand the
-  DISTINCT chain into the physical-column lists inside `planner.plan` alone (the same expander
-  runs once over the chain and once over the split's per-tier counts, holes surviving), so
-  **layout, circuits, poles, blueprint and quality_math are all untouched**: the solve keeps
-  the distinct chain (expanding it would corrupt the probability model), and `circuit_tier`
-  stays a unique per-column counter — the silent-overwrite hazard `circuits_spec` now pins.
-  The pace divides each tier's station
-  time by its count through `station_times`, the ONE owner of that formula, whose only
-  reader is now the pace itself. Escalations are DECLARED, not hand-checked per handler:
-  each `SIDE_PANELS` entry
-  names what invalidates it (`tiers` — the target moved the row list; `rates` — a pick moved
-  the solve or the station times) and one `gui.invalidate(player, reason)` decides rebuild
-  or repaint. The per-handler disjunctions the first draft carried were replaced the same
-  session, because that shape had already leaked once: the beacon pickers shipped a release
-  refresh-only while their transmitted effects moved the solve, leaving stale numbers a
-  click could write. The target dropdown invalidates `tiers`; the three module pickers, the
-  Mix checkbox and the beacon module and count handlers invalidate `rates` — which since the
-  balanced line went touches only the Ratios wizard: the columns wizard declares `tiers`
-  alone, showing nothing a solve prices. **Research finishing
-  mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild exists,
-  so an open Ratios wizard's displayed defaults stay priced pre-research until any rebuild —
-  chosen, not missed, the quality dropdown's own frozen-tags reasoning.
+  only, a row whose Edit... button opened a side panel, and the cap. Revised three times since:
+  the row went to the build options rather than the top block; the balanced-counts hint the
+  panel first carried is **gone entirely** — its one-click Apply went the day the feature
+  landed, after a click on a big layout crashed the game, and the hint line itself followed at
+  the owner's ask on 2026-08-29; and since 2026-11-27 the counts stand inline at the foot of the
+  Buildings tab, rows and nothing else, showing nothing they do not store. The compact
+  one-per-tier "casino" stays the default and the honest framing — a convenience build,
+  sustained ratios taper about tenfold per tier — and a player chasing throughput sets per-tier
+  counts under **Columns per tier**. **The target tier is pinned at one column**: the single
+  output chest is what the catcher, the overflow tap and the circuit cap all stand on, and the
+  taper never asks for more terminals (...: 2.9 : 1). Mechanics: `column_count_<quality>`
+  only-on-edit keys — the two-token prefix is the tier-keyed families' own shape
+  (`circuit_min_`, `split_prod_`), so the prune sweep can never claim a future `columns_*` flag
+  — floor one; `planner.MAX_COLUMNS_PER_TIER` = 64 is a **performance ceiling, not a ratio**:
+  the first cap (250, sized to clear the wiki's AM3 sustained ratio of 208) let a few maxed
+  tiers ask the engine for a plan it could not survive — the owner's big-layout crashes,
+  2026-08-28 — so it came down to 32 that day, and doubled to 64 on 2026-08-29 once the pole
+  solve went near-linear and 64-column plans measured comfortably inside a refresh
+  (`analysis/poles.md`); each field's tooltip names the cap and the reason, and the AM3
+  sustained ratio stays deliberately out of reach. `planner.tier_columns` +
+  `planner.expand_columns` expand the DISTINCT chain into the physical-column lists inside
+  `planner.plan` alone (the same expander runs once over the chain and once over the split's
+  per-tier counts, holes surviving), so **layout, circuits, poles, blueprint and quality_math
+  are all untouched**: the solve keeps the distinct chain (expanding it would corrupt the
+  probability model), and `circuit_tier` stays a unique per-column counter — the
+  silent-overwrite hazard `circuits_spec` now pins. The pace divides each tier's station time by
+  its count through `station_times`, the ONE owner of that formula, whose only reader is now the
+  pace itself. Escalations are DECLARED, not hand-checked per handler: each tab's `TAB_BUILDERS`
+  entry names what refills it (`tiers` — the target moved the row list; `rates` — a pick moved
+  the solve or the station times) and one `gui.invalidate(player, reason)` decides refill or
+  repaint. The per-handler disjunctions the first draft carried were replaced the same session,
+  because that shape had already leaked once: the beacon pickers shipped a release refresh-only
+  while their transmitted effects moved the solve, leaving stale numbers a click could write.
+  The target dropdown invalidates `tiers`; the three module pickers, the Mix checkbox and the
+  beacon module and count handlers invalidate `rates` — which refills only the Modules tab: the
+  Buildings tab declares `tiers` alone, its counts showing nothing a solve prices. **Research
+  finishing mid-modal is the one accepted staleness window**: no `on_research_finished` rebuild
+  exists, so a standing Modules tab's displayed defaults stay priced pre-research until any
+  refill — chosen, not missed, the quality dropdown's own frozen-tags reasoning.
 - **Modules are planned, not merely requested** — and each lower tier's machine carries the
   **computed best quality/productivity mix by default** (2026-08-28, the owner's four calls on
   the portal ask `6a9147f558087c568146a11d`, superseding the flat all-quality rule: computed
@@ -614,65 +662,57 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   the efficiency default costs the model nothing, and a hand-picked speed or quality beacon
   module makes the recommendation mildly conservative, never the build wrong. Engine facts:
   `analysis/api.md` §30; the maths and its oracles: `tests/pure/quality_math_spec.lua`.
-- **The mix is a checkbox on its own line under the module pickers, and everything else
-  about it lives in the Ratios... wizard** (2026-08-28, the owner's UI revision the same
-  day: "a checkbox checked by default to allow mixing, and the prod module and count in a
-  sub side menu"; the own-line placement the owner's follow-up — a caption and a button
-  crowd an icon row). The
-  Circuits row's exact shape otherwise: **Mix productivity modules** starts ticked
-  (`split_enabled`, nil-means-on — `planner.split_enabled`, the stock_buffered idiom,
-  normalised in apply_defaults so the widget binds a real boolean) and arms the Ratios...
-  button; unticking forces every lower machine back to quality-only (the solve prices no
-  productivity module — the same path a refusing recipe takes, the flag in the memo key),
-  **parks the per-tier overrides instead of clearing them** (the circuit numbers' rule, so a
-  re-tick restores the tuning), disarms the button and closes an open wizard. The
-  **productivity picker sits inside the wizard**, a labelled row above the counts it feeds —
-  the strip keeps only the choice of whether to mix — and stays visible beside the
-  no-productivity sentence so a refusing recipe shows an honestly empty picker, not a
-  missing one. **The whole line shows only where a mix is structurally possible** (the
-  owner's follow-up, same day): `planner.mix_possible` asks whether ANY productivity module
-  fits the machine-and-recipe pair, research aside — an unresearched module is a matter of
-  time, a refusing recipe a fact about the loop — so the row is hidden before an item is
-  picked and for refusing recipes, with show-all overriding, the pipe's fluid rule. A
-  leftover wizard from a recipe switch still rebuilds with the sentence; its door being
-  gone is the point.
-- **The wizard itself is the fourth side panel, and the picker behind it is belt-shaped**
-  (2026-08-28, same session). The Limits wizard's
-  mechanics with the ingredient panel's **only-on-edit** storage: `split_prod_<quality>` flat
-  keys, floor 0 (no productivity is a legitimate tier), clamped to the machine's slots via
-  the field's own tags, empty-plus-Enter deleting the override back to the live optimum.
-  Nothing is ever backfilled, because the optimum moves with research and with the machine
-  and module picks — a frozen copy would go stale under all of them, exactly the trap the
-  ingredient panel's rule exists for. **Every commit refreshes, keystrokes included** — the
-  one wizard whose number moves the status line, and a player typing through the rows never
-  presses Enter (clicking the next field fires no confirm; Enter-only repaint left the yield
-  sitting still while the plan had already changed — reported and fixed the day the feature
-  landed). Safe because refresh never touches a side panel; costs one memo-missed solve per
-  keystroke, ~0.1 s at the 254-tier ceiling. The productivity
-  picker carries **no clear-flag**: a per-tier 0 already says "no productivity", so an
-  emptied picker snaps back like the belt, and a pick the machine-and-recipe pair refuses
-  self-heals to the default on every path (GUI resolver and planner-side `chosen_*` alike) —
-  which is what keeps the promise that a productivity-refusing recipe forces all-quality
-  with **no refusal**, its picker honestly empty and the wizard saying so in words. The
-  **status line's yield figure** ("About N [item] in for one [target][item] out") is
-  1/per_item from the same solve — the wiki's own items-per-legendary framing, format_number
-  keeping a modded chain's millions glanceable.
+- **The mix is a checkbox under the Modules tab's rows, with its productivity module and
+  per-tier counts under it** (2026-08-28, the owner's UI revision: "a checkbox checked by
+  default to allow mixing, and the prod module and count in a sub side menu" — the side menu
+  folded into the tab on 2026-11-27). **Mix productivity modules** starts ticked
+  (`split_enabled`, nil-means-on — `planner.split_enabled`, the stock_buffered idiom, normalised
+  in apply_defaults so the widget binds a real boolean); unticking forces every lower machine
+  back to quality-only (the solve prices no productivity module — the same path a refusing
+  recipe takes, the flag in the memo key), **parks the per-tier overrides instead of clearing
+  them** (the circuit numbers' rule, so a re-tick restores the tuning) and takes the
+  productivity picker and the counts off the tab, since ratios for a mix that will not be built
+  are noise. The productivity picker stays beside the no-productivity sentence when nothing is
+  researched to mix in, so the pair shows an honestly empty picker, not a missing one. **The
+  whole mix shows only where it is structurally possible**: `planner.mix_possible` asks whether
+  ANY productivity module fits the machine-and-recipe pair, research aside — an unresearched
+  module is a matter of time, a refusing recipe a fact about the loop — so it is absent before
+  an item is picked and for refusing recipes.
+- **The ratio counts store only edits, and the picker above them is belt-shaped** (2026-08-28,
+  same session). The circuit limits' mechanics with the ingredient amounts' **only-on-edit**
+  storage: `split_prod_<quality>` flat keys, floor 0 (no productivity is a legitimate tier),
+  clamped to the machine's slots via the field's own tags, empty-plus-Enter deleting the
+  override back to the live optimum. Nothing is ever backfilled, because the optimum moves with
+  research and with the machine and module picks — a frozen copy would go stale under all of
+  them, exactly the trap the ingredient amounts' rule exists for. **Every commit refreshes,
+  keystrokes included** — the number moves the status line, and a player typing through the rows
+  never presses Enter (clicking the next field fires no confirm; Enter-only repaint left the
+  yield sitting still while the plan had already changed — reported and fixed the day the
+  feature landed). Safe because refresh never refills a tab; costs one memo-missed solve per
+  keystroke, ~0.1 s at the 254-tier ceiling. The productivity picker carries **no clear-flag**:
+  a per-tier 0 already says "no productivity", so an emptied picker snaps back like the belt,
+  and a pick the machine-and-recipe pair refuses self-heals to the default on every path (GUI
+  resolver and planner-side `chosen_*` alike) — which is what keeps the promise that a
+  productivity-refusing recipe forces all-quality with **no refusal**. The **status line's yield
+  figure** ("About N [item] in for one [target][item] out") is 1/per_item from the same solve —
+  the wiki's own items-per-legendary framing, format_number keeping a modded chain's millions
+  glanceable.
 - **The status area is one label per line, not one label** (repo owner's ask, 2026-08-28:
   "better distinction between layout shape stats, output stats and error/warning messages";
   structure, icons-on-both and the harmonized panels each picked from previewed options). A
-  vertical flow `gui.refresh` clears and rebuilds whole: stats first and always plain white
-  — the machine/recycler counts line (the footprint rides its TOOLTIP since the owner's
-  same-day follow-up: worth a hover, not a stats row), then the yield line — then a stretched `line` separator and
-  one orange line per warning, each prefixed `[img=utility/warning_icon]` (all three warning
-  sources can stack: validate's single message, unpowered, circuit-unlinked). A refusal is
-  one red `[img=utility/not_available]` line with no stats — no plan, no footprint to claim.
-  The old shape was one label whose whole caption turned orange over any warning, stats
-  included. **"Pick an item to upcycle." is a grey hint, not an error**: it is the state
-  every player opens on, matched by key (`upl-gui.pick-a-recipe`) so the stale-name case
-  lands in the same hint. The wizards' placeholder sentences (`pick-a-recipe`,
-  `split-no-productivity`) wear the same hint grey through a shared `hint()` helper. Both
-  icon paths are pinned by an engine-premise spec (`helpers.is_valid_sprite_path`), because
-  an unknown `[img=...]` renders as literal bracket text, silently. The rebuild keeps the
+  vertical flow `gui.refresh` clears and rebuilds whole: stats first and always plain white —
+  the machine/recycler counts line (the footprint rides its TOOLTIP since the owner's same-day
+  follow-up: worth a hover, not a stats row), then the yield line — then a stretched `line`
+  separator and one orange line per warning, each prefixed `[img=utility/warning_icon]` (all
+  three warning sources can stack: validate's single message, unpowered, circuit-unlinked). A
+  refusal is one red `[img=utility/not_available]` line with no stats — no plan, no footprint to
+  claim. The old shape was one label whose whole caption turned orange over any warning, stats
+  included. **"Pick an item to upcycle." is a grey hint, not an error**: it is the state every
+  player opens on, matched by key (`upl-gui.pick-a-recipe`) so the stale-name case lands in the
+  same hint. The per-tier lists' placeholder sentences (`pick-a-recipe`,
+  `split-no-productivity`) wear the same hint grey through a shared `hint()` helper. Both icon
+  paths are pinned by an engine-premise spec (`helpers.is_valid_sprite_path`), because an
+  unknown `[img=...]` renders as literal bracket text, silently. The rebuild keeps the
   no-op-click guard's observable: a status child label SURVIVING a click proves the second
   refresh was skipped.
 - **The pace line is steady-state and bottleneck-shaped** (repo owner's ask, 2026-08-28:
@@ -696,7 +736,7 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   carries that. `plan.seconds` is nil (and the line absent) when the solve reports no flow.
   Directions, not numbers, are pinned in plan_spec (legendary slower than rare; an
   efficiency beacon moves nothing; two speed beacons kill a normal-module loop honestly;
-  one against legendary quality modules shortens the pace and worsens the yield; a wizard
+  one against legendary quality modules shortens the pace and worsens the yield; a ratio
   override moves the pace); the unit words live in the locale, seconds with a
   plural_for_parameter and the larger units always arriving >= 2.0 by `duration_parts`'
   rounded thresholds. Engine premises: `analysis/api.md` §31.
@@ -795,8 +835,9 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   gained one token, because the final machine's chest changes NAME and a modded chest can be
   an electric consumer.
   **Rejected**: the combinator row pacak proposed for the stock chests (a switch on a running
-  loop, but a new row, a wizard box and a second meaning for the combinator, where the
-  plan-time box answers the report for players without circuits too); flipping either
+  loop, but a new row, a box among the circuit limits and a second meaning for the
+  combinator, where the plan-time box answers the report for players without circuits too);
+  flipping either
   default; "only the first tier requests ingredients" (wider than the report, and the middle
   tiers' top-ups are what a base's spare uncommon and rare stock is for); and a sixth chest
   picker for the final machine.
@@ -819,8 +860,9 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   inserter, feed chest and feed inserter stand there at no width, each taking a balanced half
   of the ingredients (six is 3 and 3, seven is 4 and 3) and requesting only its own. Never a
   third: the product sub-column carries the rising product, so `layout.MAX_FEED_STACKS = 2`
-  caps a loop at ten ingredients with vanilla inserters — **a hard ten everywhere** rather than
-  more on wider machines (the owner's call: one rule, one number), which covers every vanilla
+  caps a belt loop at ten ingredients with vanilla inserters — **a hard ten on every machine**
+  rather than more on wider ones (the owner's call: one rule, one number; the bot loop filters
+  no ingredient and has no cap), which covers every vanilla
   recipe (one at six) and Krastorio 2 (eleven at six or seven, none higher; counted
   2026-09-09). The per-inserter requirement is the larger half, `planner.min_filter_slots`,
   the one owner of that arithmetic; the default pick tries an inserter that filters the whole
@@ -867,8 +909,8 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   only pole sits on an unwired island, a lie that surfaces in game as a mystery.
 - **Beacons are planned in, opt-in, a vertical stack per tier in the utility column** (the
   repo owner's calls, 2026-08-22: per-tier column placement, off by default, efficiency-module
-  default; same day, the player-chosen count). When the player picks a beacon in Build
-  options, every tier's column floors at the beacon's width and stands a stack of
+  default; same day, the player-chosen count). When the player picks a beacon in the Modules
+  tab, every tier's column floors at the beacon's width and stands a stack of
   `choices.beacon_count` beacons — default one — centred as one rigid block on that tier's
   machine+recycler band, the machine alone on the terminal tier, where the supply squares span
   both (the measured edge rule, `analysis/api.md` §25; geometry in
@@ -879,6 +921,10 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   dropdown's shape, values riding in its tags), stored as a plain number, snapping down in
   `apply_defaults` when a re-pick shrinks the max — which is why the recycler handler now
   rebuilds via `gui.open` like the machine's: its rotated height is one of the max's inputs.
+  The snap is to what fits **either layout** (2026-11-27 review): the bot loop's column stacks
+  one fewer vanilla beacon than the ring's, and a stored count snapped to it cost the belt plan
+  a beacon after a trip to Bots and back. The dropdown and `chosen_beacon_count` clamp to the
+  layout at hand.
   **Off by default with no clear-flag**: unlike the pole there is no researched-best fallback,
   so nil already means exactly one thing and `chosen_beacon` needs no `no_beacon` boolean — a
   beacon costs a column of width per tier and its insertable modules trade against the quality
@@ -1053,14 +1099,17 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   strictly after the pole pass (circuits change no geometry, so there is nothing to solve
   together); layout.lua only records structural tags (`circuit_role`/`circuit_tier`, the
   `utility_columns` precedent) and knows nothing about conditions.
-  **The wizard is the settings panel's sibling in every mechanic** — a second window-styled
-  column in the invisible container, mutual exclusion between the two panels, "panel first" on
-  close, recreated across rebuilds — holding one numeric textfield per tier, and a *Hand
-  size* field under them (its own bullet below) (the mod's first
-  textfields: valid keystrokes commit at once so the Confirm key can never outrun an edit,
-  Enter snaps the display back to what holds, and `gui.confirm_key` refuses while the wizard
-  is open, which also covers E landing in a focused field — the Place button, an unambiguous
-  click, places instead since 2026-08-26, on the thresholds already committed). **Each row says which rule it sets**
+  **The limits stand inline in the Circuits tab** (2026-11-27, the owner's pick with the tabs;
+  a side panel behind a *Limits...* button until then): under the enable checkbox, one numeric
+  textfield per tier, a *Hand size* field under them (its own bullet below), then *Count the
+  whole logistic network* and *Start paused* — always built, greyed by `gui.refresh` while the
+  checkbox is off, and rebuilt in place when the target moves the tier list
+  (the tab refilled in place, so the target drop-down survives its own change). The mod's first
+  textfields: valid keystrokes commit at once, so E reaching Place mid-edit places the last
+  valid number in each field — why the inline fields need none of the old wizard's Confirm-key
+  refusal; whether E reaches Place from a focused field at all is not measured —
+  and Enter snaps the display back to what holds. Esc closes the planner in one step with no
+  settings panel up. **Each row says which rule it sets**
   — a Min or Max label ahead of the quality (the owner's ask: the UI must be clear that the
   two numbers mean opposite things), with the tooltips spelling both out. The numbers live in
   storage as flat values under TWO families — `circuit_min_<quality>` for the reserves,
@@ -1072,7 +1121,7 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   cap — machines and recyclers ungated and unwired, no lamps, no panel — so a cap committed
   empty before any item was picked disables nothing silently, and the Max tooltip says "0
   means no limit". A cap backfilled from one product's stack is remembered across an item
-  change like every other choice — the number was defaulted, not chosen, and the wizard
+  change like every other choice — the number was defaulted, not chosen, and the Circuits tab
   shows it for re-picking. `planner.circuit_limits` is the one owner of that normalisation,
   read by plan(), validate() and gui.refresh alike, because the combinator made "is there a
   cap" a geometry question the layout has to be told before the pole ladder runs — it is
@@ -1080,8 +1129,8 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   threshold still re-solves nothing).
 - **Start paused: the combinator ships switched off** (2026-09-07, the owner's call on the
   same request — a half-built loop burns quality ingredients until bots bring the modules,
-  and a paused loop waits). A checkbox at the foot of the Limits wizard, under the Min/Max
-  rows — the owner's placement, moved off the Circuits row the same day: it is one of the
+  and a paused loop waits). A checkbox at the foot of the limits, under the Min/Max rows in
+  the Circuits tab — the owner's placement, moved off the Circuits row the same day: it is one of the
   limits, not a build option — `choices.circuit_paused`, off by default so nothing changes
   for anyone who never ticks it; greyed unless a cap is set,
   because the switch only pauses anything through the cap — an uncapped reserve reads
@@ -1127,9 +1176,10 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
 - **Count the whole logistic network: the cap read off the logistic network, opt-in per plan**
   (2026-09-12, the owner's calls on yopoke's portal request `6aa368194915925bf804753f` —
   *"an option to switch to logistic network limit instead of circuit limit"*; four options
-  were put and every recommendation taken). A checkbox at the foot of the Limits wizard,
-  above Start paused — one of the limits, like it — `choices.circuit_network`, off by default
-  and greyed without a cap, since the cap is all it changes. Ticked, every machine and
+  were put and every recommendation taken). A checkbox at the foot of the limits, above Start
+  paused — one of the limits, like it — `choices.circuit_network`, off by default and greyed
+  without a cap, since the cap is all it changes; always on with bots, read through
+  `planner.circuit_network` and shown ticked and greyed. Ticked, every machine and
   recycler carries the engine's own logistic condition `product@target < max`
   (`connect_to_logistic_network`), which the entity evaluates against the network it stands
   in: the loop stops once the player's whole network — providers, storage, buffer chests, the
@@ -1195,7 +1245,7 @@ release. Every later upload or portal edit still needs the repo owner's per-rele
   same sum against N chests. `hand` is the chosen inserter's researched hand at planning time
   (`planner.inserter_hand`: 1 + the prototype's own bonus + the force's bulk or plain
   research bonus, quality-blind — 12 for a bulk inserter and 4 for the rest at full
-  research), or the wizard's **Hand size** field when the player typed one (`circuit_hand`,
+  research), or the **Hand size** field when the player typed one (`circuit_hand`,
   only-on-edit through the ratio and column counts' own `override_count` handler, so an
   untouched field follows the pick and the research and every real change refreshes;
   floor 1, cap 255 for the uint8; greyed until some minimum is set; shown through
@@ -1340,10 +1390,6 @@ Written down so they are not re-litigated. A rejected idea that is not recorded 
   ring, so the recycler band is empty beside the recycler. The lesson generalises — check a
   constraint against the code, not against the document that described the design before it was
   built.
-- **Labelled rows in the Build options strip.** The repo owner's explicit call for icons,
-  twice: the flat icon grid on 2026-08-17, and captioned concept groups over per-picker
-  labelled rows on 2026-08-22. Still the standing fallback if a chosen prototype's own tooltip
-  turns out to override the custom one — ask before switching.
 - **Degrading rather than excluding quality-refusing recipes.** Leaving the non-terminal
   machines' slots empty and letting the recyclers carry the climb alone would keep those items
   in the picker at roughly half the roll rate. Excluding them is simpler and honest — a loop the

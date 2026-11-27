@@ -61,6 +61,37 @@ function stamp.place(plan, surface, force, overrides)
   return ghosts, got_x - want_x, got_y - want_y
 end
 
+-- How many ghosts one wire network holds: walk get_wire_connector(...).connections outward
+-- from a start ghost. Returns the count and the visited set, keyed by unit_number. One copy
+-- for every spec that reads a stamped network back -- the walk was carried twice once, in
+-- different bookkeeping.
+function stamp.reachable(start, connector_id)
+  local visited, stack, count = { [start.unit_number] = true }, { start }, 0
+  while #stack > 0 do
+    local ghost = stack[#stack]
+    stack[#stack] = nil
+    count = count + 1
+    local connector = ghost.get_wire_connector(connector_id, false)
+    for _, connection in pairs(connector and connector.connections or {}) do
+      local other = connection.target.owner
+      if not visited[other.unit_number] then
+        visited[other.unit_number] = true
+        stack[#stack + 1] = other
+      end
+    end
+  end
+  return count, visited
+end
+
+-- Clears the surface between tests, the one copy every spec calls. The character is spared
+-- on request: blueprint_spec stamps through the player's cursor and needs one, while a spec
+-- building at spawn must not have one in the way of a revive.
+function stamp.wipe(surface, spare_character)
+  for _, entity in pairs(surface.find_entities_filtered({})) do
+    if not (spare_character and entity.type == "character") then entity.destroy() end
+  end
+end
+
 -- Revives everything a stamp put down, which is how a spec gets from ghosts to entities that
 -- actually run. Ghosts are re-found rather than taken from the stamp's return value, so a spec
 -- that stamped more than once still revives the lot.

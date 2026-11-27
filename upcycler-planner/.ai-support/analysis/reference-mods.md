@@ -82,8 +82,8 @@ machinery exists for a problem we do not have.
   on which tag key is present (`gui/gui.lua:1437-1694`), and appearance is always repainted from
   the persisted choice strings, never trusted (`:1379-1394`).
 - **Layout declares its capabilities**: a `layout.restrictions` table gates which GUI sections
-  even get built (`layouts/base.lua:20-45`). Worth remembering when the second layout family
-  (bot loop) arrives.
+  even get built (`layouts/base.lua:20-45`). The bot loop (2026-11-27) took the same shape as
+  a function: `layout_rules` in `scripts/gui.lua` says which controls a layout shows.
 
 ## Mining Patch Planner — avoid (and why it exists there)
 

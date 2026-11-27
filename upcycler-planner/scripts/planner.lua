@@ -9,6 +9,7 @@
 local planner = {}
 
 local layout = require("scripts.layout")
+local layout_bot = require("scripts.layout_bot")
 local poles = require("scripts.poles")
 local circuits = require("scripts.circuits")
 local quality_math = require("scripts.quality_math")
@@ -478,6 +479,42 @@ function planner.terminal_requests(choices)
   return choices.terminal_requests ~= false
 end
 
+-- Which layout family a plan is built in: the bot loop only when the player picked it, the
+-- belt ring otherwise -- nil, and anything else a hand-edited save holds, reads as belts, the
+-- safer default for a loop dropped into a stranger's base (decisions.md).
+function planner.layout_kind(choices)
+  return choices.layout == "bot" and "bot" or "belt"
+end
+
+-- Each family's own geometry: build, and the beacon-height gate its row plan implies.
+local GEOMETRY = { belt = layout, bot = layout_bot }
+
+-- The bot loop moves everything through the network, so the two requests the belt ring lets
+-- a player switch off are its only transport there: the return chest's request is how a
+-- tier's item reaches its recycler, the final feed chest's how anything reaches the last
+-- machine. Forced on for bots -- read here, never written back over the player's own ticks,
+-- which the modal stores and the belt layout still honours.
+function planner.requests_forced(choices)
+  return planner.layout_kind(choices) == "bot"
+end
+
+-- Whether the cap counts the whole logistic network: the player's tick, or always with bots,
+-- which carry a lower tier's lucky finished items to storage -- a count of the output chest
+-- alone would never see them.
+function planner.circuit_network(choices)
+  return planner.layout_kind(choices) == "bot" or choices.circuit_network == true
+end
+
+-- Which chest roles a plan stands, the one owner plan's gate, validate's refusals and its
+-- build-quality warning all read, so the three cannot drift apart. The belt ring stands the
+-- relay chest always and the overflow chest only for its tap; the bot loop stands no relay
+-- chest, and its lower tiers' output and extract chests ARE the overflow pick.
+function planner.uses_chest(choices, role)
+  if planner.layout_kind(choices) == "bot" then return role ~= "container" end
+  if role == "overflow" then return planner.needs_overflow_tap(choices.quality) end
+  return true
+end
+
 -- Placeability is load-bearing here, not defensive: base ships 1x1 CONTAINERS for the crash
 -- site and the tips-and-tricks simulations (red-chest, blue-chest, crash-site-chest-1/2) that no
 -- item can place, so a footprint test alone puts scenery in the picker (analysis/api.md S15).
@@ -533,8 +570,8 @@ function planner.inserters()
   return names_of("inserter_names", electric_inserter_candidates())
 end
 
--- Pipes as names, for the picker's own reason rather than the chests': the list's LENGTH decides
--- whether a pipe picker is worth showing at all, and a type filter cannot be counted.
+-- Pipes as names, so the picker can be narrowed to what is researched the way every other
+-- picker is -- a type filter cannot be.
 function planner.pipes()
   return names_of("pipe_names", pipe_candidates())
 end
@@ -582,9 +619,11 @@ end
 -- recipe that may be nil and answers for "nothing picked yet" (needs_pipe below is the same
 -- shape for the pipe picker). Written out rather than `and ... or 1`: a recipe with no item
 -- ingredients counts 0, and 0 or 1 is 0. What ONE inserter must carry is min_filter_slots of
--- this.
-function planner.filters_needed(recipe)
+-- this. The bot loop filters nothing but its extract inserter's one nameless filter, so with
+-- bots a single slot serves any recipe -- `choices` is optional, absent meaning belts.
+function planner.filters_needed(recipe, choices)
   if not recipe then return 1 end
+  if choices and planner.layout_kind(choices) == "bot" then return 1 end
   return #planner.item_ingredients(recipe)
 end
 
@@ -862,8 +901,8 @@ end
 -- dropdown offers exactly what fits and nothing that could fail. Resolves the same rotated
 -- heights plan() and validate() use -- a fluid recipe stands the machine sideways, the
 -- recycler stands at its eject rotation -- and answers 0 for "nothing to offer yet" when a
--- piece is missing or unworkable.
-function planner.max_beacon_count(choices, beacon)
+-- piece is missing or unworkable. `kind` asks for a layout other than the chosen one.
+function planner.max_beacon_count(choices, beacon, kind)
   local recipe = choices.recipe and prototypes.recipe[choices.recipe]
   local machine = choices.machine and prototypes.entity[choices.machine]
   local recycler = choices.recycler and prototypes.entity[choices.recycler]
@@ -878,7 +917,8 @@ function planner.max_beacon_count(choices, beacon)
     if not fluid_orientation then return 0 end
     machine_height = fluid_orientation.height
   end
-  return layout.max_beacon_count(machine_height, orientation.height, beacon.tile_height)
+  return GEOMETRY[kind or planner.layout_kind(choices)].max_beacon_count(machine_height,
+    orientation.height, beacon.tile_height)
 end
 
 -- Narrowest recycler the force can build that has a working rotation: the narrower it is, the
@@ -1198,7 +1238,7 @@ end
 -- Throughput
 
 -- How many minutes of crafting every feed chest keeps of each ingredient, the one number the
--- Ingredient amounts panel sizes every row from: the player's own when they typed one
+-- Chests tab's ingredient amounts size every row from: the player's own when they typed one
 -- (feed_minutes -- only an edit is stored, so nil means the default), else two, the
 -- owner's call of 2026-09-09 (it opened at one minute, capped at a stack). Type-guarded like
 -- circuit_hand: a hand-edited save can hold anything. NOT a request_<...> key on purpose:
@@ -1217,7 +1257,7 @@ function planner.feed_minutes(choices)
 end
 
 -- Blueprint request counts are int32; the engine clamps past it, this just keeps the
--- number the panel shows the number the chest gets.
+-- number the field shows the number the chest gets.
 local INT32_MAX = 2147483647
 
 -- How many of an ingredient to keep in the feed chest: `minutes` of crafting at the recipe's
@@ -1231,8 +1271,8 @@ function planner.request_count(ingredient, recipe, minutes)
   return math.max(1, math.min(wanted, INT32_MAX))
 end
 
--- The player's own amount for one ingredient, or the formula. The Ingredient amounts panel
--- stores an edit as a flat number under request_<item>, and an untouched ingredient has no
+-- The player's own amount for one ingredient, or the formula. The Chests tab stores an
+-- edit as a flat number under request_<item>, and an untouched ingredient has no
 -- key at all -- so the formula stays live and a recipe retune, or a new minutes figure,
 -- moves the default instead of freezing a number the player never chose. Anything invalid --
 -- a zero, a stray non-number from an old save -- falls back the same way.
@@ -1433,15 +1473,15 @@ local function resources(force, recipe, machine, choices)
   -- and validate only ever CHECKS these two when the recipe actually takes a fluid.
   local pipe = chosen_pipe(choices) or planner.pipe(force)
 
-  local ingredient_count = #planner.item_ingredients(recipe)
-  local inserter, inserter_shortfall = chosen_inserter(force, choices, ingredient_count)
+  local filter_count = planner.filters_needed(recipe, choices)
+  local inserter, inserter_shortfall = chosen_inserter(force, choices, filter_count)
   -- How many feed stacks each machine gets: one while the inserter filters the whole list,
   -- two once it cannot -- never more, since chosen_inserter refuses anything that would need
   -- a third. Decided here, on the inserter actually chosen, so the layout and the pole memo
-  -- key read one answer.
+  -- key read one answer. Always one with bots, whose feed inserters filter nothing.
   local slots = inserter and planner.inserter_filter_count(inserter) or 0
   local feed_stacks = math.min(layout.MAX_FEED_STACKS,
-    (slots > 0 and ingredient_count > slots) and math.ceil(ingredient_count / slots) or 1)
+    (slots > 0 and filter_count > slots) and math.ceil(filter_count / slots) or 1)
 
   local function chest(role)
     return planner.with_quality(chosen_chest(force, choices, role), choices[role .. "_quality"])
@@ -1549,8 +1589,8 @@ local function beacon_transmitted_effects(force, choices)
   local beacon = beacon_name and prototypes.entity[beacon_name]
   if not beacon then return none end
   -- A beacon no count of which fits (too tall for the interior) transmits nothing: validate
-  -- refuses that plan, and pricing one beacon anyway would hand the ratio wizard optima for
-  -- a configuration that cannot be built.
+  -- refuses that plan, and pricing one beacon anyway would hand the ratio rows optima for a
+  -- configuration that cannot be built.
   local max = planner.max_beacon_count(choices, beacon)
   if max < 1 then return none end
   local count = chosen_beacon_count(choices, max)
@@ -1621,13 +1661,13 @@ end
 
 -- One solve is O(tiers x slots) get_roll_chances calls and gui.refresh runs on every pick,
 -- so the last answer is kept -- one slot PER FLAVOUR (defaults and overrides-folded), keyed
--- by the VALUE of every input, never by a reference. Two slots because a rebuild with the
--- wizard open runs both flavours back to back, and with overrides stored their keys differ:
+-- by the VALUE of every input, never by a reference. Two slots because a fill of the ratio
+-- rows runs both flavours back to back, and with overrides stored their keys differ:
 -- one slot would thrash on exactly the path that repeats most. Research needs no event to
 -- invalidate this: a technology changes the resolved module identities or the recipe's
 -- productivity_bonus, and both are in the key. Unlike the prototype memos above this key
 -- carries force state, which is exactly why it cannot live in memo.* with a permanent key.
--- The cached table is handed out by reference -- plan() and the wizard alias it -- so
+-- The cached table is handed out by reference -- plan() and the ratio rows alias it -- so
 -- callers treat it as read-only, or a mutation poisons every later hit.
 local split_keys, split_values = {}, {}
 
@@ -1637,7 +1677,7 @@ end
 
 -- The optimal split and the loop's expected yield for these choices. `gathered` is
 -- resources()' table when the caller already paid for it; `ignore_overrides` computes the
--- untouched optimum, which is what the wizard's fields open showing. Returns nil until the
+-- untouched optimum, which is what the ratio fields open showing. Returns nil until the
 -- choices name a loop; otherwise { prods = {tier_index -> productivity count}, yield =
 -- { per_set, per_item, and -- when the loop has any output -- machine_sets/recycled, the
 -- expected crafts per target item the pace estimate reads }, slots = machine module slots,
@@ -1734,7 +1774,7 @@ function planner.split(force, choices, gathered, ignore_overrides)
   split_values[flavour] = {
     prods = prods, yield = yield, slots = slots, transmitted = transmitted,
     -- Whether a mix is possible at all: nil means the pair refuses productivity (or the
-    -- checkbox is unticked) and the split is forced all-quality -- the wizard says which.
+    -- checkbox is unticked) and the split is forced all-quality -- the Modules tab says so.
     mixable = productivity_module ~= nil,
   }
   return split_values[flavour]
@@ -1742,14 +1782,15 @@ end
 
 -- Columns per tier
 
--- The ceiling every column_count_<quality> value honours, wizard field and stored key alike.
+-- The ceiling every column_count_<quality> value honours, Buildings tab field and stored key
+-- alike.
 -- A PERFORMANCE cap, not a ratio: the first cap (250, sized to clear the wiki's 208.5
 -- sustained lower-tier crafters per terminal) let a few maxed tiers ask the engine for a
 -- plan it could not survive -- the owner hit crashes on big layouts the day the feature
 -- landed, so the ceiling came down to 32 (owner's call, 2026-08-28), then doubled to 64
 -- once the pole solve went near-linear and 64-column plans measured comfortably inside a
 -- refresh (owner's call, 2026-08-29; the measurements are in .ai-support/analysis/poles.md).
--- The wizard field's tooltip names the cap and the reason to the player.
+-- The field's tooltip names the cap to the player.
 planner.MAX_COLUMNS_PER_TIER = 64
 
 -- One rule for "a whole number of columns": floored, at least one, at most the ceiling.
@@ -1989,17 +2030,19 @@ end
 -- Fewest unpowered consumers wins, and the narrower plan takes any tie -- compact is tried
 -- first, so it holds one. Attempt 2 IS the plan the mod used to emit unconditionally, and it
 -- is always in the running, which is what makes the outcome impossible to be worse than it.
-local function plan_with_poles(layout_params, tier_count, pole_gap, pole, memo_key)
+-- `builder` is the layout family's module (layout or layout_bot): the ladder is the same for
+-- both, since each honours column_gaps and reports its utility columns the same way.
+local function plan_with_poles(builder, layout_params, tier_count, pole_gap, pole, memo_key)
   if pole_memo.key == memo_key then
     layout_params.column_gaps = pole_memo.gaps
-    local plan = layout.build(layout_params)
+    local plan = builder.build(layout_params)
     append_poles(plan, pole_memo.placed, pole_memo.unpowered)
     return plan
   end
 
   local function attempt(gaps)
     layout_params.column_gaps = gaps
-    local built = layout.build(layout_params)
+    local built = builder.build(layout_params)
     -- Margins are re-derived per attempt rather than carried over: a name missing from the map
     -- reads as "draws no power" and would quietly claim coverage, which is the one lie the
     -- pole pass exists to prevent. Ten prototype lookups is the honest price.
@@ -2075,7 +2118,7 @@ local function plan_with_poles(layout_params, tier_count, pole_gap, pole, memo_k
 end
 
 -- One owner for the cap's default -- one stack of the product, the stock chest's own sizing
--- rule -- shared by the wizard's backfill and plan()'s fallback, so the number the player is
+-- rule -- shared by the GUI's backfill and plan()'s fallback, so the number the player is
 -- shown and the number the plan uses cannot drift. Nil until a recipe names a product.
 function planner.default_circuit_max(recipe)
   local product = recipe and planner.product_of(recipe)
@@ -2091,8 +2134,8 @@ end
 -- prototype and the force so no entity has to stand.
 function planner.inserter_hand(force, name)
   -- No inserter at all -- a recipe no researched inserter can filter leaves the pick empty
-  -- while validate refuses the plan -- reads as the engine's floor of one, so the wizard can
-  -- still stand and show something rather than index nil.
+  -- while validate refuses the plan -- reads as the engine's floor of one, so the Hand size
+  -- field can still stand and show something rather than index nil.
   local entity = name and prototypes.entity[name]
   if not entity then return 1 end
   local hand = 1 + (entity.inserter_stack_size_bonus or 0)
@@ -2106,8 +2149,8 @@ end
 -- The blueprint's override_stack_size is a uint8, so the hand a plan can pin tops out here.
 planner.MAX_HAND = 255
 
--- The hand every reserve inserter is pinned to and every minimum is raised by: the wizard's
--- own number when the player typed one (circuit_hand -- only an edit is stored, the
+-- The hand every reserve inserter is pinned to and every minimum is raised by: the Hand
+-- size field's number when the player typed one (circuit_hand -- only an edit is stored, the
 -- ingredient amounts' rule, so an untouched field keeps following the pick and the
 -- research), else the chosen inserter's researched hand. Type-guarded like the thresholds:
 -- a hand-edited save can hold anything.
@@ -2133,7 +2176,7 @@ end
 -- reach of a plan that never wires one.
 -- The circuit stack's prototypes: fixed vanilla ones, no picker and no research gate (the
 -- owner's call, 2026-09-07 -- both techs are trivial and early), so plain names here rather
--- than a resources() field, handed to layout.build which names no prototype of its own.
+-- than a resources() field, handed to the builders, which name no prototype of their own.
 local CIRCUIT_COMBINATOR = "constant-combinator"
 local CIRCUIT_LAMP = "small-lamp"
 local CIRCUIT_PANEL = "display-panel"
@@ -2158,14 +2201,17 @@ function planner.circuit_limits(choices, recipe, tiers)
   return minimums, maximum
 end
 
-local function circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit)
+local function circuit_reach(kind, machine, machine_quality, recycler, recycler_quality, r, circuit)
   local reach = math.min(
     machine.get_max_circuit_wire_distance(machine_quality),
     recycler.get_max_circuit_wire_distance(recycler_quality),
     prototypes.entity[r.stock.name].get_max_circuit_wire_distance(r.stock.quality),
     prototypes.entity[r.provider.name].get_max_circuit_wire_distance(r.provider.quality),
-    prototypes.entity[r.belt].get_max_circuit_wire_distance(),
     prototypes.entity[CIRCUIT_COMBINATOR].get_max_circuit_wire_distance())
+  -- The belt carries the relay only where there is a ring to relay along.
+  if kind == "belt" then
+    reach = math.min(reach, prototypes.entity[r.belt].get_max_circuit_wire_distance())
+  end
   if next(circuit.minimums) ~= nil then
     reach = math.min(reach,
       prototypes.entity[r.inserter.name].get_max_circuit_wire_distance(r.inserter.quality))
@@ -2193,12 +2239,21 @@ function planner.plan(force, choices, gathered)
   local ingredients, fluids = planner.item_ingredients(recipe)
   if #fluids > 1 then return nil end
 
+  -- Which family builds it, decided once: everything below that differs between the belt
+  -- ring and the bot loop reads `kind`, and the geometry is `builder`'s.
+  local kind = planner.layout_kind(choices)
+  local builder = GEOMETRY[kind]
+
   -- The building materials, gathered ahead of the fluid rotation because that rotation
-  -- depends on which pipe the run is built from.
+  -- depends on which pipe the run is built from. Which chests must exist is uses_chest's
+  -- answer, the same one validate refuses by.
   local r = gathered or resources(force, recipe, machine, choices)
-  if not (r.inserter and r.belt and r.container and r.requester and r.stock and r.provider
-    and r.quality_module) then
+  if not (r.inserter and r.requester and r.stock and r.provider and r.quality_module) then
     return nil
+  end
+  if kind == "belt" and not r.belt then return nil end
+  for _, role in pairs(planner.CHEST_ROLES) do
+    if planner.uses_chest(choices, role) and not r[role] then return nil end
   end
   if #fluids == 1 and not (r.pipe and r.pipe_to_ground) then return nil end
 
@@ -2245,8 +2300,9 @@ function planner.plan(force, choices, gathered)
   -- quality and no item at all, measured in analysis/api.md S24. That is why this is a flag here
   -- rather than the list of tiers it replaced -- that list cost one filter slot per tier and was
   -- clamped to the inserter's five, so a long modded quality chain silently lost its top tiers.
-  local overflow_tap = planner.needs_overflow_tap(choices.quality)
-  if overflow_tap and not r.overflow then return nil end
+  -- Its chest is required by the uses_chest gate above. The bot loop needs no tap: its lower
+  -- tiers hand everything to active providers already.
+  local overflow_tap = kind == "belt" and planner.needs_overflow_tap(choices.quality)
 
   -- The machine's footprint is rotated when a fluid input has to face the pipe run --
   -- vanilla crafters are square, so this only moves a modded rectangle -- and its direction
@@ -2261,7 +2317,7 @@ function planner.plan(force, choices, gathered)
   -- What a utility column costs where one opens: the pole's own width, plus one for the pipe
   -- run when the recipe takes a fluid. WHICH tiers open one is not decided here --
   -- plan_with_poles measures that against real coverage -- and a poleless plan opens none at
-  -- all, leaving layout.build's own floor clamp as the only thing that can widen a column.
+  -- all, leaving layout.column_plan's floor clamp as the only thing that can widen a column.
   local pole_name, pole_quality = chosen_pole(force, choices)
   local pole = pole_name and prototypes.entity[pole_name]
   local beacon_name, beacon_quality = chosen_beacon(choices)
@@ -2270,10 +2326,10 @@ function planner.plan(force, choices, gathered)
   -- validate() computes the same clamp from its own locals; plan() re-derives it because it
   -- is also called directly, without validate() having run first -- which is why a max of
   -- zero (a beacon taller than the interior, validate's beacon-too-tall refusal) returns nil
-  -- here instead of flooring to one and building the stack across the ring belts.
+  -- here instead of flooring to one and building the stack past the interior.
   local beacon_count
   if beacon then
-    local beacon_max = layout.max_beacon_count(machine_footprint.height, orientation.height,
+    local beacon_max = builder.max_beacon_count(machine_footprint.height, orientation.height,
       beacon.tile_height)
     if beacon_max == 0 then return nil end
     beacon_count = chosen_beacon_count(choices, beacon_max)
@@ -2318,11 +2374,16 @@ function planner.plan(force, choices, gathered)
         paused = maximum ~= nil and choices.circuit_paused == true,
         -- The cap counted across the logistic network (circuits.lua, network mode): only
         -- ever with a cap, and pure decoration -- the stack stands the same either way.
-        network = maximum ~= nil and choices.circuit_network == true,
+        -- Always with bots (planner.circuit_network says why).
+        network = maximum ~= nil and planner.circuit_network(choices),
         hand = planner.circuit_hand(force, choices, r.inserter.name),
       }
     end
   end
+
+  -- Bots ignore the two request opt-outs: the requests are their only transport.
+  local stock_asks = planner.requests_forced(choices) or planner.stock_requests(choices)
+  local terminal_asks = planner.requests_forced(choices) or planner.terminal_requests(choices)
 
   local layout_params = {
     recipe = { name = recipe.name, product = product.name, ingredients = ingredients },
@@ -2349,6 +2410,7 @@ function planner.plan(force, choices, gathered)
     },
     -- The belt is a bare name; the inserter and the chests are { name, quality } pairs,
     -- because the player picks a quality for each of them and the belt has none to pick.
+    -- The bot builder reads neither the belt nor the relay chest.
     belt = r.belt,
     inserter = r.inserter,
     requester = r.requester, stock = r.stock, container = r.container,
@@ -2375,10 +2437,10 @@ function planner.plan(force, choices, gathered)
     -- One stack of the product in front of each recycler: enough to keep it busy through a
     -- gap on the belt, and self-limiting rather than hoarding. nil once the player unticked
     -- the stock request.
-    product_buffer = planner.stock_requests(choices) and product_stack or nil,
+    product_buffer = stock_asks and product_stack or nil,
     -- The plain chest the final machine's feed uses once the player unticked its request:
     -- the relay role's pick, the one chest in the loop that never talks to the network.
-    terminal_feed = not planner.terminal_requests(choices) and r.container or nil,
+    terminal_feed = not terminal_asks and r.container or nil,
   }
   -- With poles, the layout and the pole pass are solved together -- the columns a plan opens
   -- are the ones poles turned out to need. Without them there is nothing to weigh, so the
@@ -2397,22 +2459,26 @@ function planner.plan(force, choices, gathered)
     -- ground a compact plan's poles stood in -- the recipe itself stays out, since which
     -- ingredients they are moves nothing. And whether the final machine's feed is the
     -- requester or the plain chest: same tile, but a different NAME in the consumer set.
+    -- The layout kind leads it: the two families stand different entities on different
+    -- rows, so a ladder solved for one must never be replayed into the other.
     local memo_key = table.concat({
+      kind,
       #expanded_tiers, tostring(overflow_tap), #fluids, r.feed_stacks,
-      tostring(planner.terminal_requests(choices)),
+      tostring(terminal_asks),
       circuit and (circuit.capped and "capped" or "reserved") or "off",
       machine_footprint.name, machine_footprint.width, machine_footprint.height,
       tostring(machine_footprint.direction),
       recycler.name, orientation.width, orientation.height, orientation.direction,
-      r.belt, r.inserter.name,
-      r.requester.name, r.stock.name, r.container.name, r.provider.name,
+      kind == "belt" and r.belt or "-", r.inserter.name,
+      r.requester.name, r.stock.name,
+      planner.uses_chest(choices, "container") and r.container.name or "-", r.provider.name,
       r.overflow and r.overflow.name or "-",
       #fluids == 1 and r.pipe or "-", #fluids == 1 and r.pipe_to_ground or "-",
       beacon_name or "-", beacon and beacon.tile_width or 0,
       beacon and beacon.tile_height or 0, beacon_count or 0,
       pole_name, pole_quality, pole_gap,
     }, "|")
-    plan = plan_with_poles(layout_params, #expanded_tiers, pole_gap, {
+    plan = plan_with_poles(builder, layout_params, #expanded_tiers, pole_gap, {
       name = pole_name, quality = pole_quality,
       width = pole.tile_width, height = pole.tile_height,
       -- Quality genuinely grows a pole's reach (+level to the supply radius, +2*level to
@@ -2421,7 +2487,7 @@ function planner.plan(force, choices, gathered)
       wire_distance = pole.get_max_wire_distance(pole_quality),
     }, memo_key)
   else
-    plan = layout.build(layout_params)
+    plan = builder.build(layout_params)
   end
 
   -- Circuit limits, decorated onto the finished plan -- strictly after the pole pass, since
@@ -2437,12 +2503,19 @@ function planner.plan(force, choices, gathered)
       network = circuit.network,
       hand = circuit.hand,
       product = product.name,
-      reach = circuit_reach(machine, machine_quality, recycler, recycler_quality, r, circuit),
+      reach = circuit_reach(kind, machine, machine_quality, recycler, recycler_quality, r, circuit),
       -- The feed chests' own hop to their machine, kept OUT of the shared minimum above: a
       -- modded chest with a short wire then costs its own link and a warning, never the
       -- spine every other condition hangs on.
       feed_reach = math.min(machine.get_max_circuit_wire_distance(machine_quality),
         prototypes.entity[r.requester.name].get_max_circuit_wire_distance(r.requester.quality)),
+      -- With no ring to relay along, a spine hop past reach chains through the inserters at
+      -- the top of the two columns instead -- machine to inserter to inserter to machine --
+      -- held to their own reach for feed_reach's reason.
+      relay_reach = kind == "bot" and math.min(
+        machine.get_max_circuit_wire_distance(machine_quality),
+        prototypes.entity[r.inserter.name].get_max_circuit_wire_distance(r.inserter.quality))
+        or nil,
     })
     -- Reported like the pole pass's unpowered: only the built geometry knows it, and the loop
     -- still runs -- an unwired entity just runs without its limit.
@@ -2535,8 +2608,11 @@ function planner.validate(force, choices)
 
   -- The building materials the layout is made of, gathered here because the fluid rotation
   -- just below depends on which pipe the run is built from; each is judged, with its own
-  -- message, once the recycler has passed too.
+  -- message, once the recycler has passed too. Which ones the plan needs follows the layout
+  -- family, exactly as plan() reads it.
   local r = resources(force, recipe, machine, choices)
+  local kind = planner.layout_kind(choices)
+  local builder = GEOMETRY[kind]
 
   -- A fluid recipe adds one machine requirement of its own: some rotation must land a fluid
   -- input connection the pipe can join against the pipe run. Computed per prototype like the
@@ -2601,11 +2677,17 @@ function planner.validate(force, choices)
     -- caps every inserter at five slots and two stacks make that ten ingredients; no vanilla
     -- recipe reaches it. Only once something better is genuinely available is the pick worth
     -- naming, so that branch needs a modded inserter with fewer slots to reach.
-    local per_inserter = planner.min_filter_slots(#ingredients)
+    -- The bot loop's one filter is its extract inserter's, whatever the recipe, so with bots
+    -- the recipe is never the problem: what is missing is an inserter that filters at all.
+    local per_inserter = planner.min_filter_slots(planner.filters_needed(recipe, choices))
     if not planner.any_inserter(force, per_inserter) then
+      if kind == "bot" then return false, { "upl-message.no-filter-inserter" } end
       return false, { "upl-message.too-many-ingredients", planner.max_ingredients(force) }
     end
     if r.inserter_shortfall then
+      if kind == "bot" then
+        return false, { "upl-message.inserter-no-filter", r.inserter_shortfall.localised_name }
+      end
       return false, {
         "upl-message.inserter-too-few-filters",
         r.inserter_shortfall.localised_name, per_inserter,
@@ -2613,17 +2695,21 @@ function planner.validate(force, choices)
     end
     return false, { "upl-message.only-fuelled-inserters" }
   end
-  if not r.belt then return false, { "upl-message.no-belt" } end
-  if not r.container then return false, { "upl-message.no-chest" } end
+  if kind == "belt" and not r.belt then return false, { "upl-message.no-belt" } end
+  if planner.uses_chest(choices, "container") and not r.container then
+    return false, { "upl-message.no-chest" }
+  end
   if not (r.requester and r.provider) then return false, { "upl-message.no-logistic-chest" } end
   -- Only reachable with buffer chests on: unbuffered, the stock role shares the requester's
   -- list, so a missing stock is the missing requester already refused above. Unreachable in
   -- vanilla either way -- logistic-system unlocks all three logistic kinds together.
   if not r.stock then return false, { "upl-message.no-buffer-chest" } end
-  -- Only asked for when the target has a tier above it: at the top of the chain nothing can roll
-  -- past, so the tap is not built and its chest is not needed. Unreachable in vanilla, where the
-  -- same technology unlocks the active provider and the requester chest already required above.
-  if planner.needs_overflow_tap(choices.quality) and not r.overflow then
+  -- The belt ring asks for it only when the target has a tier above it: at the top of the
+  -- chain nothing can roll past, so the tap is not built and its chest is not needed. The bot
+  -- loop always does -- its lower tiers' output and extract chests are this pick. Unreachable
+  -- in vanilla, where the same technology unlocks the active provider and the requester chest
+  -- already required above.
+  if planner.uses_chest(choices, "overflow") and not r.overflow then
     return false, { "upl-message.no-active-provider" }
   end
   if not r.quality_module then return false, { "upl-message.no-quality-module" } end
@@ -2645,14 +2731,15 @@ function planner.validate(force, choices)
 
   -- The beacon is optional and defaults to off, so everything about it only runs on a pick.
   -- Its module answers to the beacon alone -- no recipe, a beacon crafts nothing -- and a
-  -- beacon taller than the interior rows would poke through the ring belts, which layout.build
-  -- clamps against and this refuses honestly instead: max_beacon_count of zero is exactly
-  -- that case, and the count the player asked for clamps to the same max plan() uses.
+  -- beacon taller than the interior rows would poke through the rows around them -- the ring
+  -- belts, or the bot loop's chests -- which the builders clamp against and this refuses
+  -- honestly instead: max_beacon_count of zero is exactly that case, and the count the player
+  -- asked for clamps to the same max plan() uses.
   local beacon_name, beacon_quality = chosen_beacon(choices)
   local beacon = beacon_name and prototypes.entity[beacon_name]
   local beacon_module, beacon_count
   if beacon then
-    local beacon_max = layout.max_beacon_count(machine_height, orientation.height,
+    local beacon_max = builder.max_beacon_count(machine_height, orientation.height,
       beacon.tile_height)
     if beacon_max == 0 then
       return false, { "upl-message.beacon-too-tall", beacon.localised_name }
@@ -2671,13 +2758,15 @@ function planner.validate(force, choices)
   -- modded ones can follow it, so the pick is refused rather than silently uncapped. A
   -- refusal, so it sits ABOVE the warnings: each of those returns on its own, and a loop
   -- planned ahead of its research would otherwise sail past this check.
-  if choices.circuit_enabled and choices.circuit_network then
+  if choices.circuit_enabled and planner.circuit_network(choices) then
     local _, maximum =
       planner.circuit_limits(choices, recipe, planner.tiers_up_to(choices.quality))
     if maximum then
       for _, holder in pairs({ machine, recycler }) do
         if holder.has_flag("no-logistic-connection") then
-          return false, { "upl-message.no-logistic-connection", holder.localised_name }
+          -- Bots always count the network, so the box the belt message points at is greyed.
+          return false, { kind == "bot" and "upl-message.no-logistic-connection-bots"
+            or "upl-message.no-logistic-connection", holder.localised_name }
         end
       end
     end
@@ -2723,9 +2812,12 @@ function planner.validate(force, choices)
     r.inserter.quality,
     r.requester.quality,
     r.stock.quality,
-    r.container.quality,
-    r.provider.quality,
   }
+  -- Only chests the plan stands, so a bot loop is not warned about a relay chest it never places.
+  if planner.uses_chest(choices, "container") then
+    build_qualities[#build_qualities + 1] = r.container.quality
+  end
+  build_qualities[#build_qualities + 1] = r.provider.quality
   if r.terminal_module then
     build_qualities[#build_qualities + 1] = r.terminal_module.quality
   end
@@ -2737,7 +2829,7 @@ function planner.validate(force, choices)
   end
   -- Only when it is actually placed, so a legendary plan is not warned about a chest it does
   -- not build.
-  if r.overflow and planner.needs_overflow_tap(choices.quality) then
+  if r.overflow and planner.uses_chest(choices, "overflow") then
     build_qualities[#build_qualities + 1] = r.overflow.quality
   end
   -- The pole's build quality matters twice over: it gates who can build the ghosts, and it

@@ -1,37 +1,31 @@
--- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler --
--- and, under a "Build options" caption, what it is built OUT OF: the belt,
--- the inserter, the five chests, the quality module, the top machine's own module, the mix
--- checkbox and the Ratios... button opening its wizard -- the sub-menu holding the split's
--- productivity module and the per-tier counts -- the
--- electric pole, the pipe, the beacon, its module and its per-tier count, the Ingredient
--- amounts and Columns per tier rows whose Edit... buttons open side panels of their own
--- (moved down from the top block, owner's call 2026-08-28: they tune the build, not what it
--- makes), the circuit-limits
--- checkbox and the Limits... button opening its wizard, whether the stock chests are buffer
--- chests the base can draw on, whether they request the item from the base at all, whether
--- the final machine's chest requests its ingredients, and whether the chests trash their
--- surplus.
--- The build options are six captioned rows, one per concept -- Transport, Chests, Modules,
--- Beacons, Power, Circuits -- because one flat grid of a dozen icon-only pickers left hovering
--- as the only way to tell them apart (owner's ask, 2026-08-22).
+-- The modal, in two blocks: what the loop MAKES -- item, target quality, machine, recycler,
+-- and the layout family (belt ring or bots), which decides which build options exist at all
+-- -- and under it what the loop is built OUT OF, in four tabs:
 --
--- A picker is only built visible when it has something to choose BETWEEN: one option is not a
--- choice, so in a vanilla game the recycler and the pipe are hidden, and a modset that adds an
--- alternative brings each of them back. Five pickers are exempt because they are the choice
--- whatever the count -- item, target quality, machine, belt, quality module -- and two more
--- because clearing them IS the second option: the pole ("no poles") and the top machine's
--- module ("leave it empty"). The pipe has one more condition of its own: it is out of the
--- strip entirely until the recipe takes a fluid. The five chests go the other way and are
--- hidden whatever the count, and the beacon, its module and the count drop-down go with
--- them: hidden whatever the count and whatever is researched, revealed by show-all, and kept
--- visible once a beacon is actually chosen (beacon_visible below). Those two rules live on
--- their GROUPS -- caption and row hide together, the buttons stay built inside.
+--   Buildings  belt, inserter, pipe, electric pole, then how many columns each lower tier
+--              repeats.
+--   Modules    quality module, final machine module, beacon (its module and count once one
+--              is picked), then the productivity mix and how many slots each tier gives it.
+--   Chests     the five chest pickers, whether the stock chests are buffer chests, whether
+--              they and the final machine's chest request, whether chests trash their
+--              surplus, and the ingredient amounts.
+--   Circuits   the circuit-limits checkbox and the limits themselves.
 --
--- A settings PANEL opens beside the pickers -- a second column inside this same frame -- when
--- the titlebar's settings button is pressed. It holds the two per-player settings the pickers
--- read: offer unresearched items, and show every picker whatever the count. The second is the
--- escape hatch for what hiding costs, since a hidden picker takes its QUALITY box with it;
--- ticked, every picker is shown, the pipe included even for a recipe with no fluid.
+-- Every row is a label beside its control, the top block's own shape, so the five chests and
+-- the two module pickers can be told apart without hovering (owner's call, 2026-11-27, over
+-- the captioned icon strips). Only the SELECTED tab is filled -- the others stand empty until
+-- picked -- because a tabbed pane sizes to its tallest tab, and a short tab sat over a band
+-- of blank space (owner's screenshot, the same day; analysis/api.md S38).
+--
+-- Everything the plan builds has a row, so every quality is one click away. A row is hidden
+-- only while the loop as chosen does not build it: the belt and the relay chest with bots,
+-- the pipe until the recipe takes a fluid, the beacon's module and count until a beacon is
+-- picked, the mix where no productivity module fits the machine and recipe. layout_rules
+-- owns the layout's share of that.
+--
+-- A settings PANEL opens beside the window -- a second column inside this same frame -- when
+-- the titlebar's Settings button is pressed. It holds the per-player setting the pickers read:
+-- offer unresearched items.
 --
 -- A CHILD, not a second screen frame, and that is the whole design: the API reads no element's
 -- rendered size, so a separate window can only be placed beside this one by inferring the
@@ -67,10 +61,6 @@ local state = require("scripts.state")
 
 local FRAME = "upl-frame"
 local SETTINGS_FRAME = "upl-settings"
-local CIRCUITS_FRAME = "upl-circuits"
-local INGREDIENTS_FRAME = "upl-ingredients"
-local SPLIT_FRAME = "upl-split-panel"
-local COLUMNS_FRAME = "upl-columns-panel"
 -- The shortcut button AND its hotkey custom-input share this prototype name (the Krastorio 2
 -- pairing shape), so the button, the key and the tooltip's keybind hint all rename together.
 local SHORTCUT = "upl-open"
@@ -78,11 +68,61 @@ local SHORTCUT = "upl-open"
 -- Shared with control.lua, so the event wiring and the GUI cannot drift on a rename.
 gui.FRAME = FRAME
 gui.SETTINGS_FRAME = SETTINGS_FRAME
-gui.CIRCUITS_FRAME = CIRCUITS_FRAME
-gui.INGREDIENTS_FRAME = INGREDIENTS_FRAME
-gui.SPLIT_FRAME = SPLIT_FRAME
-gui.COLUMNS_FRAME = COLUMNS_FRAME
 gui.SHORTCUT = SHORTCUT
+
+-- One width for every row label -- the top block's, every tab's, and the per-tier lists' --
+-- so the controls stand in one column down the whole window rather than staggering with the
+-- caption lengths. A label that outgrows it pushes its own control right, never over it.
+local LABEL_WIDTH = 160
+-- The tabs share one floor so switching between them does not jump the window's width: the
+-- per-tier rows with their "of N slots" tail, and the longer checkboxes, are the widest
+-- things in any tab.
+local TAB_MIN_WIDTH = LABEL_WIDTH + 180
+-- The per-tier and ingredient lists scroll past about five rows, so a long modded chain or a
+-- ten-ingredient recipe cannot stretch one tab -- and with it the window -- off the screen.
+local LIST_MAX_HEIGHT = 168
+-- What the window holds besides its tab -- titlebar, top block, tab heads, the status lines and
+-- the buttons -- in pixels at 100% scale: measured at 455 on 2026-11-27 (analysis/api.md S38),
+-- plus room for a few warnings and a margin. tab_max_height subtracts it from the screen.
+local WINDOW_CHROME = 560
+local TAB_MIN_HEIGHT = 200
+
+-- The tabs, in this order: what the loop is built of, what goes in the machines, the chests
+-- and what they request, the circuit limits. The selected one is kept in storage per player --
+-- by name, so a reorder cannot misread it -- and every rebuild reopens on it; anything
+-- unknown reads as the first.
+local TABS = { "buildings", "modules", "chests", "circuits" }
+
+local function tab_index(name)
+  for index, tab in ipairs(TABS) do
+    if tab == name then return index end
+  end
+  return 1
+end
+
+-- The layout drop-down's options, in order; `store` is what choices.layout holds -- nil for
+-- the belt ring, which keeps every save from before the choice existed on belts.
+local LAYOUTS = {
+  { key = "belt", icon = "transport-belt" },
+  { key = "bot", icon = "logistic-robot", store = "bot" },
+}
+
+-- What the loop as chosen builds, decided in one place: the bot loop stands no belt and no
+-- relay chest, its two requests are its only transport, and its cap always counts the
+-- network; a belt ring to the highest quality has nothing to roll above it, so it stands no
+-- overflow chest. Those controls go, or show ticked and greyed, rather than offer a choice
+-- the plan would ignore. Nothing here writes choices: switching back brings the player's own
+-- picks and ticks back.
+local function layout_rules(choices)
+  local bot = planner.layout_kind(choices) == "bot"
+  return {
+    bot = bot,
+    shows_belt = not bot,
+    shows_relay_chest = planner.uses_chest(choices, "container"),
+    shows_overflow_chest = planner.uses_chest(choices, "overflow"),
+    shows_request_boxes = not planner.requests_forced(choices),
+  }
+end
 
 local function frame_of(player)
   local frame = player.gui.screen[FRAME]
@@ -90,53 +130,40 @@ local function frame_of(player)
   return nil
 end
 
--- The container has ONE side slot beside the planner column, and every panel that can stand
--- in it -- the settings panel, the circuit wizard, whatever joins them -- is an entry in
--- SIDE_PANELS below (filled at the end of the file, once the builders exist; require-time,
--- so nothing of it reaches saved state). The slot mechanics -- find the open panel, close
--- whatever holds the slot, recreate it after a rebuild, refuse the Confirm key under it --
--- all iterate that table, so a new panel is one entry rather than an edit per site. A panel
--- lives inside the container, so it is found through it -- and dies with it, which is most
--- of what used to need code.
-local SIDE_PANELS
-
-local function panel_frame_of(player, name)
+-- The tabbed pane, or nil with no modal up.
+local function pane_of(player)
   local frame = frame_of(player)
-  local panel = frame and frame[name]
+  return frame and frame["upl-main"]["upl-options"]
+end
+
+-- A tab's content flow, or nil with no modal up. The one place the tab path is spelled, so
+-- refresh and the handlers cannot drift from the builder. Only the selected tab holds
+-- anything, so a caller looking for a child must expect nil there too.
+local function tab_of(player, name)
+  local pane = pane_of(player)
+  return pane and pane["upl-tab-" .. name]
+end
+
+-- The selected tab's name, or nil with no modal up.
+local function selected_tab(player)
+  local pane = pane_of(player)
+  return pane and (TABS[pane.selected_tab_index] or TABS[1])
+end
+
+-- The settings panel lives inside the container, so it is found through it -- and dies with
+-- it, which is most of what used to need code.
+local function settings_panel_of(player)
+  local frame = frame_of(player)
+  local panel = frame and frame[SETTINGS_FRAME]
   if panel and panel.valid then return panel end
   return nil
 end
 
--- The open side panel's name, or nil. At most one can be open -- opening any panel closes
--- the slot first -- so the first hit is the answer.
-local function side_panel_name(player)
-  for name in pairs(SIDE_PANELS) do
-    if panel_frame_of(player, name) then return name end
-  end
-  return nil
-end
-
--- control.lua asks these on a close request for the modal: with a panel up, Esc (or the
+-- control.lua asks this on a close request for the modal: with the panel up, Esc (or the
 -- engine's confirm, or another window taking over) dismisses the panel first, the way a
 -- nested window would go, and only a second request closes the planner itself.
 function gui.settings_open(player)
-  return panel_frame_of(player, SETTINGS_FRAME) ~= nil
-end
-
-function gui.circuits_open(player)
-  return panel_frame_of(player, CIRCUITS_FRAME) ~= nil
-end
-
-function gui.ingredients_open(player)
-  return panel_frame_of(player, INGREDIENTS_FRAME) ~= nil
-end
-
-function gui.split_open(player)
-  return panel_frame_of(player, SPLIT_FRAME) ~= nil
-end
-
-function gui.columns_open(player)
-  return panel_frame_of(player, COLUMNS_FRAME) ~= nil
+  return settings_panel_of(player) ~= nil
 end
 
 -- The engine's element chooser -- the window a choose-elem-button opens -- is invisible to
@@ -180,12 +207,29 @@ local function chosen_recipe(choices)
   return choices.recipe and prototypes.recipe[choices.recipe]
 end
 
--- The wizard's numbers as plan() resolves them, through planner.circuit_limits: a non-nil
+-- The best researched inserter with the filter slots the loop as chosen needs: the belt ring
+-- one per ingredient of a stack, bots one in all.
+local function default_inserter(player, choices)
+  return planner.inserter_for(player.force,
+    planner.filters_needed(chosen_recipe(choices), choices))
+end
+
+-- A recipe past two stacks' worth, or a switch from bots to belts, can outgrow the chosen
+-- inserter. Re-picked rather than left behind to fail validation, which would read as a bug
+-- in the modal rather than as the refusal it is.
+local function repick_inserter(player, choices)
+  local slots = planner.inserter_filter_count(choices.inserter)
+  local needed = planner.filters_needed(chosen_recipe(choices), choices)
+  if slots and slots < planner.min_filter_slots(needed) then
+    choices.inserter = default_inserter(player, choices)
+  end
+end
+
+-- The circuit limits as plan() resolves them, through planner.circuit_limits: a non-nil
 -- maximum arms Start paused (the switch pauses nothing without a cap), a non-empty minimums
--- table arms Hand size (the hand only ever raises a minimum). Up here because gui.refresh
--- reads it as well as the wizard's builder. The guard is load-bearing: circuit_limits
--- indexes choices by the target quality, so a modal with no target yet would throw rather
--- than read "no limits".
+-- table arms Hand size (the hand only ever raises a minimum). The guard is load-bearing:
+-- circuit_limits indexes choices by the target quality, so a modal with no target yet would
+-- throw rather than read "no limits".
 local function circuit_limits_of(choices)
   if not (choices.circuit_enabled and choices.quality) then return {}, nil end
   return planner.circuit_limits(choices, chosen_recipe(choices),
@@ -201,16 +245,13 @@ local function name_filter(names)
 end
 
 local SHOW_ALL_SETTING = "upcycler-planner-show-all"
-local SHOW_ALL_OPTIONS_SETTING = "upcycler-planner-show-all-build-options"
 gui.SHOW_ALL_SETTING = SHOW_ALL_SETTING
-gui.SHOW_ALL_OPTIONS_SETTING = SHOW_ALL_OPTIONS_SETTING
 
 -- What the settings panel edits, in the order it lists them. Element and setting names are
 -- written out rather than derived from each other because the two follow different conventions:
 -- GUI elements carry the mod's short upl- prefix, settings the full mod name (CLAUDE.md, Naming).
 local EDITED_SETTINGS = {
   { element = "upl-setting-show-all", setting = SHOW_ALL_SETTING },
-  { element = "upl-setting-show-all-build-options", setting = SHOW_ALL_OPTIONS_SETTING },
 }
 
 -- Lets control.lua route a setting change here without naming any setting itself, so a third
@@ -226,13 +267,6 @@ end
 -- per-player setting stands in for it.
 local function show_all(player)
   return player.mod_settings[SHOW_ALL_SETTING].value
-end
-
--- The other half of the same idea, and the reason it exists: hiding a single-option picker hides
--- the QUALITY box on it, which is what put legendary recyclers and legendary logistic chests out
--- of reach in a vanilla game. This brings every picker back.
-local function show_all_options(player)
-  return player.mod_settings[SHOW_ALL_OPTIONS_SETTING].value
 end
 
 -- The one owner of the show-all rule: with the setting off, offer only what unlocked_of(force)
@@ -266,26 +300,19 @@ local function belt_filters(player)
     { { filter = "type", type = "transport-belt" } })
 end
 
--- The hideable pickers work from a NAMES list rather than straight from an elem_filters table, for
--- two reasons at once. The same list answers both questions -- what to offer, and whether there is
--- more than one of it -- and several of these sets cannot be written as a prototype TYPE filter
--- anyway: an inserter has to reach exactly one tile and never build belt stacks, a chest has to be
--- one tile in the right logistic role. Filtering by name is what keeps the stack inserter and the
--- 4x4 warehouse out even with show-all on, where a type filter would let them straight back in.
--- `narrow` is planner.buildable for entities and planner.unlocked for module items; the show-all
--- rule itself is `narrowed`'s, restated here for a list instead of a filter.
+-- Most pickers work from a NAMES list rather than a type filter, because several of these sets
+-- cannot be written as a prototype TYPE filter at all: an inserter has to reach exactly one tile
+-- and never build belt stacks, a chest has to be one tile in the right logistic role. Filtering
+-- by name is what keeps the stack inserter and the 4x4 warehouse out even with show-all on,
+-- where a type filter would let them straight back in. `narrow` is planner.buildable for
+-- entities and planner.unlocked for module items; the show-all rule itself is `narrowed`'s,
+-- restated here for a list instead of a filter.
 local function offered(player, names, narrow)
   if not show_all(player) then
     local unlocked = narrow(player.force, names)
     if #unlocked > 0 then return unlocked end
   end
   return names
-end
-
--- One option is not a choice -- unless the player has asked to see everything anyway. Exemptions
--- and the trade this makes are in the file header.
-local function worth_showing(player, names)
-  return show_all_options(player) or #names > 1
 end
 
 local function recycler_options(player)
@@ -347,15 +374,10 @@ local function terminal_module_options(player, choices)
   return offered(player, names, planner.unlocked)
 end
 
--- The pipe is the one picker with a condition beyond the count: it plumbs nothing unless the
--- recipe takes a fluid, so it stays out of the strip until one does. Exactly one fluid, matching
--- what the plan can actually build -- a two-fluid recipe is refused outright.
-local function pipe_visible(player, choices, names)
-  -- "Show all build options" overrides the fluid rule as well as the count: the player asked to
-  -- see every picker, and this one still holds the pipe the loop would use the moment a fluid
-  -- recipe is chosen.
-  if show_all_options(player) then return true end
-  return planner.needs_pipe(chosen_recipe(choices)) and worth_showing(player, names)
+-- The pipe plumbs nothing unless the recipe takes a fluid, so its row waits for one. Exactly one
+-- fluid, matching what the plan can actually build -- a two-fluid recipe is refused outright.
+local function pipe_visible(choices)
+  return planner.needs_pipe(chosen_recipe(choices))
 end
 
 -- The top machine's module follows BOTH the machine and the recipe, either of which the player can
@@ -391,16 +413,6 @@ local function beacon_module_options(player, choices)
   return offered(player, names, planner.unlocked)
 end
 
--- BOTH beacon pickers are hidden by default, whatever the count and whatever is researched
--- (owner's call, 2026-08-22, the chests' direction): a beacon is an opt-in extra, and a
--- picker apiece in the default strip reads as a decision every player has to make. Show-all
--- reveals them, and a CHOSEN beacon keeps them visible with show-all off again -- the opt-in
--- stays on display and clearable, never a hidden passenger in the plan.
-local function beacon_visible(player, choices)
-  if show_all_options(player) then return true end
-  return choices.beacon ~= nil
-end
-
 -- The beacon's module follows the beacon under it, resolve_terminal_module's shape: a pick the
 -- beacon refuses is replaced by the default, an untouched picker follows the beacon, and an
 -- explicit clear survives both. The beacon itself is never defaulted -- off is its resting
@@ -415,14 +427,20 @@ end
 
 -- The count follows the geometry over it: a remembered stack that no longer fits -- a
 -- shorter machine, a taller beacon -- snaps down to what does, and one is the floor, since a
--- chosen beacon always stands at least itself. Nothing to resolve until a beacon is picked.
--- Hands the max back for the dropdown to be built from, offered_targets' own rule: the
--- resolution walks the recycler and fluid rotations, so the widget must not re-derive it.
+-- chosen beacon always stands at least itself. Snapped to what fits EITHER layout, never just
+-- the chosen one: the bot loop's column stacks fewer than the ring's, and a trip to Bots and
+-- back must not cost the belt plan a beacon. The dropdown and plan() each clamp to the
+-- layout at hand. Nothing to resolve until a beacon is picked. Hands the chosen layout's max
+-- back for the dropdown to be built from, offered_targets' own rule: the resolution walks the
+-- recycler and fluid rotations, so the widget must not re-derive it.
 local function resolve_beacon_count(choices)
   if not (choices.beacon and planner.is_beacon(choices.beacon)) then return nil end
-  local max = planner.max_beacon_count(choices, prototypes.entity[choices.beacon])
+  local beacon = prototypes.entity[choices.beacon]
+  local max = planner.max_beacon_count(choices, beacon)
   if max < 1 then return nil end
-  choices.beacon_count = math.min(math.max(choices.beacon_count or 1, 1), max)
+  local ceiling = math.max(planner.max_beacon_count(choices, beacon, "belt"),
+    planner.max_beacon_count(choices, beacon, "bot"))
+  choices.beacon_count = math.min(math.max(choices.beacon_count or 1, 1), ceiling)
   return max
 end
 
@@ -478,7 +496,7 @@ local function duration_parts(seconds)
   return util.format_number(math.floor(seconds / 86400 + 0.5), true), "days"
 end
 
--- An empty-state sentence for a side panel, in the status area's hint grey: the panel is
+-- An empty-state sentence, in the status area's hint grey: the list it stands in for is
 -- waiting for a pick, not reporting a failure.
 local function hint(parent, key)
   local label = parent.add({ type = "label", name = "upl-hint", caption = { "upl-gui." .. key } })
@@ -486,6 +504,46 @@ local function hint(parent, key)
   label.style.maximal_width = 360
   label.style.font_color = COLOR_HINT
   return label
+end
+
+-- The limits' fields follow the values above them: every row's field and the network box live
+-- only with Circuit limits ticked, Start paused and the network box only under a maximum (the
+-- switch pauses nothing without a cap, and the cap is all the box counts), Hand size only
+-- with a minimum (the hand only ever raises one) -- and with bots the network box stays
+-- greyed, the plan counting the network whatever it says. Several of these refresh on every
+-- keystroke, one of them the Hand size field's own, so every write is guarded on a real
+-- change: a same-value write on a focused field is a thing not to gamble on.
+local function repaint_circuits(player, choices)
+  local tab = tab_of(player, "circuits")
+  local content = tab and tab["upl-circuits-content"]
+  if not content then return end
+  local function enable(element, value)
+    if element.enabled ~= value then element.enabled = value end
+  end
+  local ticked = choices.circuit_enabled == true
+  local minimums, maximum = circuit_limits_of(choices)
+  local capped, reserved = maximum ~= nil, next(minimums) ~= nil
+  for _, row in pairs(content["upl-circuits-list"].children) do
+    for _, child in pairs(row.children) do
+      if child.type == "textfield" then enable(child, ticked) end
+    end
+  end
+  enable(content["upl-circuit-paused"], capped)
+  enable(content["upl-circuit-network"], capped and not layout_rules(choices).bot)
+  local hand = content["upl-circuit-hand-row"]["upl-circuit-hand"]
+  enable(hand, reserved)
+  -- An untouched Hand size keeps following the inserter pick and the research, which plan()
+  -- already reads live: the text and the default in the tags move together, or Enter on the
+  -- shown number would freeze it as an override (override_count's rule).
+  if choices.circuit_hand == nil then
+    local default = planner.inserter_hand(player.force, choices.inserter)
+    if hand.tags.default ~= default then
+      local tags = hand.tags
+      tags.default = default
+      hand.tags = tags
+      hand.text = tostring(default)
+    end
+  end
 end
 
 function gui.refresh(player)
@@ -502,43 +560,9 @@ function gui.refresh(player)
   local ok, message, gathered = planner.validate(player.force, choices)
   confirm.enabled = ok
 
-  -- The Limits button follows the checkbox through every path that lands here -- the
-  -- checkbox's own handler included, so neither has to repaint it by hand. The Ratios
-  -- button rides the same rule for its own checkbox.
-  local limits = main["upl-options"]["upl-circuits-strip"]["upl-circuit-limits"]
-  limits.enabled = choices.circuit_enabled == true
-  -- The wizard's two dependent widgets, when it is open. Start paused follows the Max field
-  -- (the switch only pauses anything through the cap) and Hand size the Min fields (the
-  -- hand only ever raises one), both of which refresh on every keystroke -- so the writes
-  -- are guarded on a real change, since one of those keystrokes is the Hand size field's
-  -- own and a same-value write on a focused field is a thing not to gamble on.
-  local wizard = panel_frame_of(player, CIRCUITS_FRAME)
-  if wizard then
-    local minimums, maximum = circuit_limits_of(choices)
-    local content = wizard["upl-circuits-content"]
-    local capped, reserved = maximum ~= nil, next(minimums) ~= nil
-    local paused = content["upl-circuit-paused"]
-    if paused.enabled ~= capped then paused.enabled = capped end
-    -- The network box follows the Max the same way: the cap is the only thing it counts.
-    local network = content["upl-circuit-network"]
-    if network.enabled ~= capped then network.enabled = capped end
-    local hand = content["upl-circuit-hand-row"]["upl-circuit-hand"]
-    if hand.enabled ~= reserved then hand.enabled = reserved end
-    -- An untouched Hand size keeps following the inserter pick and the research, which plan()
-    -- already reads live: the text and the default in the tags move together, or Enter on
-    -- the shown number would freeze it as an override (override_count's rule).
-    if choices.circuit_hand == nil then
-      local default = planner.inserter_hand(player.force, choices.inserter)
-      if hand.tags.default ~= default then
-        local tags = hand.tags
-        tags.default = default
-        hand.tags = tags
-        hand.text = tostring(default)
-      end
-    end
-  end
-  local ratios = main["upl-options"]["upl-mix-strip"]["upl-split"]
-  ratios.enabled = planner.split_enabled(choices) and choices.recipe ~= nil
+  -- The Circuits tab's dependent widgets, when that tab is the one standing: refresh is the
+  -- one owner of every enabled state that follows a value.
+  repaint_circuits(player, choices)
 
   -- validate() and plan() check the same things, so a validated set of choices always yields
   -- a plan; the guard is here because a mismatch would otherwise show as a blank area.
@@ -637,16 +661,6 @@ function gui.close_if_unfocused(player)
   if frame and player.opened == nil then gui.close(player) end
 end
 
--- A tooltip for a control with no visible label: the row label it would have had, promoted to a
--- bold first line, so the tooltip names its own control the way the game's icon buttons do.
--- Every picker in the strip leans on it; the titlebar's button has a caption instead.
-local function titled_tooltip(key)
-  return {
-    "", "[font=default-bold]", { "upl-gui." .. key }, "[/font]\n",
-    { "upl-gui." .. key .. "-tooltip" },
-  }
-end
-
 -- The draggable header the modal and the settings panel wear: title, then a stretchy filler
 -- that is itself a drag handle, so the bar can be grabbed anywhere and not only on its label.
 -- Buttons stay the caller's, because their order is what keeps the close X last. The filler's
@@ -668,8 +682,8 @@ local function add_titlebar(parent, name, caption, drag_target)
   return bar
 end
 
--- The settings panel: a second column inside the modal's body, holding the two per-player
--- settings. It edits the mod's own settings rather than a private copy, so this panel and the
+-- The settings panel: a second column inside the modal's body, holding the per-player
+-- setting. It edits the mod's own settings rather than a private copy, so this panel and the
 -- game's settings menu are two faces on one value; settings.lua says why. Rebuilt from scratch
 -- whenever it opens -- gui.open re-creates it after a modal rebuild too -- so a stale tick is
 -- impossible rather than merely unlikely.
@@ -701,13 +715,13 @@ local function build_settings_panel(player, frame)
   end
 end
 
--- The circuit numbers, backfilled so the wizard's fields open holding what the plan would
--- really use: every lower tier's reserve defaults to ZERO -- keep nothing back -- and the
--- target's cap to one stack of the product, the stock chest's own sizing rule. Keyed by
+-- The circuit numbers, backfilled so the Circuits tab's fields open holding what the plan
+-- would really use: every lower tier's reserve defaults to ZERO -- keep nothing back -- and
+-- the target's cap to one stack of the product, the stock chest's own sizing rule. Keyed by
 -- quality NAME under two families (circuit_min_ / circuit_max_), so a value survives the
 -- target moving and a remembered floor can never become a ceiling. The cap needs a product
--- to size it, so it waits for a recipe; called from apply_defaults AND from the wizard's own
--- build, since the target can change while the panel is up.
+-- to size it, so it waits for a recipe; called from apply_defaults AND from the Circuits tab,
+-- since the target can change with the modal up.
 local function backfill_thresholds(choices)
   local tiers = planner.tiers_up_to(choices.quality) or {}
   for i = 1, #tiers - 1 do
@@ -722,34 +736,60 @@ local function backfill_thresholds(choices)
   end
 end
 
--- The circuit-limits wizard: one numeric field per quality tier the loop climbs, over the
--- distinct chain tiers_up_to answers. The circuit pass consumes the planner's EXPANDED
--- per-column array instead, so the two share only the values resolved per quality name --
--- a repeated tier's every column reads the same floor. The settings panel's shape and lifecycle -- a second
--- window-styled column, rebuilt from scratch on open, re-created after a modal rebuild,
--- dead with the frame. Scrolled, because a modded chain can run to hundreds of tiers.
-local function build_circuits_panel(player, frame)
-  local choices = state.of(player.index).choices
-  backfill_thresholds(choices)
-
-  local panel = frame.add({ type = "frame", name = CIRCUITS_FRAME, direction = "vertical" })
-  panel.style.left_margin = 12
-  local titlebar =
-    add_titlebar(panel, "upl-circuits-titlebar", { "upl-gui.circuit-limits-title" }, frame)
-  titlebar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags("circuits-close"),
+-- A per-tier row's name label: the tier's icon and name, wide enough that the field after it
+-- lines up under the controls in the rows above. `width` is for a row that spends part of
+-- the label column on something else first.
+local function tier_label(row, tier, width)
+  local label = row.add({
+    type = "label",
+    caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
   })
+  label.style.minimal_width = width or LABEL_WIDTH
+  return label
+end
 
-  local content = panel.add({
-    type = "frame", name = "upl-circuits-content", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-  local list = content.add({
-    type = "scroll-pane", name = "upl-circuits-list", direction = "vertical",
-  })
-  list.style.maximal_height = 400
+-- A per-tier list: scrolled, because a modded chain can run to hundreds of tiers, and with
+-- no padding of its own so its rows line up with the rows outside it.
+local function tier_list(parent, name)
+  local list = parent.add({ type = "scroll-pane", name = name })
+  list.style.maximal_height = LIST_MAX_HEIGHT
+  list.style.padding = 0
+  return list
+end
 
+-- A row outside a tab's table -- a per-tier or ingredient count, Minutes, Hand size: a label
+-- in the label column, then the field.
+local function count_row(parent, name)
+  local row = parent.add({ type = "flow", name = name, direction = "horizontal" })
+  row.style.vertical_align = "center"
+  return row
+end
+
+local function row_label(row, caption, tooltip)
+  local label = row.add({ type = "label", caption = caption, tooltip = tooltip })
+  label.style.minimal_width = LABEL_WIDTH
+  return label
+end
+
+-- Every count in the window is this field: numeric, so its handler's tonumber can only see a
+-- number or an emptied field, never a letter to reject; Enter commits and drops the focus.
+local function count_field(row, spec)
+  spec.type = "textfield"
+  spec.numeric, spec.allow_decimal, spec.allow_negative = true, false, false
+  spec.lose_focus_on_confirm = true
+  local field = row.add(spec)
+  field.style.width = 60
+  return field
+end
+
+-- The circuit limits, inline in the Circuits tab (owner's call, 2026-11-27): one numeric
+-- field per quality tier the loop climbs, over the distinct chain tiers_up_to answers. The
+-- circuit pass consumes the planner's EXPANDED per-column array instead, so the two share
+-- only the values resolved per quality name -- a repeated tier's every column reads the same
+-- floor. Which of these fields is live -- greyed until Circuit limits is ticked, Hand size
+-- until a minimum is set, the two boxes until a maximum is -- is gui.refresh's to say,
+-- every fill ending in one.
+local function add_circuit_rows(list, choices)
   -- One row per tier, and the row SAYS which rule it sets: the lower tiers hold a "Min" --
   -- the reserve the loop keeps, enforced on the recycler's feed inserter -- and the target
   -- holds the "Max", the cap that stops every machine. The word is on the row, not only in
@@ -758,36 +798,44 @@ local function build_circuits_panel(player, frame)
   for index, tier in ipairs(tiers) do
     local is_target = index == #tiers
     local key = (is_target and "circuit_max_" or "circuit_min_") .. tier
-    local row = list.add({
-      type = "flow", name = "upl-circuit-row-" .. tier, direction = "horizontal",
-    })
-    row.style.vertical_align = "center"
+    local row = count_row(list, "upl-circuit-row-" .. tier)
     local kind = row.add({
       type = "label", style = "semibold_caption_label",
       caption = { is_target and "upl-gui.circuit-max" or "upl-gui.circuit-min" },
     })
     kind.style.minimal_width = 32
-    local label = row.add({
-      type = "label",
-      caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
-    })
-    -- One width for every label, or the fields stagger with the tier names.
-    label.style.minimal_width = 110
-    local field = row.add({
-      -- numeric keeps every keystroke a digit, so the handler's tonumber can only see a
-      -- number or an emptied field -- never a letter to reject.
-      type = "textfield", name = "upl-circuit-limit-" .. tier,
+    -- The kind label and the flow's gap come out of the label column, so the field still
+    -- lines up with every other row's.
+    tier_label(row, tier, LABEL_WIDTH - 36)
+    count_field(row, {
+      name = "upl-circuit-limit-" .. tier,
       text = choices[key] and tostring(choices[key]) or "",
-      numeric = true, allow_decimal = false, allow_negative = false,
-      lose_focus_on_confirm = true,
       tooltip = { is_target and "upl-gui.circuit-max-tooltip"
         or "upl-gui.circuit-keep-tooltip" },
       -- The row's own storage key rides in the tags, so one handler serves both families
       -- and can never write a Min into a Max.
       tags = dispatch.tags("circuit-limit", { key = key }),
     })
-    field.style.width = 60
   end
+end
+
+-- The Circuits tab: the opt-in, and under it the limits themselves.
+local function build_circuits_tab(player, parent, choices, rules)
+  -- Opt-in, off by default. Ticked, the plan wires the loop and stops it at the maximum,
+  -- keeping each lower quality's minimum; the fields below stay greyed until then.
+  parent.add({
+    type = "checkbox", name = "upl-circuit-enabled", state = choices.circuit_enabled == true,
+    caption = { "upl-gui.circuit-enabled" },
+    tooltip = { "upl-gui.circuit-enabled-tooltip" },
+    tags = dispatch.tags("circuit-enabled"),
+  })
+  -- The target can have moved since the modal opened, and its Max must open on a number.
+  backfill_thresholds(choices)
+  local content = parent.add({
+    type = "flow", name = "upl-circuits-content", direction = "vertical",
+  })
+  content.style.top_margin = 8
+  add_circuit_rows(tier_list(content, "upl-circuits-list"), choices)
 
   -- Hand size, under the rows: how many items the reserve inserters take per swing, which
   -- is what every Min above is raised by on the combinator and what those inserters are
@@ -795,91 +843,63 @@ local function build_circuits_panel(player, frame)
   -- rule, with the researched hand as the default the tags carry and the blueprint field's
   -- uint8 as the ceiling -- so an untouched field follows the inserter pick and the
   -- research, which gui.refresh keeps current. Shown through planner.circuit_hand, so the
-  -- number here is the number the plan pins, whatever a hand-edited save holds. Dead
-  -- without a minimum, since the hand only ever raises one.
-  local minimums, maximum = circuit_limits_of(choices)
+  -- number here is the number the plan pins, whatever a hand-edited save holds.
   local default = planner.inserter_hand(player.force, choices.inserter)
-  local hand_row = content.add({
-    type = "flow", name = "upl-circuit-hand-row", direction = "horizontal",
-  })
-  hand_row.style.vertical_align = "center"
+  local hand_row = count_row(content, "upl-circuit-hand-row")
   hand_row.style.top_margin = 8
-  local hand_label = hand_row.add({ type = "label", caption = { "upl-gui.circuit-hand" } })
-  -- The rows above spend 32 + 110 on their two labels plus one 4px flow gap between them;
-  -- matching the sum lines this field up under theirs.
-  hand_label.style.minimal_width = 146
-  local hand_field = hand_row.add({
-    type = "textfield", name = "upl-circuit-hand",
+  row_label(hand_row, { "upl-gui.circuit-hand" }, { "upl-gui.circuit-hand-tooltip" })
+  count_field(hand_row, {
+    name = "upl-circuit-hand",
     text = tostring(planner.circuit_hand(player.force, choices, choices.inserter)),
-    numeric = true, allow_decimal = false, allow_negative = false,
-    lose_focus_on_confirm = true,
     tooltip = { "upl-gui.circuit-hand-tooltip" },
     tags = dispatch.tags("circuit-hand",
       { key = "circuit_hand", default = default, min = 1, max = planner.MAX_HAND }),
   })
-  hand_field.style.width = 60
-  hand_field.enabled = next(minimums) ~= nil
 
   -- Count the whole logistic network (2026-09-12, a portal request): the Max counted across
   -- the player's logistic network rather than the output chest -- the engine's own logistic
-  -- condition on every machine and recycler, the mechanics in circuits.lua's header. One of
-  -- the limits like Start paused below, so it lives here; dead without a maximum for the
-  -- same reason, and repainted by gui.refresh as the Max field changes. Off by default: a
-  -- loop outside roboport range would otherwise never run.
+  -- condition on every machine and recycler, the mechanics in circuits.lua's header. Off by
+  -- default: a loop outside roboport range would otherwise never run. With bots it is
+  -- always on and shown so, ticked and greyed: they carry a lower tier's finished items to
+  -- storage, where an output chest's count would never see them.
   local network_box = content.add({
-    type = "checkbox", name = "upl-circuit-network", state = choices.circuit_network == true,
+    type = "checkbox", name = "upl-circuit-network",
+    state = planner.circuit_network(choices),
     caption = { "upl-gui.circuit-network" },
-    tooltip = { "upl-gui.circuit-network-tooltip" },
+    tooltip = { rules.bot and "upl-gui.circuit-network-bots-tooltip"
+      or "upl-gui.circuit-network-tooltip" },
     tags = dispatch.tags("circuit-network"),
   })
   network_box.style.top_margin = 8
-  network_box.enabled = maximum ~= nil
 
   -- Start paused, at the foot of the rows -- the owner's placement (2026-09-07): it is one
   -- of the limits, not a build option. The combinator ships switched off, so a half-built
-  -- loop cannot burn quality ingredients before its modules arrive. Dead without a maximum,
-  -- since the switch only pauses anything through the cap; set here because open_side_panel
-  -- builds without a refresh, and kept current by gui.refresh as the Max field changes.
+  -- loop cannot burn quality ingredients before its modules arrive.
   local paused_box = content.add({
     type = "checkbox", name = "upl-circuit-paused", state = choices.circuit_paused == true,
     caption = { "upl-gui.circuit-paused" },
     tooltip = { "upl-gui.circuit-paused-tooltip" },
     tags = dispatch.tags("circuit-paused"),
   })
-  paused_box.style.top_margin = 8
-  paused_box.enabled = maximum ~= nil
+  paused_box.style.top_margin = 4
 end
 
--- The ingredient-amounts panel: a Minutes field, then one numeric field per item ingredient
--- of the chosen recipe, each opening at the amount the plan would really use -- the player's
--- stored override if one exists, else the live formula at those minutes. Unlike the wizard
--- it backfills NOTHING: only an edit is stored (request_<item>, flat numbers, the circuit
--- families' key shape), so an untouched ingredient keeps following request_count and a
--- recipe retune moves the default instead of freezing a number the player never chose. The
--- formula's value rides in the field's tags so the reset-to-automatic path cannot re-derive
--- it differently -- safe, because any recipe change rebuilds the modal and this panel with
--- it, and the minutes handler rewrites the tags along with the text. Otherwise the settings
--- panel's shape and lifecycle: a second window-styled column, rebuilt from scratch on open,
--- re-created after a modal rebuild, dead with the frame.
-local function build_ingredients_panel(player, frame)
-  local choices = state.of(player.index).choices
-
-  local panel = frame.add({ type = "frame", name = INGREDIENTS_FRAME, direction = "vertical" })
-  panel.style.left_margin = 12
-  local titlebar =
-    add_titlebar(panel, "upl-ingredients-titlebar", { "upl-gui.requests-title" }, frame)
-  titlebar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags("ingredients-close"),
+-- The ingredient amounts, inline in the Chests tab (owner's call, 2026-11-27): a Minutes
+-- field, then one numeric field per item ingredient of the chosen recipe, each opening at the
+-- amount the plan would really use -- the player's stored override if one exists, else the
+-- live formula at those minutes. It backfills NOTHING: only an edit is stored
+-- (request_<item>, flat numbers, the circuit families' key shape), so an untouched
+-- ingredient keeps following request_count and a recipe retune moves the default instead of
+-- freezing a number the player never chose. The formula's value rides in the field's tags so
+-- the reset-to-automatic path cannot re-derive it differently -- safe, because any recipe
+-- change rebuilds the modal and these rows with it, and the minutes handler rewrites the tags
+-- along with the text.
+local function fill_ingredients(parent, choices)
+  local content = parent.add({
+    type = "flow", name = "upl-ingredients-content", direction = "vertical",
   })
 
-  local content = panel.add({
-    type = "frame", name = "upl-ingredients-content",
-    style = "inside_shallow_frame_with_padding", direction = "vertical",
-  })
-
-  -- The button that opens this panel waits for an item, but a rebuild can re-create the panel
-  -- after the recipe went away (the item picker cleared) -- say so instead of standing empty.
+  -- Nothing to size before an item is picked -- say so instead of standing empty.
   local recipe = chosen_recipe(choices)
   if not recipe then
     hint(content, "pick-a-recipe")
@@ -894,61 +914,175 @@ local function build_ingredients_panel(player, frame)
   -- replaces, it does not merely re-default (owner's call, 2026-09-09). In place and never
   -- a rebuild, or this field would die under the cursor after its first keystroke.
   local minutes = planner.feed_minutes(choices)
-  local master = content.add({
-    type = "flow", name = "upl-feed-minutes-row", direction = "horizontal",
-  })
-  master.style.vertical_align = "center"
-  local master_label = master.add({
-    type = "label", caption = { "upl-gui.feed-minutes" },
-    tooltip = { "upl-gui.feed-minutes-tooltip" },
-  })
-  master_label.style.minimal_width = 110
-  local master_field = master.add({
-    type = "textfield", name = "upl-feed-minutes",
+  local master = count_row(content, "upl-feed-minutes-row")
+  row_label(master, { "upl-gui.feed-minutes" }, { "upl-gui.feed-minutes-tooltip" })
+  count_field(master, {
+    name = "upl-feed-minutes",
     text = tostring(minutes),
-    numeric = true, allow_decimal = false, allow_negative = false,
-    lose_focus_on_confirm = true,
     tooltip = { "upl-gui.feed-minutes-tooltip" },
     tags = dispatch.tags("feed-minutes", {
       key = "feed_minutes", default = planner.DEFAULT_FEED_MINUTES,
       min = 1, max = planner.MAX_FEED_MINUTES,
     }),
   })
-  master_field.style.width = 60
   local separator = content.add({ type = "line", name = "upl-feed-minutes-sep" })
   separator.style.top_margin = 4
   separator.style.bottom_margin = 4
 
-  local list = content.add({
-    type = "scroll-pane", name = "upl-ingredients-list", direction = "vertical",
-  })
-  list.style.maximal_height = 400
+  local list = tier_list(content, "upl-ingredients-list")
 
   for _, ingredient in pairs(planner.item_ingredients(recipe)) do
     local key = "request_" .. ingredient.name
     local default = planner.request_count(ingredient, recipe, minutes)
-    local row = list.add({
-      type = "flow", name = "upl-request-row-" .. ingredient.name, direction = "horizontal",
-    })
-    row.style.vertical_align = "center"
-    local label = row.add({
-      type = "label",
-      caption = { "", "[item=" .. ingredient.name .. "] ",
-        prototypes.item[ingredient.name].localised_name },
-    })
-    -- One width for every label, or the fields stagger with the ingredient names.
-    label.style.minimal_width = 110
-    local field = row.add({
-      -- numeric keeps every keystroke a digit, the wizard's rule: the handler's tonumber can
-      -- only see a number or an emptied field.
-      type = "textfield", name = "upl-request-" .. ingredient.name,
+    local row = count_row(list, "upl-request-row-" .. ingredient.name)
+    row_label(row, { "", "[item=" .. ingredient.name .. "] ",
+      prototypes.item[ingredient.name].localised_name })
+    count_field(row, {
+      name = "upl-request-" .. ingredient.name,
       text = tostring(choices[key] or default),
-      numeric = true, allow_decimal = false, allow_negative = false,
-      lose_focus_on_confirm = true,
       tooltip = { "upl-gui.request-count-tooltip" },
       tags = dispatch.tags("request-count", { key = key, default = default }),
     })
-    field.style.width = 60
+  end
+end
+-- One row of a tab: the label names the control and carries its tooltip, and the control
+-- carries the same one, so hovering either explains it. `body` names a different tooltip
+-- under the same name -- a control whose job changes with the layout keeps its name and says
+-- what it does there. Hands back the control, then the label a hidden row hides with it.
+--
+-- elem_value is the CALLER's to assign, after add(): it is a runtime attribute, not a creation
+-- parameter, and add() ignores unknown fields without a word.
+local function add_row(rows, key, spec, body)
+  local tooltip = { "upl-gui." .. (body or key) .. "-tooltip" }
+  local label = rows.add({
+    type = "label", name = "upl-" .. key .. "-label",
+    caption = { "upl-gui." .. key }, tooltip = tooltip,
+  })
+  label.style.minimal_width = LABEL_WIDTH
+  spec.name = "upl-" .. key
+  spec.tooltip = tooltip
+  return rows.add(spec), label
+end
+
+-- A row shows or hides as one: an orphaned label is the obvious way to get a hidden row wrong.
+local function show_row(control, label, visible)
+  control.visible = visible
+  label.visible = visible
+end
+
+-- A tab's labelled rows: one table, so the label column is measured once.
+local function add_rows(parent, name)
+  return parent.add({ type = "table", name = name, column_count = 2 })
+end
+
+-- A caption inside a tab, over the per-tier list or the amounts it names, wearing the row
+-- labels' tooltip convention.
+local function add_caption(parent, key)
+  local caption = parent.add({
+    type = "label", name = "upl-" .. key .. "-label", style = "semibold_caption_label",
+    caption = { "upl-gui." .. key }, tooltip = { "upl-gui." .. key .. "-tooltip" },
+  })
+  caption.style.top_margin = 8
+  return caption
+end
+
+-- The productivity mix, under the Modules tab's rows: the productivity module, then one row
+-- per tier below the target saying how many of its machine's slots hold that module -- the
+-- rest hold quality modules -- each opening at the computed best ratio. The ingredient
+-- amounts' storage rule, not the circuit limits': NOTHING is backfilled into choices, because
+-- the optimum moves with research and with the machine and module picks, and a frozen copy
+-- would go stale under all of them. Only an edit is stored (split_prod_<tier>), and an emptied
+-- field returns to the live optimum riding in its tags.
+local function add_split_section(player, parent, choices)
+  local section = parent.add({ type = "flow", name = "upl-split-content", direction = "vertical" })
+  section.style.top_margin = 4
+  local rows = add_rows(section, "upl-split-table")
+  -- Built before the mixable check, so a pair with no productivity module researched yet
+  -- still shows the honestly empty picker beside the sentence saying why.
+  local picker = add_row(rows, "productivity-module", {
+    type = "choose-elem-button", elem_type = "item-with-quality",
+    elem_filters = productivity_module_filters(player),
+    tags = dispatch.tags("productivity-module"),
+  })
+  picker.elem_value =
+    with_quality(choices.productivity_module, choices.productivity_module_quality)
+
+  -- The untouched optimum: what every field opens showing and what an emptied one returns
+  -- to. The overridden solve is not recomputed here -- the fields themselves carry the edits.
+  -- nil while the choices name no loop at all, which the status area already explains.
+  local defaults = planner.split(player.force, choices, nil, true)
+  if not defaults then return end
+  if not defaults.mixable then
+    -- Nothing mixes yet: the split is forced all-quality, said in words rather than as rows
+    -- of dead zeroes. Hint grey, not a failure.
+    hint(section, "split-no-productivity")
+    return
+  end
+
+  local list = tier_list(section, "upl-split-list")
+  local tiers = planner.tiers_up_to(choices.quality) or {}
+  for index = 1, #tiers - 1 do
+    local tier = tiers[index]
+    local key = "split_prod_" .. tier
+    local default = defaults.prods[index] or 0
+    -- Displayed through the solve's own clamp and type guard, the column counts' rule: a
+    -- stored count from a bigger machine (or a hand-edited save) must show the number the
+    -- plan actually uses, never a raw one the solve would quietly clamp.
+    local stored = type(choices[key]) == "number"
+      and util.clamp(choices[key], 0, defaults.slots) or nil
+    local row = count_row(list, "upl-split-row-" .. tier)
+    tier_label(row, tier)
+    count_field(row, {
+      name = "upl-split-count-" .. tier,
+      text = tostring(stored or default),
+      tooltip = { "upl-gui.split-count-tooltip" },
+      -- The storage key, the live optimum and the slot ceiling all ride the tags: one
+      -- handler serves every tier, the reset path restores exactly what the field opened
+      -- with, and the clamp cannot outlive the machine that set it.
+      tags = dispatch.tags("split-count", { key = key, default = default, max = defaults.slots }),
+    })
+    local of = row.add({ type = "label", caption = { "upl-gui.split-of", defaults.slots } })
+    of.style.left_margin = 4
+  end
+end
+
+-- How many columns each tier below the target repeats -- the target itself is pinned to one
+-- column, the single output chest the tap, the catcher and the circuit cap all stand on. The
+-- ratio rows' storage rule: nothing is backfilled, an absent column_count_<quality> key means
+-- one, and an emptied field returns to it. Rows and nothing else: the balanced-counts hint
+-- that once closed this list went at the owner's ask (2026-08-29), its one-click Apply having
+-- gone the day the feature landed -- one click on a big layout asked the engine for a plan it
+-- could not survive (2026-08-28) -- so a count arrives one capped field at a time.
+local function add_columns_section(parent, choices)
+  -- Every target the modal offers has a tier below it; with none offered at all -- no
+  -- quality above normal in the game -- there is nothing to repeat, and the status area
+  -- already says what is missing.
+  local tiers = planner.tiers_up_to(choices.quality) or {}
+  if #tiers < 2 then return end
+
+  local section = parent.add({ type = "flow", name = "upl-columns-content", direction = "vertical" })
+  add_caption(section, "columns")
+  local list = tier_list(section, "upl-columns-list")
+  -- The displayed counts come from the same read the plan uses, clamp included, so a stored
+  -- value from a wider dev-era cap (250, then 32) can never show one number while the built
+  -- plan uses another.
+  local counts = planner.tier_columns(choices, tiers)
+  for index = 1, #tiers - 1 do
+    local tier = tiers[index]
+    local row = count_row(list, "upl-columns-row-" .. tier)
+    tier_label(row, tier)
+    count_field(row, {
+      name = "upl-columns-count-" .. tier,
+      text = tostring(counts[tier]),
+      -- The cap rides into the tooltip so the number and its reason (performance) stay
+      -- one value with the clamp below.
+      tooltip = { "upl-gui.columns-count-tooltip", planner.MAX_COLUMNS_PER_TIER },
+      -- The ratio fields' shape: key, default and both bounds ride the tags, so the one
+      -- shared handler serves both lists and the clamp cannot outlive what set it.
+      tags = dispatch.tags("columns-count", {
+        key = "column_count_" .. tier, default = 1, min = 1, max = planner.MAX_COLUMNS_PER_TIER,
+      }),
+    })
   end
 end
 
@@ -957,187 +1091,6 @@ end
 -- because it touches no element -- a reader after "where is the inserter button built" should
 -- not have to scroll through it. Hands back the offered target list, which the dropdown is
 -- built from and must not re-derive (see the dropdown's own comment).
--- The module-ratio wizard: one row per tier below the target, each opening at the computed
--- best ratio -- how many of the machine's slots hold the productivity module, the rest the
--- quality module. The ingredient panel's storage rule, not the circuit wizard's: NOTHING is
--- backfilled into choices, because the optimum moves with research and with the machine and
--- module picks, and a frozen copy would go stale under all of them. Only an edit is stored
--- (split_prod_<tier>), and an emptied field returns to the live optimum riding in its tags.
-local function build_split_panel(player, frame)
-  local choices = state.of(player.index).choices
-
-  local panel = frame.add({ type = "frame", name = SPLIT_FRAME, direction = "vertical" })
-  panel.style.left_margin = 12
-  local titlebar = add_titlebar(panel, "upl-split-titlebar", { "upl-gui.split-title" }, frame)
-  titlebar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags("split-close"),
-  })
-
-  local content = panel.add({
-    type = "frame", name = "upl-split-content", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-
-  -- The untouched optimum: what every field opens showing and what an emptied one returns
-  -- to. The overridden solve is not recomputed here -- the fields themselves carry the edits.
-  local defaults = planner.split(player.force, choices, nil, true)
-  if not defaults then
-    hint(content, "pick-a-recipe")
-    return
-  end
-
-  -- The mix's productivity module lives here in the sub-menu, above the counts it feeds --
-  -- the strip keeps only the choice of whether to mix at all. Built before the mixable
-  -- check so a recipe that refuses productivity still shows the honestly empty picker
-  -- beside the sentence saying why.
-  local picker_row = content.add({
-    type = "flow", name = "upl-split-module-row", direction = "horizontal",
-  })
-  picker_row.style.vertical_align = "center"
-  picker_row.style.bottom_margin = 8
-  local picker_label = picker_row.add({
-    type = "label", caption = { "upl-gui.productivity-module" },
-  })
-  picker_label.style.minimal_width = 110
-  local picker = picker_row.add({
-    type = "choose-elem-button", name = "upl-productivity-module",
-    elem_type = "item-with-quality",
-    elem_filters = productivity_module_filters(player),
-    tooltip = titled_tooltip("productivity-module"),
-    tags = dispatch.tags("productivity-module"),
-  })
-  picker.elem_value =
-    with_quality(choices.productivity_module, choices.productivity_module_quality)
-
-  if not defaults.mixable then
-    -- The recipe or the machine refuses productivity: the split is forced all-quality, said
-    -- here in words rather than as rows of dead zeroes. Hint grey, not a failure: the panel
-    -- is explaining its own emptiness.
-    hint(content, "split-no-productivity")
-    return
-  end
-
-  local list = content.add({
-    type = "scroll-pane", name = "upl-split-list", direction = "vertical",
-  })
-  list.style.maximal_height = 400
-
-  local tiers = planner.tiers_up_to(choices.quality) or {}
-  for index = 1, #tiers - 1 do
-    local tier = tiers[index]
-    local key = "split_prod_" .. tier
-    local default = defaults.prods[index] or 0
-    -- Displayed through the solve's own clamp and type guard, the columns wizard's rule: a
-    -- stored count from a bigger machine (or a hand-edited save) must show the number the
-    -- plan actually uses, never a raw one the solve would quietly clamp.
-    local stored = type(choices[key]) == "number"
-      and util.clamp(choices[key], 0, defaults.slots) or nil
-    local row = list.add({
-      type = "flow", name = "upl-split-row-" .. tier, direction = "horizontal",
-    })
-    row.style.vertical_align = "center"
-    local label = row.add({
-      type = "label",
-      caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
-    })
-    label.style.minimal_width = 110
-    local field = row.add({
-      -- numeric keeps every keystroke a digit, the other wizards' rule.
-      type = "textfield", name = "upl-split-count-" .. tier,
-      text = tostring(stored or default),
-      numeric = true, allow_decimal = false, allow_negative = false,
-      lose_focus_on_confirm = true,
-      tooltip = { "upl-gui.split-count-tooltip" },
-      -- The storage key, the live optimum and the slot ceiling all ride the tags: one
-      -- handler serves every tier, the reset path restores exactly what the field opened
-      -- with, and the clamp cannot outlive the machine that set it.
-      tags = dispatch.tags("split-count", { key = key, default = default, max = defaults.slots }),
-    })
-    field.style.width = 60
-    local of = row.add({ type = "label", caption = { "upl-gui.split-of", defaults.slots } })
-    of.style.left_margin = 4
-  end
-end
-
--- The columns wizard: one row per tier below the target -- the target itself is pinned to
--- one column, the single output chest the tap, the catcher and the circuit cap all stand
--- on. The ratio wizard's storage rule: nothing is backfilled, an absent
--- column_count_<quality> key means one, and an emptied field returns to it. Deliberately
--- nothing below the rows: the balanced-counts hint that used to close the panel went at
--- the owner's ask (2026-08-29), its one-click Apply having already gone the day the
--- feature landed -- one click on a big layout asked the engine for a plan it could not
--- survive (2026-08-28) -- so a count arrives one capped field at a time and the panel
--- shows nothing it does not store.
-local function build_columns_panel(player, frame)
-  local choices = state.of(player.index).choices
-
-  local panel = frame.add({ type = "frame", name = COLUMNS_FRAME, direction = "vertical" })
-  panel.style.left_margin = 12
-  local titlebar = add_titlebar(panel, "upl-columns-titlebar", { "upl-gui.columns-title" }, frame)
-  titlebar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags("columns-close"),
-  })
-
-  local content = panel.add({
-    type = "frame", name = "upl-columns-content", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-
-  if not chosen_recipe(choices) then
-    hint(content, "pick-a-recipe")
-    return
-  end
-
-  local tiers = planner.tiers_up_to(choices.quality) or {}
-  if #tiers < 2 then
-    -- A normal-quality target has nothing below it to repeat; said in words rather than as
-    -- an empty list, the split wizard's own rule for its forced states.
-    hint(content, "columns-no-lower-tier")
-    return
-  end
-
-  local list = content.add({
-    type = "scroll-pane", name = "upl-columns-list", direction = "vertical",
-  })
-  list.style.maximal_height = 400
-
-  -- The displayed counts come from the same read the plan uses, clamp included, so a stored
-  -- value from a wider dev-era cap (250, then 32) can never show one number while the built
-  -- plan uses another.
-  local counts = planner.tier_columns(choices, tiers)
-
-  for index = 1, #tiers - 1 do
-    local tier = tiers[index]
-    local key = "column_count_" .. tier
-    local row = list.add({
-      type = "flow", name = "upl-columns-row-" .. tier, direction = "horizontal",
-    })
-    row.style.vertical_align = "center"
-    local label = row.add({
-      type = "label",
-      caption = { "", "[quality=" .. tier .. "] ", prototypes.quality[tier].localised_name },
-    })
-    label.style.minimal_width = 110
-    local field = row.add({
-      -- numeric keeps every keystroke a digit, the other wizards' rule.
-      type = "textfield", name = "upl-columns-count-" .. tier,
-      text = tostring(counts[tier]),
-      numeric = true, allow_decimal = false, allow_negative = false,
-      lose_focus_on_confirm = true,
-      -- The cap rides into the tooltip so the number and its reason (performance) stay
-      -- one value with the clamp below.
-      tooltip = { "upl-gui.columns-count-tooltip", planner.MAX_COLUMNS_PER_TIER },
-      -- The ratio fields' shape: key, default and both bounds ride the tags, so the one
-      -- shared handler serves both wizards and the clamp cannot outlive what set it.
-      tags = dispatch.tags("columns-count",
-        { key = key, default = 1, min = 1, max = planner.MAX_COLUMNS_PER_TIER }),
-    })
-    field.style.width = 60
-  end
-end
-
 local function apply_defaults(player, choices)
   -- Default anything not chosen yet, so the modal opens usable rather than empty.
   if not choices.recycler then
@@ -1157,17 +1110,15 @@ local function apply_defaults(player, choices)
   if not choices.quality_module then
     choices.quality_module = planner.quality_module(player.force)
   end
-  -- Only used when the recipe takes a fluid, but always defaulted so the strip never shows
+  -- Only used when the recipe takes a fluid, but always defaulted so the picker never shows
   -- an empty button for a material that has a researched answer.
   if not choices.pipe then
     choices.pipe = planner.pipe(player.force)
   end
-  -- The inserter and the chests default like the belt, and for the same reason: the strip
+  -- The inserter and the chests default like the belt, and for the same reason: the pickers
   -- should show what would actually be placed. Neither can be cleared to nothing -- there is no
   -- loop without them -- so the handlers snap an emptied picker straight back.
-  if not choices.inserter then
-    choices.inserter = planner.inserter_for(player.force, planner.filters_needed(chosen_recipe(choices)))
-  end
+  if not choices.inserter then choices.inserter = default_inserter(player, choices) end
   -- The stock chests' kind: buffer chests unless the player unticked it, normalised before
   -- the chest loop so the stock default is drawn from the right list and the checkbox has a
   -- real boolean to show. nil means never touched, the trash checkbox's rule.
@@ -1210,18 +1161,277 @@ local function apply_defaults(player, choices)
   -- And nothing to resolve until a beacon is picked -- choices.beacon itself is deliberately
   -- never defaulted here, which is the whole of "beacons are off by default".
   resolve_beacon_module(player, choices)
-  return offered_targets, resolve_beacon_count(choices)
+  -- The remembered beacon count snaps to what the geometry fits before anything plans with it.
+  resolve_beacon_count(choices)
+  return offered_targets
+end
+
+-- The Buildings tab: what the loop is built of, then how many columns each lower tier repeats.
+local function build_buildings_tab(player, content, choices, rules)
+  local rows = add_rows(content, "upl-buildings-table")
+
+  -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
+  -- get_crafting_speed(quality), so a legendary belt would carry exactly as much. The bot
+  -- loop stands no belt at all.
+  local belt, belt_label = add_row(rows, "belt", {
+    type = "choose-elem-button", elem_type = "entity",
+    elem_filters = belt_filters(player),
+    tags = dispatch.tags("belt"),
+  })
+  belt.elem_value = choices.belt
+  show_row(belt, belt_label, rules.shows_belt)
+
+  local inserter = add_row(rows, "inserter", {
+    type = "choose-elem-button", elem_type = "entity-with-quality",
+    elem_filters = name_filter(inserter_options(player)),
+    tags = dispatch.tags("inserter"),
+  })
+  inserter.elem_value = with_quality(choices.inserter, choices.inserter_quality)
+
+  -- No quality on the pipe for the belt's reason: nothing about a pipe scales with quality.
+  local pipe, pipe_label = add_row(rows, "pipe", {
+    type = "choose-elem-button", elem_type = "entity",
+    elem_filters = name_filter(pipe_options(player)),
+    tags = dispatch.tags("pipe"),
+  })
+  pipe.elem_value = choices.pipe
+  show_row(pipe, pipe_label, pipe_visible(choices))
+
+  -- Clearing it is a choice of its own: "place no poles".
+  local pole = add_row(rows, "pole", {
+    type = "choose-elem-button", elem_type = "entity-with-quality",
+    elem_filters = pole_filters(player),
+    tags = dispatch.tags("pole"),
+  })
+  pole.elem_value = with_quality(choices.pole, choices.pole_quality)
+
+  add_columns_section(content, choices)
+end
+
+-- The Modules tab: what goes inside the machines, the beacons beside them, and the mix.
+local function build_modules_tab(player, content, choices)
+  local rows = add_rows(content, "upl-modules-table")
+
+  local quality_module = add_row(rows, "quality-module", {
+    type = "choose-elem-button", elem_type = "item-with-quality",
+    elem_filters = quality_module_filters(player),
+    tags = dispatch.tags("quality-module"),
+  })
+  quality_module.elem_value =
+    with_quality(choices.quality_module, choices.quality_module_quality)
+
+  -- Clearing it means "leave the final machine empty".
+  local terminal = add_row(rows, "terminal-module", {
+    type = "choose-elem-button", elem_type = "item-with-quality",
+    elem_filters = name_filter(terminal_module_options(player, choices)),
+    tags = dispatch.tags("terminal-module"),
+  })
+  terminal.elem_value = with_quality(choices.terminal_module, choices.terminal_module_quality)
+
+  -- The beacon is off until picked -- nil is its resting state, and the empty picker says so
+  -- -- and its module and count stand only once there is a beacon to fill and stack.
+  local beacon = add_row(rows, "beacon", {
+    type = "choose-elem-button", elem_type = "entity-with-quality",
+    elem_filters = name_filter(beacon_options(player)),
+    tags = dispatch.tags("beacon"),
+  })
+  beacon.elem_value = with_quality(choices.beacon, choices.beacon_quality)
+  local has_beacon = choices.beacon ~= nil
+
+  local beacon_module, beacon_module_label = add_row(rows, "beacon-module", {
+    type = "choose-elem-button", elem_type = "item-with-quality",
+    elem_filters = name_filter(beacon_module_options(player, choices)),
+    tags = dispatch.tags("beacon-module"),
+  })
+  beacon_module.elem_value = with_quality(choices.beacon_module, choices.beacon_module_quality)
+  show_row(beacon_module, beacon_module_label, has_beacon)
+
+  -- How many beacons stack in each tier's column: exactly what fits the chosen pair and
+  -- layout, the stored count shown clamped to it -- and the values ride in the tags like the
+  -- quality dropdown's, never re-derived under a stale index. A max of one is not a choice,
+  -- so the row waits for a second.
+  local counts, items = {}, {}
+  for i = 1, resolve_beacon_count(choices) or 1 do
+    counts[i] = i
+    items[i] = tostring(i)
+  end
+  local count, count_label = add_row(rows, "beacon-count", {
+    type = "drop-down", items = items,
+    selected_index = math.min(math.max(choices.beacon_count or 1, 1), #items),
+    tags = dispatch.tags("beacon-count", { counts = counts }),
+  })
+  -- Sized for a numeral, not a name: the default drop-down width would dwarf the pickers.
+  count.style.width = 60
+  show_row(count, count_label, has_beacon and #items > 1)
+
+  -- The mix exists only where it is structurally possible -- some productivity module must
+  -- fit the machine-and-recipe pair (research aside: the section says "none yet" in words, a
+  -- refusing recipe is a fact). Absent before an item is picked, since nothing is known yet;
+  -- a pair change always rebuilds, so it cannot go stale. The tick IS the opt-out, on by
+  -- default -- apply_defaults normalised the nil -- and the counts go with an untick.
+  local machine, recipe = chosen_pair(choices)
+  if not (machine and planner.mix_possible(machine, recipe)) then return end
+  local mix = content.add({
+    type = "checkbox", name = "upl-split-enabled", state = choices.split_enabled,
+    caption = { "upl-gui.split-enabled" },
+    tooltip = { "upl-gui.split-enabled-tooltip" },
+    tags = dispatch.tags("split-enabled"),
+  })
+  -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
+  -- box graphic stays put, so the mark ends up hanging half out of the square.
+  mix.style.top_margin = 8
+  if choices.split_enabled then add_split_section(player, content, choices) end
+end
+
+-- The Chests tab: the five chest roles, whether they share and request, and how much of each
+-- ingredient they ask for.
+local function build_chests_tab(player, content, choices, rules)
+  -- Every role the loop builds has its row, the default -- the largest inventory researched
+  -- -- the answer nearly every time. One handler serves all five, the role riding in the
+  -- tags. The bot loop stands no relay chest, and its overflow chests hand each tier on; a
+  -- belt ring to the highest quality stands no overflow chest.
+  local rows = add_rows(content, "upl-chests-table")
+  for _, role in ipairs(planner.CHEST_ROLES) do
+    local button, label = add_row(rows, role, {
+      type = "choose-elem-button", elem_type = "entity-with-quality",
+      elem_filters = name_filter(chest_options(player, role, planner.stock_buffered(choices))),
+      tags = dispatch.tags("chest", { role = role }),
+    }, rules.bot and role == "overflow" and "overflow-bot" or nil)
+    button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
+    if role == "container" then show_row(button, label, rules.shows_relay_chest) end
+    if role == "overflow" then show_row(button, label, rules.shows_overflow_chest) end
+  end
+
+  -- The tick IS the choice, so the checkboxes always stand.
+  local buffer_stock = content.add({
+    type = "checkbox", name = "upl-buffer-stock", state = choices.buffer_stock,
+    caption = { "upl-gui.buffer-stock" },
+    tooltip = { "upl-gui.buffer-stock-tooltip" },
+    tags = dispatch.tags("buffer-stock"),
+  })
+  -- Margin, never padding: the mix checkbox's reason.
+  buffer_stock.style.top_margin = 8
+
+  -- The two requests a player may not want (2026-11-13): the stock chests drawing the base's
+  -- own stock of the item into the loop, and the final machine's chest drawing back the
+  -- target-quality ingredients. Ticked by default -- what every loop did before the boxes
+  -- existed -- and gone with bots, whose only transport they are. One handler serves both,
+  -- the choice it writes riding in the tags like the chests' role.
+  for _, opt_out in ipairs({
+    { name = "stock-requests", key = "stock_requests" },
+    { name = "terminal-requests", key = "terminal_requests" },
+  }) do
+    local box = content.add({
+      type = "checkbox", name = "upl-" .. opt_out.name, state = choices[opt_out.key],
+      caption = { "upl-gui." .. opt_out.name },
+      tooltip = { "upl-gui." .. opt_out.name .. "-tooltip" },
+      tags = dispatch.tags("request-toggle", { key = opt_out.key }),
+    })
+    box.style.top_margin = 4
+    box.visible = rules.shows_request_boxes
+  end
+
+  local trash = content.add({
+    type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
+    caption = { "upl-gui.trash-unrequested" },
+    tooltip = { "upl-gui.trash-unrequested-tooltip" },
+    tags = dispatch.tags("trash"),
+  })
+  trash.style.top_margin = 4
+
+  add_caption(content, "requests")
+  fill_ingredients(content, choices)
+end
+
+-- Which builder fills which tab, and which kinds of change a standing tab is refilled for:
+-- "tiers" when the target moved the tier list its rows are built from (and, on Chests,
+-- whether an overflow chest stands), "rates" when a pick moved the solve its numbers are
+-- priced with. Declared here rather than tested per handler, because per-handler disjunctions
+-- leaked once: the beacon pickers shipped a release refresh-only while their effects moved
+-- the solve.
+local TAB_BUILDERS = {
+  buildings = { build = build_buildings_tab, refill_on = { tiers = true } },
+  modules = { build = build_modules_tab, refill_on = { tiers = true, rates = true } },
+  chests = { build = build_chests_tab, refill_on = { tiers = true } },
+  circuits = { build = build_circuits_tab, refill_on = { tiers = true } },
+}
+
+-- The window's size follows its tab and its settings panel, and the engine neither re-centres
+-- a frame whose content grew nor keeps one on screen: grown from a short tab's centred spot,
+-- a tall one ran past the bottom with Place out of reach. Writing auto_center again
+-- re-centres it (all three measured, analysis/api.md S38), so a window still centred -- one
+-- the player never moved -- is re-centred after every change of size; a moved one stays
+-- where it was put.
+local function recentre(frame)
+  if frame.auto_center then frame.auto_center = true end
+end
+
+-- How tall a tab may grow before it scrolls: what the screen leaves around the rest of the
+-- window, so a 768-pixel laptop or a 1080p screen at 125% still shows the titlebar and Place.
+-- Resolution and scale are synced per player, so the number is the same on every machine.
+local function tab_max_height(player)
+  local screen = player.display_resolution.height / player.display_scale
+  return math.max(TAB_MIN_HEIGHT, math.floor(screen - WINDOW_CHROME))
+end
+
+-- Fills the selected tab and empties the rest. Only the selected tab holds anything: a
+-- tabbed pane sizes to its tallest tab (analysis/api.md S38), so a short tab built beside
+-- tall ones sat over a band of blank space. In place, never a rebuild of the modal.
+local function fill_tab(player)
+  local name = selected_tab(player)
+  if not name then return end
+  local pane = pane_of(player)
+  local entry = state.of(player.index)
+  for _, key in ipairs(TABS) do pane["upl-tab-" .. key].clear() end
+  local content = pane["upl-tab-" .. name]
+  content.style.maximal_height = tab_max_height(player)
+  TAB_BUILDERS[name].build(player, content, entry.choices, layout_rules(entry.choices))
+  -- The clear took the old tab's pickers with it, and a chooser dies with its button -- so,
+  -- as on a rebuild, no presumption of one survives.
+  entry.chooser_maybe_open = nil
+  recentre(frame_of(player))
+end
+
+-- What the loop is built out of, as a tabbed pane under the top block. A pane with tabs added
+-- and none selected shows none (measured 2026-11-27, analysis/api.md S38), so the remembered
+-- tab is selected after the last one goes in; neither add_tab nor that write raises
+-- on_gui_selected_tab_changed, so building never overwrites the memory.
+local function build_options(player, main, entry)
+  local pane = main.add({ type = "tabbed-pane", name = "upl-options", tags = dispatch.tags("tab") })
+  pane.style.horizontally_stretchable = true
+  pane.style.top_margin = 8
+  for _, key in ipairs(TABS) do
+    local head = pane.add({
+      type = "tab", name = "upl-tabhead-" .. key, caption = { "upl-gui.tab-" .. key },
+    })
+    -- A scroll-pane, so a tab taller than tab_max_height scrolls rather than pushing the
+    -- window off the screen; naked, so it draws no frame of its own inside the pane's.
+    local content = pane.add({
+      type = "scroll-pane", name = "upl-tab-" .. key, style = "naked_scroll_pane",
+      horizontal_scroll_policy = "never",
+    })
+    -- The pane's own frame insets the content a few pixels; the slimmer left edge puts the
+    -- tabs' labels and controls under the top block's.
+    content.style.padding = { 8, 12, 8, 8 }
+    content.style.minimal_width = TAB_MIN_WIDTH
+    pane.add_tab(head, content)
+  end
+  pane.selected_tab_index = tab_index(entry.tab)
+  fill_tab(player)
 end
 
 function gui.open(player)
-  -- A rebuild keeps the modal exactly where it was. Flipping a setting re-enters here, and a
-  -- re-centred frame would jump out from under the cursor. It has to be read off the OLD
-  -- frame: a new one reports 0,0 until it has been laid out. The settings panel is a child,
-  -- so a rebuild takes it down with the frame -- remembered here and re-created at the end.
+  -- A rebuild keeps the modal where it was: centred if the player never moved it -- recentre's
+  -- rule, so it stands where every fill and the settings panel already put it -- and where
+  -- they dropped it if they did, or flipping a setting, which re-enters here, would jump the
+  -- window out from under the cursor. Read off the OLD frame: a new one reports 0,0 until it
+  -- has been laid out. The settings panel is a child, so a rebuild takes it down with the
+  -- frame -- remembered here and re-created at the end.
   local old = frame_of(player)
+  local centred = old == nil or old.auto_center
   local keep = old and old.location
   if keep and keep.x == 0 and keep.y == 0 then keep = nil end
-  local had_panel = side_panel_name(player)
+  local had_settings = gui.settings_open(player)
   destroy_modal(player)
   -- Before 0.4.2 the settings lived in a second gui.screen frame; a save from those builds can
   -- still carry one, and nothing else would ever remove it.
@@ -1233,7 +1443,7 @@ function gui.open(player)
   -- presumption of one survives into the new frame.
   entry.chooser_maybe_open = nil
   local choices = entry.choices
-  local offered_targets, beacon_count_max = apply_defaults(player, choices)
+  local offered_targets = apply_defaults(player, choices)
 
   -- The screen element is an invisible container; what the player sees is its children, each a
   -- window-styled frame of its own -- see the file comment. Everything positional (location,
@@ -1241,7 +1451,7 @@ function gui.open(player)
   local frame = player.gui.screen.add({
     type = "frame", name = FRAME, style = "invisible_frame", direction = "horizontal",
   })
-  if keep then
+  if keep and not centred then
     frame.location = keep
   else
     frame.auto_center = true
@@ -1292,15 +1502,16 @@ function gui.open(player)
   local rows = content.add({ type = "table", name = "upl-table", column_count = 2 })
 
   -- Each row is a label whose caption and tooltip follow the same locale convention, so the
-  -- convention is stated once here instead of at every row below. Returned and named because a
-  -- hidden row has to hide its label with it -- an orphaned label is the obvious way to get this
-  -- wrong, and the one a spec can catch.
+  -- convention is stated once here instead of at every row below -- the tabs' add_row
+  -- convention, at the tabs' label width, so these controls and theirs share one column.
   local function label(key)
-    return rows.add({
+    local cell = rows.add({
       type = "label", name = "upl-" .. key .. "-label",
       caption = { "upl-gui." .. key },
       tooltip = { "upl-gui." .. key .. "-tooltip" },
     })
+    cell.style.minimal_width = LABEL_WIDTH
+    return cell
   end
 
   -- An ITEM picker, not a recipe picker: it is how the mod is described, and it is also the
@@ -1341,313 +1552,31 @@ function gui.open(player)
   })
   machine_button.elem_value = with_quality(choices.machine, choices.machine_quality)
 
-  local recycler_names = recycler_options(player)
-  local recycler_label = label("recycler")
+  -- Shown even in a game with one recycler: its quality is still the player's to pick.
+  label("recycler")
   local recycler_button = rows.add({
     type = "choose-elem-button", name = "upl-recycler", elem_type = "entity-with-quality",
-    elem_filters = name_filter(recycler_names),
+    elem_filters = name_filter(recycler_options(player)),
     tags = dispatch.tags("recycler"),
   })
   recycler_button.elem_value = with_quality(choices.recycler, choices.recycler_quality)
-  -- Vanilla ships one recycler, so this row is normally not there at all; the default still
-  -- stands behind it, and its quality with it.
-  recycler_label.visible = worth_showing(player, recycler_names)
-  recycler_button.visible = recycler_label.visible
 
-  -- What the loop is built out of. Still a strip of icons -- each picker leans on
-  -- titled_tooltip above rather than a row label -- but grouped by concept: a small caption
-  -- over each group's own row names what the icons under it are about, which one six-wide
-  -- grid of a dozen unlabelled icons had stopped doing. A group whose every picker is hidden
-  -- takes its caption down with it, so the hide rules cost no empty headers.
-  local caption = main.add({
-    type = "label", style = "caption_label", caption = { "upl-gui.build-options" },
-  })
-  caption.style.top_margin = 8
-
-  local options = main.add({
-    type = "frame", name = "upl-options", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-  options.style.horizontally_stretchable = true
-
-  -- A captioned row of pickers. No group holds more than four icons, so a plain flow needs no
-  -- wrap rule the way the old six-column table did. Caption and row are returned together so a
-  -- group-level hide takes both -- the orphaned-label mistake, one level up.
-  local first_group = true
-  local function group(key)
-    local group_label = options.add({
-      type = "label", name = "upl-" .. key .. "-label", style = "semibold_caption_label",
-      caption = { "upl-gui.group-" .. key },
-    })
-    if not first_group then group_label.style.top_margin = 8 end
-    first_group = false
-    local row = options.add({
-      type = "flow", name = "upl-" .. key .. "-strip", direction = "horizontal",
-    })
-    return row, group_label
+  -- How the loop moves items between tiers: the belt ring, or the player's robots. Up here
+  -- with the target rather than among the build options, because it decides which build
+  -- options there are at all. Its rows ride the quality drop-down's rich-text shape.
+  local layout_items, layout_selected = {}, 1
+  for index, option in ipairs(LAYOUTS) do
+    layout_items[index] = { "", "[item=" .. option.icon .. "] ", { "upl-gui.layout-" .. option.key } }
+    if option.store == choices.layout then layout_selected = index end
   end
-
-  -- One width for every label-and-button row in this block -- the mix line, the two Edit...
-  -- doors and the circuits line -- or their buttons stagger with the caption lengths, which is
-  -- the side panels' own rule one level up. Wide enough for the longest of the four captions
-  -- with room to spare; a caption that outgrows it pushes its own button right rather than
-  -- overlapping, so the failure is the old ragged edge and never a broken row.
-  local ROW_LABEL_WIDTH = 200
-
-  -- How items and fluids move: belt, inserter, and -- for a fluid recipe -- the pipe.
-  local transport = group("transport")
-
-  -- No quality on the belt: belt_speed is a plain attribute with no quality variant, unlike
-  -- get_crafting_speed(quality), so a legendary belt would carry exactly as much.
-  local belt_button = transport.add({
-    type = "choose-elem-button", name = "upl-belt", elem_type = "entity",
-    elem_filters = belt_filters(player),
-    tooltip = titled_tooltip("belt"),
-    tags = dispatch.tags("belt"),
+  label("layout")
+  rows.add({
+    type = "drop-down", name = "upl-layout", items = layout_items,
+    selected_index = layout_selected, tags = dispatch.tags("layout"),
   })
-  belt_button.elem_value = choices.belt
 
-  local inserter_names = inserter_options(player)
-  local inserter_button = transport.add({
-    type = "choose-elem-button", name = "upl-inserter", elem_type = "entity-with-quality",
-    elem_filters = name_filter(inserter_names),
-    tooltip = titled_tooltip("inserter"),
-    tags = dispatch.tags("inserter"),
-  })
-  inserter_button.elem_value = with_quality(choices.inserter, choices.inserter_quality)
-  inserter_button.visible = worth_showing(player, inserter_names)
-
-  -- No quality on the pipe for the belt's reason: nothing about a pipe scales with quality.
-  local pipe_names = pipe_options(player)
-  local pipe_button = transport.add({
-    type = "choose-elem-button", name = "upl-pipe", elem_type = "entity",
-    elem_filters = name_filter(pipe_names),
-    tooltip = titled_tooltip("pipe"),
-    tags = dispatch.tags("pipe"),
-  })
-  pipe_button.elem_value = choices.pipe
-  pipe_button.visible = pipe_visible(player, choices, pipe_names)
-
-  -- The chests keep their rule -- hidden whatever the count (owner's call, 2026-08-18), the
-  -- default being the answer nearly every time, show-all bringing them back quality included --
-  -- but the rule now lives once, on the group, instead of on each button.
-  local chests, chests_label = group("chests")
-  chests_label.visible = show_all_options(player)
-  chests.visible = chests_label.visible
-
-  -- One button per chest role, driven by the role list so they cannot drift apart. The role
-  -- rides in the tags, which is what lets them share a single handler.
-  for _, role in ipairs(planner.CHEST_ROLES) do
-    local chest_names = chest_options(player, role, planner.stock_buffered(choices))
-    local chest_button = chests.add({
-      type = "choose-elem-button", name = "upl-" .. role, elem_type = "entity-with-quality",
-      elem_filters = name_filter(chest_names),
-      tooltip = titled_tooltip(role),
-      tags = dispatch.tags("chest", { role = role }),
-    })
-    chest_button.elem_value = with_quality(choices[role], choices[role .. "_quality"])
-  end
-
-  -- What goes inside the machines.
-  local modules = group("modules")
-
-  local module_button = modules.add({
-    type = "choose-elem-button", name = "upl-quality-module", elem_type = "item-with-quality",
-    elem_filters = quality_module_filters(player),
-    tooltip = titled_tooltip("quality-module"),
-    tags = dispatch.tags("quality-module"),
-  })
-  module_button.elem_value = with_quality(choices.quality_module, choices.quality_module_quality)
-
-  local terminal_button = modules.add({
-    type = "choose-elem-button", name = "upl-terminal-module", elem_type = "item-with-quality",
-    elem_filters = name_filter(terminal_module_options(player, choices)),
-    tooltip = titled_tooltip("terminal-module"),
-    tags = dispatch.tags("terminal-module"),
-  })
-  terminal_button.elem_value =
-    with_quality(choices.terminal_module, choices.terminal_module_quality)
-
-  -- The mix checkbox and the ratio wizard's door, on their own line under the module
-  -- pickers (the owner's call -- a caption and a button crowd an icon row). Otherwise the
-  -- Circuits row's exact shape: the tick IS the opt-out (on by default -- apply_defaults
-  -- normalised the nil), and Ratios opens the sub-menu holding the productivity module and
-  -- the per-tier counts. The button waits for the tick AND an item; the tick half is
-  -- re-synced in gui.refresh, the item half cannot go stale because a recipe change always
-  -- rebuilds.
-  local mix = options.add({ type = "flow", name = "upl-mix-strip", direction = "horizontal" })
-  mix.style.vertical_align = "center"
-  local mix_box = mix.add({
-    type = "checkbox", name = "upl-split-enabled", state = choices.split_enabled,
-    caption = { "upl-gui.split-enabled" },
-    tooltip = { "upl-gui.split-enabled-tooltip" },
-    tags = dispatch.tags("split-enabled"),
-  })
-  mix_box.style.minimal_width = ROW_LABEL_WIDTH
-  local split_button = mix.add({
-    type = "button", name = "upl-split", caption = { "upl-gui.split-edit" },
-    tooltip = { "upl-gui.split-edit-tooltip" },
-    tags = dispatch.tags("split"),
-  })
-  split_button.style.left_margin = 8
-  -- Enabled state deliberately not set here: gui.refresh, which every open ends in, is the
-  -- one owner of this button's rule (and the Limits button's below) -- a second copy at
-  -- build time is the pair that drifts when the rule next changes.
-
-  -- The whole line exists only where a mix is structurally possible -- some productivity
-  -- module must fit the machine-and-recipe pair (research aside: the wizard says "none
-  -- researched yet" in words, a refusing recipe is a fact). Hidden before an item is
-  -- picked, since nothing is known yet; show-all overrides, the pipe's own rule. A pair
-  -- change always rebuilds, so this cannot go stale.
-  local mix_machine, mix_recipe = chosen_pair(choices)
-  mix.visible = show_all_options(player)
-    or (mix_machine ~= nil and planner.mix_possible(mix_machine, mix_recipe))
-
-  -- The beacon group: a stack per tier when picked, off until then -- hidden until show-all
-  -- or an actual pick brings it out (beacon_visible above), the rule on the group rather than
-  -- on each control.
-  local beacons, beacons_label = group("beacons")
-  beacons_label.visible = beacon_visible(player, choices)
-  beacons.visible = beacons_label.visible
-  -- The only group mixing control heights: a drop-down is shorter than the 40px pickers beside
-  -- it, so without this it hangs off their top edge.
-  beacons.style.vertical_align = "center"
-
-  local beacon_button = beacons.add({
-    type = "choose-elem-button", name = "upl-beacon", elem_type = "entity-with-quality",
-    elem_filters = name_filter(beacon_options(player)),
-    tooltip = titled_tooltip("beacon"),
-    tags = dispatch.tags("beacon"),
-  })
-  beacon_button.elem_value = with_quality(choices.beacon, choices.beacon_quality)
-
-  local beacon_module_button = beacons.add({
-    type = "choose-elem-button", name = "upl-beacon-module", elem_type = "item-with-quality",
-    elem_filters = name_filter(beacon_module_options(player, choices)),
-    tooltip = titled_tooltip("beacon-module"),
-    tags = dispatch.tags("beacon-module"),
-  })
-  beacon_module_button.elem_value =
-    with_quality(choices.beacon_module, choices.beacon_module_quality)
-
-  -- How many beacons stack in each tier's column. The list is exactly what fits the chosen
-  -- pair -- the max apply_defaults resolved and clamped the stored count to, handed through
-  -- like offered_targets so the rotations behind it are walked once -- and the values ride
-  -- in the tags like the quality dropdown's, never re-derived under a stale index. A max of
-  -- one is not a choice, so the control follows worth_showing inside the group's visibility.
-  local beacon_count_items, beacon_counts = {}, {}
-  for i = 1, beacon_count_max or 1 do
-    beacon_count_items[i] = tostring(i)
-    beacon_counts[i] = i
-  end
-  local beacon_count_dropdown = beacons.add({
-    type = "drop-down", name = "upl-beacon-count",
-    items = beacon_count_items,
-    selected_index = math.min(math.max(choices.beacon_count or 1, 1), #beacon_count_items),
-    tooltip = titled_tooltip("beacon-count"),
-    tags = dispatch.tags("beacon-count", { counts = beacon_counts }),
-  })
-  -- Sized for a numeral, not a name: the default dropdown width would dwarf the icon buttons
-  -- beside it. The margin keeps it off the module picker -- it is a different kind of control,
-  -- not a third icon in the row.
-  beacon_count_dropdown.style.width = 60
-  beacon_count_dropdown.style.left_margin = 8
-  beacon_count_dropdown.visible = worth_showing(player, beacon_count_items)
-
-  local power = group("power")
-
-  local pole_button = power.add({
-    type = "choose-elem-button", name = "upl-pole", elem_type = "entity-with-quality",
-    elem_filters = pole_filters(player),
-    tooltip = titled_tooltip("pole"),
-    tags = dispatch.tags("pole"),
-  })
-  pole_button.elem_value = with_quality(choices.pole, choices.pole_quality)
-
-  -- The two Edit... doors -- ingredient amounts and columns per tier -- sit with the build
-  -- options they tune, directly above the circuits row whose label-plus-button shape they
-  -- share (moved out of the top block, owner's call 2026-08-28). Both wait for an item;
-  -- a recipe change always rebuilds the modal, so the enabled state cannot go stale.
-  local function edit_row(key)
-    local strip = options.add({
-      type = "flow", name = "upl-" .. key .. "-strip", direction = "horizontal",
-    })
-    strip.style.vertical_align = "center"
-    strip.style.top_margin = 8
-    local row_label = strip.add({
-      type = "label", name = "upl-" .. key .. "-label",
-      caption = { "upl-gui." .. key }, tooltip = { "upl-gui." .. key .. "-tooltip" },
-    })
-    row_label.style.minimal_width = ROW_LABEL_WIDTH
-    local button = strip.add({
-      type = "button", name = "upl-" .. key, caption = { "upl-gui." .. key .. "-edit" },
-      tooltip = { "upl-gui." .. key .. "-edit-tooltip" },
-      tags = dispatch.tags(key),
-    })
-    button.style.left_margin = 8
-    button.enabled = choices.recipe ~= nil
-  end
-  edit_row("requests")
-  edit_row("columns")
-
-  -- Circuit limits: opt-in, off by default. Ticked, the plan wires the loop and pauses each
-  -- tier at a stock threshold -- the target's threshold is the whole loop's off switch -- and
-  -- the Limits button opens the per-tier wizard beside the modal. Always shown, like the
-  -- trash checkbox: the checkbox IS the opt-in, so it has nothing to hide behind.
-  local circuits_row = group("circuits")
-  circuits_row.style.vertical_align = "center"
-  local circuit_box = circuits_row.add({
-    type = "checkbox", name = "upl-circuit-enabled", state = choices.circuit_enabled == true,
-    caption = { "upl-gui.circuit-enabled" },
-    tooltip = { "upl-gui.circuit-enabled-tooltip" },
-    tags = dispatch.tags("circuit-enabled"),
-  })
-  circuit_box.style.minimal_width = ROW_LABEL_WIDTH
-  local limits_button = circuits_row.add({
-    type = "button", name = "upl-circuit-limits", caption = { "upl-gui.circuit-limits" },
-    tooltip = { "upl-gui.circuit-limits-tooltip" },
-    tags = dispatch.tags("circuit-limits"),
-  })
-  limits_button.style.left_margin = 8
-  -- Enabled state left to gui.refresh, the split button's reason.
-
-  -- Always shown like the checkboxes below it: the tick IS the choice, and the picker it
-  -- re-lists sits hidden with the other chests.
-  local buffer_stock = options.add({
-    type = "checkbox", name = "upl-buffer-stock", state = choices.buffer_stock,
-    caption = { "upl-gui.buffer-stock" },
-    tooltip = { "upl-gui.buffer-stock-tooltip" },
-    tags = dispatch.tags("buffer-stock"),
-  })
-  -- Margin, never padding: padding shifts a checkbox's CONTENT -- the check mark -- while the
-  -- box graphic stays put, so the mark ends up hanging half out of the square.
-  buffer_stock.style.top_margin = 8
-
-  -- The two requests a player may not want (2026-11-13): the stock chests drawing the base's
-  -- own stock of the item into the loop, and the final machine's chest drawing back the
-  -- target-quality ingredients. Always shown, ticked by default -- what every loop did before
-  -- the boxes existed.
-  -- One handler serves both, the choice it writes riding in the tags like the chests' role.
-  for _, opt_out in ipairs({
-    { name = "stock-requests", key = "stock_requests" },
-    { name = "terminal-requests", key = "terminal_requests" },
-  }) do
-    local box = options.add({
-      type = "checkbox", name = "upl-" .. opt_out.name, state = choices[opt_out.key],
-      caption = { "upl-gui." .. opt_out.name },
-      tooltip = { "upl-gui." .. opt_out.name .. "-tooltip" },
-      tags = dispatch.tags("request-toggle", { key = opt_out.key }),
-    })
-    box.style.top_margin = 8
-  end
-
-  local trash = options.add({
-    type = "checkbox", name = "upl-trash", state = choices.trash_unrequested,
-    caption = { "upl-gui.trash-unrequested" },
-    tooltip = { "upl-gui.trash-unrequested-tooltip" },
-    tags = dispatch.tags("trash"),
-  })
-  trash.style.top_margin = 8
+  -- What the loop is built out of, in four tabs -- build_options above.
+  build_options(player, main, entry)
 
   -- The status area: stats first, then one line per message. An empty flow that gui.refresh
   -- rebuilds whole -- each line is its own label (see status_line), so the lines wrap and
@@ -1669,9 +1598,9 @@ function gui.open(player)
     caption = { "upl-gui.confirm" }, tags = dispatch.tags("confirm"),
   })
 
-  -- The rebuild took the side panel down with the old frame; a player who had one open
-  -- keeps it -- whichever one held the slot.
-  if had_panel then SIDE_PANELS[had_panel].build(player, frame) end
+  -- The rebuild took the settings panel down with the old frame; a player who had it open
+  -- keeps it.
+  if had_settings then build_settings_panel(player, frame) end
 
   gui.refresh(player)
 end
@@ -1715,113 +1644,43 @@ function gui.unlock_shortcut(player)
   end
 end
 
--- Opens a panel in the modal's body. A panel touches player.opened not at all -- the modal
--- keeps it, and control.lua turns the next close request into "panel first". Opening any
--- panel closes whatever holds the slot first, so the modal never grows a third column.
-local function open_side_panel(player, name)
-  gui.close_side_panel(player)
-  local frame = frame_of(player)
-  if not frame then return end
-  SIDE_PANELS[name].build(player, frame)
-end
-
+-- Opens the settings panel in the modal's body. It touches player.opened not at all -- the
+-- modal keeps it, and control.lua turns the next close request into "panel first". The pair
+-- re-centres as one, so a later fill or rebuild finds it where it already stands.
 function gui.open_settings(player)
-  open_side_panel(player, SETTINGS_FRAME)
+  local frame = frame_of(player)
+  if not frame or gui.settings_open(player) then return end
+  build_settings_panel(player, frame)
+  recentre(frame)
 end
 
-function gui.open_circuits(player)
-  open_side_panel(player, CIRCUITS_FRAME)
-end
-
-function gui.close_circuits(player)
-  local panel = panel_frame_of(player, CIRCUITS_FRAME)
-  if panel then panel.destroy() end
-end
-
-function gui.open_ingredients(player)
-  open_side_panel(player, INGREDIENTS_FRAME)
-end
-
-function gui.close_ingredients(player)
-  local panel = panel_frame_of(player, INGREDIENTS_FRAME)
-  if panel then panel.destroy() end
-end
-
-function gui.open_split(player)
-  open_side_panel(player, SPLIT_FRAME)
-end
-
-function gui.close_split(player)
-  local panel = panel_frame_of(player, SPLIT_FRAME)
-  if panel then panel.destroy() end
-end
-
-function gui.open_columns(player)
-  open_side_panel(player, COLUMNS_FRAME)
-end
-
-function gui.close_columns(player)
-  local panel = panel_frame_of(player, COLUMNS_FRAME)
-  if panel then panel.destroy() end
-end
-
+-- Closes the settings panel, and says whether one was open -- control.lua's close request
+-- goes "panel first" exactly when this answers true.
 function gui.close_settings(player)
   -- The pre-0.4.2 layout put the settings in its own gui.screen frame; sweep one a save from
   -- those builds may still carry, so its close X keeps working across the upgrade.
   local legacy = player.gui.screen[SETTINGS_FRAME]
   if legacy and legacy.valid then legacy.destroy() end
-  local panel = panel_frame_of(player, SETTINGS_FRAME)
-  if panel then panel.destroy() end
-end
-
--- Closes whichever side panel holds the slot, through its own closer. Returns whether one
--- did -- control.lua's close request goes "panel first" exactly when this says so.
-function gui.close_side_panel(player)
-  local name = side_panel_name(player)
-  if not name then return false end
-  SIDE_PANELS[name].close(player)
+  local panel = settings_panel_of(player)
+  if not panel then return false end
+  panel.destroy()
+  recentre(frame_of(player))
   return true
 end
 
--- The slot's registry -- see side_panel_name above. Filled here, after the builders and
--- closers it names exist; a third panel is one entry. `invalidated_by` names which kinds
--- of change force the open panel to REBUILD rather than repaint -- "tiers" when the target
--- moved the tier list its rows are built from, "rates" when a pick moved the solve or the
--- station times its displayed numbers are priced with. Declared here rather than tested
--- per handler, because the per-handler disjunctions leaked once: the beacon pickers
--- shipped a release refresh-only while their effects moved the solve. The Limits wizard's
--- Hand size default is NOT a rebuild reason: gui.refresh repaints it in place.
-SIDE_PANELS = {
-  [SETTINGS_FRAME] = { build = build_settings_panel, close = gui.close_settings },
-  [CIRCUITS_FRAME] = { build = build_circuits_panel, close = gui.close_circuits,
-    invalidated_by = { tiers = true } },
-  [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = gui.close_ingredients },
-  [SPLIT_FRAME] = { build = build_split_panel, close = gui.close_split,
-    invalidated_by = { tiers = true, rates = true } },
-  -- No `rates` since the balanced line went (2026-08-29): the rows show nothing a solve
-  -- prices, so a rate change leaves the open wizard standing and just refreshes the modal.
-  [COLUMNS_FRAME] = { build = build_columns_panel, close = gui.close_columns,
-    invalidated_by = { tiers = true } },
-}
-
--- The one owner of rebuild-or-repaint: a handler names the KIND of change it made, and the
--- open panel's registry entry decides whether the expensive rebuild is due -- gui.open
--- re-creates it with fresh rows and fresh tags -- or the cheap repaint stands. No panel
--- open, or one indifferent to the reason, refreshes.
+-- The one owner of refill-or-repaint: a handler names the KIND of change it made, and the
+-- standing tab's entry in TAB_BUILDERS decides whether that tab is refilled -- fresh rows and
+-- fresh tags, in place -- or the cheap repaint stands. Either way the status area follows.
 function gui.invalidate(player, reason)
-  local name = side_panel_name(player)
-  local entry = name and SIDE_PANELS[name]
-  if entry and entry.invalidated_by and entry.invalidated_by[reason] then
-    gui.open(player)
-  else
-    gui.refresh(player)
-  end
+  local name = selected_tab(player)
+  if name and TAB_BUILDERS[name].refill_on[reason] then fill_tab(player) end
+  gui.refresh(player)
 end
 
--- Reopened rather than repainted when a setting flips: open() rereads both settings and
--- rebuilds every filter, the quality list and every picker's visibility from them -- and
--- re-creates the settings panel with fresh ticks on the way. Reached from the panel and from
--- the game's own settings menu by the same event.
+-- Reopened rather than repainted when a setting flips: open() rereads the setting and
+-- rebuilds every filter and the quality list from it -- and re-creates the settings panel
+-- with a fresh tick on the way. Reached from the panel and from the game's own settings menu
+-- by the same event.
 function gui.on_setting_changed(player)
   if frame_of(player) then gui.open(player) end
 end
@@ -1839,31 +1698,22 @@ dispatch.register("settings-close", function(event)
   gui.close_settings(game.get_player(event.player_index))
 end)
 
-dispatch.register("circuit-limits", function(event)
+-- The selected tab: remembered for the next rebuild and the next open, and filled -- only the
+-- selected tab holds anything (fill_tab). The pane carries the tag, and the event names the
+-- pane; the engine raises it for a player's selection only -- neither add_tab nor a script
+-- write does (measured 2026-11-27) -- so building never overwrites what is kept. A click on
+-- the pane itself lands here too, and fills nothing: the tab it shows is already standing.
+-- A switch changes no choice the plan reads, so the status stands as it is: only the new
+-- Circuits fields need their enabled states, and no huge layout is planned again for a click.
+dispatch.register("tab", function(event)
+  local name = TABS[event.element.selected_tab_index]
+  if not name then return end
+  local entry = state.of(event.player_index)
+  entry.tab = name
+  if event.name ~= defines.events.on_gui_selected_tab_changed then return end
   local player = game.get_player(event.player_index)
-  if gui.circuits_open(player) then gui.close_circuits(player) else gui.open_circuits(player) end
-end)
-
-dispatch.register("circuits-close", function(event)
-  gui.close_circuits(game.get_player(event.player_index))
-end)
-
-dispatch.register("split", function(event)
-  local player = game.get_player(event.player_index)
-  if gui.split_open(player) then gui.close_split(player) else gui.open_split(player) end
-end)
-
-dispatch.register("split-close", function(event)
-  gui.close_split(game.get_player(event.player_index))
-end)
-
-dispatch.register("columns", function(event)
-  local player = game.get_player(event.player_index)
-  if gui.columns_open(player) then gui.close_columns(player) else gui.open_columns(player) end
-end)
-
-dispatch.register("columns-close", function(event)
-  gui.close_columns(game.get_player(event.player_index))
+  fill_tab(player)
+  repaint_circuits(player, entry.choices)
 end)
 
 -- The per-tier threshold fields -- the mod's first textfields. Every valid keystroke commits,
@@ -1910,15 +1760,14 @@ end)
 -- The per-tier ratio fields: the ingredient fields' commit rules -- only an edit is stored,
 -- Enter on an emptied field deletes the override and restores the computed optimum off the
 -- tags -- with a floor of ZERO (no productivity is a legitimate tier) and a ceiling of the
--- machine's slots. One deliberate divergence from both sibling wizards: EVERY commit
--- refreshes, keystrokes included, because the yield line on the status caption follows this
--- number and a player typing through the rows never presses Enter -- clicking the next
--- field fires no confirm, so an Enter-only repaint left the stats sitting still while the
--- plan underneath had already changed (reported the day the feature landed). Safe because
--- gui.refresh never rebuilds a side panel -- it repaints two of the Limits wizard's widgets,
--- guarded on a real change -- so the field survives its own commit; the cost is one
--- memo-missed solve per keystroke, sub-millisecond in vanilla and ~0.1 s at the 254-tier
--- modded ceiling.
+-- machine's slots. EVERY commit that moves the value refreshes, keystrokes included, because
+-- the yield line on the status caption follows this number and a player typing through the
+-- rows never presses Enter -- clicking the next field fires no confirm, so an Enter-only
+-- repaint left the stats sitting still while the plan underneath had already changed
+-- (reported the day the feature landed; the circuit and ingredient fields took the rule
+-- since). Safe because gui.refresh never refills a tab -- it repaints, guarded on a real
+-- change -- so the field survives its own commit; the cost is one memo-missed solve per
+-- keystroke, sub-millisecond in vanilla and ~0.1 s at the 254-tier modded ceiling.
 local function override_count(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
@@ -1955,26 +1804,13 @@ local function override_count(event)
   end
 end
 
--- One handler serves three wizards' fields: the ratio counts, the column counts and the
--- Limits wizard's Hand size differ only in the bounds and default their builders put in
+-- One handler serves three kinds of field: the ratio counts, the column counts and the
+-- circuit limits' Hand size differ only in the bounds and default their builders put in
 -- the tags. The hand is not solve-priced, but it moves the combinator's rows, the census
 -- requests and the min-too-big warning, so the refresh-on-every-commit rule fits it too.
 dispatch.register("split-count", override_count)
 dispatch.register("columns-count", override_count)
 dispatch.register("circuit-hand", override_count)
-
-dispatch.register("requests", function(event)
-  local player = game.get_player(event.player_index)
-  if gui.ingredients_open(player) then
-    gui.close_ingredients(player)
-  else
-    gui.open_ingredients(player)
-  end
-end)
-
-dispatch.register("ingredients-close", function(event)
-  gui.close_ingredients(game.get_player(event.player_index))
-end)
 
 -- Every per-ingredient override, dropped: the item handler's reset (the amounts were sized
 -- against the old recipe) and the minutes field's replace (the master's number wins) are
@@ -1992,8 +1828,9 @@ end
 local function repaint_request_rows(player, minutes)
   local choices = state.of(player.index).choices
   local recipe = chosen_recipe(choices)
-  local panel = panel_frame_of(player, INGREDIENTS_FRAME)
-  local list = panel and panel["upl-ingredients-content"]["upl-ingredients-list"]
+  local tab = tab_of(player, "chests")
+  local content = tab and tab["upl-ingredients-content"]
+  local list = content and content["upl-ingredients-list"]
   if not (recipe and list) then return end
   for _, ingredient in pairs(planner.item_ingredients(recipe)) do
     local field = list["upl-request-row-" .. ingredient.name]["upl-request-" .. ingredient.name]
@@ -2040,18 +1877,18 @@ end)
 
 -- The ingredient-amount fields: the circuit-limit handler's commit rules -- every valid
 -- keystroke commits, Enter snaps the display back to what holds, a commit that MOVES the
--- value refreshes (the too-big warning follows these numbers, since 1.2.2; refresh never
--- rebuilds a side panel, so the field survives its own commit) -- with two differences.
--- The floor is ONE, never zero: every ingredient keeps a request, so a zeroed field cannot
--- strand items for the trash pass to bin. And Enter on an EMPTIED field deletes the override
--- outright -- back to the automatic amount, which the display snaps to off the tags -- where
--- the wizard's fields have no default to return to.
+-- value refreshes (the too-big warning follows these numbers, since 1.2.2; refresh rebuilds
+-- nothing, so the field survives its own commit) -- with two differences. The floor is ONE,
+-- never zero: every ingredient keeps a request, so a zeroed field cannot strand items for
+-- the trash pass to bin. And Enter on an EMPTIED field deletes the override outright -- back
+-- to the automatic amount, which the display snaps to off the tags -- where the circuit
+-- limits have no default to return to.
 --
--- Unlike the wizard's handler this one matches BOTH event names instead of defaulting the
--- tail: the dispatcher routes the focus click here too, carrying the DISPLAYED value -- for
--- an untouched field the formula's own -- and an unfiltered fall-through would freeze that
--- default as a stored override. The wizard is immune only because backfill already stored
--- its numbers; here every non-edit has to fall out the bottom.
+-- Unlike the circuit-limit handler this one matches BOTH event names instead of defaulting
+-- the tail: the dispatcher routes the focus click here too, carrying the DISPLAYED value --
+-- for an untouched field the formula's own -- and an unfiltered fall-through would freeze
+-- that default as a stored override. The circuit limits are immune only because backfill
+-- already stored their numbers; here every non-edit has to fall out the bottom.
 dispatch.register("request-count", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
@@ -2118,7 +1955,7 @@ dispatch.register("recipe", function(event)
   choices.recipe = picked
 
   -- The ingredient-amount overrides were sized against the OLD recipe, so they reset with it
-  -- (the owner's call): the panel re-opens pre-filled with the new recipe's own defaults.
+  -- (the owner's call): the amounts reopen on the new recipe's own defaults.
   -- The minutes survive: a preference, not a size fitted to one recipe. The circuit cap is
   -- deliberately NOT reset either -- a backfilled cap is remembered across an item change
   -- and re-shown for re-picking (decisions.md, circuit limits).
@@ -2132,15 +1969,7 @@ dispatch.register("recipe", function(event)
     choices.machine = planner.best_machine(player.force, recipe)
   end
 
-  -- A harvest inserter needs a filter slot per ingredient of its stack, so a recipe past two
-  -- stacks' worth can outgrow the chosen inserter. Re-picked for the machine's reason: a
-  -- choice left behind to fail validation reads as a bug in the modal rather than as the
-  -- refusal it is.
-  local needed = planner.filters_needed(chosen_recipe(choices))
-  local slots = planner.inserter_filter_count(choices.inserter)
-  if slots and slots < planner.min_filter_slots(needed) then
-    choices.inserter = planner.inserter_for(player.force, needed)
-  end
+  repick_inserter(player, choices)
 
   -- Rebuilt rather than repainted by hand. The recipe decides the machine picker's filter, the
   -- top module's options and the pipe picker's visibility, and gui.open derives all three
@@ -2166,8 +1995,8 @@ end)
 -- of "untouched": a build quality is nil until the player picks a tier while the button
 -- always reports one (the machine handler's own measured note), and a no_* clear-flag is nil
 -- until something writes `not value`. Raw compares read both as changes, so the very click
--- that opens a picker's chooser paid a full re-solve -- or, with a rates-invalidated wizard
--- open, rebuilt the modal and tore the opening chooser down. A genuine change still differs
+-- that opens a picker's chooser paid a full re-solve -- or, in a tab refilled on rates,
+-- tore the opening chooser down with the picker under it. A genuine change still differs
 -- after normalising, so nothing real is ever swallowed.
 local function settled_view(key, value)
   if key:match("_quality$") then return planner.build_quality(value) end
@@ -2195,8 +2024,20 @@ dispatch.register("quality", function(event)
   local targets = event.element.tags.targets
   choices.quality = targets[event.element.selected_index]
   if settled() then return end
-  -- The target just moved the tier list every tier-shaped wizard's rows are built from.
+  -- The target just moved the tier list every per-tier list is built from.
   gui.invalidate(player, "tiers")
+end)
+
+-- The layout family: a rebuild, since it decides which controls the modal shows at all.
+dispatch.register("layout", function(event)
+  local player = game.get_player(event.player_index)
+  local choices = state.of(event.player_index).choices
+  local settled = settled_on(choices, "layout")
+  local option = LAYOUTS[event.element.selected_index]
+  choices.layout = option and option.store
+  if settled() then return end
+  repick_inserter(player, choices)
+  gui.open(player)
 end)
 
 dispatch.register("machine", function(event)
@@ -2245,7 +2086,7 @@ dispatch.register("belt", function(event)
   local settled = settled_on(choices, "belt")
   choices.belt = event.element.elem_value
   -- An emptied button falls straight back to the fastest researched belt, and shows it, so the
-  -- strip always displays the belt that would actually be placed.
+  -- picker always displays the belt that would actually be placed.
   if not choices.belt then
     choices.belt = planner.belt(player.force)
     event.element.elem_value = choices.belt
@@ -2260,7 +2101,7 @@ dispatch.register("inserter", function(event)
   local settled = settled_on(choices, "inserter", "inserter_quality")
   local value = event.element.elem_value
   -- The chest handler's guard: an empty candidate list leaves the picker unfiltered, and a
-  -- pick outside the role would sit in the strip while the plan quietly used the default.
+  -- pick outside the role would sit in the picker while the plan quietly used the default.
   if value and not planner.is_inserter(value.name) then
     event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
     return
@@ -2269,12 +2110,12 @@ dispatch.register("inserter", function(event)
   if value then choices.inserter_quality = planner.build_quality(value.quality) end
   -- The belt's rule: emptied means "back to the best I have researched", and shown.
   if not choices.inserter then
-    choices.inserter = planner.inserter_for(player.force, planner.filters_needed(chosen_recipe(choices)))
+    choices.inserter = default_inserter(player, choices)
     event.element.elem_value = with_quality(choices.inserter, choices.inserter_quality)
   end
   if settled() then return end
-  -- A different inserter has a different researched hand; an open Limits wizard's untouched
-  -- Hand size field follows it through the refresh, no rebuild needed.
+  -- A different inserter has a different researched hand. The Hand size field stands on the
+  -- Circuits tab, which an untouched field follows from its next fill -- no rebuild needed.
   gui.refresh(player)
 end)
 
@@ -2286,7 +2127,7 @@ dispatch.register("chest", function(event)
   local settled = settled_on(choices, role, role .. "_quality")
   local value = event.element.elem_value
   -- The terminal module's guard, same reason: with no candidate of this role in the modset
-  -- the picker is unfiltered, and a pick outside the role would sit in the strip while
+  -- the picker is unfiltered, and a pick outside the role would sit in the picker while
   -- chosen_chest quietly substituted the default into the plan.
   if value and not planner.is_chest(value.name, role, planner.stock_buffered(choices)) then
     event.element.elem_value = with_quality(choices[role], choices[role .. "_quality"])
@@ -2310,12 +2151,16 @@ dispatch.register("quality-module", function(event)
   local settled = settled_on(choices, "quality_module", "quality_module_quality")
   local value = event.element.elem_value
   -- The chest handler's guard: an empty researched list leaves the picker unfiltered, and a
-  -- non-quality-module pick would sit in the strip while the plan quietly used the default.
+  -- non-quality-module pick would sit in the picker while the plan quietly used the default.
   if value and not planner.is_quality_module(value.name) then
     event.element.elem_value =
       with_quality(choices.quality_module, choices.quality_module_quality)
     return
   end
+  -- A click on an already-empty picker -- nothing was researched when the tab was filled -- is
+  -- a browse, the terminal module's rule: filling a default on it would refill the tab and
+  -- take the chooser it opens down with the picker.
+  if not value and not choices.quality_module then return end
   choices.quality_module = value and value.name
   if value then choices.quality_module_quality = planner.build_quality(value.quality) end
   -- Same rule as the belt: emptied means "back to the best I have researched", and shown.
@@ -2325,8 +2170,8 @@ dispatch.register("quality-module", function(event)
       with_quality(choices.quality_module, choices.quality_module_quality)
   end
   if settled() then return end
-  -- The quality module's strength moves every tier's computed ratio, so an open ratio wizard
-  -- rebuilds to fresh defaults rather than showing stale ones.
+  -- The quality module's strength moves every tier's computed ratio, so the ratio rows are
+  -- refilled to fresh defaults rather than showing stale ones.
   gui.invalidate(player, "rates")
 end)
 
@@ -2335,7 +2180,7 @@ dispatch.register("terminal-module", function(event)
   local value = event.element.elem_value
   -- An empty option list leaves elem_filters nil, and an unfiltered item picker offers every item
   -- in the game. Only a module can go in a machine, and nothing downstream refuses one: the plan
-  -- would drop it silently and build an empty machine while the strip still showed the pick. So
+  -- would drop it silently and build an empty machine while the picker still showed it. So
   -- snap back instead. Reachable only on a modset that restricts a machine's module categories.
   if value and not planner.is_module(value.name) then
     event.element.elem_value =
@@ -2356,16 +2201,16 @@ dispatch.register("terminal-module", function(event)
   choices.no_terminal_module = not value
   if value then choices.terminal_module_quality = planner.build_quality(value.quality) end
   if settled() then return end
-  -- The terminal module feeds the split's value recursion, so an open ratio wizard rebuilds
-  -- to fresh defaults -- the target-quality dropdown's own rule.
+  -- The terminal module feeds the split's value recursion, so the ratio rows are refilled to
+  -- fresh defaults -- the quality module's own rule.
   local player = game.get_player(event.player_index)
   gui.invalidate(player, "rates")
 end)
 
 -- The split's productivity picker: the quality module's shape -- an emptied pick snaps back
 -- to the researched default, which here follows the machine-and-recipe pair and is honestly
--- NOTHING when the pair refuses productivity. Its value feeds the ratio wizard's defaults,
--- so the escalation rule is the terminal module's.
+-- NOTHING when the pair refuses productivity. Its value feeds the ratio rows' defaults, so
+-- the refill rule is the terminal module's.
 dispatch.register("productivity-module", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
@@ -2382,6 +2227,8 @@ dispatch.register("productivity-module", function(event)
       return
     end
   end
+  -- The quality module's browse rule: an empty picker clicked is not a clear.
+  if not value and not choices.productivity_module then return end
   local settled = settled_on(choices, "productivity_module", "productivity_module_quality")
   choices.productivity_module = value and value.name
   if value then choices.productivity_module_quality = planner.build_quality(value.quality) end
@@ -2399,7 +2246,7 @@ dispatch.register("pipe", function(event)
   local choices = state.of(event.player_index).choices
   local settled = settled_on(choices, "pipe")
   -- The chest handler's guard, for the one picker whose value is a bare name: an empty
-  -- candidate list leaves it unfiltered, and a non-pipe pick would sit in the strip while
+  -- candidate list leaves it unfiltered, and a non-pipe pick would sit in the picker while
   -- the plan quietly used the default.
   local value = event.element.elem_value
   if value and not planner.is_pipe(value) then
@@ -2434,7 +2281,7 @@ dispatch.register("beacon", function(event)
   local choices = state.of(event.player_index).choices
   local value = event.element.elem_value
   -- The terminal module's guard, same reason: with no real beacon candidate in the modset the
-  -- picker is unfiltered, and a non-beacon pick would sit in the strip while chosen_beacon
+  -- picker is unfiltered, and a non-beacon pick would sit in the picker while chosen_beacon
   -- silently read it as off. Reachable only when every beacon is slot-less or unplaceable.
   if value and not planner.is_beacon(value.name) then
     event.element.elem_value = with_quality(choices.beacon, choices.beacon_quality)
@@ -2477,8 +2324,8 @@ dispatch.register("beacon-module", function(event)
   choices.no_beacon_module = not value
   if value then choices.beacon_module_quality = planner.build_quality(value.quality) end
   if settled() then return end
-  -- The beacon's transmitted effects feed the split's solve and every station time, so an
-  -- open ratio or columns wizard rebuilds to fresh numbers -- the module pickers' rule.
+  -- The beacon's transmitted effects feed the split's solve and every station time, so the
+  -- ratio rows are refilled to fresh numbers -- the module pickers' rule.
   local player = game.get_player(event.player_index)
   gui.invalidate(player, "rates")
 end)
@@ -2534,14 +2381,13 @@ end)
 dispatch.register("circuit-enabled", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
-  -- The trash checkbox's double-fire pair, but this one refreshes -- the warning line and the
-  -- Limits button both follow the tick -- so the settled guard keeps the second event from
-  -- designing the loop again.
+  -- The trash checkbox's double-fire pair, but this one refreshes -- the warning lines and the
+  -- limits' enabled states both follow the tick -- so the settled guard keeps the second
+  -- event from designing the loop again.
   local settled = settled_on(choices, "circuit_enabled")
   choices.circuit_enabled = event.element.state
   if settled() then return end
-  -- Unchecking takes the wizard with it -- limits on a loop that will not be wired are noise.
-  if not choices.circuit_enabled then gui.close_circuits(player) end
+  -- Unticking greys the fields below (refresh) and keeps their numbers for a re-tick.
   gui.refresh(player)
 end)
 
@@ -2570,17 +2416,14 @@ end)
 dispatch.register("split-enabled", function(event)
   local player = game.get_player(event.player_index)
   local choices = state.of(event.player_index).choices
-  -- The circuit checkbox's shape exactly: read the element's state (double-fire safe),
-  -- settle-guard the repeated refresh, and take the wizard down on an untick -- ratios for
-  -- a mix that will not be built are noise. The yield line follows through the refresh,
-  -- which also re-syncs the Ratios button.
+  -- The circuit checkbox's shape: read the element's state (double-fire safe) and
+  -- settle-guard the repeat. The mix flag moves every tier's station time -- the module
+  -- pickers' rule -- and the refill it asks for takes the per-tier counts away on an untick,
+  -- ratios for a mix that will not be built being noise. The click's second event then finds
+  -- this checkbox gone, which the dispatcher's valid check turns into nothing.
   local settled = settled_on(choices, "split_enabled")
   choices.split_enabled = event.element.state
   if settled() then return end
-  if not choices.split_enabled then gui.close_split(player) end
-  -- The mix flag moves every tier's station time -- the module pickers' rule. Runs after
-  -- the close above, so a just-closed ratio wizard no longer holds the slot and only a
-  -- columns wizard can still claim the rebuild.
   gui.invalidate(player, "rates")
 end)
 
@@ -2591,9 +2434,9 @@ end)
 --
 -- Public and guarded rather than left inside the button's handler, because the "Confirm window"
 -- key reaches it too and can arrive with no modal up at all. That is the only guard here: a
--- click on Place beside an open side panel is an unambiguous ask, so the button places with
--- the settings panel or the wizard still up -- the panel dies with the frame. The KEY is the
--- one that must not place there (E belongs to the panel), and gui.confirm_key owns that guard.
+-- click on Place beside the open settings panel is an unambiguous ask, so the button places
+-- with it still up -- the panel dies with the frame. The KEY is the one that must not place
+-- there (E belongs to the panel), and gui.confirm_key owns that guard.
 function gui.confirm(player)
   if not frame_of(player) then return end
 
@@ -2644,18 +2487,18 @@ end)
 -- choice remembered. The button never swallows, because reaching it is itself the click that
 -- clears the presumption.
 --
--- With a side panel up the key places nothing either: E belongs to the panel, and the engine's
--- own close then dismisses it through control.lua's "panel first". The wizard's half of that
--- is also what stands between a focused threshold field and E placing mid-edit, whatever the
--- engine does with the keypress. The BUTTON takes neither guard -- a click on Place beside an
--- open panel is an unambiguous ask, and gui.confirm answers it.
+-- With the settings panel up the key places nothing either: E belongs to the panel, and the
+-- engine's own close then dismisses it through control.lua's "panel first". The fields in
+-- the tabs need no such guard: every valid keystroke commits, so E reaching Place mid-edit
+-- places the last valid number in each field. The BUTTON takes neither guard -- a click on
+-- Place beside the open panel is an unambiguous ask, and gui.confirm answers it.
 function gui.confirm_key(player)
   local entry = state.peek(player.index)
   if entry and entry.chooser_maybe_open then
     entry.chooser_maybe_open = nil
     return
   end
-  if side_panel_name(player) then return end
+  if gui.settings_open(player) then return end
   gui.confirm(player)
 end
 

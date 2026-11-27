@@ -10,33 +10,15 @@ local layout = require("scripts.layout")
 
 local params_with = require("tests.support.layout_params").vanilla
 local big_params = require("tests.support.layout_params").big
+local with_beacon = require("tests.support.layout_params").with_beacon
+local salvager = require("tests.support.layout_params").salvager
+local flat_recycler = require("tests.support.layout_params").flat_recycler
 local deep_equal = require("tests.support.deep_equal")
 local circuit_stack = require("tests.support.circuit_stack")
+local footprint = require("tests.support.footprint")
 
-local function by_name(built, name)
-  local out = {}
-  for _, e in pairs(built.entities) do
-    if e.name == name then out[#out + 1] = e end
-  end
-  return out
-end
-
--- The two generic invariants every historical harness ran on every plan shape.
-local function assert_no_overlap_and_in_bounds(built)
-  local occ = {}
-  for _, e in pairs(built.entities) do
-    assert(e.dx >= 0 and e.dy >= 0 and e.dx + e.w <= built.width and e.dy + e.h <= built.height,
-      e.name .. " out of bounds at " .. e.dx .. "," .. e.dy)
-    for x = e.dx, e.dx + e.w - 1 do
-      for y = e.dy, e.dy + e.h - 1 do
-        local key = x .. "," .. y
-        assert(not occ[key], "tile " .. key .. " holds both " .. tostring(occ[key]) .. " and " .. e.name)
-        occ[key] = e.name
-      end
-    end
-  end
-  return occ
-end
+local by_name = footprint.by_name
+local assert_no_overlap_and_in_bounds = footprint.assert_no_overlap_and_in_bounds
 
 describe("layout.build dimensions", function()
   test("vanilla three tiers: 11 wide, one machine per tier, a recycler for all but the last", function()
@@ -53,12 +35,7 @@ describe("layout.build dimensions", function()
     -- Age of Production's 4x4 salvager, ejecting east as authored, stood facing west by the
     -- planner. The column pitch follows the wider of the pair; the terminal column has no
     -- recycler and stays machine-wide: 2 + 2*4 + 3.
-    local built = layout.build(params_with({
-      recycler = {
-        name = "aop-salvager", quality = "normal", width = 4, height = 4, module_slots = 2,
-        direction = defines.direction.west,
-      },
-    }))
+    local built = layout.build(params_with({ recycler = salvager() }))
     assert(built.width == 13, "width " .. built.width .. ", expected 13")
     assert_no_overlap_and_in_bounds(built)
   end)
@@ -605,21 +582,8 @@ describe("layout.build across footprints and recipes", function()
 end)
 
 describe("layout.build beacon plans", function()
-  -- module_inventory is opaque to the layout -- a number the planner resolved, carried onto
-  -- the entity for the serialiser -- so a sentinel proves the carry without touching defines.
   local function beacon_params(overrides)
-    local params = params_with()
-    params.beacon = {
-      name = "beacon", quality = "normal", width = 3, height = 3,
-      module_slots = 2, module_inventory = 99,
-    }
-    params.modules = {
-      quality_module = { name = "quality-module", quality = "normal" },
-      terminal_module = { name = "productivity-module", quality = "normal" },
-      beacon_module = { name = "efficiency-module", quality = "normal" },
-    }
-    for key, value in pairs(overrides or {}) do params[key] = value end
-    return params
+    return with_beacon(params_with(), overrides)
   end
 
   test("one beacon per tier in a floored column: vanilla three tiers grow 11 to 20", function()
@@ -1078,24 +1042,12 @@ describe("layout.build circuit stack", function()
     -- Hr + 3 rows is the band; at Hr = 1 the four entities take all of it, two columns over
     -- from the tap. A recycler wider than its machine widens the pitch but not the
     -- terminal column, so col_product is what keeps the stack inside the ring.
-    local narrow = layout.build(params_with({
-      recycler = {
-        name = "flat-recycler", quality = "normal", width = 2, height = 1, module_slots = 1,
-        direction = defines.direction.north,
-      },
-      circuit = stack(true),
-    }))
+    local narrow = layout.build(params_with({ recycler = flat_recycler(), circuit = stack(true) }))
     local _, count = stack_of(narrow)
     assert(count == 4, "the narrow shape lost stack entities: " .. count)
     assert_no_overlap_and_in_bounds(narrow)
 
-    local wide = layout.build(params_with({
-      recycler = {
-        name = "aop-salvager", quality = "normal", width = 4, height = 4, module_slots = 2,
-        direction = defines.direction.west,
-      },
-      circuit = stack(true),
-    }))
+    local wide = layout.build(params_with({ recycler = salvager(), circuit = stack(true) }))
     assert(wide.width == 13, "width " .. wide.width .. ", the stack must not widen the plan")
     assert_no_overlap_and_in_bounds(wide)
   end)

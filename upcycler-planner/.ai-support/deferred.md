@@ -23,24 +23,27 @@ things stayed out, each refused or excluded with its gate:
   or voiding it — which is a design of its own. The recycling side is fine (recycling never
   returns fluids), so only the crafting stage needs the plumbing if this is ever wanted.
 
-### Bot transport as an alternative layout
-**Status:** fully specified in `analysis/layout-bot-loop.md`, intended as a GUI toggle.
+### The bot loop: what stays open since it shipped
+**Status:** the layout shipped on 2026-11-27 (2.0.0, open) — `analysis/layout-bot-loop.md`,
+`decisions.md` → the two layout families. Its two old blockers were settled, not fixed: the
+network pull is the transport itself and is said in the tooltip and the FAQ, and robot travel
+in a shared network is inherent. Parked here, each unmeasured:
 
-Same skeleton, no belts — the logistic network does the transport. About a third of the entities
-and no circuits at all. **The genre already settled the shape of that toggle**: Mining Patch
-Planner ships *Simple*, *Compact*, *Super Compact*, *Sparse* and a chest-instead-of-belts
-"logistics" family as named layouts in one picker (portal description, read 2026-08-27), so a
-second layout here is a named choice beside the belt ring rather than a checkbox. Two things
-must be fixed before it ships:
-
-1. the tier-0 return chest requests the product at *normal* quality, which in a connected base
-   will drain the player's own production of that item;
-2. bot flight distance is unbounded in a large shared network.
-
-Higher tiers are safer, not sealed: the engine forces every real logistic request to be
-quality-exact, so a tier takes and gives only its own quality — which keeps it apart from the
-base only while the base holds nothing at that quality (`analysis/layout-belt-ring.md` → *How
-much it leans on the logistic network*, corrected 2026-11-13).
+- **Robot travel at scale.** A return chest's request can be filled from anywhere in the base
+  that holds the item; which source the engine serves first is not verified
+  (`analysis/api.md` §37). A roboport of the loop's own (*Roboports* below) would shorten the
+  trips; nothing removes them.
+- **One stack in the return chest for a stack-size-1 item.** The belt ring's buffer rule, kept;
+  for armour or vehicles a recycler may idle between deliveries. The live spec measured gears
+  only (tier 0 recycled 92 times in 2400 ticks). Raise `product_buffer` for bots only if a
+  played loop shows the recycler waiting.
+- **A spine hop even the inserter relay cannot bridge** — a utility column past about seven
+  tiles — is counted in the unlinked warning, as on belts past the ring's reach; no vanilla
+  shape reaches it.
+- **A storage-less network.** Items rolled early wait in the lower output and extract chests
+  until something requests them, and a full one stops its tier (`analysis/api.md` §37). The
+  README and the FAQ say to keep a storage chest; a status line cannot know the network the
+  blueprint will land in, network mode's own reasoning.
 
 ### The full-height ladder, as an alternative to the overflow tap
 **Status:** not built, and recorded so it is not rediscovered from scratch. **The problem it
@@ -79,15 +82,15 @@ mechanism are the same event.
 
 ### Scaling beyond one machine per tier — SHIPPED in 1.0.0 (2026-08-28)
 Shipped along this entry's own recorded shape: **repeat columns per tier**, the target pinned
-at one. The balanced-counts hint the wizard first carried was removed before release
-(owner's ask, 2026-08-29) — the pace line already reports the bottleneck, and the wizard
-now shows nothing it does not store. `decisions.md` → the columns-per-tier bullet owns the
+at one. The balanced-counts hint the columns panel first carried was removed before release
+(owner's ask, 2026-08-29) — the pace line already reports the bottleneck, and the counts
+(inline in the Buildings tab since 2026-11-27) show nothing they do not store. `decisions.md` → the columns-per-tier bullet owns the
 contract; the recyclers
 still ride 1:1 per column as deliberate over-provision, preserving the eject-and-relief
 mechanism. What stays parked here: the ring is the eventual ceiling (one belt of shared
 circulation — measured on 2026-11-13 as each tier's harvest inserter rather than the belt,
 *The ring's ceiling* below), and the wild's builds past that point are bot farms — which is
-what the bot-loop toggle above becomes at scale.
+what the bot loop, shipped 2026-11-27, becomes at scale.
 
 ### The ring's ceiling: one harvest inserter per tier — measured, three ways past it parked
 **Status:** declined for now by the owner (2026-11-13: *"the separate loops not now, that's
@@ -126,8 +129,8 @@ Three ways past it, cheapest first, none built:
   fields the serialiser has never written (a splitter's filter and priority), and every pinned
   width, wire path and pole scenario derived again. The engine is not the obstacle — a
   splitter accepts a quality-only filter (`analysis/api.md` §36). If it is ever built it is a
-  named layout beside the belt ring, the shape *Bot transport as an alternative layout* above
-  already describes.
+  named layout beside the belt ring, a third option on the Layout row the bot loop opened
+  (2026-11-27), built through the same builder contract (`layout_bot.lua` shows the shape).
 
 Revisit if a stalled upper tier is reported from a loop that is NOT eating a stockpile.
 Repeated columns on the first tiers are the likely trigger, since they multiply the same
@@ -192,20 +195,22 @@ of 200 the loop ground through) wanted the pull switched OFF rather than a numbe
 got the stock opt-out (`decisions.md` → the two request opt-outs); the floor stays parked.
 
 ### Roboports
-**Poles shipped on 2026-08-16** — a Build options picker with its own quality, free tiles
+**Poles shipped on 2026-08-16** — a picker with its own quality (the Buildings tab), free tiles
 first, pole columns only when needed, best effort plus a warning when even that falls short
 (`analysis/poles.md`). Roboports still are not placed: bot coverage stays the player's
-problem, as in the reference blueprints. The loop's requester chests do want a network
-though, so a roboport option is the natural next candidate — it would ride the same
-utility-column/free-tile machinery with a 4x4 footprint and the logistic/construction radii
-in place of a supply area. Revisit if it turns out to be a common ask.
+problem, as in the reference blueprints — the owner left it out of the bot loop's first
+version too (2026-11-27). The loop's requester chests do want a network though, and the bot
+loop is nothing without one, so a roboport option is the natural next candidate — it would
+ride the same utility-column/free-tile machinery with a 4x4 footprint and the
+logistic/construction radii in place of a supply area. Revisit if it turns out to be a common
+ask.
 
 ## Planner intelligence
 
 Two entries used to live here and **shipped together in 1.0.0 (2026-08-28; opened as 0.7.0,
 re-graded by the owner)**: the optimal
-module split (computed per tier from `get_roll_chances()`, overridable in the Ratios...
-wizard) and the expected-output display (the status line's yield figure, from the same
+module split (computed per tier from `get_roll_chances()`, overridable in the Modules
+tab's per-tier counts) and the expected-output display (the status line's yield figure, from the same
 solve). `decisions.md` → the module-mix bullets own what is settled; `analysis/api.md` §30
 the engine facts.
 
@@ -355,7 +360,7 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 - **A logistic group name on the request sections.** 2.0 logistic groups let one *named* section
   be edited in one place and followed by every chest carrying it. Naming each tier's section
   would make the whole loop's requests retunable **after** the build — precisely what the
-  Ingredient amounts panel cannot do, since it only writes into the plan. The catch is that a
+  Chests tab's ingredient amounts cannot do, since they only write into the plan. The catch is that a
   group is force-wide: two loops for different items must not collide, and two loops for the same
   item at the same tier arguably *should* share, which is a design decision rather than a naming
   detail. Verify the blueprint-side shape before costing it — a blueprint's logistic filter is
@@ -364,13 +369,22 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
 
 ## Housekeeping
 
-- **The summary sentence is split across its copies — needs the owner's call** (2026-11-27).
-  The README's bold line now reads *"Pick an item and a target quality, and get a ready-made
-  upcycling loop blueprint."*; `info.json` `description` (the portal summary), the locale
-  `[mod-description]`, the six other READMEs' "Check my other mods" entries and the root
-  `README.md` row still carry the 2026-08-26 sentence (`decisions.md`, Identity and packaging). Either carry
-  the new sentence to all of them, or put the old one back on the README. The root row is wrong
-  either way: it still says the loop is dropped "as ghosts".
+- **The portal page waits for a push and an approved sync** (2026-11-27). The new media are
+  in the repo: `images/description/belt-loop.mp4`, `bot-loop.mp4`, `planner-tabs.png` and
+  `beacons-and-pipes.jpg`, linked from the README as raw GitHub files on `main`, which resolve
+  only once pushed; and the
+  gallery's re-taken `01-planner-menu.jpg` and new `02-bot-loop.jpg`, which reach the portal
+  only through an approved release's `images/edit` pass (`decisions.md` → Portal presentation).
+  One linked picture is still out of date: `modded-upcycling.gif` shows the window before the
+  tabs. A re-take needs a modded game — the owner's own, or a scripted run loading this repo's
+  Quality Assembler, Quality Recycler and Extra Qualities.
+
+- **The other mods still quote the old summary — needs the owner's call** (2026-11-27). This
+  mod's README, `info.json` and locale summary read *"Pick an item and a target quality, and
+  get a ready-made upcycling loop blueprint."* since the text pass; the six other READMEs'
+  "Check my other mods" entries and the root `README.md` row still carry the 2026-08-26
+  sentence. Those lists are the owner's own lines, so they wait for the owner. The root row is
+  wrong either way: it still says the loop is dropped "as ghosts".
 - **Real shortcut art** — layered vanilla icons until then, so no art gates the build.
 - **An output chest out of wire reach voids the cap but still plans.** Counted in the unlinked
   warning since 2026-11-13 (wire mode only — every gate reads the product's count off that
@@ -378,12 +392,13 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   buildings "will run without limits", and here N is 1 while the truth is the whole loop.
   The hop is about two tiles and no shape seen so far can miss it, so the count was judged
   enough; a message of its own is the fuller answer if a modded footprint ever reaches it.
-- **`settings.lua` exists since 2026-08-15**, carrying two per-player settings as of
-  2026-08-17: `upcycler-planner-show-all` (offer unresearched items — the game's own
-  selection-list option is not mod-readable) and `upcycler-planner-show-all-build-options` (show
-  every picker whatever the count). Both are edited from the modal's own settings panel as
-  well as from the settings menu, so **a third setting needs no new GUI** — one line in
-  `EDITED_SETTINGS` in `gui.lua` and its two locale keys. Remaining candidates, in rough order:
+- **`settings.lua` exists since 2026-08-15**, carrying one per-player setting since
+  2026-11-27: `upcycler-planner-show-all` (offer unresearched items — the game's own
+  selection-list option is not mod-readable). `upcycler-planner-show-all-build-options` (show
+  every picker whatever the count) went with the hide-by-count rule it undid. The setting is
+  edited from the modal's own settings panel as well as from the settings menu, so **a second
+  setting needs no new GUI** — one line in `EDITED_SETTINGS` in `gui.lua` and its two locale
+  keys. Remaining candidates, in rough order:
   - **request-from-buffers on the requester chests.** Always on today. Trash-unrequested got
     its own checkbox in the modal on 2026-08-15 (repo owner's call, checked by default);
     request-from-buffers stayed fixed because it is purely additive. A per-player setting
@@ -397,15 +412,15 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   *"enough ingredients for 30 seconds of continuous crafting"* — the vanilla behaviour a
   player's hands already know, and a quarter of what `planner.request_count` asks for. Not a
   defect: the loop is unattended and a fuller chest rides out belt lulls, and the number is the
-  player's anyway — the panel's Minutes field since 2026-09-09, per ingredient since
+  player's anyway — the Chests tab's Minutes field since 2026-09-09, per ingredient since
   2026-08-27. Worth knowing before anyone "fixes" the formula to match the game.
 - **Per-option hiding in a picker**, the genre's other answer to clutter (noted 2026-08-27).
   Mining Patch Planner lets a player shift+right-click an entity choice to hide it, permanently
-  and per player. This mod's answer is the count rule plus *Show all build options*, which is a
-  blunter instrument in the other direction: it hides by arithmetic rather than by taste, and a
-  player with four modded belts cannot narrow them. Cheap only if it rides `state.prune`'s
-  existing key shape; the interaction itself has no precedent in this modal, where every click
-  on a picker already means "open the chooser".
+  and per player. This mod hides nothing by count since 2026-11-27 — every row the loop builds
+  stands, its picker offering everything researched — so a player with four modded belts sees
+  all four and cannot narrow them. Cheap only if it rides `state.prune`'s existing key shape;
+  the interaction itself has no precedent in this modal, where every click on a picker already
+  means "open the chooser".
 - **Locale beyond `en`** — the cfg is structured for it; no other translations exist. Mining
   Patch Planner carries `uk`, `ru`, `pl` and `fr`, so shipping one is normal for the genre; the
   first candidate is **Spanish**, on the only evidence there is — a player who thanked the
@@ -433,19 +448,12 @@ entities, `preview_icons` and `cursor_stack_temporary`, and nothing else.
   table for anything carrying a `quality`, which would also start checking materials nobody has
   checked before, so it is a behaviour change rather than a refactor. Worth doing with the
   reconcile above, not before it.
-- **Two helpers express the show-all rule, and which one a picker uses decides whether it can be
-  hidden** (found in review, 2026-08-17). `narrowed` hands back a filter table and throws the
-  count away; `offered` hands back names and keeps it, and `worth_showing` needs a count. So the
-  hide-exempt set is currently "whichever pickers were written with `narrowed`" — belt and pole —
-  rather than a decision. Unifying them means giving belt and pole name lists, which changes what
-  show-all offers for them (non-buildable prototypes drop out): the repo owner's call, and no
-  planned feature needs it yet.
+- **Two helpers express the show-unresearched rule** (found in review, 2026-08-17). `narrowed`
+  hands back a filter table, `offered` a list of names; belt and pole use the first, every other
+  picker the second. Since nothing hides by count (2026-11-27) the split decides nothing, but it
+  is still two answers to one question. Unifying them means giving belt and pole name lists,
+  which changes what show-all offers for them (non-buildable prototypes drop out): the repo
+  owner's call, and no planned feature needs it yet.
 - **`planner.CHEST_ROLES` carries the modal's display order** — a GUI ordering decision living in
   the planner layer, noted 2026-08-17. Negligible today; it would matter if a second surface ever
   wanted a different order.
-- **The pipe's fluid rule has no test that can fail** (found in review, 2026-08-17). The SA modset
-  ships one pipe, so `worth_showing` keeps the picker hidden whether or not the recipe takes a
-  fluid, and `#fluids == 1` could be deleted without a spec noticing. What the spec does pin is
-  that picking a fluid recipe repaints the picker's visibility at all. Closing it needs a fixture
-  pipe prototype in the test mod — the same trick would settle the recycler and chest rules, which
-  are pinned only in the one-option direction for the same reason.

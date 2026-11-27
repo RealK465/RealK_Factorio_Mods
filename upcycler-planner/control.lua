@@ -62,26 +62,27 @@ script.on_event(CONFIRM_INPUT, function(event)
   gui.confirm_key(game.get_player(event.player_index))
 end)
 
--- All six GUI events go through the one dispatcher, which reads the handler name off the
+-- All seven GUI events go through the one dispatcher, which reads the handler name off the
 -- element's tags; on_gui_closed below is separate because it is about the frame, not a widget.
--- The text pair serves the mod's textfields: the circuit wizard's thresholds and the
--- ingredient-amount fields.
+-- The text pair serves the mod's textfields: the circuit limits, the ingredient amounts and
+-- the per-tier counts. The tab event fills the tab the player picks, and remembers it.
 script.on_event(defines.events.on_gui_click, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_elem_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_selection_state_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_checked_state_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_text_changed, dispatch.on_gui_event)
 script.on_event(defines.events.on_gui_confirmed, dispatch.on_gui_event)
+script.on_event(defines.events.on_gui_selected_tab_changed, dispatch.on_gui_event)
 
 script.on_event(defines.events.on_gui_closed, function(event)
   local element = event.element
   if not (element and element.valid) then return end
   local player = game.get_player(event.player_index)
   if element.name == gui.FRAME then
-    if gui.close_side_panel(player) then
-      -- Esc (or the engine's confirm, or another window taking over) with a side panel up --
-      -- the settings panel, the circuit wizard -- dismisses just the panel, the way a nested
-      -- window would go. The engine has already nilled player.opened; retake it only when
+    if gui.close_settings(player) then
+      -- Esc (or the engine's confirm, or another window taking over) with the settings panel
+      -- up dismisses just the panel, the way a nested window would go. The engine has
+      -- already nilled player.opened; retake it only when
       -- nothing else claimed it -- opening a GUI during this event force-closes whichever
       -- one the engine was not asked for (measured in gui_spec), so a clicked chest must
       -- keep its chest.
@@ -111,8 +112,8 @@ script.on_event(defines.events.on_entity_settings_pasted, function(event)
   retune.from_combinator(event.destination)
 end)
 
--- Both settings arrive here whichever surface changed them: the modal's own settings
--- window writes the setting rather than keeping a private copy, so its ticks and the game's
+-- The setting arrives here whichever surface changed it: the modal's own settings panel
+-- writes the setting rather than keeping a private copy, so its tick and the game's
 -- settings menu take one path.
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   if not (event.player_index and gui.is_setting(event.setting)) then return end
@@ -156,6 +157,8 @@ if script.active_mods["factorio-test"] then
 
   require("__factorio-test__/init")({
     "tests.pure.layout_spec",
+    "tests.pure.belt_golden_spec",
+    "tests.pure.layout_bot_spec",
     "tests.pure.poles_spec",
     "tests.pure.circuits_spec",
     "tests.pure.quality_math_spec",
@@ -163,9 +166,12 @@ if script.active_mods["factorio-test"] then
     "tests.state_spec",
     "tests.planner_spec",
     "tests.plan_spec",
+    "tests.plan_golden_spec",
+    "tests.bot_plan_spec",
     "tests.blueprint_spec",
     "tests.beacon_spec",
     "tests.loop_spec",
+    "tests.bot_loop_spec",
     "tests.fluid_spec",
     "tests.gui_spec",
   }, { default_ticks_between_tests = 1 })

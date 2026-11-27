@@ -9,9 +9,11 @@
 -- combinator, so no machine size and no missing lamp can put the combinator out of reach.
 
 local layout = require("scripts.layout")
+local layout_bot = require("scripts.layout_bot")
 local circuits = require("scripts.circuits")
 
 local params_with = require("tests.support.layout_params").vanilla
+local bot_params = require("tests.support.layout_params").bot
 local big_params = require("tests.support.layout_params").big
 local deep_equal = require("tests.support.deep_equal")
 local component = require("tests.support.component")
@@ -808,5 +810,153 @@ describe("circuits.decorate repeated tiers", function()
           .. tostring(e.circuit_tier) .. " is off the network")
       end
     end
+  end)
+end)
+
+-- The same decorator over the bot loop: no ring, so its spine relays through the top-row
+-- inserters when a hop outruns the wire, and the planner always hands it network mode under
+-- a cap (bots carry a lower tier's finished items to storage, out of the output chest's count).
+describe("circuits.decorate on the bot loop", function()
+  -- opts as decorated()'s, plus relay_reach; network defaults ON whenever there is a cap,
+  -- which is what planner.plan does for bots.
+  local function decorated_bot(overrides, opts)
+    opts = opts or {}
+    local maximum = opts.maximum
+    if maximum == nil then maximum = MAXIMUM end
+    if maximum == false then maximum = nil end
+    local minimums = opts.minimums or MINIMUMS
+    local params = {}
+    for key, value in pairs(overrides or {}) do params[key] = value end
+    params.circuit = stack_for(minimums, maximum)
+    local built = layout_bot.build(bot_params(params))
+    local unlinked = circuits.decorate(built.entities, {
+      tiers = params.tiers or TIERS, minimums = minimums, maximum = maximum,
+      network = maximum ~= nil, hand = HAND, product = "iron-gear-wheel",
+      reach = opts.reach or 9, feed_reach = opts.reach or 9, relay_reach = opts.relay_reach,
+    })
+    return built, unlinked
+  end
+
+  test("a repeated tier's every column keeps its own return reserve, all on one network", function()
+    -- The expanded per-column array, as the columns feature hands it to both builders.
+    local repeated = { "normal", "normal", "uncommon", "rare" }
+    local built, unlinked = decorated_bot({ tiers = repeated })
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    local reserves = by_role(built, "reserve")
+    assert(#reserves == 3, "reserve inserters " .. #reserves .. ", expected one per lower column")
+    local at_normal = 0
+    for _, r in pairs(reserves) do
+      local tier = repeated[r.entity.circuit_tier]
+      assert(r.entity.control_behavior.circuit_condition.first_signal.quality == tier,
+        "column " .. r.entity.circuit_tier .. " guards the wrong quality")
+      if tier == "normal" then at_normal = at_normal + 1 end
+    end
+    assert(at_normal == 2, "normal-tier reserves " .. at_normal .. ", expected one per column")
+    local reached = component_of(built.entities, one(built, "limits").index)
+    for _, role in pairs({ "machine", "recycler", "census", "reserve", "feed" }) do
+      for _, e in pairs(by_role(built, role)) do
+        assert(reached[e.index], role .. " column " .. e.entity.circuit_tier .. " is off the network")
+      end
+    end
+  end)
+
+  test("every machine and recycler counts the network against the max, the wire carrying the pause", function()
+    local built, unlinked = decorated_bot()
+    assert(unlinked == 0, "unlinked " .. unlinked)
+    for _, role in pairs({ "machine", "recycler" }) do
+      for _, g in pairs(by_role(built, role)) do
+        local cb = g.entity.control_behavior
+        assert(cb and cb.connect_to_logistic_network == true
+          and cb.logistic_condition.constant == MAXIMUM
+          and cb.logistic_condition.first_signal.quality == "rare",
+          role .. " tier " .. g.entity.circuit_tier .. " is not capped on the network")
+        assert(cb.circuit_enabled == true and cb.circuit_condition.comparator == ">"
+          and same_signal(cb.circuit_condition.first_signal, CAP),
+          role .. " tier " .. g.entity.circuit_tier .. " lost the pause")
+      end
+    end
+  end)
+
+  test("every chest that requests follows the pause; outputs and extract chests are never touched", function()
+    local built = decorated_bot()
+    for _, f in pairs(by_role(built, "feed")) do
+      local cb = f.entity.control_behavior
+      assert(cb and cb.circuit_condition_enabled == true and cb.read_contents == false
+        and same_signal(cb.circuit_condition.first_signal, CAP), "a feed chest keeps asking while paused")
+    end
+    for _, c in pairs(by_role(built, "census")) do
+      if c.entity.circuit_tier < #TIERS then
+        assert(c.entity.control_behavior and c.entity.control_behavior.circuit_condition_enabled,
+          "a return chest keeps asking while paused")
+      else
+        assert(c.entity.control_behavior == nil, "the output chest must never be gated")
+      end
+    end
+    for _, e in pairs(built.entities) do
+      if e.name == "active-provider-chest" then
+        assert(e.control_behavior == nil and e.circuit_wire_to == nil,
+          "an active provider joined the circuit")
+      end
+    end
+  end)
+
+  test("each return inserter holds its tier's raised floor, and its chest asks for the floor too", function()
+    local built = decorated_bot()
+    local reserves = by_role(built, "reserve")
+    assert(#reserves == 2, "reserve inserters " .. #reserves)
+    for _, r in pairs(reserves) do
+      local tier = TIERS[r.entity.circuit_tier]
+      local condition = r.entity.control_behavior.circuit_condition
+      assert(condition.comparator == ">=" and condition.first_signal.quality == tier
+        and same_signal(condition.second_signal, { type = "virtual", name = "signal-M", quality = tier }),
+        "reserve tier " .. r.entity.circuit_tier .. " gates on the wrong thing")
+      assert(r.entity.override_stack_size == HAND, "the reserve is not pinned to the hand")
+    end
+    for _, c in pairs(by_role(built, "census")) do
+      local tier = TIERS[c.entity.circuit_tier]
+      if MINIMUMS[tier] then
+        assert(c.entity.requests[1].count == 50 + MINIMUMS[tier] + HAND,
+          "the return chest's request was not raised by the floor")
+      end
+    end
+  end)
+
+  test("the whole loop hears the combinator over one green network", function()
+    local built = decorated_bot()
+    local reached = component_of(built.entities, one(built, "limits").index)
+    for _, role in pairs({ "machine", "recycler", "census", "reserve", "feed" }) do
+      for _, e in pairs(by_role(built, role)) do
+        assert(reached[e.index], role .. " tier " .. e.entity.circuit_tier .. " is off the network")
+      end
+    end
+  end)
+
+  test("a hop past reach relays through the top-row inserters, which carry no behaviour", function()
+    -- Utility columns of 4 stretch the machine hops to 7 against 5.5 usable; the relay's
+    -- inserter-to-inserter hop is the gap plus a tile, 5, and fits.
+    local built, unlinked = decorated_bot({ column_gaps = { 0, 4, 4 } }, { reach = 6 })
+    assert(unlinked == 0, "unlinked " .. unlinked .. " -- the relay must cover what direct cannot")
+    local relayed = 0
+    for _, role in pairs({ "relay_out", "relay_in" }) do
+      for _, r in pairs(by_role(built, role)) do
+        if r.entity.circuit_wire_to then relayed = relayed + 1 end
+        assert(r.entity.control_behavior == nil, "a relay inserter was given a behaviour")
+      end
+    end
+    assert(relayed == 4, "relay links " .. relayed .. ", expected two hops of two")
+    local reached = component_of(built.entities, one(built, "limits").index)
+    for _, m in pairs(by_role(built, "machine")) do
+      assert(reached[m.index], "machine tier " .. m.entity.circuit_tier .. " is off the network")
+    end
+  end)
+
+  test("a hop even the relay cannot bridge is counted, never a crash", function()
+    local _, unlinked = decorated_bot({ column_gaps = { 0, 9, 9 } }, { reach = 6 })
+    assert(unlinked > 0, "a gap past every reach reported nothing unlinked")
+  end)
+
+  test("the relay is held to its own reach, kept apart from the shared one", function()
+    local _, unlinked = decorated_bot({ column_gaps = { 0, 4, 4 } }, { reach = 6, relay_reach = 4 })
+    assert(unlinked > 0, "a relay hop past relay_reach still linked")
   end)
 end)

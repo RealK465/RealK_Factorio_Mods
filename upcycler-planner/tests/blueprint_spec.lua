@@ -49,31 +49,10 @@ local function ghosts_of(surface, inner_name)
 end
 
 local function wipe(surface)
-  for _, entity in pairs(surface.find_entities_filtered({})) do
-    entity.destroy()
-  end
+  stamping.wipe(surface)
 end
 
--- How many ghosts one wire network holds: walk get_wire_connector(...).connections outward
--- from a start ghost. Shared by the pole-copper and circuit-green network tests -- the two
--- used to carry the walk independently, in different bookkeeping.
-local function reachable(start, connector_id)
-  local visited, stack, count = { [start.unit_number] = true }, { start }, 0
-  while #stack > 0 do
-    local ghost = stack[#stack]
-    stack[#stack] = nil
-    count = count + 1
-    local connector = ghost.get_wire_connector(connector_id, false)
-    for _, connection in pairs(connector and connector.connections or {}) do
-      local other = connection.target.owner
-      if not visited[other.unit_number] then
-        visited[other.unit_number] = true
-        stack[#stack + 1] = other
-      end
-    end
-  end
-  return count, visited
-end
+local reachable = stamping.reachable
 
 -- Stamps through the player's cursor -- the route a real click takes, and the only one that
 -- accepts flip arguments, which build_blueprint has none of. Forced build mode, so reach never

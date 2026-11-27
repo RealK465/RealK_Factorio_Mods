@@ -1771,3 +1771,116 @@ limits (*the chests stop asking with the loop*) and the two request opt-outs.
   off each column's product belt) rides the inside lane and the rolled-up ingredients (dropped
   by the unload inserters) the outside lane — they never share a lane.
   `layout-belt-ring.md` → *The ring under a flood* reasons from this.
+
+## 37. Robots between the bot loop's chests: active providers, and a wired inserter — measured 2026-11-27
+
+Measured on **2.1.23** — this section alone — through a throwaway probe mod (`upl-botprobe`, one
+spec run headless with the `factorio-testing` runner from the session scratchpad into a scratch
+data directory; findings logged as `BOTPROBE` lines; neither outlives the session). A powered
+roboport with 30 logistic robots, the chests 10–20 tiles away inside its area. What stands on
+it: `layout-bot-loop.md` and `../decisions.md` → the bot loop. `tests/bot_loop_spec.lua` pins
+the first fact on a stamped loop; the other two are probe readings only.
+
+- **An active provider fills an open request first and stores the rest.** 20 gears in an active
+  provider, a buffer chest requesting 10, an empty storage chest: after 1800 ticks the buffer
+  held 10, the storage chest 10, the provider none. With the storage chest ALSO holding 10 of
+  the same gears, the request was served from the active provider (its 10 left within 300
+  ticks, the storage chest never moved) — the provider was also the nearer source in that
+  rig, so this pins the outcome, not which of priority and distance decided it. In a bot loop
+  the tier's own active provider is the nearest source either way.
+- **With no storage chest and no request, an active provider keeps its items.** 10 gears sat
+  untouched for 1200 ticks. A bot loop in a network with no storage therefore holds what it
+  rolls early in its lower tiers' output and extract chests until something requests it —
+  which is why the README tells the player to keep a storage chest in the network.
+- **A green-wired inserter with no behaviour of its own keeps working and puts nothing on the
+  wire.** A fast inserter wired to a constant combinator moved 12 plates in 300 ticks; its
+  control behaviour existed (`circuit_enable_disable == false`,
+  `circuit_read_hand_contents == false`) and the network carried only the combinator's own
+  signal. That is what lets `circuits.decorate` relay a bot loop's spine through the top-row
+  inserters without adding a count any condition compares.
+
+Re-measured on **2.1.25** the same day through the planner's own blueprint, the relay spec in
+`tests/bot_loop_spec.lua` (a big-mining-drill loop to rare in foundries, beacons and a cap,
+which relays every hop), with three facts found on the way:
+
+- **The relay holds on a stamped, revived loop.** The built green network reached exactly the
+  plan's component, every relay inserter came out with no enable/disable and no hand read, and
+  a wired feed relay carried an ingredient from its chest into its machine.
+- **A recipe's surface conditions survive a blueprint and drop the recipe on revive.** The big
+  mining drill asks for 4000 pressure; revived on nauvis (1000) the foundry stood with
+  `status == no_recipe`, and with `nauvis.set_property("pressure", 4000)` the same revive kept
+  it. The planner knows nothing of the planet a blueprint will land on.
+- **A crafting machine its control behaviour switched off takes nothing in.** The capped
+  loop's foundry, outside any logistic network, read `disabled_by_control_behavior`, and the
+  feed inserter beside it waited `waiting_for_space_in_destination` with the ingredient still
+  in the chest; a roboport over the machine let it through.
+- **A script cannot insert into an assembling machine's result slot**:
+  `get_inventory(defines.inventory.crafter_output).insert` on a foundry returned 0, where a
+  recycler's output takes a seeded plate (`loop_spec`'s stand-in for a rolled one).
+
+## 38. The tabbed pane — measured 2026-11-27
+
+Measured on **2.1.23** — this section alone — headless through a throwaway probe mod
+(`upl-tabprobe`, `PROBE` log lines) and in a real client through screenshots of the planner
+(`game.take_screenshot` with `show_gui`, from a scratch copy of the mod). What stands on it:
+`../../scripts/gui.lua` → `build_options`, and `../decisions.md` → the modal's tabs.
+
+- **Shape.** `LuaGuiElement::add_tab(tab, content)` on a `tabbed-pane`; the tab heads and their
+  contents are ordinary children of the pane, in add order (head, content, head, content), and
+  each is indexable by name — `pane["upl-tab-chests"]` — so a path through a tab is one more
+  name. `LuaGuiElement::tabs` lists `{tab, content}` pairs in order. Vanilla's own use is the
+  PvP configuration screen (`data/base/script/pvp/pvp.lua:1259`).
+- **A pane with tabs and no selection reports `selected_tab_index == nil`**, so a builder must
+  select one; a write made before any tab exists is accepted and holds once they are added.
+- **Neither `add_tab` nor a script write of `selected_tab_index` raises
+  `on_gui_selected_tab_changed`** — zero events, three ticks on — so restoring a remembered tab
+  on every rebuild cannot overwrite the memory. The event carries the pane as `element`.
+- **The contents of unselected tabs report `visible == true`**; the pane does the hiding.
+- **The pane sizes to its tallest tab**: the planner's window measured the same height on all
+  three tabs, belts and bots, in the 2560x1440 client at 125% scale — switching tabs does not
+  move the status lines or the buttons.
+- **For a readable GUI screenshot, shoot at the player's own `display_resolution`.**
+  `game.take_screenshot` with `show_gui = true` at a forced 1600x1200 laid the GUI out
+  differently from the screen, the planner under the achievement toasts that research raises;
+  why was not investigated. And a frame with `auto_center` set ignores a `location` written
+  over it (it read back unchanged) until `auto_center` is turned off.
+
+Measured the same day on **2.1.25**, in the graphics tier at 2560x1440 and 125% UI scale,
+`location` logged and the window shot (`UPL-SHOT` log lines, a scratch copy of the mod):
+
+- **A pane whose unselected tabs are EMPTY sizes to the selected one.** Built with only the
+  selected tab's content flow filled and the others empty, the planner window's height
+  followed its tab — no blank band under a short tab — which is what `gui.lua`'s `fill_tab`
+  stands on.
+- **An `auto_center` frame is not re-centred when its content grows.** Its `location` read
+  `{1040, 185}` on the Buildings tab and the same after a switch to the taller Chests tab, the
+  window growing downward from a fixed top.
+- **Writing `auto_center = true` again re-centres it.** The same grown frame read `{1040, 88}`
+  after the write; off-then-on did the same. Each fill re-centres a centred window this way.
+- **The engine does not keep a screen frame on screen.** A `location` of `{30, 900}`, and a
+  pinned window grown past the bottom from `{30, 500}`, both stood as written: the window was
+  cut off at the screen's edge, Place out of reach.
+- **Not verified: whether a player dragging the window clears `auto_center`.** No input
+  faking exists to drag it; the planner's "a moved window keeps its place" rests on that
+  reading.
+- **A force made by `game.create_force` starts with no quality unlocked, `normal` included**:
+  the planner's build-quality check warned that normal quality was not researched until
+  `unlock_quality` ran for every tier. Researching a force the player is not on raises no
+  achievement toasts, which is what kept them off the portal media's shots.
+- **`game.take_screenshot` draws the player's GUI over another surface**: `surface` set to a
+  2x2 map whose every other tile is out of the map gave the planner window on pure black,
+  which is how the portal's tab still was cropped.
+
+Measured later the same day, same client and scale, for the review's fixes (`UPL-PROBE` log
+lines; an auto-centred frame's location is its size, §17):
+
+- **A re-centre written in the same tick as the change uses the new size.** The planner alone
+  stood at x = 1040 (480 px wide); with the settings panel added and `auto_center` written at
+  once, the pair stood at x = 896 (768 px wide, centred); closed the same way, back to 1040.
+- **The window's height by tab**, gears to legendary on belts: Buildings 950 px, Modules 1010,
+  Chests 1090, Circuits 950 — 760 to 872 at 100%. With the Chests tab's scroll-pane capped at
+  `maximal_height = 100` the window read 694 px: the rest of the window is **455 px at 100%**,
+  three status lines and no warning, which `WINDOW_CHROME` builds on.
+- **A capped `naked_scroll_pane` tab scrolls in place**: a vertical scrollbar inside the tab,
+  the top block, status lines and buttons drawn as before (screenshot). Uncapped, the four tabs
+  shot identical to the flow they replaced.

@@ -30,9 +30,7 @@ local function nauvis()
 end
 
 local function wipe()
-  for _, entity in pairs(nauvis().find_entities_filtered({})) do
-    entity.destroy()
-  end
+  stamping.wipe(nauvis())
 end
 
 -- One machine-recycler pair exactly as the layout stands them: tangent, eject north into the
