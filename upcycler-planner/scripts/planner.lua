@@ -2201,10 +2201,11 @@ function planner.circuit_limits(choices, recipe, tiers)
   return minimums, maximum
 end
 
-local function circuit_reach(kind, machine, machine_quality, recycler, recycler_quality, r, circuit)
+-- The recycler is not in it: like the feed chests, it is held to a reach of its own, so one
+-- with no circuit connection costs only itself (circuits.decorate).
+local function circuit_reach(kind, machine, machine_quality, r, circuit)
   local reach = math.min(
     machine.get_max_circuit_wire_distance(machine_quality),
-    recycler.get_max_circuit_wire_distance(recycler_quality),
     prototypes.entity[r.stock.name].get_max_circuit_wire_distance(r.stock.quality),
     prototypes.entity[r.provider.name].get_max_circuit_wire_distance(r.provider.quality),
     prototypes.entity[CIRCUIT_COMBINATOR].get_max_circuit_wire_distance())
@@ -2495,7 +2496,7 @@ function planner.plan(force, choices, gathered)
   -- above, from the same normalised tables the decorator reads now, so the reach and the
   -- wiring cannot disagree about what is actually wired.
   if circuit then
-    local unlinked = circuits.decorate(plan.entities, {
+    local unlinked, wireless = circuits.decorate(plan.entities, {
       tiers = expanded_tiers,
       minimums = circuit.minimums,
       maximum = circuit.maximum,
@@ -2503,7 +2504,10 @@ function planner.plan(force, choices, gathered)
       network = circuit.network,
       hand = circuit.hand,
       product = product.name,
-      reach = circuit_reach(kind, machine, machine_quality, recycler, recycler_quality, r, circuit),
+      reach = circuit_reach(kind, machine, machine_quality, r, circuit),
+      -- The recycler's own, for feed_reach's reason below: a modded recycler with no circuit
+      -- connection answers 0, and then costs only itself.
+      recycler_reach = recycler.get_max_circuit_wire_distance(recycler_quality),
       -- The feed chests' own hop to their machine, kept OUT of the shared minimum above: a
       -- modded chest with a short wire then costs its own link and a warning, never the
       -- spine every other condition hangs on.
@@ -2518,8 +2522,11 @@ function planner.plan(force, choices, gathered)
         or nil,
     })
     -- Reported like the pole pass's unpowered: only the built geometry knows it, and the loop
-    -- still runs -- an unwired entity just runs without its limit.
+    -- still runs -- an unwired entity just runs without its limit. A recycler that takes no
+    -- wire at all is reported apart, by name, since no layout could fix it -- picking another
+    -- recycler can.
     if unlinked > 0 then plan.circuit_unlinked = unlinked end
+    if wireless > 0 then plan.circuit_wireless = { recycler = recycler.name, count = wireless } end
   end
 
   -- Carried on the plan rather than through the layout: which chests exist is geometry, whether

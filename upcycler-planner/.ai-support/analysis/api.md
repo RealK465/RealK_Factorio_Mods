@@ -1170,6 +1170,13 @@ reach and answers a different question; the two agree on these families at 2.1.1
 the circuit one is documented for this job — a review round caught the wrong sibling in use.
 `planner.circuit_reach` takes a min over the wired prototypes at their build qualities;
 quality scaling on non-pole reach is unmeasured either way, and the min is conservative.
+**A furnace that declares no `circuit_wire_max_distance` answers 0 as well** (measured
+2026-11-27, 2.1.25): Quality Recycler up to 0.1.5 declared neither the reach nor a connector
+and read 0 where the vanilla recycler reads 9, which zeroed every hop while the recycler sat
+in that min. The recycler has had a reach of its own since (`circuits.decorate` →
+`recycler_reach`, `../decisions.md`). Quality Recycler 0.1.6 declares the furnace reach and
+reads 9, and a loop stamped with it puts the cap's condition and a green wire on every one of
+its recyclers, belts and bots alike (a scratch spec with the three repo mods loaded).
 **Where the engine measures a wire is UNMEASURED** — entity centres or connector geometry
 (`LuaWireConnector.can_wire_reach` exists, so reach IS modelled at connector level) — and
 the widest vanilla pitch puts a spine hop at exactly 9.0 centre-to-centre. The decorator

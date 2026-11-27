@@ -38,9 +38,9 @@ local function stack_for(minimums, maximum)
   return circuit_stack.params(maximum ~= nil)
 end
 
--- opts: reach, feed_reach, minimums, maximum, paused, hand, tiers -- maximum false stands in
--- for "no cap" and hand false for "no hand" (the planner passes nil there, which an opts
--- table cannot carry past the fixture default).
+-- opts: reach, feed_reach, recycler_reach, minimums, maximum, paused, hand, tiers -- maximum
+-- false stands in for "no cap" and hand false for "no hand" (the planner passes nil there,
+-- which an opts table cannot carry past the fixture default).
 local function decorated(overrides, opts)
   opts = opts or {}
   local maximum = opts.maximum
@@ -54,7 +54,7 @@ local function decorated(overrides, opts)
   for key, value in pairs(overrides or {}) do params[key] = value end
   params.circuit = stack_for(minimums, maximum)
   local built = layout.build(params_with(params))
-  local unlinked = circuits.decorate(built.entities, {
+  local unlinked, wireless = circuits.decorate(built.entities, {
     tiers = opts.tiers or TIERS,
     minimums = minimums,
     maximum = maximum,
@@ -63,11 +63,12 @@ local function decorated(overrides, opts)
     hand = hand,
     product = "iron-gear-wheel",
     reach = opts.reach or 9,
-    -- The feed chests' own reach; the same prototype family as the rest in vanilla, so it
-    -- follows the shared one unless a spec pulls the two apart.
+    -- The feed chests' own reach, and the recycler's: the same prototype family as the rest
+    -- in vanilla, so each follows the shared one unless a spec pulls them apart.
     feed_reach = opts.feed_reach or opts.reach or 9,
+    recycler_reach = opts.recycler_reach or opts.reach or 9,
   })
-  return built, unlinked
+  return built, unlinked, wireless
 end
 
 local function by_role(built, role)
@@ -640,6 +641,43 @@ describe("circuits.decorate wiring", function()
     end
   end)
 
+  test("a recycler that takes no wire costs only itself: its census joins the machine over it", function()
+    -- A modded recycler with no circuit connection answers a reach of 0 -- Quality Recycler
+    -- did, and the owner saw 42 buildings reported unlinked (2026-11-27). Held to the shared
+    -- reach it took every hop in the loop with it. Kept to its own, it costs only itself,
+    -- and is counted apart: it takes no wire, which no layout could change.
+    local built, unlinked, wireless = decorated(nil, { recycler_reach = 0 })
+    assert(unlinked == 0, "unlinked " .. unlinked .. ": the recycler cost more than itself")
+    assert(wireless == #TIERS - 1, "wireless " .. tostring(wireless) .. ", expected one per recycler")
+    local heard = component_of(built.entities, one(built, "limits").index)
+    for _, r in pairs(by_role(built, "recycler")) do
+      assert(not heard[r.index] and r.entity.circuit_wire_to == nil and r.entity.control_behavior == nil,
+        "recycler tier " .. r.entity.circuit_tier .. " was wired or gated")
+    end
+    for _, role in pairs({ "machine", "census", "reserve", "feed" }) do
+      for _, e in pairs(by_role(built, role)) do
+        assert(heard[e.index], role .. " tier " .. e.entity.circuit_tier .. " went with the recycler")
+      end
+    end
+    for _, role in pairs({ "machine", "reserve", "feed" }) do
+      for _, e in pairs(by_role(built, role)) do
+        assert(e.entity.control_behavior, role .. " tier " .. e.entity.circuit_tier .. " lost its limit")
+      end
+    end
+  end)
+
+  test("a recycler whose own wire is merely short is too far, not wireless", function()
+    -- Reach 1 spans neither of its hops, so it is left off like the wireless one -- but
+    -- counted with everything else too far for a wire.
+    local built, unlinked, wireless = decorated(nil, { recycler_reach = 1 })
+    assert(wireless == 0, "a short wire was reported as no wire at all")
+    assert(unlinked == #TIERS - 1, "unlinked " .. unlinked .. ", expected one per recycler")
+    local heard = component_of(built.entities, one(built, "limits").index)
+    for _, c in pairs(by_role(built, "census")) do
+      assert(heard[c.index], "census tier " .. c.entity.circuit_tier .. " went with its recycler")
+    end
+  end)
+
   test("a hop past reach relays along the top ring, and the network still connects", function()
     -- Utility columns of 4 stretch the machine-row hops to 7; reach 6 forces the relay while
     -- every cluster link (about 3.6 at most) and every belt tap (about 5) still fits.
@@ -829,13 +867,31 @@ describe("circuits.decorate on the bot loop", function()
     for key, value in pairs(overrides or {}) do params[key] = value end
     params.circuit = stack_for(minimums, maximum)
     local built = layout_bot.build(bot_params(params))
-    local unlinked = circuits.decorate(built.entities, {
+    local unlinked, wireless = circuits.decorate(built.entities, {
       tiers = params.tiers or TIERS, minimums = minimums, maximum = maximum,
       network = maximum ~= nil, hand = HAND, product = "iron-gear-wheel",
       reach = opts.reach or 9, feed_reach = opts.reach or 9, relay_reach = opts.relay_reach,
+      recycler_reach = opts.recycler_reach or opts.reach or 9,
     })
-    return built, unlinked
+    return built, unlinked, wireless
   end
+
+  test("a recycler that takes no wire costs only itself, here too", function()
+    -- The bot loop's columns stand the same census -> recycler -> machine chain as the ring's.
+    local built, unlinked, wireless = decorated_bot(nil, { recycler_reach = 0 })
+    assert(unlinked == 0, "unlinked " .. unlinked .. ": the recycler cost more than itself")
+    assert(wireless == #TIERS - 1, "wireless " .. tostring(wireless))
+    local heard = component_of(built.entities, one(built, "limits").index)
+    for _, role in pairs({ "machine", "census", "reserve", "feed" }) do
+      for _, e in pairs(by_role(built, role)) do
+        assert(heard[e.index], role .. " column " .. e.entity.circuit_tier .. " went with the recycler")
+      end
+    end
+    for _, r in pairs(by_role(built, "recycler")) do
+      assert(not heard[r.index] and r.entity.control_behavior == nil,
+        "a recycler that takes no wire was wired or gated")
+    end
+  end)
 
   test("a repeated tier's every column keeps its own return reserve, all on one network", function()
     -- The expanded per-column array, as the columns feature hands it to both builders.

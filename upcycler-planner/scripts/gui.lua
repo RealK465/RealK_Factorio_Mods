@@ -601,6 +601,11 @@ function gui.refresh(player)
     if plan.unpowered then
       messages[#messages + 1] = { "upl-message.consumers-unpowered", plan.unpowered }
     end
+    if plan.circuit_wireless then
+      messages[#messages + 1] = { "upl-message.circuit-wireless",
+        prototypes.entity[plan.circuit_wireless.recycler].localised_name,
+        plan.circuit_wireless.count }
+    end
     if plan.circuit_unlinked then
       messages[#messages + 1] = { "upl-message.circuit-unlinked", plan.circuit_unlinked }
     end

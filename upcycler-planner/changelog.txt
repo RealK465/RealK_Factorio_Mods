@@ -4,6 +4,9 @@ Date: ????
   Bugfixes:
     - Fixed that a moved planner window jumped back to the middle of the screen when you
       changed an option.
+    - Fixed that a recycler with no circuit connection turned off the circuit limits for the
+      whole loop. Now only the recyclers run without limits, and the warning names the
+      recycler.
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.0
 Date: 2026-11-27

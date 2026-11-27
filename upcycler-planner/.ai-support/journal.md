@@ -9,6 +9,32 @@ everything older than the last release into `journal-archive/<year>.md` and leav
 
 ---
 
+## 2026-11-27 - "42 buildings are too far for a circuit wire": a recycler with no wire
+
+The owner: "i have a warning '42 buildigns are too far for a circuit wire and will run without
+limits' that is always visible, what's is causing that ?", then "otherwise see how this can be
+improved" and "we can envasige a fix for quality recycler too". A scratch spec loaded the three
+repo mods beside the planner and read every wired prototype's reach. All read 9 except Quality
+Recycler, which read 0: written from scratch, it declares no `circuit_wire_max_distance` and
+no connector. `planner.circuit_reach` took the recycler into the one shared minimum, so every
+hop failed. Nothing was wired, and every building that should carry a limit was counted: 19 on
+belts to legendary, 27 to celestial, and the owner's 42 with more columns. The vanilla recycler
+gave 0 in every case.
+
+The planner now holds the recycler to its own reach, as `feed_reach` already held the feed
+chests (`../scripts/circuits.lua`). A recycler that cannot carry the wire both ways is left off,
+and its census joins the machine over it. A reach of 0 is counted apart, as `circuit_wireless`,
+and named in its own warning, "Quality Recycler can't connect to circuit wires, so 6
+recyclers will run without limits". Three pure specs failed on the old decorator and pass now:
+no wire on belts, no wire on bots, and a merely short wire, which stays "too far". On the scratch run at celestial,
+the machines, feed chests and stock chests all came back gated, with only the recyclers bare.
+Pure 187, headless 515, static clean; the belt goldens did not move.
+
+The source was fixed in Quality Recycler 0.1.6, which now has a connector of its own (its
+journal). With it, the scratch run read reach 9, planned with nothing unlinked and nothing
+wireless, and a stamped loop carried the cap and a green wire on every one of its recyclers,
+on belts and bots alike.
+
 ## 2026-11-27 - A moved window jumped back to the centre: 2.0.1 opened
 
 The owner, hours after 2.0.0 shipped: "if i move the upcycler planner gui in the screen then i

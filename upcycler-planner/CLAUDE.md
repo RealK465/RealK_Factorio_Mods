@@ -38,7 +38,7 @@ between tiers; `.ai-support/deferred.md` keeps what was deliberately left out (a
 network, fluid products, a roboport).
 
 **Tested by a permanent suite since 2026-08-16.** The throwaway scratch harnesses became a
-suite under `tests/` (512 tests as of 2026-11-27, 184 of them pure) — planner, layout, poles,
+suite under `tests/` (515 tests as of 2026-11-27, 187 of them pure) — planner, layout, poles,
 circuits, the quality maths, the shortcut gate, blueprint, state, the eject loop, the fluid
 mechanisms, the combinator retune, the chests' circuit stop, the beacons, the bot loop live
 and on paper, the belt goldens and the GUI — run via the repo's `factorio-testing` skill (headless, graphics, pure
@@ -423,7 +423,10 @@ re-opening any of these, and don't restate a reason here.
   the `circuit_hand` number, edited inline in the Circuits tab, rows labelled Min/Max, greyed by
   `gui.refresh` while the checkbox is off and refilled in place when the target moves.
   Conditions go only onto what can hear the combinator over the wires placed; anything cut off
-  is left ungated and warned about (`circuit_unlinked`), never refused. The combinator's
+  is left ungated and warned about (`circuit_unlinked`), never refused. The recycler, like the
+  feed chests, is held to its own reach: one that cannot carry the wire is left off it, its
+  census joins the machine straight over it, and one with no circuit connection at all is
+  named in its own warning (`circuit_wireless`). The combinator's
   description and the panel's words are blueprint strings, English constants in `circuits.lua`.
   Reasons and the rejected shapes (the first-built demand cascade included): `decisions.md`; the
   verified engine surface: `analysis/api.md` §26, §32 and §33.

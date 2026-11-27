@@ -233,11 +233,15 @@ end
 -- reach -- tiles, the shortest circuit wire distance among the wired prototypes, since a
 -- wire is refused past its shorter end; feed_reach -- the same for a feed chest's hop to its
 -- machine alone, required whenever a maximum is set; relay_reach -- the same for the bot loop's
--- spine relay through its top-row inserters, falling back to reach when absent.
+-- spine relay through its top-row inserters, falling back to reach when absent;
+-- recycler_reach -- the recycler's own, its two hops held to the shorter of it and reach,
+-- falling back to reach when absent.
 --
 -- Returns how many entities that should be gated cannot hear the combinator: 0 normally,
 -- more on extreme modded footprints. Each is left without its condition, so it simply runs
--- without its limit, and the planner reports the count as a warning, never a refusal.
+-- without its limit, and the planner reports the count as a warning, never a refusal. A
+-- second count holds the recyclers left off because they take no wire at all -- a reach of 0,
+-- which no layout could change, so the planner says that instead of "too far".
 function circuits.decorate(entities, opts)
   local tiers, minimums = opts.tiers, opts.minimums
   local target = tiers[#tiers]
@@ -293,22 +297,35 @@ function circuits.decorate(entities, opts)
   -- The margin turns an exact-boundary hop into a relay or an honest unlinked count, where
   -- guessing wrong would drop the wire silently at build and split the network unwarned.
   local usable = opts.reach - 0.5
+  local function fits(from, to, limit)
+    return from ~= nil and to ~= nil and span(entities[from], entities[to]) <= (limit or usable)
+  end
   local function link(from, to, limit)
-    if from and to and span(entities[from], entities[to]) <= (limit or usable) then
-      entities[from].circuit_wire_to = to
-    end
+    if fits(from, to, limit) then entities[from].circuit_wire_to = to end
   end
 
+  -- The recycler's reach is kept out of the shared one, like the feed chests': a modded
+  -- recycler with no circuit connection answers 0 (Quality Recycler did), and held to the
+  -- shared reach it took every hop in the loop with it.
+  local recycler_reach = opts.recycler_reach or opts.reach
+  local recycler_usable = math.min(usable, recycler_reach - 0.5)
+
   -- Each tier's own stack, wired child-to-parent up the column: reserve inserter -> census
-  -- chest -> recycler -> machine, the terminal census landing straight on its machine --
-  -- link() ignoring a nil endpoint IS the terminal case, where no recycler stands. Bounded
-  -- by the machine+recycler band alone, never by pitch. The whole loop joins one network
-  -- whatever is gated: a reserve-only plan still has to hear the combinator, so its
-  -- machines carry the wire ungated, as the relay belts do.
+  -- chest -> recycler -> machine, the terminal census landing straight on its machine, where
+  -- no recycler stands -- and so does any census whose recycler cannot carry the wire, so
+  -- such a recycler costs only itself. Bounded by the machine+recycler band alone, never by
+  -- pitch. The whole loop joins one network whatever is gated: a reserve-only plan still has
+  -- to hear the combinator, so its machines carry the wire ungated, as the relay belts do.
   for k = 1, #tiers do
-    link(reserve_at(k), censuses[k])
-    link(censuses[k], recyclers[k] or machines[k])
-    link(recyclers[k], machines[k])
+    local census, recycler, machine = censuses[k], recyclers[k], machines[k]
+    link(reserve_at(k), census)
+    local carries = fits(recycler, machine, recycler_usable)
+    if carries then link(recycler, machine, recycler_usable) end
+    if carries and fits(census, recycler, recycler_usable) then
+      link(census, recycler, recycler_usable)
+    else
+      link(census, machine)
+    end
   end
 
   -- Under a cap the feed chests stop asking with the loop, so each joins its own machine:
@@ -438,7 +455,7 @@ function circuits.decorate(entities, opts)
   -- reserve inserter holds its own tier's floor. In network mode the cap is the network's
   -- count against the planned max and the wire carries the pause alone; an unheard entity
   -- is still left bare, since "runs without limits" is what the warning promises.
-  local unlinked = 0
+  local unlinked, wireless = 0, 0
   local cap = capped and threshold_signal(SIGNAL_CAP, target) or nil
   local network = capped and opts.network == true
   if capped then
@@ -448,6 +465,8 @@ function circuits.decorate(entities, opts)
           entities[index].control_behavior = network
             and network_gate(opts.product, target, opts.maximum, cap)
             or gate(opts.product, target, "<", cap)
+        elseif set == recyclers and recycler_reach <= 0 then
+          wireless = wireless + 1
         else
           unlinked = unlinked + 1
         end
@@ -571,7 +590,7 @@ function circuits.decorate(entities, opts)
     end
   end
 
-  return unlinked
+  return unlinked, wireless
 end
 
 return circuits

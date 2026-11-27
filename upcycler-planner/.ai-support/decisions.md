@@ -1108,6 +1108,15 @@ approval.
   uncircuited one and the warning's "runs without limits" is literally what happens. Before
   the walk the count was failed hops and a 10x10 modded machine (relay taps at 8.51 against
   8.5 usable) shipped every lower column dead on stamp.
+  **The recycler is held to a reach of its own** (2026-11-27, the owner's report), like the
+  feed chests below. Quality Recycler up to 0.1.5 had no circuit connection at all, so its
+  reach read 0, and inside the shared minimum it zeroed every hop: no wire anywhere and 42
+  buildings counted on the owner's loop, though only the recyclers could not take one. Now a
+  recycler that cannot carry the wire both ways is left off it, and its census joins the
+  machine straight over it, so the rest of the column keeps its limits. An ungated recycler
+  stops on its own once the gated machine above it fills. A reach of exactly 0 is reported
+  apart, as `plan.circuit_wireless` with the recycler's name, because no layout fixes it and
+  picking another recycler does. A short but non-zero reach still counts as too far.
   **Off by default costs nothing, provably** — plan_spec pins a circuits-off plan carrying no
   condition and no circuit wire anywhere. `scripts/circuits.lua` is a pure decorator run
   strictly after the pole pass (circuits change no geometry, so there is nothing to solve
