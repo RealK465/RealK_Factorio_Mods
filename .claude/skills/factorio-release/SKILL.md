@@ -208,8 +208,8 @@ one. Fix all of it in the same session as the first upload.
 `fmtk details` only takes `--readme` and `--faq`. License, category, tags and gallery have no
 fmtk surface at all and need the v2 API.
 
-**Three things `details` does that "uploads the README" does not describe** — all silent, all
-read out of its bundled source and confirmed on a live sync (2026-08-29):
+**What `details` does that "uploads the README" does not describe** — all silent, all read out
+of its bundled source and confirmed on a live sync (2026-08-29):
 
 - It **strips a leading depth-1 heading** before sending, so a `# Mod Name` at the top of the
   README never reaches the page. Deliberate (`package.markdown.strip_first_header`, default
@@ -226,7 +226,16 @@ read out of its bundled source and confirmed on a live sync (2026-08-29):
   `^((https?|data):|#)` passes through untouched. Host README images somewhere else and link
   them absolutely unless they are genuinely meant to be gallery shots.
 
-It also sends `title`, `homepage` and `summary` from `info.json` every time, and it touches the
+**A video in the description is a markdown image whose URL path ends in `.mp4`** — the portal's
+renderer, not fmtk, turns it into `<video controls autoplay muted loop>` with
+`type="video/mp4"`, a query string after the extension included (read off Mining Patch Planner's
+and P.U.M.P.'s pages on 2026-11-27, P.U.M.P. linking `...mp4?raw=true` straight from its GitHub
+repo). Raw GitHub serves an MP4 as `application/octet-stream` with `nosniff`, which Chromium
+plays in that tag; Firefox and Safari are not verified. Encode for the web — H.264, `yuv420p`,
+limited range — since frames shot as JPEG decode full range. A raw link to `main` resolves only
+once the file is pushed, so a README sync waits for the push.
+
+`details` also sends `title`, `homepage` and `summary` from `info.json` every time, and it touches the
 gallery **only** when `info.json#/package/gallery` holds a glob — with no `gallery` key it never
 calls `images/edit`, which is what makes a text-only sync safe to run without disturbing the
 shots.
