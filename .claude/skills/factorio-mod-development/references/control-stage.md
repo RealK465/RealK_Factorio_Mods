@@ -299,6 +299,14 @@ Other GUI facts that bite:
 - `on_gui_click` fires for every element in every mod; check ownership before reacting.
 - GUI element *size* is not game state and cannot be read (except in instrument mode) because
   reading it would desync.
+- **A sprite-button fits the whole sprite canvas into its box, padding included.**
+  `utility/technology_white` draws its flask in the middle half of a 64 px canvas, so in a 24 px
+  `frame_action_button` it came out half the size of the close cross beside it (2.1.25,
+  screenshot-measured). Measure a utility sprite's glyph before using it as an icon; a `sprite`
+  prototype with `position` and `size` cropped to the glyph fixes it
+  (`assembly-planner/prototypes/planner/sprites.lua`).
+- **Vanilla's `dropdown` style is at least 116 px wide**, whatever its items. A drop-down of
+  small numbers needs `style.width` set, or it dominates its row.
 
 ## Commands, remote interfaces, custom input
 
