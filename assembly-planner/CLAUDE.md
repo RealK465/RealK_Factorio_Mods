@@ -7,13 +7,13 @@ what is specific to this mod. `package.ignore` keeps it out of the shipped zip.
 
 A planner in Upcycler Planner's tradition, for bot malls: the player picks an item, and the mod
 designs one mall cell — the crafting machine and its modules, an inserter row under it feeding
-from a requester chest and handing finished items to passive providers, optional beacons beside
-and above it, a pipe row behind it for a fluid recipe, an optional pole — and hands it over as
+from requester chests and handing finished items to passive providers, more pairs up the sides
+when one inserter cannot keep up, optional beacons beside and above it, a pipe row behind it for a fluid recipe, an optional pole — and hands it over as
 a blueprint.
 
-**Published** since 2026-11-25: 0.1.0, and 0.2.0 on 2026-11-28, for Factorio 2.1. Run the `factorio-release` skill's
-"Published or open?" check rather than trusting a number here — `git tag -l
-'assembly-planner_*'` is what has shipped. Nothing has been played in a real save; the suite and
+**Published** since 2026-11-25: 0.1.0, and 0.2.0 on 2026-11-28, for Factorio 2.1. Run the
+`factorio-release` skill's "Published or open?" check rather than trusting a number here —
+`git tag -l 'assembly-planner_*'` is what has shipped. Nothing has been played in a real save; the suite and
 the probes are all the evidence there is (`.ai-support/journal.md`).
 
 ## The five technical facts worth not re-deriving
