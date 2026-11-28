@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.0
-Date: ????
+Date: 2026-11-28
   Features:
     - When one inserter can't keep up with the machine, the cell gets more, each with its own
       chest. They go along the bottom first, then up the side, where the beacons step out.
