@@ -11,7 +11,7 @@ from a requester chest and handing finished items to passive providers, optional
 and above it, a pipe row behind it for a fluid recipe, an optional pole — and hands it over as
 a blueprint.
 
-**Published** since 2026-11-25: 0.1.0 for Factorio 2.1. Run the `factorio-release` skill's
+**Published** since 2026-11-25: 0.1.0, and 0.2.0 on 2026-11-28, for Factorio 2.1. Run the `factorio-release` skill's
 "Published or open?" check rather than trusting a number here — `git tag -l
 'assembly-planner_*'` is what has shipped. Nothing has been played in a real save; the suite and
 the probes are all the evidence there is (`.ai-support/journal.md`).

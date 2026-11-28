@@ -2,6 +2,22 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 — 0.2.0 published
+
+The owner asked to release, publish, commit and push once the review was done. Pre-flight: the
+portal held only 0.1.0 (owner RealK), `assembly-planner_0.1.0` was the only tag, and `main`
+matched `origin`. The feature went in as `ca42247`. `fmtk datestamp` stamped the changelog
+2026-11-28 and `fmtk package`, given a relative `--outdir`, built a 23-file zip of 89,393 bytes
+with nothing private in it, sha1 `0ae496ced9177cf052b83a446fe5029c85ce81ec`. `fmtk upload`
+published it, and a cache-busted read-back listed 0.2.0 with that sha1. The release commit
+`1c3cd8a` carries the stamp and the tag `assembly-planner_0.2.0`; the zip matches the tag file
+for file once line endings are normalised.
+
+The portal page was not synced. The README gained one line and five screenshots changed. The
+README's images are absolute links to `images/` on `main`, so the pushed shots show in the
+description at once; the line itself and the gallery copies wait for `fmtk details` and the
+image API, a separate public write left for the owner to approve.
+
 ## 2026-11-27 to 11-28 — inserter throughput, 0.2.0
 
 The owner asked for the planner to work out speeds and transfer rates: "with beacons the
