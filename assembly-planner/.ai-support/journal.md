@@ -2,6 +2,21 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (later) — 0.3.0 published
+
+The owner asked for the redesign to be released and published. Pre-flight: the portal held
+0.1.0 and 0.2.0 (owner RealK), `assembly-planner_0.2.0` was the newest tag, and the window work
+went in as `60cc963`. `fmtk datestamp` stamped the changelog 2026-11-28 and `fmtk package` built
+a 24-file zip of 90,333 bytes with nothing private in it, sha1
+`3f7563f2a9d761868c8057e5988f4fbe8f2ac0ef`. `fmtk upload` published it, and a cache-busted
+read-back listed 0.3.0 with that sha1. The release commit carries the stamp and the tag
+`assembly-planner_0.3.0`.
+
+The portal page was not synced. The README's line about the Settings panel changed and the
+gallery still shows the old window; both wait for `fmtk details` and the image API, a separate
+public write. The description's images are absolute links to `images/` on `main`, so the new
+window shows there once pushed.
+
 ## 2026-11-28 (later) — a compact window, 0.3.0
 
 The owner asked for a simpler, more compact window with every option still one click away —
