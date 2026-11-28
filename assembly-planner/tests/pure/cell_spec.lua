@@ -5,6 +5,7 @@
 local cell = require("scripts.cell")
 
 local NORTH, SOUTH = defines.direction.north, defines.direction.south
+local EAST, WEST = defines.direction.east, defines.direction.west
 
 local function machine(w, h)
   return { name = "m", quality = "normal", w = w, h = h or w, margin = 0.3, direction = NORTH,
@@ -16,12 +17,23 @@ local function beacon(side, above)
     side = side, above = above }
 end
 
+-- Roles in order; a leading "+" marks an extra, the second or later of its role.
 local function slots(...)
   local out = {}
-  for i, role in ipairs({ ... }) do
-    out[i] = { role = role, inserter = { name = "i" }, chest = { name = role == "input" and "req" or "out" } }
+  for i, spec in ipairs({ ... }) do
+    local extra = spec:sub(1, 1) == "+"
+    local role = extra and spec:sub(2) or spec
+    out[i] = { role = role, extra = extra or nil, inserter = { name = "i" },
+      chest = { name = role == "input" and "req" or "out" } }
   end
   return out
+end
+
+local function at(built, name, dx, dy)
+  for _, e in ipairs(built.entities) do
+    if e.name == name and e.dx == dx and e.dy == dy then return e end
+  end
+  return nil
 end
 
 local function named(built, name)
@@ -152,6 +164,78 @@ describe("cell.build with beacons", function()
     local built = cell.build({ machine = machine(3), slots = slots("output"), beacon = beacon(0, 3) })
     assert(built.width == 3, "the row above widened a cell with no side columns")
     assert(#named(built, "b") == 1, "only one beacon fits above a lone AM3")
+  end)
+end)
+
+describe("cell extras", function()
+  test("side room: a beacon that reaches from two tiles out leaves the side open", function()
+    assert(cell.side_room(machine(3), beacon(1, 3)) == 3, "a vanilla side beacon closed the side")
+    assert(cell.side_room(machine(3), beacon(0, 3)) == 3, "a side with no beacon is not open")
+    assert(cell.side_room(machine(3), nil) == 3, "a cell with no beacon is not open")
+    local short = beacon(1, 0)
+    short.supply = 2
+    assert(cell.side_room(machine(3), short) == 0, "a beacon out of reach two tiles out left the side open")
+    assert(cell.side_room(machine(3, 2), nil) == 2, "a machine on its side has two tiles of side")
+  end)
+
+  test("extra inputs fill the bottom, then the left side", function()
+    local built = cell.build({ machine = machine(3), beacon = beacon(1, 3),
+      slots = slots("input", "output", "quality", "+input", "+input") })
+    assert(built.width == 11 and built.height == 8, "footprint " .. built.width .. "x" .. built.height)
+    local m = named(built, "m")[1]
+    assert(m.dx == 5 and m.dy == 3, "machine at " .. m.dx .. "," .. m.dy)
+    for k = 0, 1 do
+      local ins = at(built, "i", 4, 3 + k)
+      assert(ins and ins.direction == WEST, "left input " .. k .. " missing or not picking from its chest")
+      assert(at(built, "req", 3, 3 + k), "left requester " .. k .. " missing")
+    end
+    assert(at(built, "b", 0, 3) and at(built, "b", 8, 3), "the side beacons did not step out and stay")
+    for _, x in ipairs({ 2, 5, 8 }) do
+      assert(at(built, "b", x, 0), "a beacon above moved off its machine-relative spot at " .. x)
+    end
+    local bottom = { SOUTH, NORTH, NORTH }
+    for c, direction in ipairs(bottom) do
+      local ins = at(built, "i", 4 + c, 6)
+      assert(ins and ins.direction == direction, "bottom slot " .. c .. " wrong")
+    end
+    no_overlaps_and_inside(built)
+  end)
+
+  test("an extra output on the side faces the machine, mirrored on the right", function()
+    local built = cell.build({ machine = machine(3),
+      slots = slots("input", "output", "quality", "+output", "+output", "+output", "+output") })
+    assert(built.width == 7, "width " .. built.width)
+    assert(at(built, "i", 1, 0).direction == EAST, "a left output must pick from the machine")
+    assert(at(built, "i", 5, 0).direction == WEST, "a right output must pick from the machine")
+    assert(at(built, "out", 0, 0) and at(built, "out", 6, 0), "side output chests misplaced")
+    local inputs = cell.build({ machine = machine(3),
+      slots = slots("input", "output", "quality", "+input", "+input", "+input", "+input") })
+    assert(at(inputs, "i", 5, 0).direction == EAST, "a right input must pick from its chest")
+    no_overlaps_and_inside(built)
+    no_overlaps_and_inside(inputs)
+  end)
+
+  test("overflow past the left side goes right", function()
+    local built = cell.build({ machine = machine(3),
+      slots = slots("input", "output", "+input", "+input", "+input", "+input", "+input") })
+    assert(built.width == 7 and built.height == 5, "footprint " .. built.width .. "x" .. built.height)
+    local bottom = { SOUTH, SOUTH, NORTH }
+    for c, direction in ipairs(bottom) do
+      assert(at(built, "i", 1 + c, 3).direction == direction, "bottom slot " .. c .. " wrong")
+    end
+    for k = 0, 2 do assert(at(built, "i", 1, k), "left slot " .. k .. " missing") end
+    assert(at(built, "i", 5, 0) and not at(built, "i", 5, 1), "the right side should hold exactly one")
+    no_overlaps_and_inside(built)
+  end)
+
+  test("a bottom row reads inputs, outputs, quality", function()
+    local built = cell.build({ machine = machine(4), slots = slots("input", "output", "quality", "+input") })
+    assert(built.width == 4, "an extra that fits the bottom widened the cell")
+    local want = { { "req", SOUTH }, { "req", SOUTH }, { "out", NORTH }, { "out", NORTH } }
+    for c, pair in ipairs(want) do
+      assert(at(built, pair[1], c - 1, 5), "bottom chest " .. c .. " is not a " .. pair[1])
+      assert(at(built, "i", c - 1, 4).direction == pair[2], "bottom inserter " .. c .. " faces the wrong way")
+    end
   end)
 end)
 

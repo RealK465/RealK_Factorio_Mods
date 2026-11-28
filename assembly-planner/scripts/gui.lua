@@ -18,6 +18,7 @@
 local gui = {}
 
 local util = require("util")
+local calc = require("scripts.calc")
 local dispatch = require("scripts.dispatch")
 local proto = require("scripts.proto")
 local plan = require("scripts.plan")
@@ -200,12 +201,6 @@ local function titled_tooltip(key)
   }
 end
 
--- The figure the status line shows for crafts a minute: one decimal while it is small.
-local function rate(value)
-  if value < 10 then return string.format("%.1f", value) end
-  return string.format("%d", math.floor(value + 0.5))
-end
-
 -- The ingredient fields brought up to date: every default in the tags, and the text of every
 -- field the player has not set by hand. A hand-set field is never rewritten -- it may be the
 -- one being typed in.
@@ -254,7 +249,7 @@ function gui.refresh(player)
   status.clear()
   if p then
     status_line(status, "apl-stat-footprint", { "apl-gui.footprint", p.width, p.height }, COLOR_PLAIN)
-    status_line(status, "apl-stat-rate", { "apl-gui.rate", rate(p.stats.crafts_per_minute) }, COLOR_PLAIN)
+    status_line(status, "apl-stat-rate", { "apl-gui.rate", calc.format_rate(p.stats.crafts_per_minute) }, COLOR_PLAIN)
     if p.stats.quality > 0 then
       status_line(status, "apl-stat-quality",
         { "apl-gui.quality-chance", string.format("%.1f", p.stats.quality * 100) }, COLOR_PLAIN)

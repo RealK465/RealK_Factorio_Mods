@@ -10,6 +10,12 @@
 --         i o q           inserters: input, output, quality output
 --         R P Q           chests:    requester, output (the capped one), quality output
 --
+-- When the inserters cannot keep up, the planner adds extra pairs: first on the bottom edge,
+-- then up the left side and the right, each side's beacons stepping two tiles out:
+--
+--   B B B R i M M M B B B
+--
+
 -- Coordinates are tiles from the cell's top-left corner; an entity covering dx..dx+w-1 has its
 -- centre half a footprint in. The cell's bounding box is its footprint, so two cells stamped
 -- side by side abut exactly. Rotating or flipping the blueprint in hand puts the rows anywhere.
@@ -17,6 +23,13 @@
 local cell = {}
 
 local NORTH, SOUTH = defines.direction.north, defines.direction.south
+local EAST, WEST = defines.direction.east, defines.direction.west
+
+-- A side holding inserters puts each one beside the machine and its chest beyond it, so that
+-- side's beacon column steps this many tiles out.
+local STEP = 2
+
+local ROLE_ORDER = { input = 1, output = 2, quality = 3 }
 
 -- The beacon reach rule (measured, upcycler-planner api.md §25, re-measured for this cell's
 -- positions on 2.1.23): the supply area is the beacon's collision box grown by its supply
@@ -77,6 +90,48 @@ function cell.capacity(machine, beacon, fluid)
   }
 end
 
+-- How many inserters one side of the machine can take: its height, provided every beacon the
+-- plan stands on that side still reaches from STEP tiles out. Both sides alike, so one number.
+function cell.side_room(machine, beacon)
+  if beacon and (beacon.side or 0) > 0 then
+    local sides = side_offsets(machine, beacon)
+    for i = 1, math.min(beacon.side, #sides) do
+      if not reaches(beacon, -beacon.w - STEP, sides[i], machine) then return 0 end
+    end
+  end
+  return machine.h
+end
+
+-- The slots by edge. The bottom takes every first-of-its-role slot and as many extras as fit,
+-- grouped inputs, outputs, quality; the rest go up the left side, then the right, top first.
+-- The planner sizes the extras by side_room, so neither side is ever asked for more.
+local function by_edge(slots, machine)
+  local free = machine.w
+  for _, slot in ipairs(slots) do
+    if not slot.extra then free = free - 1 end
+  end
+  local bottom, overflow = {}, {}
+  for index, slot in ipairs(slots) do
+    if not slot.extra or free > 0 then
+      if slot.extra then free = free - 1 end
+      bottom[#bottom + 1] = { slot = slot, index = index }
+    else
+      overflow[#overflow + 1] = slot
+    end
+  end
+  table.sort(bottom, function(a, b)
+    local ra, rb = ROLE_ORDER[a.slot.role] or 9, ROLE_ORDER[b.slot.role] or 9
+    if ra ~= rb then return ra < rb end
+    return a.index < b.index
+  end)
+  for i, entry in ipairs(bottom) do bottom[i] = entry.slot end
+  local left, right = {}, {}
+  for i, slot in ipairs(overflow) do
+    if i <= machine.h then left[#left + 1] = slot else right[#right + 1] = slot end
+  end
+  return bottom, left, right
+end
+
 -- `n` of a row's positions, nearest the middle first, back in left-to-right order -- so two
 -- beacons above a three-wide row stand left and middle rather than at both ends.
 local function centred(list, n)
@@ -106,9 +161,10 @@ end
 
 -- p.machine  { name, quality, w, h, margin, direction, recipe, recipe_quality, modules }
 --            w and h are the footprint AFTER rotation.
--- p.slots    the inserter-and-chest pairs, left to right, each { role, inserter, chest,
---            filters, requests, bar, control_behavior }; role "input" picks from its chest,
---            every other role from the machine.
+-- p.slots    the inserter-and-chest pairs, each { role, extra, inserter, chest, filters,
+--            requests, bar, control_behavior }; role "input" picks from its chest, every other
+--            role from the machine. `extra` marks the second and later of a role, the ones that
+--            may go up a side when the bottom edge is full.
 -- p.pipe     the pipe row's pipe name, or nil for a recipe with no fluid.
 -- p.beacon   { name, quality, w, h, margin, supply, modules, module_inventory, side, above }
 --            or nil; side is per column, both counts clamped to the capacity here.
@@ -129,13 +185,17 @@ function cell.build(p)
     above_list = centred(above, math.max(0, math.min(beacon.above or 0, #above)))
   end
 
+  local bottom, left, right = by_edge(p.slots, machine)
+  local gap_left = #left > 0 and STEP or 0
+  local gap_right = #right > 0 and STEP or 0
+
   local sw = #side_list > 0 and beacon.w or 0
   local ah = #above_list > 0 and beacon.h or 0
   local oy = p.pole_row or 0
-  local mx, my = sw, oy + ah + (fluid and 1 or 0)
+  local mx, my = sw + gap_left, oy + ah + (fluid and 1 or 0)
   local iy = my + machine.h
   local cy = iy + 1
-  local base = machine.w + 2 * sw
+  local base = machine.w + 2 * sw + gap_left + gap_right
   local column = p.pole_column or 0
   local width, height = base + column, cy + 1
 
@@ -150,7 +210,7 @@ function cell.build(p)
 
   for _, y in ipairs(side_list) do
     add(beacon_entity(beacon, 0, my + y))
-    add(beacon_entity(beacon, mx + machine.w, my + y))
+    add(beacon_entity(beacon, mx + machine.w + gap_right, my + y))
   end
 
   add({
@@ -159,19 +219,31 @@ function cell.build(p)
     modules = machine.modules,
   })
 
-  -- An inserter's direction is the side it picks up from (upcycler-planner layout.lua, measured):
-  -- the input faces its chest to the south, the outputs face the machine to the north.
-  for c, slot in ipairs(p.slots) do
-    local x = mx + c - 1
+  local function add_slot(slot, inserter_x, inserter_y, chest_x, chest_y, toward_chest, toward_machine)
     add({
-      name = slot.inserter.name, quality = slot.inserter.quality, dx = x, dy = iy, w = 1, h = 1,
-      direction = slot.role == "input" and SOUTH or NORTH,
+      name = slot.inserter.name, quality = slot.inserter.quality, dx = inserter_x, dy = inserter_y,
+      w = 1, h = 1, direction = slot.role == "input" and toward_chest or toward_machine,
       filters = slot.filters, control_behavior = slot.control_behavior,
     })
     add({
-      name = slot.chest.name, quality = slot.chest.quality, dx = x, dy = cy, w = 1, h = 1,
+      name = slot.chest.name, quality = slot.chest.quality, dx = chest_x, dy = chest_y, w = 1, h = 1,
       requests = slot.requests, bar = slot.bar,
     })
+  end
+
+  -- An inserter's direction is the side it picks up from (upcycler-planner layout.lua, measured):
+  -- an input faces its chest, an output faces the machine.
+  for c, slot in ipairs(bottom) do
+    local x = mx + c - 1
+    add_slot(slot, x, iy, x, cy, SOUTH, NORTH)
+  end
+  for k, slot in ipairs(left) do
+    local y = my + k - 1
+    add_slot(slot, mx - 1, y, mx - 2, y, WEST, EAST)
+  end
+  for k, slot in ipairs(right) do
+    local y = my + k - 1
+    add_slot(slot, mx + machine.w, y, mx + machine.w + 1, y, EAST, WEST)
   end
 
   return { entities = entities, width = width, height = height }

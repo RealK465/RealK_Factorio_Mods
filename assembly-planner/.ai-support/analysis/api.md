@@ -1,14 +1,17 @@
 ---
-verified_against: 2.1.23
-verified: 2026-11-25
+verified_against: 2.1.25
+verified: 2026-11-28
 ---
 
 # Engine facts measured for Assembly Planner
 
-Measured on 2.1.23 (Space Age set) through a throwaway probe mod (`apl-probe`, run with the
-`factorio-testing` runner from the session scratchpad, deleted after), then pinned permanently
-by the suite: `tests/blueprint_spec.lua`, `tests/cell_live_spec.lua`, `tests/proto_spec.lua`,
-`tests/plan_spec.lua`. Every claim is **Verified** unless it says otherwise.
+§1–§6 were measured on 2.1.23 (Space Age set) through a throwaway probe mod (`apl-probe`, run
+with the `factorio-testing` runner from the session scratchpad, deleted after), then pinned
+permanently by the suite: `tests/blueprint_spec.lua`, `tests/cell_live_spec.lua`,
+`tests/proto_spec.lua`, `tests/plan_spec.lua`. That suite passed again on 2.1.25 on 2026-11-28,
+which re-verifies §1–§3, §5 and §6; §4's lab-surface fluid-box measurement was not re-run.
+§7–§9 were measured on 2.1.25 by `tests/throughput_live_spec.lua`. Every claim is **Verified**
+unless it says otherwise.
 
 ## 1. A blueprint's `bar` is the number of usable slots — Verified
 
@@ -96,3 +99,44 @@ it: 2.7 + 3 falls short of the neighbour's collision box).
 researched recipe" therefore turned a gear cell in an assembler into a foundry cell fed by a
 pipe. The plan's default prefers, in order: a researched recipe, one the chosen machine can
 craft, the one named like the item. Found by `plan_spec`, pinned by `gui_spec`.
+
+## 7. An inserter's round trip and hand — Verified
+
+Chest to chest and chest to a crafting machine, every inserter in its own rig, the hand polled
+every tick: the gap between two pickups (the hand going from empty to full in one tick) is
+`2 * (ceil(0.5 / rotation) - 1)` ticks, `rotation` being
+`LuaEntityPrototype.get_inserter_rotation_speed` at the inserter's quality. Measured exactly, gap
+after gap, for the inserter, fast, bulk and Space Age stack inserters at normal and legendary
+into a steel chest (70/28, 24/8, 24/8, 24/8 ticks), and for the first three into a legendary
+AM3 on gears with the hand held to one (the machine outpaces the arm, so it never waits). The
+same formula fits every row of the wiki's 2.0.26 chest-to-chest table, all five qualities of the
+burner, inserter, long-handed and fast inserters (`tests/pure/calc_spec.lua`). Dropping into a
+machine costs no extra tick. Extension never sets the swing for a one-tile inserter: its hand
+moves 0.2 tiles between pickup (1.0) and drop (1.2). `calc.swing_ticks` keeps a slower
+extension leg as a hedge for modded arms — **not verified**, no vanilla inserter exercises it.
+
+The hand read back as `1 + LuaEntityPrototype.inserter_stack_size_bonus` plus
+`LuaForce.bulk_inserter_capacity_bonus` for a bulk inserter or `LuaForce.inserter_stack_size_bonus`
+for any other: 12 for a fully researched bulk inserter, 16 for the stack inserter (4 built in),
+1 for both with the bonuses at 0, and the same at legendary as at normal — quality turns the arm
+faster and leaves the hand alone. Pinned in `tests/proto_spec.lua` and the live rigs.
+
+## 8. The stack inserter waits for a full hand — Verified
+
+Space Age's stack inserter (`LuaEntityPrototype.wait_for_full_hand`) given a chest of 5 plates
+took all 5 and was still holding them, unmoved, 300 ticks later. A chest that requests less than
+its 16 therefore makes it wait for refills before each swing. The plan models its hand as the
+request, like any inserter's. That under-rates it: with instant refills it would top up to 16
+before each swing. The error is on the safe side — at worst an extra chest it did not need. The default inserter on Space Age is the bulk inserter, which does not wait
+(`proto.best_inserter` at full research, measured 2026-11-28).
+
+## 9. A stamped cell crafts at the planned rate — Verified
+
+`throughput_live_spec` stamps a plan, fits its modules by hand (a revived ghost leaves modules as
+an item request for robots, and the first run, made without them, crafted at an AM3's bare 2.5
+a second) and fills its requesters by script. A beaconed gear cell with a hand of six, planned
+at three inputs and two outputs with one of each up the left side, crafted within a tenth of
+its planned 15.9 crafts a second over 600 ticks; one input would have allowed 7.5. A legendary
+quality-module cell with a hand of one, planned out of room at 6.25 crafts a second against a
+pace of 10.4, crafted within a tenth of 6.25. The side inserters faced the right way and fed, and
+the left beacon, two tiles further out, still reached the machine.

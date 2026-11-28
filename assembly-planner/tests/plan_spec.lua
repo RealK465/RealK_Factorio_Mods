@@ -165,8 +165,9 @@ describe("plan.build", function()
 
   test("a medium pole powers a beaconed cell through a pole row above the beacons", function()
     -- A full row of beacons above the machine sits out of a medium pole's reach from every free
-    -- tile below it, and a column on the right reaches only its right end.
-    local p = assert(build({ item = "fast-inserter", machine = "assembling-machine-3",
+    -- tile below it, and a column on the right reaches only its right end. A slow recipe, so the
+    -- cell gains no extra inserters and keeps the one free bottom tile this pins.
+    local p = assert(build({ item = "personal-roboport-mk2-equipment", machine = "assembling-machine-3",
       module = "quality-module-3", beacon = "beacon", beacons_side = 1, beacons_above = 3,
       pole = "medium-electric-pole" }))
     assert(not has_warning(p, "consumers-unpowered"), "a beaconed cell was left partly dark")
@@ -213,5 +214,127 @@ describe("plan.build before research", function()
     }))
     assert(has_warning(p, "build-quality-not-researched"),
       "a legendary inserter on a fresh force should warn even with no machine module")
+  end)
+end)
+
+describe("plan.build throughput", function()
+  local saved
+  before_all(function() research.full(force()) end)
+  after_each(function()
+    if saved then
+      force().bulk_inserter_capacity_bonus = saved
+      saved = nil
+    end
+  end)
+  local function set_bulk_bonus(value)
+    saved = saved or force().bulk_inserter_capacity_bonus
+    force().bulk_inserter_capacity_bonus = value
+  end
+
+  -- AM3, four speed module 3 and five vanilla beacons of speed module 3: about 15.9 crafts a
+  -- second of a half-second recipe.
+  local SPEED_GEARS = { item = "iron-gear-wheel", machine = "assembling-machine-3", module = "speed-module-3",
+    beacon = "beacon", inserter = "bulk-inserter" }
+  local function with(base, extra)
+    local out = {}
+    for k, v in pairs(base) do out[k] = v end
+    for k, v in pairs(extra or {}) do out[k] = v end
+    return out
+  end
+
+  test("a beaconed gear cell gains a second input with the request copied in", function()
+    local p = assert(build(SPEED_GEARS))
+    local requesters = slot_row(p, "requester-chest")
+    assert(#requesters == 2, "expected two ingredient chests, got " .. #requesters)
+    for _, chest in ipairs(requesters) do
+      assert(chest.requests[1].count == 2 * plan.DEFAULT_CRAFTS,
+        "a request below a load must be copied whole, got " .. chest.requests[1].count)
+    end
+    local output = named(p, "passive-provider-chest")[1]
+    assert(requesters[1].dy == output.dy and requesters[2].dx < output.dx, "the bottom row is not input, input, output")
+    assert(p.width == 9 and p.height == 8, "the extra fit the bottom edge, yet the footprint is " .. p.width .. "x" .. p.height)
+    assert(not has_warning(p, "inserters-limit"), "two inputs keep up, yet the plan warns")
+    assert(math.abs(p.stats.crafts_per_minute - p.stats.pace_per_minute) < 1e-6, "the real rate fell short of the pace")
+  end)
+
+  test("a Minutes request is shared between the input chests", function()
+    local p = assert(build(with(SPEED_GEARS, { size_mode = "minutes" })))
+    local requesters = named(p, "requester-chest")
+    assert(#requesters == 2, "expected two ingredient chests, got " .. #requesters)
+    local total = p.request_rows[1].default
+    for _, chest in ipairs(requesters) do
+      assert(chest.requests[1].count == math.ceil(total / 2),
+        "each chest should ask for half of " .. total .. ", got " .. chest.requests[1].count)
+    end
+  end)
+
+  test("copper cable gains a second output, the slot cap shared", function()
+    local cable = { item = "copper-cable", machine = "assembling-machine-3", module = "speed-module-3",
+      beacon = "beacon", inserter = "bulk-inserter", size_mode = "minutes" }
+    local p = assert(build(cable))
+    assert(#named(p, "requester-chest") == 1, "one plate a craft needs one input")
+    local outputs = named(p, "passive-provider-chest")
+    assert(#outputs == 2, "two cables a craft need two outputs, got " .. #outputs)
+    for _, chest in ipairs(outputs) do assert(chest.bar == 1, "the two-slot cap is not shared out") end
+    local tight = assert(build(with(cable, { cap_slots = 1 })))
+    for _, chest in ipairs(named(tight, "passive-provider-chest")) do
+      assert(chest.bar == 1, "a one-slot cap left a chest with no slot")
+    end
+    local network = assert(build(with(cable, { cap_mode = "network", cap_count = 400 })))
+    local capped = 0
+    for _, e in ipairs(named(network, "bulk-inserter")) do
+      if e.control_behavior then capped = capped + 1 end
+    end
+    assert(capped == 2, "the network count must hold both outputs, held " .. capped)
+  end)
+
+  test("a full quality cell takes its extras up the left side", function()
+    set_bulk_bonus(2)
+    local p = assert(build(with(SPEED_GEARS, { module = "quality-module-3", module_quality = "legendary" })))
+    assert(p.split, "legendary quality modules beat the beacons' malus and split")
+    assert(#named(p, "requester-chest") == 3, "a hand of three needs three inputs")
+    assert(#named(p, "passive-provider-chest") == 3, "two outputs and a quality chest")
+    assert(p.width == 11, "the left side should open two tiles, width " .. p.width)
+    local side = 0
+    for _, e in ipairs(named(p, "bulk-inserter")) do
+      if e.dx == 4 then side = side + 1 end
+    end
+    assert(side == 3, "three inserters should stand up the left side, found " .. side)
+    assert(not has_warning(p, "inserters-limit"), "the side made room, yet the plan warns")
+  end)
+
+  test("no room left: the rate drops and the plan says so", function()
+    set_bulk_bonus(0)
+    local p = assert(build(with(SPEED_GEARS, { module = "quality-module-3", module_quality = "legendary" })))
+    assert(has_warning(p, "inserters-limit"), "one plate a swing cannot feed this cell, and it should say so")
+    assert(p.stats.crafts_per_minute < p.stats.pace_per_minute, "the rate did not drop")
+    assert(not has_warning(p, "requests-below-load"), "eight plates fill a hand of one; the request is not to blame")
+  end)
+
+  test("a request below a load is named when the room runs out", function()
+    -- A hand of 12 against a one-plate request: every swing carries one plate.
+    local p = assert(build(with(SPEED_GEARS, { module = "quality-module-3", module_quality = "legendary",
+      ["request_iron-plate"] = 1 })))
+    assert(has_warning(p, "inserters-limit"), "one plate a swing cannot feed this cell")
+    assert(has_warning(p, "requests-below-load"), "the small request should be named")
+  end)
+
+  test("an arm with no swing keeps one pair of each and warns nothing", function()
+    -- A modded inserter whose arm reads no rotation: no rate to model, so the 0.1.0 cell.
+    local swing = proto.inserter_swing
+    proto.inserter_swing = function() return nil end
+    local ok, p = pcall(build, SPEED_GEARS)
+    proto.inserter_swing = swing
+    assert(ok, "a missing swing made the plan throw: " .. tostring(p))
+    p = assert(p)
+    assert(#named(p, "requester-chest") == 1, "no rate to model, yet the cell grew")
+    assert(p.stats.crafts_per_minute == p.stats.pace_per_minute, "no rate to model, yet the rate dropped")
+    assert(not has_warning(p, "inserters-limit"), "no rate to model, yet a warning")
+  end)
+
+  test("a fluid-only recipe grows no requester", function()
+    local p = assert(build({ item = "solid-fuel", machine = "chemical-plant", module = "speed-module-3",
+      beacon = "beacon", inserter = "bulk-inserter" }))
+    assert(#named(p, "requester-chest") == 0, "a recipe with no item ingredient got an ingredient chest")
   end)
 end)

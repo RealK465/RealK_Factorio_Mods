@@ -5,6 +5,8 @@
 -- fresh each time. Several rules here were measured for Upcycler Planner first; each says
 -- where.
 
+local calc = require("scripts.calc")
+
 local proto = {}
 
 local memo = {}
@@ -347,6 +349,33 @@ function proto.best_inserter(force)
     -- A method, not the rotation_speed attribute, which is for cars and turrets.
     return (entity.bulk and 1000 or 0) + entity.get_inserter_rotation_speed("normal")
   end)
+end
+
+-- Items one swing carries: the prototype's own bonus plus the force's capacity research for its
+-- kind -- the bulk bonus for a bulk inserter, the plain one for the rest -- unless the prototype
+-- opts out of research. Quality speeds the arm, not the hand. The plain bonus is a double a mod
+-- can make fractional; the engine floors the hand (measured, 4.5 -> 4), and so must a request
+-- count built from it.
+function proto.inserter_hand(entity, force)
+  local hand = 1 + (entity.inserter_stack_size_bonus or 0)
+  if entity.uses_inserter_stack_size_bonus ~= false then
+    hand = hand + (entity.bulk and force.bulk_inserter_capacity_bonus or force.inserter_stack_size_bonus)
+  end
+  return math.floor(hand)
+end
+
+-- Ticks per round trip at this quality, from the arm's own speeds; nil when it cannot turn.
+-- The reach term is the hand's change of distance between pickup and drop (0.2 for vanilla).
+function proto.inserter_swing(entity, quality)
+  local reach = 0
+  local pickup, drop = entity.inserter_pickup_position, entity.inserter_drop_position
+  if pickup and drop then
+    local px, py = xy(pickup)
+    local dx, dy = xy(drop)
+    reach = math.abs(math.sqrt(dx * dx + dy * dy) - math.sqrt(px * px + py * py))
+  end
+  return calc.swing_ticks(entity.get_inserter_rotation_speed(quality),
+    entity.get_inserter_extension_speed(quality), reach)
 end
 
 -- Chests

@@ -8,8 +8,9 @@ invisible to Factorio and to `fmtk package`). The rules governing this folder ar
 
 | File | Genre | What is in it | Read it when |
 |---|---|---|---|
-| `decisions.md` | register | what is settled and why — identity, the cell's shape, requests, the quality split, the stock cap, fluids, beacons, power, pickers, the portal presentation, what was rejected | before any design change |
-| `deferred.md` | register | parked work, each entry pick-up-able cold — the played session, rows of cells, second fluids, fuelled machines, power between copies | scoping, or answering "why isn't X here?" |
+| `decisions.md` | register | what is settled and why — identity, the cell's shape and its extra inserters, requests, the quality split, the stock cap, throughput, fluids, beacons, power, pickers, the portal presentation, what was rejected | before any design change |
+| `throughput-design.md` | subject design | inserter throughput — the real-rate model, extra inserter-and-chest pairs when inserters cap the cell, and where they go (bottom edge, then the sides); built 2026-11-28 for 0.2.0, with the approaches weighed | before touching the inserter row, request sizing across chests, or the rate line |
+| `deferred.md` | register | parked work, each entry pick-up-able cold — the played session, a robot-delivery warning, a control for the extra inserters, the default inserter by load, rows of cells, second fluids, fuelled machines, power between copies | scoping, or answering "why isn't X here?" |
 | `journal.md` | journal | dated sessions, newest first | a bug smells familiar, or a choice needs its history |
 | `analysis/` | evidence | the engine facts this mod measured for itself — start at its `index.md` | before re-deriving anything about the engine |
 

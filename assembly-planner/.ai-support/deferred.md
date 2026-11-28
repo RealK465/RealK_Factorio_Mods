@@ -7,6 +7,21 @@ Parked work, each entry with enough context to pick up cold.
 - **A played session.** Every behaviour is suite-tested, but nothing has been built by bots in a
   real save: request fulfilment, trash, and the network cap against a real roboport network.
 
+## Scope cut from 0.2.0
+
+- **A robot-delivery warning.** The throughput model assumes a chest holds what it asks for. At a
+  fast pace a small request runs dry on robots long before the inserters matter: 4 crafts of
+  gears last a quarter of a second at 15.9 crafts a second. A warning when the request covers
+  only seconds of crafting would point at Minutes mode; the threshold depends on the network, so
+  it was left out (`throughput-design.md`, Non-goals).
+- **A control for the extra inserters.** They are automatic. A player wanting the free tile for
+  something else, or a uniform width for a row of cells, has no override; the split box is the
+  only lever on a full 3-wide edge.
+- **Picking the default inserter by load, not arm speed.** `proto.best_inserter` ranks bulk then
+  rotation, so on Space Age the bulk and stack inserters tie and the bulk one wins. The stack
+  inserter carries 16 but waits for a full hand (`analysis/api.md` §8), so preferring it needs
+  requests of at least a hand per chest first.
+
 ## Scope cut from 0.1.0
 
 - **A row of cells in one blueprint** — several items picked, their cells side by side. Cells

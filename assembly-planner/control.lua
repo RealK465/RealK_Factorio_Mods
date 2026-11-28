@@ -110,6 +110,7 @@ if script.active_mods["factorio-test"] then
     "tests.plan_spec",
     "tests.blueprint_spec",
     "tests.cell_live_spec",
+    "tests.throughput_live_spec",
     "tests.state_spec",
     "tests.gui_spec",
   }, { default_ticks_between_tests = 1 })

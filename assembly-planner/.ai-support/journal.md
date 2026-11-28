@@ -2,6 +2,42 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-27 to 11-28 — inserter throughput, 0.2.0
+
+The owner asked for the planner to work out speeds and transfer rates: "with beacons the
+bottleneck is the inserter transferring items from the request chest to the assembler … check
+if there is free space … if so maybe split between 2 requester chests", and then that modded
+inserters be read rather than assumed. Asked what to do when the edge is full, and again how
+chests should share requests, the answer both times was "the best possible". The design went
+through a fresh-context builder check first (`throughput-design.md`). It caught three things
+the first draft had wrong: the default 4-craft request is below a bulk inserter's hand for most
+fast recipes, which made an even share useless; four normal quality module 3s do not beat five
+speed beacons' quality malus; and a one-at-a-time allocator stalls when inputs and output tie.
+
+Built test first in all three tiers. The swing formula came from the wiki's 2.0.26 table,
+`2 * (ceil(0.5 / rotation) - 1)`, and was then measured live on 2.1.25 for every vanilla
+inserter at normal and legendary, into a chest and into a machine. It matched to the tick
+(`analysis/api.md` §7). The live rigs also found the stack inserter holding a partial hand and
+never swinging (§8). A first end-to-end run crafted at an AM3's bare speed because a revived
+ghost leaves its modules to robots, so the spec now fits them by hand (§9). One existing spec
+changed item: its fast-inserter cell now gains side inputs and no longer needs a pole row, so it
+pins the row with a slow recipe instead.
+
+The factorio-test data dir for 2.1.25 was seeded with 3.1.2 from upcycler-planner's, per
+`CLAUDE.local.md`. The screenshots were rebuilt: the mall row's AM3s and two beacon cells now
+carry side inputs.
+
+A fresh-context review at the end, as the owner asked, found nothing critical. Fixed from it:
+a mod's fractional plain-inserter bonus would have written a fractional request count into the
+blueprint (the engine floors the hand, 4.5 to 4, and `proto.inserter_hand` now does too); the
+nil-swing guard and the small-request warning gained tests, each proven by a run against a
+deliberately broken plan; the changelog and four locale lines misdescribed several chests (a
+small request is copied whole, not shared); and four notes claimed more than was measured.
+Deferred as minor: three pure coverage gaps, a comment tying `swings_per_craft` to the share
+floor, and a refresh of the open window when research finishes. End state before the release:
+pure tier 48/48, in-game 114/114 headless and in a window, static clean, the data stage clean
+with every expansion, with none, and on a full load.
+
 ## 2026-11-25 (late night) — linked from the other mods
 
 The owner asked for the docs to be brought up to date after the release. Every other mod's

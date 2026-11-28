@@ -5,7 +5,7 @@ every claim with its confidence.
 
 | File | What is in it | Read it when |
 |---|---|---|
-| `api.md` | the chest `bar` in blueprints, nameless normal-quality filters, the pipe row per machine, beacon reach around a cell, planet-locked recipes, the recipe-default trap | before changing `cell.lua`, `blueprint.lua` or the plan's defaults |
+| `api.md` | the chest `bar` in blueprints, nameless normal-quality filters, the pipe row per machine, beacon reach around a cell, planet-locked recipes, the recipe-default trap; an inserter's round trip and hand, the stack inserter's wait, a stamped cell crafting at its planned rate | before changing `cell.lua`, `blueprint.lua`, the plan's defaults or its throughput arithmetic |
 
 The rest — blueprint field shapes, the fluid rotation rule, module acceptance, beacon and pole
 reach rules, the Confirm key, the GUI's measured behaviour — is Upcycler Planner's, in

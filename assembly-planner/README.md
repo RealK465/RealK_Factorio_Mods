@@ -44,6 +44,7 @@ Fluid recipes sharing one pipe:
 
 ## Good to know
 
+- When one inserter can't keep up, the planner adds more, each with its own chest.
 - Modded machines, chests, inserters, modules and beacons all work. Only researched ones are
   shown unless you tick **Show unresearched items** in the planner's Settings.
 - The network count only works inside roboport range.

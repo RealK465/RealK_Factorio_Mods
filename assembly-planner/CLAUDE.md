@@ -16,7 +16,7 @@ a blueprint.
 'assembly-planner_*'` is what has shipped. Nothing has been played in a real save; the suite and
 the probes are all the evidence there is (`.ai-support/journal.md`).
 
-## The four technical facts worth not re-deriving
+## The five technical facts worth not re-deriving
 
 **1. The plan becomes a blueprint; the engine builds it.** Upcycler Planner's model and its
 measurements (its `.ai-support/analysis/api.md` §21): the mod handles no placement event.
@@ -32,6 +32,11 @@ live per machine: `analysis/api.md` §3.
 **4. One pass, no validator.** `plan.build` resolves, refuses and builds in a single function,
 returning a plan, `nil` plus a message, or `nil, nil` before an item is picked. Anything that
 can fail must refuse there with a message — never throw.
+
+**5. An inserter's round trip is `2 * (ceil(0.5 / rotation) - 1)` ticks**, `rotation` from
+`get_inserter_rotation_speed` at its quality; quality never changes the hand. Measured to the
+tick at normal and legendary for the inserter, fast, bulk and stack inserters into a chest, and
+the first three into a machine: `analysis/api.md` §7.
 
 **`.ai-support/` is this mod's local context — start at its `index.md`.**
 
@@ -50,16 +55,19 @@ control.lua               lifecycle and event wiring only, plus the test guard
 prototypes/planner/       shortcut, custom-inputs (hotkey, linked confirm), icons, gate.lua
 scripts/
   gui.lua      the window, its two side panels, every handler
-  plan.lua     choices -> a finished cell, in one pass; the request, cap and split rules
-  proto.lua    every question asked of the prototypes; research gating
-  cell.lua     pure geometry of one cell
-  calc.lua     pure arithmetic: pace, request amounts, beacon transmission
+  plan.lua     choices -> a finished cell, in one pass; the request, cap, split and throughput rules
+  proto.lua    every question asked of the prototypes; research gating; an inserter's hand and swing
+  cell.lua     pure geometry of one cell, the side slots included
+  calc.lua     pure arithmetic: pace, request amounts, beacon transmission, swing time, chest
+               shares, the inserter allocator
   poles.lua    pure pole cover for one cell
   blueprint.lua plan -> BlueprintEntity, and the hand-over into the cursor
   state.lua    persistent choices, flat values only, and their prune
   dispatch.lua tag-based GUI handler registry (Upcycler Planner's)
 tests/                    the suite; registered in control.lua behind the active_mods guard
   pure/                   cell, calc, poles, gate -- also run on host Lua
+  throughput_live_spec    inserter swings and hands measured live; stamped cells crafting at
+                          their planned rate
   support/                research states, stamping, the lab surface
 locale/en/assembly-planner.cfg   every player-visible string
 images/                   portal screenshots, made by assets/assembly-planner/showcase/
@@ -90,12 +98,17 @@ The rules, in short; every reason lives in `.ai-support/decisions.md`.
 
 - One cell per blueprint; the inserter row on the south edge, input / output / quality output,
   left-aligned; the chest row under it; the footprint is the bounding box.
+- Throughput: when the inserters cap the machine, extra pairs fill the bottom edge, then go up
+  the left side and the right, whose beacons step two tiles out; only while each one raises the
+  real rate. The rate line shows that rate; a warning names what still caps it.
 - Requests: crafts (default 4) or minutes (default 2, real speed), plus per-ingredient amounts;
-  a rule or number change, or an item change, replaces the hand-set amounts.
+  a rule or number change, or an item change, replaces the hand-set amounts. Several ingredient
+  chests each ask for their share of every ingredient, never less than one inserter load, or
+  the whole request when that is smaller.
 - The quality split is automatic when the quality chance is above zero; its override is kept
   only while it disagrees. Filters are nameless, `=` and `>` at the recipe's quality.
-- Stock cap: chest slots (default 2, on the first output only), network count (on the first
-  output inserter), or none.
+- Stock cap: chest slots (default 2, shared between the recipe-quality outputs), network count
+  (on every recipe-quality output inserter), or none.
 - Fluids: one, through a full-width pipe row behind the machine. Fluid products and two fluids
   are refused.
 - Beacons beside and above, off until picked, then as many as fit and reach; speed modules by

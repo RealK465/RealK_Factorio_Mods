@@ -264,6 +264,28 @@ function plan.sizing(force, choices, r, crafts_per_minute)
   return rows
 end
 
+-- One swing's worth of an item: the hand, capped by the item's stack.
+local function load_of(hand, name)
+  return math.min(hand, prototypes.item[name].stack_size)
+end
+
+-- Swings a craft needs per role (.ai-support/throughput-design.md): every item ingredient in,
+-- each swing carrying a load or what its chest holds, whichever is less; every item product
+-- out, the better qualities through the quality outputs when the cell splits.
+local function swings_per_craft(recipe, items, requests, hand, productivity, quality_share)
+  local inputs = 0
+  for i, ingredient in ipairs(items) do
+    inputs = inputs + ingredient.amount / math.min(load_of(hand, ingredient.name), requests[i].count)
+  end
+  local products = 0
+  for _, product in pairs(recipe.products) do
+    if product.type == "item" then
+      products = products + calc.expected_count(product, productivity) / load_of(hand, product.name)
+    end
+  end
+  return inputs, products * (1 - quality_share), products * quality_share
+end
+
 -- Every power-drawing entity in the cell and its collision margin, for the pole pass.
 local function electric_margins(entities)
   local out, seen = {}, {}
@@ -413,33 +435,73 @@ function plan.build(force, surface, choices)
     }
   end
 
+  -- As many inserter-and-chest pairs per role as keep up with the machine, the bottom edge's free
+  -- tiles and then the sides allowing (.ai-support/throughput-design.md). An arm that cannot
+  -- turn has no rate to model, so it keeps one of each.
+  local pace = crafts_per_minute / 60
+  local hand = proto.inserter_hand(inserter, force)
+  local swing = proto.inserter_swing(inserter, r.inserter_quality)
+  local researched = force.recipes[r.recipe] and force.recipes[r.recipe].productivity_bonus or 0
+  local productivity = math.max(0, math.min(effects.productivity + researched, recipe.maximum_productivity))
+  local in_spc, out_spc, quality_spc = swings_per_craft(recipe, items, requests, hand, productivity,
+    split and math.min(1, effects.quality) or 0)
+  local counts = { #items > 0 and 1 or 0, 1, split and 1 or 0 }
+  local rate = pace
+  local per_second = swing and 60 / swing
+  if per_second then
+    local room = shape.w - #roles + 2 * cell.side_room(geometry, beacon_params)
+    local result = calc.allocate({
+      { spc = in_spc, count = counts[1] }, { spc = out_spc, count = counts[2] },
+      { spc = quality_spc, count = counts[3] },
+    }, pace, per_second, room)
+    counts, rate = result.counts, result.rate
+  end
+
   local slots_list = {}
-  for _, role in ipairs(roles) do
-    local slot = { role = role, inserter = { name = r.inserter, quality = r.inserter_quality } }
-    if role == "input" then
-      slot.chest = { name = r.requester, quality = r.requester_quality }
-      slot.requests = requests
-    else
-      slot.chest = { name = r.output, quality = r.output_quality }
-      -- Nameless quality filters: one slot covers whatever the recipe makes (measured on 2.1.23,
-      -- both at normal -- .ai-support/analysis/api.md §2).
-      if split then
-        slot.filters = { { quality = quality, comparator = role == "output" and "=" or ">" } }
-      end
-      if role == "output" and cap.mode == "slots" then
-        slot.bar = cap.value
-      elseif role == "output" and cap.mode == "network" then
-        slot.control_behavior = {
-          connect_to_logistic_network = true,
-          logistic_condition = {
-            first_signal = { type = "item", name = r.item, quality = quality },
-            comparator = "<",
-            constant = cap.value,
-          },
-        }
-      end
-    end
+  local function add_slot(role, extra, slot)
+    slot.role, slot.extra = role, extra or nil
+    slot.inserter = { name = r.inserter, quality = r.inserter_quality }
     slots_list[#slots_list + 1] = slot
+  end
+  -- Every input chest carries every ingredient: its share, never less than a load.
+  local shares = {}
+  for i, request in ipairs(requests) do
+    shares[i] = {
+      name = request.name, quality = request.quality,
+      count = calc.chest_share(request.count, counts[1], load_of(hand, request.name)),
+    }
+  end
+  for k = 1, counts[1] do
+    add_slot("input", k > 1, { chest = { name = r.requester, quality = r.requester_quality }, requests = shares })
+  end
+  -- Every recipe-quality output is capped, or the uncapped one would keep filling: the slot cap
+  -- is shared out, the network count held by each inserter.
+  local bar = cap.mode == "slots" and calc.cap_share(cap.value, counts[2]) or nil
+  local condition
+  if cap.mode == "network" then
+    condition = {
+      connect_to_logistic_network = true,
+      logistic_condition = {
+        first_signal = { type = "item", name = r.item, quality = quality },
+        comparator = "<",
+        constant = cap.value,
+      },
+    }
+  end
+  -- Nameless quality filters: one slot covers whatever the recipe makes (measured on 2.1.23,
+  -- both at normal -- .ai-support/analysis/api.md §2).
+  for k = 1, counts[2] do
+    add_slot("output", k > 1, {
+      chest = { name = r.output, quality = r.output_quality },
+      filters = split and { { quality = quality, comparator = "=" } } or nil,
+      bar = bar, control_behavior = condition,
+    })
+  end
+  for k = 1, counts[3] do
+    add_slot("quality", k > 1, {
+      chest = { name = r.output, quality = r.output_quality },
+      filters = { { quality = quality, comparator = ">" } },
+    })
   end
 
   local params = {
@@ -500,17 +562,33 @@ function plan.build(force, surface, choices)
       break
     end
   end
+  -- One chest's share against one chest's slots.
   if #items > 0 then
     local stacks = {}
-    for i, request in ipairs(requests) do
-      stacks[i] = { count = request.count, stack_size = prototypes.item[request.name].stack_size }
+    for i, share in ipairs(shares) do
+      stacks[i] = { count = share.count, stack_size = prototypes.item[share.name].stack_size }
     end
     local needed = calc.slots_needed(stacks)
     local have = proto.chest_slots(r.requester, r.requester_quality)
     if needed > have then warn("request-too-big", needed, have) end
   end
-  if cap.mode == "slots" and cap.value >= proto.chest_slots(r.output, r.output_quality) then
+  if bar and bar >= proto.chest_slots(r.output, r.output_quality) then
     warn("cap-no-effect")
+  end
+  -- What still caps the cell once the room is spent. When the inputs bind and a request is
+  -- below a load, bigger requests would raise every swing.
+  if rate < pace - 1e-9 then
+    warn("inserters-limit", calc.format_rate(rate * 60), calc.format_rate(crafts_per_minute))
+    local inputs_bind = per_second and counts[1] > 0 and in_spc > 0
+      and counts[1] * per_second / in_spc <= rate + 1e-9
+    if inputs_bind then
+      for _, request in ipairs(requests) do
+        if request.count < load_of(hand, request.name) then
+          warn("requests-below-load")
+          break
+        end
+      end
+    end
   end
   if cap.mode == "network" then warn("network-cap") end
   if split and effects.quality <= 0 then warn("split-nothing-above", prototypes.quality[quality].localised_name) end
@@ -525,8 +603,10 @@ function plan.build(force, surface, choices)
     -- Ingredient amounts panel shows as each field's default.
     request_rows = rows,
     warnings = warnings,
+    -- crafts_per_minute is what the inserters let the machine make; pace_per_minute what the
+    -- machine alone could.
     stats = {
-      crafts_per_minute = crafts_per_minute, quality = effects.quality,
+      crafts_per_minute = rate * 60, pace_per_minute = crafts_per_minute, quality = effects.quality,
       productivity = effects.productivity, beacons = beacon_count or 0,
     },
   }

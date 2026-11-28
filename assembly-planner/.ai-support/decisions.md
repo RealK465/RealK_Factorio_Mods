@@ -37,6 +37,14 @@ What is settled, and why. Superseding means rewriting the entry here and telling
 - **A machine too narrow for the row and taller than wide lies on its side** — under three tiles
   wide, rotatable, no fluid: Space Age's 2x3 crusher fits three inserters lying down and two
   standing. A fluid recipe keeps the turn its fluid input needs.
+- **Extra inserter-and-chest pairs fill the bottom edge's free tiles first, then go up the left
+  side, then the right** (owner's ask, 2026-11-27: "check if there is free space … maybe split
+  between 2 requester chests"; "the best possible" for the full edge, 2026-11-28). A side holding
+  pairs moves its beacon column two tiles out and widens the cell by two, and takes pairs only
+  while every beacon on it still reaches from there. It bends the one-edge rule above only for
+  cells that need it; a cell nothing caps keeps its 0.1.0 blueprint. The bottom stays grouped
+  inputs, outputs, quality. The row above keeps its machine-relative positions, so the beacon
+  counts and their drop-downs never depend on the inserters. When to add a pair is Throughput.
 
 ## Requests
 
@@ -52,6 +60,14 @@ What is settled, and why. Superseding means rewriting the entry here and telling
   move with the pace — a module or beacon pick changes them. A field the player set by hand is
   never rewritten, since it may be the one being typed in.
 - Requests come from buffer chests; **Trash unrequested items** is on by default.
+- **Several ingredient chests each carry every ingredient: their share, never less than one
+  load** — `max(ceil(T / n), min(T, load))`, a load being the inserter's hand capped by the
+  item's stack. The owner chose it as "the best one possible" over copying the full request into
+  every chest (doubles Minutes stock) and an even share with a warning (a second chest gains
+  nothing below a load, which the default 4 crafts usually is). It never shrinks what a swing
+  carries and never wastes stock; with one chest it is the 0.1.0 request exactly. The amounts
+  panel shows the request one chest would make alone; with several, a small request copied into
+  each makes the cell hold more. The too-big warning checks one chest's share.
 
 ## The quality split
 
@@ -70,13 +86,38 @@ What is settled, and why. Superseding means rewriting the entry here and telling
 
 - **The player's pick per plan: chest slots, network count, or no limit** (owner's call; no
   limit added because the owner's foundry and K2 blueprints have none).
-- **Chest slots** writes `bar` on the capped chest — the first output — default 2, the owner's
-  number. `bar` counts open slots (`analysis/api.md` §1). The quality chest is never capped.
-- **Network count** puts a logistic condition `product@quality < N` on the first output
-  inserter, default two stacks of the product; it warns that the inserter only runs inside a
-  logistic network (Upcycler Planner measured an entity disabled outright outside one).
+- **Chest slots** writes `bar` on every recipe-quality output chest, the value shared out —
+  `ceil(value / n)`, at least one slot each — default 2, the owner's number. Every one is capped
+  or the uncapped one keeps filling; shared, so the cell still stops near the number the player
+  set. `bar` counts open slots (`analysis/api.md` §1). Quality chests are never capped.
+- **Network count** puts a logistic condition `product@quality < N` on every recipe-quality
+  output inserter, default two stacks of the product; the count is network-wide, so each holds
+  the same one. It warns that the inserter only runs inside a logistic network (Upcycler Planner
+  measured an entity disabled outright outside one).
 - A capped chest stops the machine, and with it the quality output too. Accepted: the cap is
   what the player asked for.
+
+## Throughput
+
+The design record, with the approaches weighed, is `throughput-design.md`; the engine numbers are
+`analysis/api.md` §7–§8.
+
+- **The plan knows the real rate**: the machine's pace capped by what its inserters move. The
+  rate line shows it, and a warning names what still caps it — no room, plus a second line
+  when a request below a load is part of it. The owner asked for the inserter bottleneck beacons
+  cause to be detected (2026-11-27).
+- **Everything comes from the prototypes and the force**, never a table: the swing from
+  `get_inserter_rotation_speed` at the inserter's quality, the hand from its built-in bonus and
+  the force's capacity research. The owner asked for modded inserters to be read (2026-11-27).
+- **A role gets more inserters only while that raises the rate**: room goes to the role allowing
+  the fewest crafts, one at a time, then every role is cut back to what the final rate needs, so
+  no pair is placed that buys nothing. The anti-goal: a cell that grows without getting faster.
+- **Minutes are priced at the machine's pace, not the capped rate**, so the request, the hand and
+  the rate never loop into each other in a one-pass plan.
+- **Robots are not modelled.** A chest is assumed to hold what it asks for; small requests at a
+  fast pace run dry on robots first (`deferred.md`).
+- **No control for the extras yet** (`deferred.md`): automatic, like the quality split, and the
+  split box is already the way to free a tile on a full 3-wide edge.
 
 ## Fluids
 
