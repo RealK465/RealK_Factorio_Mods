@@ -2,6 +2,24 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (night, last) — 0.4.0 published
+
+The owner asked for the mod to be released and published. Pre-flight: the portal held 0.1.0 to
+0.3.0 (owner RealK), `assembly-planner_0.3.0` was the newest tag, and `main` matched `origin`.
+Every gate ran again on 2.1.25: the data stage clean with every expansion and with none, nothing
+unused, `-FullLoad` clean; in-game 162/162 headless and in a window, pure 56/56, static clean. A
+0.3.0 save is safe: `state.of` gives an entry without `cells` an empty one, the prune reads
+`cells or {}`, and the update's configuration change closes every window. The chains went in as
+`391a9e9`. `fmtk datestamp` stamped the changelog 2026-11-28 and `fmtk package` built a 26-file
+zip of 103,667 bytes with nothing private in it, sha1 `7c95c7c40ce4e912080914c7600317be37f34bf2`,
+matching the index file for file once line endings are normalised. `fmtk upload` published it,
+and a cache-busted read-back listed 0.4.0 with that sha1. The release commit carries the stamp
+and the tag `assembly-planner_0.4.0`.
+
+The portal page was not synced, now three releases behind. Its description lacks every README
+line added in 0.2.0, 0.3.0 and 0.4.0, and by sha1 only `05-fluid-cells.jpg` of the six gallery
+shots is current. Both wait for `fmtk details` and the image API, a separate public write.
+
 ## 2026-11-28 (night, later) — ratios
 
 Shown the first build, the owner asked: "It would be nice if user can configure ratios but also

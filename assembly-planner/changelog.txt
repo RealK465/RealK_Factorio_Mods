@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.0
-Date: ????
+Date: 2026-11-28
   Features:
     - Production chains: click an ingredient beside the machine to make it too, in a cell of its
       own. Its ingredients can be added the same way.
