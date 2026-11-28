@@ -2,6 +2,24 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (after 0.4.0, later) — 0.4.1 published
+
+The owner asked for it to be released and published as a patch. Pre-flight: the portal held
+0.1.0 to 0.4.0 (owner RealK), `assembly-planner_0.4.0` was the newest tag, and `main` was one
+commit ahead of `origin`, the work below (`5dcf6a0`). `fmtk datestamp` stamped the changelog
+2026-11-28 and `fmtk package` built a 26-file zip of 106,787 bytes with nothing private in it,
+sha1 `f83e22e83ab3586d8bd15d7ff08f1a35ef5a3ce6`, identical to the tree file for file once line
+endings are normalised. `fmtk upload` published it, and a cache-busted read-back listed 0.4.1
+with that sha1 — and the portal's thumbnail changed with it: the thumbnail asset is named by the
+sha1 of the zip's `thumbnail.png` (`db2946d3...` before, `c17344d2...` now), so an upload carries
+a new thumbnail where it carries no README. The release commit carries the stamp and the tag
+`assembly-planner_0.4.1`.
+
+The portal page itself was not synced. Its description still lacks the README lines added in
+0.2.0 to 0.4.0 (0.4.1 changed no README), and by sha1 five of its six gallery shots are stale,
+`01-planner-window.jpg` again with this release. Both wait for `fmtk details` and the image API,
+a separate public write.
+
 ## 2026-11-28 (after 0.4.0) — a blue shortcut
 
 The owner kept clicking Upcycler Planner's shortcut for this one: "it's green both are green".

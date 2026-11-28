@@ -12,8 +12,8 @@ when one inserter cannot keep up, optional beacons beside and above it, a pipe r
 a blueprint. Ticked beside a machine, an ingredient gets a cell of its own, recursively: a
 production chain, its cells side by side in the one blueprint, robots carrying between them.
 
-**Published** since 2026-11-25: 0.1.0, then 0.2.0, 0.3.0 and 0.4.0 (production chains) on
-2026-11-28, for Factorio 2.1. Run the
+**Published** since 2026-11-25: 0.1.0, then 0.2.0, 0.3.0, 0.4.0 (production chains) and 0.4.1
+(a blue shortcut) on 2026-11-28, for Factorio 2.1. Run the
 `factorio-release` skill's "Published or open?" check rather than trusting a number here —
 `git tag -l 'assembly-planner_*'` is what has shipped. Nothing has been played in a real save; the suite and
 the probes are all the evidence there is (`.ai-support/journal.md`).
