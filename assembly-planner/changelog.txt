@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: ????
+  Graphics:
+    - The shortcut has a new icon on a blue button, so it no longer looks like Upcycler Planner's.
+    - New thumbnail to match.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2026-11-28
   Features:

@@ -1,9 +1,10 @@
 """Assembly Planner's thumbnail.png: the shortcut button at 144x144.
 
-The game's own green shortcut plate, nine-sliced up, with the shortcut's icon composed inside
-it exactly as prototypes/planner/icons.lua composes it: an assembling machine 3 at 0.85 of the
-icon, a requester chest at 0.55 shifted 0.38 down-right. Upcycler Planner's thumbnail was made
-the same way (its .ai-support/decisions.md, Portal presentation), so the two read as a pair.
+The game's own blue shortcut plate, nine-sliced up, with the shortcut's icon composed inside it
+exactly as prototypes/planner/icons.lua composes it: an assembling machine 3 with a requester
+chest and a passive provider under it. Upcycler Planner's thumbnail is its own button made the
+same way (its .ai-support/decisions.md, Portal presentation), so the two read as a pair -- and
+the plates differ, green there and blue here, so the two buttons are not mistaken in game.
 
     py -3.14 assets/assembly-planner/thumbnail/make_thumbnail.py
 
@@ -22,15 +23,18 @@ sys.path.insert(0, os.path.join(REPO, ".claude", "skills", "factorio-graphics", 
 from factorio_render import imaging  # noqa: E402  (alpha-correct resizing)
 
 SIZE = 144
-# slot_sized_button_green's default_graphical_set, core/prototypes/style.lua: a 17x17 cell in
+# slot_sized_button_blue's default_graphical_set, core/prototypes/style.lua: a 17x17 cell in
 # the GUI atlas with 8 px corners and a one-pixel stretchable middle.
-PLATE_AT, PLATE_CELL, CORNER = (312, 792), 17, 8
-MACHINE = os.path.join(GAME, "data", "base", "graphics", "icons", "assembling-machine-3.png")
-CHEST = os.path.join(GAME, "data", "base", "graphics", "icons", "requester-chest.png")
+PLATE_AT, PLATE_CELL, CORNER = (312, 760), 17, 8
+ICONS = os.path.join(GAME, "data", "base", "graphics", "icons")
 
-# icons.lua, as fractions of one icon: size, then offset of the centre from the icon's centre.
-MACHINE_SCALE, MACHINE_SHIFT = 0.85, 0.0
-CHEST_SCALE, CHEST_SHIFT = 0.55, 0.38
+# icons.lua's LAYERS, as fractions of one icon: size, then the offset of the centre from the
+# icon's centre. Keep the two in step.
+LAYERS = [
+    ("assembling-machine-3.png", 0.84, 0.0, -0.08),
+    ("requester-chest.png", 0.38, -0.21, 0.31),
+    ("passive-provider-chest.png", 0.38, 0.21, 0.31),
+]
 # Margin between the plate's edge and the composed icon, in thumbnail pixels.
 MARGIN = 12
 
@@ -66,21 +70,21 @@ def main():
     x, y = PLATE_AT
     plate = nine_slice(atlas.crop((x, y, x + PLATE_CELL, y + PLATE_CELL)), SIZE, CORNER)
 
-    # The composed box runs from the machine's top-left to the chest's bottom-right; one icon
-    # unit is whatever fits that box inside the margin.
-    lo = MACHINE_SHIFT - MACHINE_SCALE / 2
-    hi = CHEST_SHIFT + CHEST_SCALE / 2
-    unit = (SIZE - 2 * MARGIN) / (hi - lo)
+    # The composed box is the union of the layers; one icon unit is whatever fits its longer
+    # side inside the margin, and the box is centred on the plate.
+    lo_x = min(dx - s / 2 for _, s, dx, _ in LAYERS)
+    hi_x = max(dx + s / 2 for _, s, dx, _ in LAYERS)
+    lo_y = min(dy - s / 2 for _, s, _, dy in LAYERS)
+    hi_y = max(dy + s / 2 for _, s, _, dy in LAYERS)
+    unit = (SIZE - 2 * MARGIN) / max(hi_x - lo_x, hi_y - lo_y)
+    origin_x = (SIZE - (hi_x - lo_x) * unit) / 2 - lo_x * unit
+    origin_y = (SIZE - (hi_y - lo_y) * unit) / 2 - lo_y * unit
 
-    def place(img, scale, shift):
-        side = round(scale * unit)
-        layer = imaging.resize(img, (side, side))
-        centre = MARGIN + (shift - lo) * unit
-        at = round(centre - side / 2)
-        plate.alpha_composite(layer, (at, at))
-
-    place(icon(MACHINE), MACHINE_SCALE, MACHINE_SHIFT)
-    place(icon(CHEST), CHEST_SCALE, CHEST_SHIFT)
+    for name, s, dx, dy in LAYERS:
+        side = round(s * unit)
+        layer = imaging.resize(icon(os.path.join(ICONS, name)), (side, side))
+        at = (round(origin_x + dx * unit - side / 2), round(origin_y + dy * unit - side / 2))
+        plate.alpha_composite(layer, at)
 
     out = os.path.join(REPO, "assembly-planner", "thumbnail.png")
     plate.save(out, optimize=True)

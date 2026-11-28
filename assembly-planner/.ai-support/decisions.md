@@ -273,10 +273,21 @@ design record, with the fresh-context check that corrected it, is `chain-design.
   mod designs and gives you…" summary with its list of parts as too long and not human, and
   asked for a shorter README (2026-11-25). The same line is in `info.json` and in the locale's
   `[mod-description]`, which overrides it in game.
-- **The shortcut icon and the thumbnail are one picture**: vanilla's assembling machine 3 icon
-  with a requester chest in the corner (`prototypes/planner/icons.lua`); the thumbnail sets it on
-  vanilla's slot frame (`assets/assembly-planner/thumbnail/make_thumbnail.py`). The owner hoped
-  for an assembling machine 3.
+- **The shortcut icon and the thumbnail are one picture: the cell the planner builds** —
+  vanilla's assembling machine 3 icon with a requester chest and a passive provider under it,
+  input left and output right as in the cell's chest row (`prototypes/planner/icons.lua`); the
+  thumbnail sets it on vanilla's blue slot frame
+  (`assets/assembly-planner/thumbnail/make_thumbnail.py`). The owner hoped for an assembling
+  machine 3. Picked 2026-11-28 from mock-ups at real button size over a corner badge (a
+  requester, a passive provider or a logistic robot) and the machine alone: the chest row says
+  bot mall, where a badge read as a second Upcycler Planner icon. Every layer stays inside the
+  icon's own square, so the engine fits nothing smaller than designed.
+- **The shortcut button is `style = "blue"`** (2026-11-28, the owner's ask). It was green, the
+  colour of Upcycler Planner's and of vanilla's upgrade planner, and the owner kept clicking the
+  wrong planner. The style takes only `default`, `blue`, `red` or `green`: red is the
+  deconstruction planner's, grey is every toggle's, blue is vanilla's blueprint buttons — and
+  this one hands over a blueprint. The olive machine also stands out on blue, where it sank into
+  green.
 - **README images are absolute `raw.githubusercontent.com` URLs to `images/` on `main`.** A
   relative image is uploaded into the portal gallery (`factorio-release` → the markdown images
   rule), and these are meant as illustrations. They only show once `images/` is pushed.

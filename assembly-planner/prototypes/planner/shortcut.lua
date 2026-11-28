@@ -20,7 +20,9 @@ data:extend({
     unavailable_until_unlocked = true,
     -- Shows the hotkey in the tooltip; the input lives in input.lua under the same name.
     associated_control_input = "apl-open",
-    style = "green",
+    -- Not green: the upgrade planner and Upcycler Planner already are, and the two planners were
+    -- confused. Blue is vanilla's blueprint buttons, and this one hands over a blueprint.
+    style = "blue",
     icons = icons.shortcut,
     small_icons = icons.shortcut_small,
   },

@@ -2,6 +2,26 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (after 0.4.0) — a blue shortcut
+
+The owner kept clicking Upcycler Planner's shortcut for this one: "it's green both are green".
+They asked for another colour and a nicer button and thumbnail, released as a patch. A
+shortcut's `style` takes only `default`, `blue`, `red` or `green` (prototype-api), and vanilla's
+upgrade planner is green as well (`data/base/prototypes/shortcuts.lua`), so green was worn three
+times in the `b[blueprints]` block — Upcycler Planner's register said none of its neighbours wore
+it, and now says otherwise.
+
+Mock-ups at real button size, beside the real neighbours, settled it (`decisions.md` → Portal):
+blue, which the olive machine stands out on, and the cell as the picture. `--dump-icon-sprites`
+showed how the engine composes it: `apl-open` dumped at 64x76, the union of the three layer
+boxes (0.84 by 1.0 of an icon) at the files' native resolution, where Upcycler Planner's
+`upl-open` dumps at 91x91, its 1.205-icon union. The showcase rebuilt `01-planner-window.jpg`,
+the one gallery shot taken with the GUI on, and its shortcut bar shows the blue button.
+
+Gates on 2.1.25: the data stage clean with every expansion and with none, nothing unused (both
+planners loaded together), `-FullLoad` clean; in-game 162/162 headless and in a window, pure
+56/56, static clean.
+
 ## 2026-11-28 (night, last) — 0.4.0 published
 
 The owner asked for the mod to be released and published. Pre-flight: the portal held 0.1.0 to
