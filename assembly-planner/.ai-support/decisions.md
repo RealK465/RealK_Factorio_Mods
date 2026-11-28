@@ -27,6 +27,35 @@ What is settled, and why. Superseding means rewriting the entry here and telling
 - **Hotkey CTRL+SHIFT+A**, rebindable; Upcycler Planner has CTRL+U. The game's Confirm key (E)
   reaches Place through a linked input, with Upcycler Planner's chooser presumption.
 
+## The window
+
+The owner's ask, 2026-11-28: "more compact while keeping options accessible in 1 click … I
+don't like the beacons line being too large in width … make it beautiful, the best possible".
+
+- **One form in three sections, every option on it**: what the cell makes (item, machine),
+  what it is built from (logistics, beacons, pole), how it is stocked (requests, stock limit),
+  split by full-width lines. A row is a caption beside its controls, so a group costs one line
+  instead of a caption line and a control line — where the height had gone. 1080p, 100% UI:
+  about 477×720 before, 440×520 after. Rejected: Upcycler Planner's tabs, which put options a
+  second click away.
+- **Pickers stand in recessed slot strips** (`slot_button_deep_frame`), each with what belongs to
+  it — machine and modules, beacon and module, the four logistics pieces: vanilla's inventory
+  look, and grouping without more words.
+- **The beacon counts are 56 px drop-downs**, room for two digits; vanilla's drop-down is at
+  least 116 px, which made the beacon row the widest thing in the window. The two rule
+  drop-downs share 136 px, so their number fields line up.
+- **The one setting is a titlebar toggle**, one click where the Settings panel took two. It wears
+  vanilla's white technology flask through a sprite of our own cropped to the flask
+  (`prototypes/planner/sprites.lua`): a sprite-button fits the whole sprite into its box, and
+  vanilla's flask fills only the middle half of its 64 px canvas, so it drew at half the size of
+  the close cross beside it.
+- **The item row names the item, or holds the hint**: the recipe list in its place when several
+  recipes make the item, the grey "Pick an item" before one is picked. So the status area stays
+  shut until there is a plan, then carries one line of numbers — footprint, real rate, quality
+  chance — above the messages.
+- **The ingredient amounts open from a pencil** beside the request number, pressed while the
+  panel is up.
+
 ## The cell
 
 - **One cell per blueprint** (owner's call). A row of cells is deferred.

@@ -2,6 +2,37 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (later) — a compact window, 0.3.0
+
+The owner asked for a simpler, more compact window with every option still one click away —
+"I don't like the beacons line being too large in width … make it beautiful, make it the best
+possible" — then a release. The window became one form in three sections (`decisions.md` → The
+window): captions beside their controls instead of above them, pickers in recessed slot strips,
+56 px beacon counts, the item's name or the hint beside the item picker, one line of numbers
+under the form, a pencil for the ingredient amounts, and the Settings panel replaced by a
+titlebar toggle. At 1080p it went from about 477×720 to 440×520.
+
+Built against screenshots, not guesses: a scratch harness opened the window in seven states
+(empty, the showcase cell, gears with the amounts panel, a refusal, a fluid recipe, no limit,
+show-unresearched on) and photographed each. That caught the toggle's first icon:
+`utility/technology_white` drew at half the close cross, because a sprite-button fits the whole
+sprite into its box and vanilla's flask fills only the middle half of a 64 px canvas. A sprite
+of our own cropped to the flask (`prototypes/planner/sprites.lua`) matches it. The new toggle
+test also shows that writing our own per-player setting raises
+`on_runtime_mod_setting_changed` at once: the window is rebuilt before the click handler
+returns.
+
+`tests/gui_spec.lua` now finds controls by name, not by path, and gained four tests: the hint
+and the shut status area, the beacon counts, the pencil's pressed state through a rebuild and
+both closes, and E doing nothing while the panel is up. In-game 118/118 headless and in a
+window, pure 48/48, static clean; the data stage clean with every expansion and with none,
+nothing unused, and `-FullLoad` opened the new sprite.
+
+The shorter window uncovered a blinking no-power icon in the planner shot: the showcase's
+beaconed electronic circuit cell leaves one inserter outside its medium poles' reach, which the
+plan already warns about. The shot's camera moved down so the window covers it, and the
+shortcoming went into `deferred.md`.
+
 ## 2026-11-28 — 0.2.0 published
 
 The owner asked to release, publish, commit and push once the review was done. Pre-flight: the

@@ -1,11 +1,12 @@
--- The planner window: what the cell MAKES (item at its quality, recipe, machine, its modules),
--- then Build options in captioned groups -- the logistics pieces, the beacons, the pole, how
--- the requester is sized and how the stock is capped -- a status area, and Place.
+-- The planner window: one form in three sections -- what the cell MAKES (item, recipe, machine
+-- and its modules), what it is BUILT from (logistics, beacons, pole), how it is STOCKED
+-- (requests, stock limit) -- then a status area and Place. Every option sits on the form itself,
+-- one click from use: a row is a caption beside its controls, and pickers stand in slot strips.
 --
 -- Every picker is always shown, each with its quality box; only what cannot apply hides: the
 -- recipe list when one recipe makes the item, the module picker on a machine without slots,
 -- the pipe when the recipe takes no fluid. Pickers offer what the force has researched unless
--- the per-player "show unresearched" setting is on.
+-- the per-player "show unresearched" setting is on, toggled from the titlebar.
 --
 -- Built from scratch on every open and destroyed on close: stale state is impossible rather
 -- than merely unlikely, and nothing about the frame is kept in storage -- only the choices.
@@ -26,7 +27,6 @@ local blueprint = require("scripts.blueprint")
 local state = require("scripts.state")
 
 local FRAME = "apl-frame"
-local SETTINGS_FRAME = "apl-settings"
 local INGREDIENTS_FRAME = "apl-ingredients"
 -- The shortcut and its hotkey custom-input share this prototype name, so the button, the key
 -- and the tooltip's keybind hint rename together.
@@ -34,7 +34,6 @@ local SHORTCUT = "apl-open"
 local SHOW_ALL_SETTING = "assembly-planner-show-all"
 
 gui.FRAME = FRAME
-gui.SETTINGS_FRAME = SETTINGS_FRAME
 gui.INGREDIENTS_FRAME = INGREDIENTS_FRAME
 gui.SHORTCUT = SHORTCUT
 gui.SHOW_ALL_SETTING = SHOW_ALL_SETTING
@@ -46,8 +45,15 @@ local COLOR_HINT = { r = 0.7, g = 0.7, b = 0.7 }
 local ICON_WARNING = "[img=utility/warning_icon] "
 local ICON_ERROR = "[img=utility/not_available] "
 
--- One width for every label in the two-column block, or the pickers stagger with the captions.
-local LABEL_WIDTH = 120
+-- One caption width in every section, or the three sections' controls stagger.
+local LABEL_WIDTH = 76
+-- The two rule drop-downs share a width so their number fields line up; the beacon counts
+-- hold two digits.
+local MODE_WIDTH = 136
+local COUNT_WIDTH = 56
+local NUMBER_WIDTH = 64
+-- Status lines wrap inside the window instead of widening it.
+local STATUS_WIDTH = 400
 
 local function frame_of(player)
   local frame = player.gui.screen[FRAME]
@@ -55,22 +61,17 @@ local function frame_of(player)
   return nil
 end
 
-local function panel_of(player, name)
+local function panel_of(player)
   local frame = frame_of(player)
-  local panel = frame and frame[name]
+  local panel = frame and frame[INGREDIENTS_FRAME]
   if panel and panel.valid then return panel end
   return nil
 end
 
--- The side slot beside the window holds one panel at a time; filled at the end of the file,
--- once the builders exist.
-local SIDE_PANELS
-
-local function side_panel_name(player)
-  for name in pairs(SIDE_PANELS) do
-    if panel_of(player, name) then return name end
-  end
-  return nil
+-- The window's sections, by name, so refresh and the handlers reach a control without walking.
+local function section_of(player, name)
+  local frame = frame_of(player)
+  return frame and frame["apl-main"]["apl-content"][name]
 end
 
 function gui.is_setting(name)
@@ -189,23 +190,25 @@ end
 local function status_line(status, name, caption, color)
   local line = status.add({ type = "label", name = name, caption = caption })
   line.style.single_line = false
-  line.style.maximal_width = 380
+  line.style.maximal_width = STATUS_WIDTH
   line.style.font_color = color
   return line
 end
 
--- A tooltip for an icon-only control: its name in bold, then the explanation.
+-- A tooltip for a control whose caption is not beside it: a bold title, then the explanation.
+local function titled(title, body)
+  return { "", "[font=default-bold]", title, "[/font]\n", body }
+end
+
 local function titled_tooltip(key)
-  return {
-    "", "[font=default-bold]", { "apl-gui." .. key }, "[/font]\n", { "apl-gui." .. key .. "-tooltip" },
-  }
+  return titled({ "apl-gui." .. key }, { "apl-gui." .. key .. "-tooltip" })
 end
 
 -- The ingredient fields brought up to date: every default in the tags, and the text of every
 -- field the player has not set by hand. A hand-set field is never rewritten -- it may be the
 -- one being typed in.
 local function repaint_request_rows(player, rows)
-  local panel = panel_of(player, INGREDIENTS_FRAME)
+  local panel = panel_of(player)
   local list = panel and panel[INGREDIENTS_FRAME .. "-content"]["apl-ingredients-list"]
   if not list then return end
   local choices = state.of(player.index).choices
@@ -224,6 +227,16 @@ local function repaint_request_rows(player, rows)
   end
 end
 
+-- The one line of numbers a standing plan earns: footprint, real rate, and the quality chance
+-- when there is one.
+local function stats_caption(p)
+  local rate = calc.format_rate(p.stats.crafts_per_minute)
+  if p.stats.quality > 0 then
+    return { "apl-gui.stats-quality", p.width, p.height, rate, string.format("%.1f", p.stats.quality * 100) }
+  end
+  return { "apl-gui.stats", p.width, p.height, rate }
+end
+
 function gui.refresh(player)
   local frame = frame_of(player)
   if not frame then return end
@@ -238,34 +251,25 @@ function gui.refresh(player)
   -- follows the modules again once the two agree. A refused plan has no automatic answer: the
   -- box shows the override itself.
   if p and choices.split ~= nil and choices.split == p.split_auto then choices.split = nil end
-  main["apl-options"]["apl-split"].state = p and p.split or choices.split == true
+  section_of(player, "apl-stock")["apl-split-row"]["apl-split"].state = p and p.split or choices.split == true
 
   -- The amounts panel's defaults move with the pace in minutes mode -- a module or beacon pick
   -- changes them -- so it follows every refresh, not only a size edit.
-  if panel_of(player, INGREDIENTS_FRAME) then
+  if panel_of(player) then
     repaint_request_rows(player, p and p.request_rows or plan.sizing(player.force, choices))
   end
 
+  -- Before an item is picked the hint stands beside the item picker, so the area stays shut.
   status.clear()
   if p then
-    status_line(status, "apl-stat-footprint", { "apl-gui.footprint", p.width, p.height }, COLOR_PLAIN)
-    status_line(status, "apl-stat-rate", { "apl-gui.rate", calc.format_rate(p.stats.crafts_per_minute) }, COLOR_PLAIN)
-    if p.stats.quality > 0 then
-      status_line(status, "apl-stat-quality",
-        { "apl-gui.quality-chance", string.format("%.1f", p.stats.quality * 100) }, COLOR_PLAIN)
-    end
-    if #p.warnings > 0 then
-      local separator = status.add({ type = "line", name = "apl-status-sep" })
-      separator.style.horizontally_stretchable = true
-      for index, warning in ipairs(p.warnings) do
-        status_line(status, "apl-message-" .. index, { "", ICON_WARNING, warning }, COLOR_WARNING)
-      end
+    status_line(status, "apl-stats", stats_caption(p), COLOR_PLAIN)
+    for index, warning in ipairs(p.warnings) do
+      status_line(status, "apl-message-" .. index, { "", ICON_WARNING, warning }, COLOR_WARNING)
     end
   elseif message then
     status_line(status, "apl-message-1", { "", ICON_ERROR, message }, COLOR_ERROR)
-  else
-    status_line(status, "apl-hint", { "apl-gui.pick-an-item" }, COLOR_HINT)
   end
+  status.visible = #status.children > 0
 end
 
 local function destroy_modal(player)
@@ -292,6 +296,7 @@ end
 local function add_titlebar(parent, name, caption, drag_target)
   local bar = parent.add({ type = "flow", name = name, direction = "horizontal" })
   bar.drag_target = drag_target
+  bar.style.horizontal_spacing = 8
   bar.add({ type = "label", style = "frame_title", caption = caption, ignored_by_interaction = true })
   local filler = bar.add({ type = "empty-widget", style = "draggable_space_header" })
   filler.style.height = 24
@@ -300,21 +305,10 @@ local function add_titlebar(parent, name, caption, drag_target)
   return bar
 end
 
-local function add_close(bar, handler)
+local function add_close(bar, name, handler)
   bar.add({
-    type = "sprite-button", style = "frame_action_button", sprite = "utility/close",
-    tags = dispatch.tags(handler),
-  })
-end
-
-local function side_panel(frame, name, title, close_handler)
-  local panel = frame.add({ type = "frame", name = name, direction = "vertical" })
-  panel.style.left_margin = 12
-  local bar = add_titlebar(panel, name .. "-titlebar", title, frame)
-  add_close(bar, close_handler)
-  return panel.add({
-    type = "frame", name = name .. "-content", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
+    type = "sprite-button", name = name, style = "frame_action_button", sprite = "utility/close",
+    tooltip = { "gui.close" }, tags = dispatch.tags(handler),
   })
 end
 
@@ -329,35 +323,30 @@ local function number_field(parent, name, field, tooltip, extra)
     numeric = true, allow_decimal = false, allow_negative = false, lose_focus_on_confirm = true,
     tooltip = tooltip, tags = dispatch.tags("number", tags),
   })
-  element.style.width = 70
+  element.style.width = NUMBER_WIDTH
   return element
 end
 
-local function build_settings_panel(player, frame)
-  local content = side_panel(frame, SETTINGS_FRAME, { "apl-gui.settings" }, "settings-close")
-  -- Captions come from the mod-setting locale, so this panel and the settings menu word the
-  -- setting the same way.
-  content.add({
-    type = "checkbox", name = "apl-setting-show-all",
-    state = player.mod_settings[SHOW_ALL_SETTING].value,
-    caption = { "mod-setting-name." .. SHOW_ALL_SETTING },
-    tooltip = { "mod-setting-description." .. SHOW_ALL_SETTING },
-    tags = dispatch.tags("setting", { setting = SHOW_ALL_SETTING }),
-  })
-end
-
 -- The per-ingredient amounts, each field the player's own number or the default the cell would
--- request, priced at the cell's real pace when a plan stands.
+-- request, priced at the cell's real pace when a plan stands. A side panel beside the window,
+-- inside the planner's own screen element, so the pair cannot separate when dragged.
 local function build_ingredients_panel(player, frame)
   local choices = state.of(player.index).choices
-  local content = side_panel(frame, INGREDIENTS_FRAME, { "apl-gui.requests-title" }, "ingredients-close")
+  local panel = frame.add({ type = "frame", name = INGREDIENTS_FRAME, direction = "vertical" })
+  panel.style.left_margin = 12
+  local bar = add_titlebar(panel, INGREDIENTS_FRAME .. "-titlebar", { "apl-gui.requests-title" }, frame)
+  add_close(bar, INGREDIENTS_FRAME .. "-close", "ingredients-close")
+  local content = panel.add({
+    type = "frame", name = INGREDIENTS_FRAME .. "-content", style = "inside_shallow_frame_with_padding",
+    direction = "vertical",
+  })
   local p = plan.build(player.force, player.surface, choices)
   local rows = p and p.request_rows or plan.sizing(player.force, choices)
   if #rows == 0 then
-    local hint = content.add({ type = "label", name = "apl-hint", caption = { "apl-gui.no-ingredients" } })
+    local hint = content.add({ type = "label", name = "apl-no-ingredients", caption = { "apl-gui.no-ingredients" } })
     hint.style.font_color = COLOR_HINT
     hint.style.single_line = false
-    hint.style.maximal_width = 300
+    hint.style.maximal_width = 240
     return
   end
   local list = content.add({ type = "scroll-pane", name = "apl-ingredients-list", direction = "vertical" })
@@ -366,6 +355,7 @@ local function build_ingredients_panel(player, frame)
     local key = "request_" .. row.name
     local line = list.add({ type = "flow", name = "apl-request-row-" .. row.name, direction = "horizontal" })
     line.style.vertical_align = "center"
+    line.style.horizontal_spacing = 8
     local label = line.add({
       type = "label", caption = { "", "[item=" .. row.name .. "] ", prototypes.item[row.name].localised_name },
     })
@@ -377,6 +367,16 @@ local function build_ingredients_panel(player, frame)
   end
 end
 
+-- The amounts panel up or down, with the pencil that opens it showing which.
+local function show_ingredients(player, show)
+  local frame = frame_of(player)
+  if not frame then return end
+  local panel = panel_of(player)
+  if show and not panel then build_ingredients_panel(player, frame) end
+  if not show and panel then panel.destroy() end
+  section_of(player, "apl-stock")["apl-requests-row"]["apl-requests-edit"].toggled = show
+end
+
 -- A picker button for one choice key. Disabled rather than unfiltered when it has nothing to
 -- offer at all (see name_filter).
 local function picker(parent, player, choices, r, key)
@@ -384,8 +384,8 @@ local function picker(parent, player, choices, r, key)
   local names = offered(player, spec.names(r), spec.narrow)
   local dashed = key:gsub("_", "-")
   local button = parent.add({
-    type = "choose-elem-button", name = "apl-" .. dashed, elem_type = spec.elem_type,
-    elem_filters = name_filter(names), tooltip = titled_tooltip(dashed),
+    type = "choose-elem-button", name = "apl-" .. dashed, style = "slot_button",
+    elem_type = spec.elem_type, elem_filters = name_filter(names), tooltip = titled_tooltip(dashed),
     tags = dispatch.tags("pick", { key = key }),
   })
   -- elem_value is a runtime attribute, not a creation parameter: passed to add() it is silently
@@ -393,6 +393,11 @@ local function picker(parent, player, choices, r, key)
   button.elem_value = shown(spec, choices, key)
   button.enabled = #names > 0
   return button
+end
+
+-- Pickers side by side in one recessed strip, like a row of inventory slots.
+local function slot_strip(row, name)
+  return row.add({ type = "frame", name = name, style = "slot_button_deep_frame", direction = "horizontal" })
 end
 
 local function drop_down(parent, name, handler, items, selected, tooltip, extra)
@@ -410,90 +415,104 @@ local function index_of(list, value)
   return 1
 end
 
--- A mode drop-down's items, one locale key per mode: apl-gui.<prefix>-<mode>.
-local function mode_items(prefix, modes)
+-- A rule drop-down: one locale key per mode, apl-gui.<prefix>-<mode>.
+local function mode_drop_down(parent, name, prefix, modes, mode, tooltip)
   local items = {}
-  for i, mode in ipairs(modes) do items[i] = { "apl-gui." .. prefix .. "-" .. mode } end
-  return items
+  for i, m in ipairs(modes) do items[i] = { "apl-gui." .. prefix .. "-" .. m } end
+  local list = drop_down(parent, name, prefix .. "-mode", items, index_of(modes, mode), tooltip)
+  list.style.width = MODE_WIDTH
+  return list
 end
 
-local function count_items(max)
+-- A beacon count: its caption, then a narrow drop-down of exactly what fits.
+local function count_drop_down(row, key, max, selected, enabled)
+  local label = row.add({ type = "label", caption = { "apl-gui." .. key }, tooltip = { "apl-gui." .. key .. "-tooltip" } })
+  label.style.left_margin = 4
   local items = {}
   for i = 0, max do items[#items + 1] = tostring(i) end
-  return items
+  local list = drop_down(row, "apl-" .. key, key, items, selected + 1, { "apl-gui." .. key .. "-tooltip" })
+  list.style.width = COUNT_WIDTH
+  list.enabled = enabled
 end
 
-local function group(options, key, first)
-  local caption = options.add({
-    type = "label", name = "apl-" .. key .. "-label", style = "semibold_caption_label",
-    caption = { "apl-gui.group-" .. key },
-  })
-  if not first then caption.style.top_margin = 8 end
-  local row = options.add({ type = "flow", name = "apl-" .. key .. "-strip", direction = "horizontal" })
+-- One section of the form: captions in the first column, each row's controls in a flow in the
+-- second.
+local function section(content, name)
+  local form = content.add({ type = "table", name = name, column_count = 2 })
+  form.style.horizontal_spacing = 12
+  form.style.vertical_spacing = 8
+  form.style.vertical_align = "center"
+  return form
+end
+
+-- A row: its caption, or none for a checkbox that belongs to the row above, then the flow its
+-- controls go in.
+local function form_row(form, key, caption)
+  local label = form.add({ type = "label", name = "apl-" .. key .. "-label", caption = caption })
+  label.style.width = LABEL_WIDTH
+  local row = form.add({ type = "flow", name = "apl-" .. key .. "-row", direction = "horizontal" })
   row.style.vertical_align = "center"
+  row.style.horizontal_spacing = 8
   return row
 end
 
-local function row_label(parent, key)
-  local label = parent.add({
-    type = "label", caption = { "apl-gui." .. key }, tooltip = { "apl-gui." .. key .. "-tooltip" },
-  })
-  label.style.left_margin = 8
-  return label
+local function separator(content)
+  local line = content.add({ type = "line", style = "inside_shallow_frame_with_padding_line" })
+  line.style.top_margin = 8
+  line.style.bottom_margin = 8
 end
 
--- What the cell makes: item, recipe (only when several), machine, its modules (only with slots).
-local function build_make_rows(content, player, choices, r)
-  local rows = content.add({ type = "table", name = "apl-table", column_count = 2 })
-  rows.style.vertical_align = "center"
-  local function label(key)
-    local l = rows.add({
-      type = "label", name = "apl-" .. key .. "-label", caption = { "apl-gui." .. key },
-      tooltip = { "apl-gui." .. key .. "-tooltip" },
-    })
-    l.style.minimal_width = LABEL_WIDTH
-    return l
-  end
-
-  label("item")
-  picker(rows, player, choices, r, "item")
+-- The item, and beside it the recipe list when several recipes make it, else its name -- or
+-- the hint before one is picked.
+local function build_item_row(form, player, choices, r)
+  local row = form_row(form, "item", { "apl-gui.group-item" })
+  picker(slot_strip(row, "apl-item-strip"), player, choices, r, "item")
 
   -- A drop-down, not a picker: RecipePrototypeFilter has no name filter, so a recipe picker
   -- cannot be narrowed to the recipes making this item. The list rides in the tags.
-  local recipe_label = label("recipe")
   local items = {}
   for index, name in ipairs(r.recipes) do
     items[index] = { "", "[recipe=" .. name .. "] ", prototypes.recipe[name].localised_name }
   end
-  local recipe_list = drop_down(rows, "apl-recipe", "recipe", items, index_of(r.recipes, r.recipe),
-    { "apl-gui.recipe-tooltip" }, { recipes = r.recipes })
-  recipe_label.visible = #r.recipes > 1
-  recipe_list.visible = recipe_label.visible
+  local recipe_list = drop_down(row, "apl-recipe", "recipe", items, index_of(r.recipes, r.recipe),
+    titled_tooltip("recipe"), { recipes = r.recipes })
+  recipe_list.style.maximal_width = 260
+  recipe_list.visible = #r.recipes > 1
 
-  label("machine")
-  picker(rows, player, choices, r, "machine")
-
-  local machine = r.machine and prototypes.entity[r.machine]
-  local module_label = label("module")
-  local module_button = picker(rows, player, choices, r, "module")
-  module_label.visible = machine ~= nil and proto.module_slots(machine, r.machine_quality) > 0
-  module_button.visible = module_label.visible
+  if not r.item then
+    local hint = row.add({ type = "label", name = "apl-hint", caption = { "apl-gui.pick-an-item" } })
+    hint.style.font_color = COLOR_HINT
+  elseif not recipe_list.visible then
+    -- A long modded name wraps beside the picker rather than widening the window.
+    local name = row.add({ type = "label", name = "apl-item-name", style = "semibold_label",
+      caption = prototypes.item[r.item].localised_name })
+    name.style.single_line = false
+    name.style.maximal_width = 260
+  end
 end
 
-local function build_logistics_row(options, player, choices, r)
-  local strip = group(options, "logistics", true)
+local function build_machine_row(form, player, choices, r)
+  local strip = slot_strip(form_row(form, "machine", { "apl-gui.group-machine" }), "apl-machine-strip")
+  picker(strip, player, choices, r, "machine")
+  local machine = r.machine and prototypes.entity[r.machine]
+  picker(strip, player, choices, r, "module").visible =
+    machine ~= nil and proto.module_slots(machine, r.machine_quality) > 0
+end
+
+local function build_logistics_row(form, player, choices, r)
+  local strip = slot_strip(form_row(form, "logistics", { "apl-gui.group-logistics" }), "apl-logistics-strip")
   picker(strip, player, choices, r, "inserter")
   picker(strip, player, choices, r, "requester")
   picker(strip, player, choices, r, "output")
-  local pipe = picker(strip, player, choices, r, "pipe")
   local recipe = r.recipe and prototypes.recipe[r.recipe]
   local fluids = recipe and select(2, proto.item_ingredients(recipe)) or {}
-  pipe.visible = #fluids > 0
+  picker(strip, player, choices, r, "pipe").visible = #fluids > 0
 end
 
--- The beacon, its module, and the two counts -- each count a drop-down of exactly what fits.
-local function build_beacon_row(options, player, choices, r)
-  local strip = group(options, "beacons")
+-- The beacon and its module, then the two counts, each a drop-down of exactly what fits.
+local function build_beacon_row(form, player, choices, r)
+  local row = form_row(form, "beacons", { "apl-gui.group-beacons" })
+  local strip = slot_strip(row, "apl-beacon-strip")
   picker(strip, player, choices, r, "beacon")
   local module = picker(strip, player, choices, r, "beacon_module")
   module.enabled = module.enabled and r.beacon ~= nil
@@ -503,26 +522,28 @@ local function build_beacon_row(options, player, choices, r)
     side_max = capacity.side
     side, above, above_max = plan.beacon_counts(choices, capacity)
   end
-  row_label(strip, "beacons-side")
-  drop_down(strip, "apl-beacons-side", "beacons-side", count_items(side_max), side + 1,
-    { "apl-gui.beacons-side-tooltip" }).enabled = capacity ~= nil
-  row_label(strip, "beacons-above")
-  drop_down(strip, "apl-beacons-above", "beacons-above", count_items(above_max), above + 1,
-    { "apl-gui.beacons-above-tooltip" }).enabled = capacity ~= nil
+  count_drop_down(row, "beacons-side", side_max, side, capacity ~= nil)
+  count_drop_down(row, "beacons-above", above_max, above, capacity ~= nil)
 end
 
--- How the requester is sized: the rule, its number, and the per-ingredient panel.
-local function build_requests_row(options, choices, r)
-  local strip = group(options, "requests")
+local function build_power_row(form, player, choices, r)
+  picker(slot_strip(form_row(form, "power", { "apl-gui.group-power" }), "apl-power-strip"),
+    player, choices, r, "pole")
+end
+
+-- How the requester is sized: the rule, its number, and the pencil opening the per-ingredient
+-- panel; the trash box under them.
+local function build_requests_rows(form, choices, r, panel_open)
+  local row = form_row(form, "requests", { "apl-gui.group-requests" })
   local field = plan.size_field(choices)
-  drop_down(strip, "apl-size-mode", "size-mode", mode_items("size", plan.SIZE_MODES),
-    index_of(plan.SIZE_MODES, field.mode), { "apl-gui.size-mode-tooltip" })
-  number_field(strip, "apl-size-value", field, { "apl-gui.size-value-tooltip" }, { requests = true })
-  strip.add({
-    type = "button", name = "apl-requests-edit", caption = { "apl-gui.requests-edit" },
-    tooltip = { "apl-gui.requests-edit-tooltip" }, tags = dispatch.tags("requests"),
+  mode_drop_down(row, "apl-size-mode", "size", plan.SIZE_MODES, field.mode, { "apl-gui.size-mode-tooltip" })
+  number_field(row, "apl-size-value", field, { "apl-gui.size-value-tooltip" }, { requests = true })
+  row.add({
+    type = "sprite-button", name = "apl-requests-edit", style = "tool_button", sprite = "utility/rename_icon",
+    toggled = panel_open, tooltip = titled({ "apl-gui.requests-title" }, { "apl-gui.requests-edit-tooltip" }),
+    tags = dispatch.tags("requests"),
   }).enabled = r.recipe ~= nil
-  options.add({
+  form_row(form, "trash").add({
     type = "checkbox", name = "apl-trash", state = plan.trash(choices),
     caption = { "apl-gui.trash-unrequested" }, tooltip = { "apl-gui.trash-unrequested-tooltip" },
     tags = dispatch.tags("trash"),
@@ -530,15 +551,14 @@ local function build_requests_row(options, choices, r)
 end
 
 -- How the stock is capped, and the quality split under it.
-local function build_stock_row(options, choices, r)
-  local strip = group(options, "stock")
+local function build_stock_rows(form, choices, r)
+  local row = form_row(form, "stock", { "apl-gui.group-stock" })
   local field = plan.cap_field(choices, r.item)
-  drop_down(strip, "apl-cap-mode", "cap-mode", mode_items("cap", plan.CAP_MODES),
-    index_of(plan.CAP_MODES, field.mode), { "apl-gui.cap-mode-tooltip" })
+  mode_drop_down(row, "apl-cap-mode", "cap", plan.CAP_MODES, field.mode, { "apl-gui.cap-mode-tooltip" })
   if field.mode ~= "none" then
-    number_field(strip, "apl-cap-value", field, { "apl-gui.cap-" .. field.mode .. "-tooltip" })
+    number_field(row, "apl-cap-value", field, { "apl-gui.cap-" .. field.mode .. "-tooltip" })
   end
-  options.add({
+  form_row(form, "split").add({
     type = "checkbox", name = "apl-split", state = choices.split == true,
     caption = { "apl-gui.split" }, tooltip = { "apl-gui.split-tooltip" },
     tags = dispatch.tags("split"),
@@ -547,11 +567,11 @@ end
 
 function gui.open(player)
   -- A rebuild keeps the window where it was: read off the OLD frame, since a new one reports 0,0
-  -- until laid out. A side panel is a child, so it goes down with the frame and is re-created.
+  -- until laid out. The side panel is a child, so it goes down with the frame and is re-created.
   local old = frame_of(player)
   local keep = old and old.location
   if keep and keep.x == 0 and keep.y == 0 then keep = nil end
-  local had_panel = side_panel_name(player)
+  local had_panel = panel_of(player) ~= nil
   destroy_modal(player)
 
   local entry = state.of(player.index)
@@ -564,51 +584,43 @@ function gui.open(player)
   })
   if keep then frame.location = keep else frame.auto_center = true end
   -- Esc and E close the window like every other; the container owns player.opened whether or
-  -- not a side panel is up, and control.lua turns a close request into "panel first".
+  -- not the side panel is up, and control.lua turns a close request into "panel first".
   player.opened = frame
 
   local main = frame.add({ type = "frame", name = "apl-main", direction = "vertical" })
   local titlebar = add_titlebar(main, "apl-titlebar", { "apl-gui.title" }, frame)
-  local settings_button = titlebar.add({
-    type = "button", name = "apl-settings-button", style = "frame_button",
-    caption = { "apl-gui.settings" }, tooltip = { "apl-gui.settings-tooltip" },
-    tags = dispatch.tags("settings"),
-  })
-  -- frame_button inherits a dialog button's 108x28 and black captions; a titlebar is 24 tall
-  -- and its close glyph white.
-  settings_button.style.minimal_width = 0
-  settings_button.style.height = 24
-  settings_button.style.padding = { 0, 8 }
-  settings_button.style.font_color = { 1, 1, 1 }
-  settings_button.style.hovered_font_color = { 0, 0, 0 }
-  settings_button.style.clicked_font_color = { 0, 0, 0 }
-  add_close(titlebar, "close")
+  -- The one setting, as a toggle: a click flips it, and the window reopens on the change.
+  titlebar.add({
+    type = "sprite-button", name = "apl-show-all", style = "frame_action_button",
+    sprite = "apl-show-all", toggled = show_all(player),
+    tooltip = titled({ "mod-setting-name." .. SHOW_ALL_SETTING }, { "mod-setting-description." .. SHOW_ALL_SETTING }),
+    tags = dispatch.tags("show-all"),
+  }).style.padding = 2
+  add_close(titlebar, "apl-close", "close")
 
   local content = main.add({
     type = "frame", name = "apl-content", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
-  content.style.horizontally_stretchable = true
-  build_make_rows(content, player, choices, r)
-
-  local caption = main.add({ type = "label", style = "caption_label", caption = { "apl-gui.build-options" } })
-  caption.style.top_margin = 8
-  local options = main.add({
-    type = "frame", name = "apl-options", style = "inside_shallow_frame_with_padding",
-    direction = "vertical",
-  })
-  options.style.horizontally_stretchable = true
-  build_logistics_row(options, player, choices, r)
-  build_beacon_row(options, player, choices, r)
-  picker(group(options, "power"), player, choices, r, "pole")
-  build_requests_row(options, choices, r)
-  build_stock_row(options, choices, r)
+  local make = section(content, "apl-make")
+  build_item_row(make, player, choices, r)
+  build_machine_row(make, player, choices, r)
+  separator(content)
+  local build = section(content, "apl-build")
+  build_logistics_row(build, player, choices, r)
+  build_beacon_row(build, player, choices, r)
+  build_power_row(build, player, choices, r)
+  separator(content)
+  local stock = section(content, "apl-stock")
+  build_requests_rows(stock, choices, r, had_panel)
+  build_stock_rows(stock, choices, r)
 
   local status = main.add({ type = "flow", name = "apl-status", direction = "vertical" })
   status.style.top_margin = 8
 
-  local buttons = main.add({ type = "flow", name = "apl-buttons", direction = "horizontal" })
-  buttons.style.top_margin = 8
+  local buttons = main.add({
+    type = "flow", name = "apl-buttons", style = "dialog_buttons_horizontal_flow", direction = "horizontal",
+  })
   buttons.add({
     type = "button", name = "apl-cancel", style = "back_button", caption = { "apl-gui.cancel" },
     tags = dispatch.tags("close"),
@@ -619,10 +631,10 @@ function gui.open(player)
   filler.drag_target = frame
   buttons.add({
     type = "button", name = "apl-confirm", style = "confirm_button", caption = { "apl-gui.confirm" },
-    tags = dispatch.tags("confirm"),
+    tooltip = { "apl-gui.confirm-tooltip" }, tags = dispatch.tags("confirm"),
   })
 
-  if had_panel then SIDE_PANELS[had_panel].build(player, frame) end
+  if had_panel then build_ingredients_panel(player, frame) end
   gui.refresh(player)
 end
 
@@ -654,49 +666,21 @@ function gui.unlock_shortcut(player)
   end
 end
 
-local function close_panel(name)
-  return function(player)
-    local panel = panel_of(player, name)
-    if panel then panel.destroy() end
-  end
-end
-
--- Closes whichever side panel holds the slot. Returns whether one did -- control.lua's close
--- request goes "panel first" exactly when this says so.
+-- Closes the side panel when it is up. Returns whether it was -- control.lua's close request
+-- goes "panel first" exactly when this says so.
 function gui.close_side_panel(player)
-  local name = side_panel_name(player)
-  if not name then return false end
-  SIDE_PANELS[name].close(player)
+  if not panel_of(player) then return false end
+  show_ingredients(player, false)
   return true
 end
 
-SIDE_PANELS = {
-  [SETTINGS_FRAME] = { build = build_settings_panel, close = close_panel(SETTINGS_FRAME) },
-  [INGREDIENTS_FRAME] = { build = build_ingredients_panel, close = close_panel(INGREDIENTS_FRAME) },
-}
-
--- Opening a panel closes whatever holds the slot first, so the window never grows a third
--- column.
-local function toggle_panel(name)
-  return function(event)
-    local player = game.get_player(event.player_index)
-    if panel_of(player, name) then
-      SIDE_PANELS[name].close(player)
-    else
-      gui.close_side_panel(player)
-      local frame = frame_of(player)
-      if frame then SIDE_PANELS[name].build(player, frame) end
-    end
-  end
-end
-
-dispatch.register("settings", toggle_panel(SETTINGS_FRAME))
-dispatch.register("requests", toggle_panel(INGREDIENTS_FRAME))
-dispatch.register("settings-close", function(event)
-  SIDE_PANELS[SETTINGS_FRAME].close(game.get_player(event.player_index))
+dispatch.register("requests", function(event)
+  local player = game.get_player(event.player_index)
+  show_ingredients(player, panel_of(player) == nil)
 end)
+
 dispatch.register("ingredients-close", function(event)
-  SIDE_PANELS[INGREDIENTS_FRAME].close(game.get_player(event.player_index))
+  show_ingredients(game.get_player(event.player_index), false)
 end)
 
 -- Reopened rather than repainted when the setting flips: every picker's list depends on it.
@@ -705,14 +689,10 @@ function gui.on_setting_changed(player)
 end
 
 -- Writing our own per-player setting raises on_runtime_mod_setting_changed just as the settings
--- menu does, so the repaint is left to that one handler. Reading the box's state rather than
--- toggling makes the second event of one click harmless.
-dispatch.register("setting", function(event)
+-- menu does, so the reopen is left to that one handler.
+dispatch.register("show-all", function(event)
   local player = game.get_player(event.player_index)
-  local setting = event.element.tags.setting
-  local checked = event.element.state
-  if player.mod_settings[setting].value == checked then return end
-  player.mod_settings[setting] = { value = checked }
+  player.mod_settings[SHOW_ALL_SETTING] = { value = not show_all(player) }
 end)
 
 dispatch.register("close", function(event)
@@ -897,7 +877,7 @@ end)
 -- What the Confirm KEY runs. The key fires on every press of E, including one aimed at an
 -- element chooser floating over the window, where confirming would trade the pick for a
 -- blueprint -- so one press is swallowed while a chooser is presumed open, and the engine's own
--- confirm then lands on the chooser. With a side panel up the key places nothing: E belongs to
+-- confirm then lands on the chooser. With the side panel up the key places nothing: E belongs to
 -- the panel, which the engine's own close then dismisses. The button takes neither guard.
 function gui.confirm_key(player)
   local entry = state.peek(player.index)
@@ -905,7 +885,7 @@ function gui.confirm_key(player)
     entry.chooser_maybe_open = nil
     return
   end
-  if side_panel_name(player) then return end
+  if panel_of(player) then return end
   gui.confirm(player)
 end
 

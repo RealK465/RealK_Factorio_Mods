@@ -6,6 +6,12 @@ Parked work, each entry with enough context to pick up cold.
 
 - **A played session.** Every behaviour is suite-tested, but nothing has been built by bots in a
   real save: request fulfilment, trash, and the network cap against a real roboport network.
+- **A beaconed electromagnetic plant cell with medium poles leaves one inserter dark.** The
+  showcase's electronic circuit cell (13×10, beacons beside and above, side inputs since 0.2.0)
+  gets four poles and the `consumers-unpowered` warning for one building — the inserter at the
+  bottom right, from its blinking icon in a 2026-11-28 screenshot. Not investigated: whether
+  the pole ladder (`plan.lua` `power`) could reach it with another spot, or the side pairs took
+  the tile it needed.
 
 ## Scope cut from 0.2.0
 

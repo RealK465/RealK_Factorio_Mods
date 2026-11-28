@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: ????
+  Gui:
+    - The planner window is much smaller. Every option is still one click away, with its name
+      beside it.
+    - The beacon counts take far less room.
+    - Show unresearched items is now a button at the top of the window.
+    - The picked item's name shows beside it, and the pencil next to Requests opens the
+      ingredient amounts.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-11-28
   Features:

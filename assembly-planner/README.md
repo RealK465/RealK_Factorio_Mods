@@ -46,7 +46,8 @@ Fluid recipes sharing one pipe:
 
 - When one inserter can't keep up, the planner adds more, each with its own chest.
 - Modded machines, chests, inserters, modules and beacons all work. Only researched ones are
-  shown unless you tick **Show unresearched items** in the planner's Settings.
+  shown unless you turn on **Show unresearched items** with the flask button at the top of the
+  planner.
 - The network count only works inside roboport range.
 - Not supported yet: recipes that make a fluid or need two fluids, and machines that burn fuel,
   like the biochamber.

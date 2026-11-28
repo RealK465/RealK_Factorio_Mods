@@ -338,8 +338,10 @@ script.on_event(defines.events.on_tick, function(event)
     }) do choices[k] = v end
     gui.open(player)
   elseif t == 960 then
+    -- Low enough that the window hides the electronic circuit cell's one dark inserter, whose
+    -- no-power icon blinks (the plan warns about it).
     game.take_screenshot({
-      player = player, position = { 0, 26 }, zoom = 1, resolution = { 1920, 1080 },
+      player = player, position = { 0, 28.5 }, zoom = 1, resolution = { 1920, 1080 },
       show_gui = true, show_entity_info = true, daytime = 0,
       path = OUT .. "01-planner-window.jpg", quality = 92,
     })

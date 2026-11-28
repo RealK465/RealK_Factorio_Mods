@@ -48,13 +48,14 @@ branches (`validate.ps1` plain and with `-Disable space-age,quality,elevated-rai
 ## Layout
 
 ```
-data.lua                  requires the shortcut and the two custom-inputs
+data.lua                  requires the shortcut, the two custom-inputs and the toggle's sprite
 data-final-fixes.lua      moves the shortcut's gate to the technology gate.lua names
 settings.lua              one per-player setting: show unresearched items
 control.lua               lifecycle and event wiring only, plus the test guard
-prototypes/planner/       shortcut, custom-inputs (hotkey, linked confirm), icons, gate.lua
+prototypes/planner/       shortcut, custom-inputs (hotkey, linked confirm), icons, gate.lua,
+                          sprites.lua (the titlebar toggle's flask)
 scripts/
-  gui.lua      the window, its two side panels, every handler
+  gui.lua      the window, its ingredient amounts panel, every handler
   plan.lua     choices -> a finished cell, in one pass; the request, cap, split and throughput rules
   proto.lua    every question asked of the prototypes; research gating; an inserter's hand and swing
   cell.lua     pure geometry of one cell, the side slots included
@@ -76,8 +77,10 @@ images/                   portal screenshots, made by assets/assembly-planner/sh
 ## Naming
 
 Prototypes, GUI element names and tag keys use **`apl-`**; settings and locale mod-level keys use
-the full **`assembly-planner`**. Three prototypes: the shortcut `apl-open`, the hotkey
-`apl-open` (same name, so the tooltip shows the binding) and the linked `apl-confirm`.
+the full **`assembly-planner`**. Four prototypes: the shortcut `apl-open`, the hotkey
+`apl-open` (same name, so the tooltip shows the binding), the linked `apl-confirm` and the
+sprite `apl-show-all`. Every element name in the window is unique, which is how
+`tests/gui_spec.lua` finds a control wherever the layout puts it.
 
 ## Working here
 
@@ -115,6 +118,9 @@ The rules, in short; every reason lives in `.ai-support/decisions.md`.
   default.
 - An optional pole: free tiles first, then a right-hand column, a top row, or both, each kept
   only when it powers more.
+- The window is one form in three sections, a caption beside each row's controls, every option
+  one click away: pickers in slot strips, narrow beacon counts, the setting a titlebar toggle,
+  the ingredient amounts behind a pencil.
 - Every picker always shown with its quality; only what cannot apply hides.
 - The default recipe: researched, then one the machine crafts, then the one named like the item.
 
