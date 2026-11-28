@@ -54,11 +54,14 @@ don't like the beacons line being too large in width … make it beautiful, the 
   shut until there is a plan, then carries one line of numbers — footprint, real rate, quality
   chance — above the messages.
 - **The ingredient amounts open from a pencil** beside the request number, pressed while the
-  panel is up.
+  panel is up. With a chain they are grouped under each cell's item.
+- **A chain shows in the first section as extra rows** (Production chains below): beside each
+  machine its ingredients behind a ◀, under the machine one row per ingredient cell.
 
 ## The cell
 
-- **One cell per blueprint** (owner's call). A row of cells is deferred.
+- **One cell per item.** A blueprint holds one cell, or a production chain's cells side by side
+  (below). Unrelated items in one blueprint stay deferred.
 - **The inserter row is on the machine's south edge, the chest row under it**, left to right:
   input, output, quality output, left-aligned under the machine. The owner's blueprints all put
   the row on one edge; the player rotates or flips the blueprint for any other side.
@@ -194,6 +197,75 @@ The design record, with the approaches weighed, is `throughput-design.md`; the e
   a machine or recipe change, a beacon module after a beacon change — so the picker falls back
   to its default instead of the plan refusing.
 
+## Production chains
+
+The owner's ask, 2026-11-28: "if I place electronic circuits it would also propose optionally
+copper cables etc … a very beautiful compact and accessible ui to configure nested chains". The
+design record, with the fresh-context check that corrected it, is `chain-design.md`.
+
+- **Offered, off until ticked.** Beside each machine stand the ingredients a cell of their own
+  could make — the item picker's catalogue — with their count per craft; a click ticks one in
+  and it gets a row, its own ingredients offered in turn. Unresearched ones hide unless *Show
+  unresearched items* is on or the chain already makes them. Fluids never: the pipe brings them.
+- **Robots carry, every cell a normal mall cell** (owner's pick over direct insertion): the
+  ingredient cell fills its passive provider, the consumer's requester asks for it as it always
+  did, and the rest of the base can draw on it too.
+- **A chain is a set**: the root plus every ticked item reachable from it through ticked items,
+  one cell per item whatever uses it — one cable cell feeds circuits and advanced circuits alike.
+  Unticking keeps the entry, so ticking again brings the cell back as it was; a new root item
+  drops the chain, as it drops the hand-set amounts.
+- **Extra rows** (owner's pick over cell tabs and a side panel, which put cells a click away):
+  one row per ingredient cell under the machine row, in depth-first order under the first cell
+  that uses it, its product stepped in 12 px per level in the caption column. A row holds the
+  machine strip, ◀, the ingredient strip (wrapping past four, so the window grows down, not
+  across) and, when several recipes make the item, an icon-only recipe drop-down. A ticked
+  ingredient is lit with `yellow_slot_button` — `slot_button`'s own selected look is its hover
+  look, so a hovered slot would read as ticked.
+- **A cell owns its recipe, machine, modules and their qualities, and its own amounts**;
+  everything else is the chain's, read from the root's choices — quality, logistics, beacons
+  (counts clamped per cell), pole, request rule, stock rule. The network count and the split
+  override are numbers about the root's item, so an ingredient cell keeps its defaults for both.
+  A cell refused because a quality module meets a filterless chain inserter is left refused: the
+  cell's module picker and the inserter are both a click away.
+- **A row warns when it falls short**: its product turns red, the two rates on hover, one
+  status line for all of them. Made is the product at the recipe's quality a minute — real
+  rate, every copy, productivity with research, less the quality share (none at the top tier);
+  taken is every user row's copies at their real rate times its recipe's amount; 1% of slack so
+  two equal numbers never warn.
+- **Counts: a row stands copies of its cell** (owner's ask the same night, after the first
+  build: "configure ratios but also see and get the optimal ratios"). Every row has a count
+  drop-down, ×1 to ×10, the root's included; it stays 1 until changed, so the owner's earlier
+  pick of a warning over automatic cells still holds by default. Copies stand side by side in
+  the row, each a whole cell.
+- **The balanced count**: the root's count as set, then every other row the fewest copies that
+  keep up with its users, users first — so each row is sized against its users' balanced
+  counts, not their current ones. Green in each drop-down, the exact need in its tooltip;
+  *Balance* sets every ingredient row to it and leaves the root alone. A line under the numbers
+  names the balanced chain and holds the button, only while some count differs. The root is
+  never "balanced": it sets the pace.
+- **At most 32 cells in a blueprint**, else the chain refuses. Measured on 2.1.25: a fresh
+  32-cell beaconed row plans in 164 ms (AM3) to 303 ms (EM plant), and 19 to 20 ms once the pole
+  memo holds it. The pole solver keeps a flag per candidate and files consumers by column to get
+  there — same answers, the goldens prove it.
+- **The row**: walk order, bottom-aligned so the chest rows make one line. A free tile beside a
+  pipe row unless both neighbours carry the same fluid at the same height; then the smallest gap,
+  up to six more tiles, at which no beacon reaches another cell's machine — cells with side
+  columns abut, a sided cell beside an unsided one stands three apart. Past six (modded reach)
+  they abut and the chain warns.
+- **One power network**: the pole ladder runs over the whole row, every cell's extra column or
+  row at once, one solve each time — connected by construction, so copies' unjoined poles
+  (`deferred.md`) cannot happen inside a chain. The last eight solves are kept in a module-local
+  memo, since a keystroke replans the whole row; a client without it computes the same answer.
+- **At most eight rows (items)**: the window's height, the blueprint's width and the pole solve
+  all grow with the count, and Upcycler Planner crashed twice on unbounded growth. A cut leaves
+  the toggle unlit and disabled with the reason, and the status says so.
+- **Warnings**: the root's, then each other cell's behind its icon; four read the same for every
+  cell (network cap, quality and build quality not researched, a slot cap with no effect) and
+  show once per distinct text. A refusing cell refuses the chain, its icon saying which.
+- **The blueprint wears the chain's first four products**, the root first.
+- **A rebuild that grows the window lifts it** so Place stays on screen, from an estimate of the
+  window without the chain; the rows scroll past what the screen leaves.
+
 ## Portal
 
 - **The summary is one short sentence, and the README stays short** — "Pick an item and get a
@@ -221,3 +293,8 @@ The design record, with the approaches weighed, is `throughput-design.md`; the e
 - **Forking Upcycler Planner and pruning it** (2026-11-25, owner's call between two designs):
   about 3,000 lines of loop structure and comments to scrub, and two copies of shared code to
   keep in step. Only generic pieces were lifted, each saying so where it lives.
+- **For chains, 2026-11-28, all the owner's picks:** direct insertion between machines (a new
+  layout family, and the intermediate lost to the base); cell tabs and a side panel for the
+  window (every other cell a click away); counts balanced automatically by default (a wider
+  blueprint unasked, and Upcycler Planner withdrew its own auto-balancing after it crashed the
+  game) — the owner then asked for counts to set and a balance to apply, which is what stands.

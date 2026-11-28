@@ -9,6 +9,9 @@ ingredients and an output chest for what it makes. Change anything you like, the
 
 ## What you can change
 
+- Make the ingredients too: click one beside the machine and it gets a cell of its own, in the
+  same blueprint
+- How many cells of each item to build, with the balanced count in green and a button to use it
 - The machine, modules, inserters, chests and electric pole, each at any quality
 - How much to request: a few crafts' worth, a few minutes' worth, or your own amounts
 - When to stop: when the chest is full, at a count across your logistic network, or never
@@ -45,6 +48,8 @@ Fluid recipes sharing one pipe:
 ## Good to know
 
 - When one inserter can't keep up, the planner adds more, each with its own chest.
+- In a chain, robots carry the ingredients from cell to cell. A cell's icon turns red when it
+  makes less than the chain uses.
 - Modded machines, chests, inserters, modules and beacons all work. Only researched ones are
   shown unless you turn on **Show unresearched items** with the flask button at the top of the
   planner.

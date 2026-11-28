@@ -50,10 +50,13 @@ local function amount_field(item)
   return list["apl-request-row-" .. item]["apl-request-" .. item]
 end
 
+local function cells() return state.of(player().index).cells end
+
 local function reset()
   gui.close(player())
   local entry = state.of(player().index)
   entry.choices = {}
+  entry.cells = {}
   entry.chooser_maybe_open = nil
   player().clear_cursor()
   player().mod_settings[gui.SHOW_ALL_SETTING] = { value = false }
@@ -265,6 +268,160 @@ describe("the planner window", function()
     fire(size, defines.events.on_gui_text_changed)
     assert(choices().size_crafts == 7 and choices()["request_iron-plate"] == nil,
       "a new craft count should replace the hand-set amounts")
+  end)
+
+  test("the machine row offers only ingredients a cell can make", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "wooden-chest")
+    assert(find(frame(), "apl-chain-strip/wooden-chest") == nil, "nothing makes wood, so no strip")
+    pick("apl-item", "electronic-circuit")
+    local cable = widget("apl-chain-electronic-circuit/copper-cable")
+    assert(cable.number == 3 and cable.style.name == "slot_button", "cable should be offered, 3 a craft, unlit")
+  end)
+
+  test("ticking an ingredient adds its row, whose pickers write its own entry", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    assert(cells()["copper-cable"] and cells()["copper-cable"].on, "the cable was not ticked")
+    assert(widget("apl-chain-electronic-circuit/copper-cable").style.name == "yellow_slot_button",
+      "a ticked ingredient should be lit")
+    assert(widget("apl-cell-row/copper-cable") and widget("apl-cell/copper-cable"), "the cable's row is missing")
+    assert(cells()["copper-cable"].machine, "the cell's machine default was not written back")
+    pick("apl-machine/copper-cable", "assembling-machine-2")
+    assert(cells()["copper-cable"].machine == "assembling-machine-2", "the cell's pick missed its entry")
+    assert(choices().machine == "assembling-machine-3", "the cell's pick leaked into the root")
+    assert(widget("apl-status").visible and widget("apl-stats"), "the chain should plan")
+    click("apl-chain-electronic-circuit/copper-cable")
+    assert(not cells()["copper-cable"].on and cells()["copper-cable"].machine == "assembling-machine-2",
+      "unticking should keep the entry for later")
+    assert(find(frame(), "apl-cell-row/copper-cable") == nil, "the row should go with the tick")
+  end)
+
+  test("a cell made from its own product cannot untick itself from its row", function()
+    gui.open(player())
+    pick("apl-item", "atomic-bomb")
+    click("apl-chain-atomic-bomb/uranium-235")
+    local own = widget("apl-chain-uranium-235/uranium-235")
+    assert(own.style.name == "yellow_slot_button" and not own.enabled,
+      "kovarex takes its own product, which should stay lit and locked in its row")
+  end)
+
+  test("a row's count lands in its own entry, and Balance sets every count", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    pick("apl-machine/copper-cable", "assembling-machine-3")
+    local count = widget("apl-count/copper-cable")
+    assert(count.items[2]:find("[color=", 1, true), "the balanced count, two cable cells, should be green")
+    assert(widget("apl-balance"), "one cable cell is not balanced, so Balance should be offered")
+    count.selected_index = 3
+    fire(count, defines.events.on_gui_selection_state_changed)
+    assert(cells()["copper-cable"].count == 3 and choices().count == nil, "the count missed its own entry")
+    click("apl-balance")
+    assert(cells()["copper-cable"].count == 2, "Balance should set the cable to its balanced two cells")
+    assert(find(frame(), "apl-balance") == nil, "a balanced chain offers no Balance")
+    assert(widget("apl-count/copper-cable").selected_index == 2, "the drop-down should show the new count")
+  end)
+
+  test("Balance waits when the balanced chain would not fit in a blueprint", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "inserter")
+    click("apl-chain-inserter/electronic-circuit")
+    click("apl-chain-inserter/iron-gear-wheel")
+    click("apl-chain-electronic-circuit/copper-cable")
+    for _, item in ipairs({ "electronic-circuit", "iron-gear-wheel", "copper-cable" }) do
+      pick("apl-machine/" .. item, "assembling-machine-1")
+    end
+    local count = widget("apl-count")
+    count.selected_index = 10
+    fire(count, defines.events.on_gui_selection_state_changed)
+    -- Ten AM3s of inserters outrun ten AM1s of anything they take: 40 cells balanced, capped.
+    local balance = widget("apl-balance")
+    assert(not balance.enabled, "a balanced chain of 40 cells cannot be placed, so Balance should wait")
+    local before = serpent.line(cells())
+    fire(balance, defines.events.on_gui_click)
+    assert(serpent.line(cells()) == before, "a disabled Balance changed the counts")
+  end)
+
+  test("the root's count copies the root", function()
+    gui.open(player())
+    pick("apl-item", "iron-gear-wheel")
+    local count = widget("apl-count")
+    count.selected_index = 3
+    fire(count, defines.events.on_gui_selection_state_changed)
+    assert(choices().count == 3, "the root's count was not stored")
+    count = widget("apl-count")
+    count.selected_index = 1
+    fire(count, defines.events.on_gui_selection_state_changed)
+    assert(choices().count == nil, "a count of one should store nothing")
+  end)
+
+  test("a new root item drops the chain", function()
+    gui.open(player())
+    pick("apl-item", "electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    pick("apl-item", "iron-gear-wheel")
+    assert(next(cells()) == nil, "the old chain survived a new item")
+  end)
+
+  test("the amounts panel groups the chain, each cell's amounts in its own entry", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    click("apl-requests-edit")
+    assert(widget("apl-ingredients-head/copper-cable"), "the cable's group has no header")
+    local field = widget("apl-request-copper-cable/copper-plate")
+    field.text = "77"
+    fire(field, defines.events.on_gui_text_changed)
+    assert(cells()["copper-cable"]["request_copper-plate"] == 77, "the cell's amount missed its entry")
+    assert(choices()["request_copper-plate"] == nil, "the cell's amount leaked into the root")
+    local size = widget("apl-size-value")
+    size.text = "9"
+    fire(size, defines.events.on_gui_text_changed)
+    assert(cells()["copper-cable"]["request_copper-plate"] == nil, "a new craft count should reset every cell")
+  end)
+
+  test("every name in a window with a chain and its panel is unique", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "advanced-circuit")
+    click("apl-chain-advanced-circuit/electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    click("apl-requests-edit")
+    local seen = {}
+    local function walk(element)
+      if element.name ~= "" then
+        assert(not seen[element.name], "two widgets are named " .. element.name)
+        seen[element.name] = true
+      end
+      for _, child in pairs(element.children) do walk(child) end
+    end
+    walk(frame())
+    assert(seen["apl-chain-advanced-circuit/copper-cable"] and seen["apl-chain-electronic-circuit/copper-cable"],
+      "the cable should be offered in both rows that take it")
+  end)
+
+  test("Place hands over the whole chain", function()
+    gui.open(player())
+    pick("apl-machine", "assembling-machine-3")
+    pick("apl-item", "electronic-circuit")
+    click("apl-chain-electronic-circuit/copper-cable")
+    click("apl-confirm")
+    local cursor = player().cursor_stack
+    assert(cursor.valid_for_read and cursor.name == "blueprint", "no blueprint in the cursor")
+    local recipes = {}
+    for _, e in pairs(cursor.get_blueprint_entities()) do
+      if e.recipe then recipes[e.recipe] = true end
+    end
+    assert(recipes["electronic-circuit"] and recipes["copper-cable"], "the blueprint lacks a cell")
+    assert(#cursor.preview_icons == 2 and cursor.preview_icons[2].signal.name == "copper-cable",
+      "the icons should name both products")
   end)
 
   test("the titlebar toggle flips the per-player setting, and the window follows it", function()

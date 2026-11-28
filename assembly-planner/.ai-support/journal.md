@@ -2,6 +2,65 @@
 
 Dated sessions, newest first. Append-only: entries are history and are never edited.
 
+## 2026-11-28 (night, later) — ratios
+
+Shown the first build, the owner asked: "It would be nice if user can configure ratios but also
+see and get the optimal ratios". Built without further questions, as asked: a count drop-down
+per row, the root's included, the balanced count green in it, and a *Balance* line that applies
+the balanced counts in one click (`decisions.md` → Production chains, `chain-design.md` →
+Ratios). Counts stay at one until changed, so the earlier pick of a warning over automatic cells
+still holds by default.
+
+Bigger rows needed a faster pole solver first. `poles.plan` now keeps a `blocked` and a `near`
+flag per candidate, updated once per placement, and files consumers by column; the goldens and
+the pure pole tests came out identical. Timed in a real client on 2.1.25: a fresh 32-cell
+beaconed row in 164 ms (AM3) to 303 ms (EM plant), every repeat within 20 ms through the memo.
+The cap is 32 cells; more refuses.
+
+The screenshot harness caught the counts clipped to a sliver at 56 px (now 72). A bug review
+found one real defect, fixed with a test: *Balance* could push a chain past the cap, after which
+the refused plan left every drop-down showing its old count — the button now waits, saying why,
+and a refused plan repaints the counts from storage. The showcase's window shot now shows a
+balanced eight-cell chain. End state: in-game 162/162, static clean. Nothing committed or
+published.
+
+## 2026-11-28 (night) — production chains, 0.4.0 open
+
+The owner asked for "chains of production in the mall … if I place electronic circuits it would
+also propose optionally copper cables", with "a very beautiful compact and accessible ui to
+configure nested chains", then asked for autonomy and no publishing. One round of three
+questions settled the shape: extra rows in the window, robots between cells, a warning rather
+than more cells when one falls short (`decisions.md` → Production chains, `chain-design.md`).
+
+Single-cell plans were pinned first: eight digests captured on the untouched tree
+(`tests/plan_golden_spec.lua`, with Upcycler Planner's fingerprint helper), then `plan.build`
+split into `plan.cell` and its power, and all eight held. The chain went in as `chain.lua` (the
+walk, what a cell inherits, the row planned and powered once) and the pure `row.lua` (fluid
+tiles, beacon gaps), test first in each tier.
+
+A fresh-context check of the design before the window was built found three things that would
+have broken — 0.3.0 entries without `cells`, the root's amounts leaking into cells through the
+derive, and `plan.build` gaining keys under the goldens — all three already handled in the
+build, and nine smaller ones, folded in (`chain-design.md` → The check). Its beacon arithmetic
+corrected the design's prose: sided cells abut with 0.6 tile of slack, not one; a sided cell
+beside an unsided one, and above-only cells, need 2 or 3.
+
+A scratch harness modelled on the showcase photographed the window in five states on 2.1.25.
+It changed three things: the strips needed the ◀ to read as ingredients rather than more module
+slots; a line per short cell pushed an eight-cell window off a 1080p screen, so short cells now
+turn red in their rows behind one status line; and a rebuild that grows the window now lifts it.
+
+Two reviews at the end, as the feature-dev process asks: one for simplicity and conventions,
+whose tidy-ups went in (named steps in `chain.build`, `row.lua` unnested, a one-cell `cells`
+list on every plan, one-sentence tooltips), and one for bugs, which found no crash or desync and
+two small defects, both fixed with a test each — a top-tier cell charged a quality share nothing
+can roll, and a kovarex cell able to untick itself from its own row.
+
+The showcase's window shot now shows a three-cell chain; the five world shots came out
+byte-identical. End state: in-game 155/155 headless, pure 56/56, static clean, the data stage
+clean with every expansion and with none. Nothing committed; nothing published. `info.json` and
+the changelog are at 0.4.0, `Date: ????`.
+
 ## 2026-11-28 (later) — 0.3.0 published
 
 The owner asked for the redesign to be released and published. Pre-flight: the portal held

@@ -119,12 +119,16 @@ function blueprint.give(player, plan)
 
   cursor.set_blueprint_entities(blueprint.entities(plan))
 
-  -- The product at its quality says what the cell is for; the engine would pick the machine.
-  -- Written AFTER set_blueprint_entities, which resets what it touches -- do not reorder.
-  cursor.preview_icons = { {
-    index = 1,
-    signal = { type = "item", name = plan.product, quality = plan.product_quality },
-  } }
+  -- The product at its quality says what the cell is for; the engine would pick the machine. A
+  -- chain shows its first four products, the root's first; a plan straight from plan.build
+  -- has no cells list. Written AFTER set_blueprint_entities, which resets what it touches --
+  -- do not reorder.
+  local icons = {}
+  for index, cell in ipairs(plan.cells or { { item = plan.product } }) do
+    if index > 4 then break end
+    icons[index] = { index = index, signal = { type = "item", name = cell.item, quality = plan.product_quality } }
+  end
+  cursor.preview_icons = icons
 
   -- Q throws it away and nothing lands in the inventory; dragging it into a slot keeps it.
   player.cursor_stack_temporary = true

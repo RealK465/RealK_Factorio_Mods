@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.0
+Date: ????
+  Features:
+    - Production chains: click an ingredient beside the machine to make it too, in a cell of its
+      own. Its ingredients can be added the same way.
+    - The whole chain comes as one blueprint, the cells side by side on one power network.
+      Robots carry the ingredients between the cells.
+    - Each cell has its own machine, modules and recipe. Everything else is shared by the chain.
+    - A cell's icon turns red when it makes less than the chain uses.
+    - Choose how many cells to build of each item. The balanced count shows in green, and the
+      Balance button sets them all at once.
+  Gui:
+    - The ingredient amounts window lists every cell of the chain.
+  Info:
+    - A chain makes up to 8 items, in up to 32 cells.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2026-11-28
   Gui:

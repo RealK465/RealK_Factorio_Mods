@@ -286,16 +286,24 @@ function proto.recipes_for_item(item_name)
   return catalogue().recipes_for[item_name] or {}
 end
 
+-- Whether a cell can make this item at all: the item picker's catalogue, and what a chain offers.
+function proto.has_cell_recipe(item_name)
+  return catalogue().recipes_for[item_name] ~= nil
+end
+
+-- Whether the force has researched a recipe a cell can make this item with.
+function proto.is_cell_unlocked(force, item_name)
+  for _, recipe_name in pairs(proto.recipes_for_item(item_name)) do
+    local recipe = force.recipes[recipe_name]
+    if recipe and recipe.enabled then return true end
+  end
+  return false
+end
+
 function proto.unlocked_items(force)
   local out = {}
   for _, item in pairs(proto.items()) do
-    for _, recipe_name in pairs(proto.recipes_for_item(item)) do
-      local recipe = force.recipes[recipe_name]
-      if recipe and recipe.enabled then
-        out[#out + 1] = item
-        break
-      end
-    end
+    if proto.is_cell_unlocked(force, item) then out[#out + 1] = item end
   end
   return out
 end

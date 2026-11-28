@@ -8,6 +8,11 @@
 -- the pipe when the recipe takes no fluid. Pickers offer what the force has researched unless
 -- the per-player "show unresearched" setting is on, toggled from the titlebar.
 --
+-- A production chain shows in the first section: beside each machine, the ingredients a cell
+-- could make, lit when they are made in the chain; under the machine, one row per ingredient
+-- cell with its own machine, modules, recipe and ingredients (chain.lua). Everything below the
+-- first section is the whole chain's.
+--
 -- Built from scratch on every open and destroyed on close: stale state is impossible rather
 -- than merely unlikely, and nothing about the frame is kept in storage -- only the choices.
 -- Handlers are reached through the tag dispatcher, so saved state only ever holds name strings.
@@ -23,6 +28,7 @@ local calc = require("scripts.calc")
 local dispatch = require("scripts.dispatch")
 local proto = require("scripts.proto")
 local plan = require("scripts.plan")
+local chain = require("scripts.chain")
 local blueprint = require("scripts.blueprint")
 local state = require("scripts.state")
 
@@ -42,6 +48,8 @@ local COLOR_ERROR = { r = 1, g = 0.35, b = 0.35 }
 local COLOR_WARNING = { r = 1, g = 0.7, b = 0.3 }
 local COLOR_PLAIN = { r = 1, g = 1, b = 1 }
 local COLOR_HINT = { r = 0.7, g = 0.7, b = 0.7 }
+-- The balanced count in a count drop-down, a soft green.
+local BALANCED_COLOR = "#80e080"
 local ICON_WARNING = "[img=utility/warning_icon] "
 local ICON_ERROR = "[img=utility/not_available] "
 
@@ -51,9 +59,20 @@ local LABEL_WIDTH = 76
 -- hold two digits.
 local MODE_WIDTH = 136
 local COUNT_WIDTH = 56
+-- A row's cell count reads "×10" at most.
+local COPIES_WIDTH = 72
 local NUMBER_WIDTH = 64
 -- Status lines wrap inside the window instead of widening it.
 local STATUS_WIDTH = 400
+-- A chain row's product steps this far right per level, within the caption column.
+local INDENT = 12
+local SLOT = 40
+-- A chain row is a slot strip and the form's spacing. The rows scroll past what the screen
+-- leaves once the rest of the window, a few status lines included, is drawn -- never fewer
+-- than two, never more than the cap's seven.
+local ROW = SLOT + 8
+local CHAIN_MIN, CHAIN_MAX = 2 * ROW, 7 * ROW
+local WINDOW_WITHOUT_CHAIN = 700
 
 local function frame_of(player)
   local frame = player.gui.screen[FRAME]
@@ -72,6 +91,30 @@ end
 local function section_of(player, name)
   local frame = frame_of(player)
   return frame and frame["apl-main"]["apl-content"][name]
+end
+
+-- A chain row's product slot, by the item the row makes; nil when no row makes it.
+local function product_of(pane, item)
+  local caption = pane["apl-chain"]["apl-cell-caption/" .. item]
+  return caption and caption["apl-cell-strip/" .. item]["apl-cell/" .. item]
+end
+
+-- How many copies of a row's cell to build, "×1" up, the balanced count in green. gui.refresh
+-- repaints it, since the balanced count moves with the plan.
+local function count_items(best)
+  local items = {}
+  for n = 1, chain.MAX_COUNT do
+    items[n] = n == best and ("[color=" .. BALANCED_COLOR .. "]×" .. n .. "[/color]") or ("×" .. n)
+  end
+  return items
+end
+
+-- A row's count drop-down: the root's in the machine row, an ingredient cell's in its own row.
+local function count_of(player, index, item)
+  if index == 1 then return section_of(player, "apl-make")["apl-machine-row"]["apl-count"] end
+  local pane = section_of(player, "apl-chain-pane")
+  local row = pane and pane["apl-chain"]["apl-cell-row/" .. item]
+  return row and row["apl-count/" .. item]
 end
 
 function gui.is_setting(name)
@@ -174,6 +217,31 @@ local function clear_request_overrides(choices)
   end
 end
 
+-- A new request rule or number resizes every cell of the chain.
+local function clear_all_request_overrides(entry)
+  clear_request_overrides(entry.choices)
+  for _, cell in pairs(entry.cells) do clear_request_overrides(cell) end
+end
+
+-- The table a control writes: an ingredient cell's own entry when `cell` names one, else the
+-- root's choices.
+local function target_of(entry, cell)
+  if cell then return entry.cells[cell] end
+  return entry.choices
+end
+
+-- The whole set of choices a cell is planned from, for reading.
+local function choices_of(entry, cell)
+  if not cell then return entry.choices end
+  return chain.derive(entry.choices, entry.cells[cell] or {}, cell)
+end
+
+-- A cell's suffix on its controls' names: none for the root, "/<item>" for an ingredient cell.
+-- A slash cannot occur in a prototype name, so no two names collide.
+local function suffix(cell)
+  return cell and ("/" .. cell) or ""
+end
+
 -- Writes the resolved defaults back, so the pickers show what would really be placed. Only
 -- prototype picks: an untouched NUMBER stays unstored, so it keeps following its default.
 local function apply_defaults(player, choices)
@@ -185,6 +253,16 @@ local function apply_defaults(player, choices)
   choices.pipe = r.pipe
   if r.beacon and not choices.no_beacon_module then choices.beacon_module = r.beacon_module end
   return r
+end
+
+-- The same for each ingredient cell's machine, the one pick a cell resolves on its own. Into
+-- the node's choices too: they were derived before the write, and the row's picker shows them.
+local function apply_cell_defaults(entry, nodes)
+  for index = 2, #nodes do
+    local node = nodes[index]
+    entry.cells[node.item].machine = node.picks.machine
+    node.choices.machine = node.picks.machine
+  end
 end
 
 local function status_line(status, name, caption, color)
@@ -204,47 +282,116 @@ local function titled_tooltip(key)
   return titled({ "apl-gui." .. key }, { "apl-gui." .. key .. "-tooltip" })
 end
 
+-- The amounts panel's groups, one per cell: { item, cell, rows }, `cell` naming an ingredient
+-- cell's entry and nil for the root. From the plan when one stands, priced at each cell's real
+-- pace; from the picks alone when it is refused.
+local function request_groups(player, p)
+  local groups = {}
+  if p then
+    for index, c in ipairs(p.cells) do
+      groups[index] = { item = c.item, cell = index > 1 and c.item or nil, rows = c.request_rows }
+    end
+    return groups
+  end
+  local entry = state.of(player.index)
+  for index, node in ipairs(chain.walk(player.force, entry.choices, entry.cells)) do
+    groups[index] = {
+      item = node.item, cell = index > 1 and node.item or nil, rows = plan.sizing(player.force, node.choices),
+    }
+  end
+  return groups
+end
+
+-- A request field's name ends in the ingredient, after its cell's item for an ingredient cell.
+local function request_suffix(group, row)
+  return group.cell and (group.cell .. "/" .. row.name) or row.name
+end
+
 -- The ingredient fields brought up to date: every default in the tags, and the text of every
 -- field the player has not set by hand. A hand-set field is never rewritten -- it may be the
 -- one being typed in.
-local function repaint_request_rows(player, rows)
+local function repaint_request_rows(player, groups)
   local panel = panel_of(player)
   local list = panel and panel[INGREDIENTS_FRAME .. "-content"]["apl-ingredients-list"]
   if not list then return end
-  local choices = state.of(player.index).choices
-  for _, row in ipairs(rows) do
-    local line = list["apl-request-row-" .. row.name]
-    local field = line and line["apl-request-" .. row.name]
-    if field then
-      local tags = field.tags
-      if tags.default ~= row.default then
-        tags.default = row.default
-        field.tags = tags
+  local entry = state.of(player.index)
+  for _, group in ipairs(groups) do
+    local values = target_of(entry, group.cell) or {}
+    for _, row in ipairs(group.rows) do
+      local name = request_suffix(group, row)
+      local line = list["apl-request-row-" .. name]
+      local field = line and line["apl-request-" .. name]
+      if field then
+        local tags = field.tags
+        if tags.default ~= row.default then
+          tags.default = row.default
+          field.tags = tags
+        end
+        local text = tostring(row.default)
+        if values["request_" .. row.name] == nil and field.text ~= text then field.text = text end
       end
-      local text = tostring(row.default)
-      if choices["request_" .. row.name] == nil and field.text ~= text then field.text = text end
     end
   end
 end
 
--- The one line of numbers a standing plan earns: footprint, real rate, and the quality chance
--- when there is one.
+-- The one line of numbers a standing plan earns: the cell count for a chain, the footprint, the
+-- real rate, and the quality chance when there is one.
 local function stats_caption(p)
   local rate = calc.format_rate(p.stats.crafts_per_minute)
-  if p.stats.quality > 0 then
-    return { "apl-gui.stats-quality", p.width, p.height, rate, string.format("%.1f", p.stats.quality * 100) }
+  local quality = p.stats.quality > 0 and string.format("%.1f", p.stats.quality * 100) or nil
+  local copies = p.copies or 1
+  if copies > 1 then
+    if quality then return { "apl-gui.stats-chain-quality", copies, p.width, p.height, rate, quality } end
+    return { "apl-gui.stats-chain", copies, p.width, p.height, rate }
   end
+  if quality then return { "apl-gui.stats-quality", p.width, p.height, rate, quality } end
   return { "apl-gui.stats", p.width, p.height, rate }
 end
 
+-- The cells a balanced chain would stand.
+local function balanced_total(p)
+  local total = 0
+  for _, c in ipairs(p.cells) do total = total + c.best end
+  return total
+end
+
+-- While any row's count differs from the balanced one, a line naming the balanced chain -- each
+-- item at its count -- and the button that sets them all; disabled, saying why, when the
+-- balanced chain would not fit in a blueprint.
+local function add_balance_line(status, p)
+  local off = false
+  for index = 2, #p.cells do off = off or p.cells[index].count ~= p.cells[index].best end
+  if not off then return end
+  local counts = { "" }
+  for _, c in ipairs(p.cells) do counts[#counts + 1] = "[item=" .. c.item .. "]×" .. c.best .. "  " end
+  local line = status.add({ type = "flow", name = "apl-balance-row", direction = "horizontal" })
+  line.style.vertical_align = "center"
+  line.style.horizontal_spacing = 8
+  line.add({ type = "label", name = "apl-balance-label", caption = { "apl-gui.balanced", counts } })
+  local total = balanced_total(p)
+  local fits = total <= chain.MAX_TOTAL
+  line.add({
+    type = "button", name = "apl-balance", caption = { "apl-gui.balance" },
+    tooltip = fits and { "apl-gui.balance-tooltip" } or { "apl-gui.balance-too-big", total, chain.MAX_TOTAL },
+    tags = dispatch.tags("balance"),
+  }).enabled = fits
+end
+
+-- The plan the window stands for: the whole chain.
+local function plan_of(player)
+  local entry = state.of(player.index)
+  return chain.build(player.force, player.surface, entry.choices, entry.cells)
+end
+
+-- Replans and repaints what depends on the plan. Returns the plan, nil when refused.
 function gui.refresh(player)
   local frame = frame_of(player)
-  if not frame then return end
+  if not frame then return nil end
   local choices = state.of(player.index).choices
   local main = frame["apl-main"]
   local status = main["apl-status"]
 
-  local p, message = plan.build(player.force, player.surface, choices)
+  local p, message = plan_of(player)
   main["apl-buttons"]["apl-confirm"].enabled = p ~= nil
 
   -- The split override is kept only while it disagrees with the automatic answer, so the box
@@ -255,14 +402,40 @@ function gui.refresh(player)
 
   -- The amounts panel's defaults move with the pace in minutes mode -- a module or beacon pick
   -- changes them -- so it follows every refresh, not only a size edit.
-  if panel_of(player) then
-    repaint_request_rows(player, p and p.request_rows or plan.sizing(player.force, choices))
+  if panel_of(player) then repaint_request_rows(player, request_groups(player, p)) end
+
+  -- Every row's count marks the balanced one, an ingredient cell's saying its exact need; a
+  -- short row's product turns red, the two rates on hover. The status carries one line for all.
+  local pane = main["apl-content"]["apl-chain-pane"]
+  for index, c in ipairs(p and p.cells or {}) do
+    local count = count_of(player, index, c.item)
+    if count then
+      -- The root sets the pace, so its count is never "balanced" against anything.
+      count.items = count_items(index > 1 and c.best or nil)
+      count.selected_index = c.count
+      if index > 1 then count.tooltip = { "apl-gui.count-cell-tooltip", string.format("%.1f", c.need) } end
+    end
+    local product = index > 1 and pane and product_of(pane, c.item)
+    if product then
+      product.style = c.short and "red_slot_button" or "slot_button"
+      product.tooltip = c.short
+        and { "apl-gui.cell-short-tooltip", calc.format_rate(c.made), calc.format_rate(c.wanted) } or ""
+    end
+  end
+  -- A refused plan has no balance to show, but every count still reads what is stored.
+  if not p then
+    local entry = state.of(player.index)
+    for index, node in ipairs(chain.walk(player.force, entry.choices, entry.cells)) do
+      local count = count_of(player, index, node.item)
+      if count then count.selected_index = node.count end
+    end
   end
 
   -- Before an item is picked the hint stands beside the item picker, so the area stays shut.
   status.clear()
   if p then
     status_line(status, "apl-stats", stats_caption(p), COLOR_PLAIN)
+    add_balance_line(status, p)
     for index, warning in ipairs(p.warnings) do
       status_line(status, "apl-message-" .. index, { "", ICON_WARNING, warning }, COLOR_WARNING)
     end
@@ -270,6 +443,7 @@ function gui.refresh(player)
     status_line(status, "apl-message-1", { "", ICON_ERROR, message }, COLOR_ERROR)
   end
   status.visible = #status.children > 0
+  return p
 end
 
 local function destroy_modal(player)
@@ -328,10 +502,11 @@ local function number_field(parent, name, field, tooltip, extra)
 end
 
 -- The per-ingredient amounts, each field the player's own number or the default the cell would
--- request, priced at the cell's real pace when a plan stands. A side panel beside the window,
--- inside the planner's own screen element, so the pair cannot separate when dragged.
-local function build_ingredients_panel(player, frame)
-  local choices = state.of(player.index).choices
+-- request, priced at the cell's real pace when a plan stands; grouped under each cell's item
+-- once there is a chain. A side panel beside the window, inside the planner's own screen
+-- element, so the pair cannot separate when dragged.
+local function build_ingredients_panel(player, frame, p)
+  local entry = state.of(player.index)
   local panel = frame.add({ type = "frame", name = INGREDIENTS_FRAME, direction = "vertical" })
   panel.style.left_margin = 12
   local bar = add_titlebar(panel, INGREDIENTS_FRAME .. "-titlebar", { "apl-gui.requests-title" }, frame)
@@ -340,9 +515,10 @@ local function build_ingredients_panel(player, frame)
     type = "frame", name = INGREDIENTS_FRAME .. "-content", style = "inside_shallow_frame_with_padding",
     direction = "vertical",
   })
-  local p = plan.build(player.force, player.surface, choices)
-  local rows = p and p.request_rows or plan.sizing(player.force, choices)
-  if #rows == 0 then
+  local groups = request_groups(player, p)
+  local any = false
+  for _, group in ipairs(groups) do any = any or #group.rows > 0 end
+  if not any then
     local hint = content.add({ type = "label", name = "apl-no-ingredients", caption = { "apl-gui.no-ingredients" } })
     hint.style.font_color = COLOR_HINT
     hint.style.single_line = false
@@ -351,19 +527,30 @@ local function build_ingredients_panel(player, frame)
   end
   local list = content.add({ type = "scroll-pane", name = "apl-ingredients-list", direction = "vertical" })
   list.style.maximal_height = 400
-  for _, row in ipairs(rows) do
-    local key = "request_" .. row.name
-    local line = list.add({ type = "flow", name = "apl-request-row-" .. row.name, direction = "horizontal" })
-    line.style.vertical_align = "center"
-    line.style.horizontal_spacing = 8
-    local label = line.add({
-      type = "label", caption = { "", "[item=" .. row.name .. "] ", prototypes.item[row.name].localised_name },
-    })
-    label.style.minimal_width = 160
-    -- The floor is ONE, never zero: every ingredient keeps a request.
-    number_field(line, "apl-request-" .. row.name, {
-      key = key, default = row.default, min = 1, max = 2147483647, value = choices[key] or row.default,
-    }, { "apl-gui.request-count-tooltip" })
+  for index, group in ipairs(groups) do
+    if #groups > 1 and #group.rows > 0 then
+      local head = list.add({
+        type = "label", name = "apl-ingredients-head/" .. group.item, style = "semibold_label",
+        caption = { "", "[item=" .. group.item .. "] ", prototypes.item[group.item].localised_name },
+      })
+      if index > 1 then head.style.top_margin = 8 end
+    end
+    local values = target_of(entry, group.cell) or {}
+    for _, row in ipairs(group.rows) do
+      local key = "request_" .. row.name
+      local name = request_suffix(group, row)
+      local line = list.add({ type = "flow", name = "apl-request-row-" .. name, direction = "horizontal" })
+      line.style.vertical_align = "center"
+      line.style.horizontal_spacing = 8
+      local label = line.add({
+        type = "label", caption = { "", "[item=" .. row.name .. "] ", prototypes.item[row.name].localised_name },
+      })
+      label.style.minimal_width = 160
+      -- The floor is ONE, never zero: every ingredient keeps a request.
+      number_field(line, "apl-request-" .. name, {
+        key = key, default = row.default, min = 1, max = 2147483647, value = values[key] or row.default,
+      }, { "apl-gui.request-count-tooltip" }, { cell = group.cell })
+    end
   end
 end
 
@@ -372,21 +559,21 @@ local function show_ingredients(player, show)
   local frame = frame_of(player)
   if not frame then return end
   local panel = panel_of(player)
-  if show and not panel then build_ingredients_panel(player, frame) end
+  if show and not panel then build_ingredients_panel(player, frame, (plan_of(player))) end
   if not show and panel then panel.destroy() end
   section_of(player, "apl-stock")["apl-requests-row"]["apl-requests-edit"].toggled = show
 end
 
--- A picker button for one choice key. Disabled rather than unfiltered when it has nothing to
--- offer at all (see name_filter).
-local function picker(parent, player, choices, r, key)
+-- A picker button for one choice key, of the root or of the ingredient cell `cell` names.
+-- Disabled rather than unfiltered when it has nothing to offer at all (see name_filter).
+local function picker(parent, player, choices, r, key, cell)
   local spec = PICKERS[key]
   local names = offered(player, spec.names(r), spec.narrow)
   local dashed = key:gsub("_", "-")
   local button = parent.add({
-    type = "choose-elem-button", name = "apl-" .. dashed, style = "slot_button",
+    type = "choose-elem-button", name = "apl-" .. dashed .. suffix(cell), style = "slot_button",
     elem_type = spec.elem_type, elem_filters = name_filter(names), tooltip = titled_tooltip(dashed),
-    tags = dispatch.tags("pick", { key = key }),
+    tags = dispatch.tags("pick", { key = key, cell = cell }),
   })
   -- elem_value is a runtime attribute, not a creation parameter: passed to add() it is silently
   -- ignored and the picker opens empty.
@@ -491,12 +678,148 @@ local function build_item_row(form, player, choices, r)
   end
 end
 
-local function build_machine_row(form, player, choices, r)
-  local strip = slot_strip(form_row(form, "machine", { "apl-gui.group-machine" }), "apl-machine-strip")
-  picker(strip, player, choices, r, "machine")
+-- A cell's machine and its modules, the module picker hidden on a machine without slots.
+local function machine_strip(row, player, choices, r, cell)
+  local strip = slot_strip(row, "apl-machine-strip" .. suffix(cell))
+  picker(strip, player, choices, r, "machine", cell)
   local machine = r.machine and prototypes.entity[r.machine]
-  picker(strip, player, choices, r, "module").visible =
+  picker(strip, player, choices, r, "module", cell).visible =
     machine ~= nil and proto.module_slots(machine, r.machine_quality) > 0
+end
+
+-- Tooltips of an ingredient beside a machine, by its state.
+local function ingredient_tooltip(ingredient, is_root, is_self, full)
+  local body
+  if is_root then
+    body = { "apl-gui.chain-root-tooltip" }
+  elseif is_self then
+    body = { "apl-gui.chain-self-tooltip" }
+  elseif ingredient.on then
+    body = { "apl-gui.chain-remove-tooltip" }
+  elseif full then
+    body = { "apl-gui.chain-full-tooltip", chain.MAX_CELLS }
+  else
+    body = { "apl-gui.chain-add-tooltip" }
+  end
+  return titled(prototypes.item[ingredient.name].localised_name, body)
+end
+
+-- An ingredient strip wraps past this many, so a long recipe grows its row down rather than the
+-- window across.
+local INGREDIENT_COLUMNS = 4
+
+-- The ingredients of one cell a cell of their own could make, as slots: the count per craft as
+-- the number, the chain's quality as the badge, lit when made in the chain. A click ticks one
+-- in or out of the chain. The root itself, met again down a cycle, and a cell's own product in
+-- its own row (kovarex) stay lit and cannot be unticked there; with the chain full, an unlit
+-- one waits. Unresearched ones hide unless the setting shows them, or the chain already makes
+-- them. Returns the strip, nil when empty.
+local function ingredient_strip(row, player, nodes, index)
+  local node = nodes[index]
+  if not node then return nil end
+  local root = nodes[1]
+  local full = #nodes >= chain.MAX_CELLS
+  local quality = proto.build_quality(root.choices.recipe_quality)
+  local strip, slots
+  for _, ingredient in ipairs(node.ingredients) do
+    if ingredient.on or show_all(player) or proto.is_cell_unlocked(player.force, ingredient.name) then
+      if not slots then
+        strip = slot_strip(row, "apl-chain-strip/" .. node.item)
+        slots = strip.add({ type = "table", name = "apl-chain-slots/" .. node.item, style = "slot_table",
+          column_count = INGREDIENT_COLUMNS })
+      end
+      local is_root = ingredient.name == root.item
+      local is_self = ingredient.name == node.item
+      local button = slots.add({
+        type = "sprite-button", name = "apl-chain-" .. node.item .. "/" .. ingredient.name,
+        style = ingredient.on and "yellow_slot_button" or "slot_button", sprite = "item/" .. ingredient.name,
+        tooltip = ingredient_tooltip(ingredient, is_root, is_self, full),
+        tags = dispatch.tags("chain", { item = ingredient.name, on = ingredient.on }),
+      })
+      button.number = ingredient.amount
+      if quality ~= "normal" then button.quality = quality end
+      button.enabled = not (is_root or is_self) and (ingredient.on or not full)
+    end
+  end
+  return strip
+end
+
+-- The `index`th cell's machine strip and its count, then its ingredients behind an arrow
+-- pointing into the machine. The root's picks are the window's own; an ingredient cell's are
+-- its node's. Without a node (no item yet) the count waits for one.
+local function machine_and_ingredients(row, player, choices, r, nodes, index)
+  local node = nodes[index]
+  local cell = index > 1 and node.item or nil
+  machine_strip(row, player, choices, r, cell)
+  local count = drop_down(row, "apl-count" .. suffix(cell), "count", count_items(nil),
+    node and node.count or 1, { "apl-gui.count-tooltip" }, { cell = cell })
+  count.style.width = COPIES_WIDTH
+  count.enabled = node ~= nil
+  local arrow = row.add({ type = "sprite", sprite = "utility/backward_arrow", ignored_by_interaction = true })
+  local strip = ingredient_strip(row, player, nodes, index)
+  arrow.visible = strip ~= nil
+end
+
+local function build_machine_row(form, player, choices, r, nodes)
+  machine_and_ingredients(form_row(form, "machine", { "apl-gui.group-machine" }), player, choices, r, nodes, 1)
+end
+
+-- The recipe of an ingredient cell when several make its item: icons only, so the drop-down
+-- stays as narrow as a beacon count.
+local function cell_recipe_drop_down(row, node)
+  local recipes = proto.recipes_for_item(node.item)
+  if #recipes < 2 then return end
+  local items = {}
+  for index, name in ipairs(recipes) do items[index] = "[recipe=" .. name .. "]" end
+  local list = drop_down(row, "apl-recipe/" .. node.item, "recipe", items, index_of(recipes, node.picks.recipe),
+    titled_tooltip("recipe"), { recipes = recipes, cell = node.item })
+  list.style.width = COUNT_WIDTH
+end
+
+-- How tall the chain's rows may grow before they scroll, in UI units.
+local function chain_height(player)
+  local screen = player.display_resolution.height / player.display_scale
+  return math.max(CHAIN_MIN, math.min(CHAIN_MAX, screen - WINDOW_WITHOUT_CHAIN))
+end
+
+-- Where a rebuilt window may stand: as before, but lifted when its chain grew it past the
+-- screen's bottom edge, so Place stays in reach. `keep` is in pixels, the sizes in UI units.
+local function lifted(player, keep, nodes)
+  if not keep or #nodes < 2 then return keep end
+  local rows = math.min((#nodes - 1) * ROW, chain_height(player))
+  local bottom = player.display_resolution.height - (WINDOW_WITHOUT_CHAIN + rows) * player.display_scale
+  return { x = keep.x, y = math.max(0, math.min(keep.y, bottom)) }
+end
+
+-- One row per ingredient cell under the machine row, in the walk's order: its product, stepped
+-- in by depth, then its machine, its own ingredients and its recipe. A table of its own in a
+-- pane that scrolls, its caption column as wide as the form's so the strips line up.
+local function build_chain_rows(content, player, nodes)
+  if #nodes < 2 then return nil end
+  local pane = content.add({
+    type = "scroll-pane", name = "apl-chain-pane", style = "naked_scroll_pane", direction = "vertical",
+    horizontal_scroll_policy = "never",
+  })
+  pane.style.top_margin = 8
+  pane.style.maximal_height = chain_height(player)
+  local form = section(pane, "apl-chain")
+  for index = 2, #nodes do
+    local node = nodes[index]
+    local caption = form.add({ type = "flow", name = "apl-cell-caption/" .. node.item, direction = "horizontal" })
+    caption.style.width = LABEL_WIDTH
+    caption.style.left_padding = math.min(INDENT * node.depth, LABEL_WIDTH - SLOT)
+    local product = slot_strip(caption, "apl-cell-strip/" .. node.item).add({
+      type = "sprite-button", name = "apl-cell/" .. node.item, style = "slot_button",
+      sprite = "item/" .. node.item,
+    })
+    product.elem_tooltip = { type = "item", name = node.item }
+    local row = form.add({ type = "flow", name = "apl-cell-row/" .. node.item, direction = "horizontal" })
+    row.style.vertical_align = "center"
+    row.style.horizontal_spacing = 8
+    machine_and_ingredients(row, player, node.choices, node.picks, nodes, index)
+    cell_recipe_drop_down(row, node)
+  end
+  return pane
 end
 
 local function build_logistics_row(form, player, choices, r)
@@ -565,7 +888,9 @@ local function build_stock_rows(form, choices, r)
   }).enabled = proto.next_quality(r.recipe_quality) ~= nil
 end
 
-function gui.open(player)
+-- `focus`, when given, is the ingredient cell whose control rebuilt the window: its row is
+-- scrolled back into view, since a rebuilt pane starts at the top.
+function gui.open(player, focus)
   -- A rebuild keeps the window where it was: read off the OLD frame, since a new one reports 0,0
   -- until laid out. The side panel is a child, so it goes down with the frame and is re-created.
   local old = frame_of(player)
@@ -578,6 +903,9 @@ function gui.open(player)
   entry.chooser_maybe_open = nil
   local choices = entry.choices
   local r = apply_defaults(player, choices)
+  local nodes = chain.walk(player.force, choices, entry.cells)
+  apply_cell_defaults(entry, nodes)
+  keep = lifted(player, keep, nodes)
 
   local frame = player.gui.screen.add({
     type = "frame", name = FRAME, style = "invisible_frame", direction = "horizontal",
@@ -604,7 +932,12 @@ function gui.open(player)
   })
   local make = section(content, "apl-make")
   build_item_row(make, player, choices, r)
-  build_machine_row(make, player, choices, r)
+  build_machine_row(make, player, choices, r, nodes)
+  local pane = build_chain_rows(content, player, nodes)
+  if pane and focus then
+    local row = pane["apl-chain"]["apl-cell-row/" .. focus]
+    if row then pane.scroll_to_element(row, "in-view") end
+  end
   separator(content)
   local build = section(content, "apl-build")
   build_logistics_row(build, player, choices, r)
@@ -634,8 +967,8 @@ function gui.open(player)
     tooltip = { "apl-gui.confirm-tooltip" }, tags = dispatch.tags("confirm"),
   })
 
-  if had_panel then build_ingredients_panel(player, frame) end
-  gui.refresh(player)
+  local p = gui.refresh(player)
+  if had_panel then build_ingredients_panel(player, frame, p) end
 end
 
 function gui.toggle(player)
@@ -701,27 +1034,32 @@ end)
 
 -- A machine module or beacon module the new machine, recipe or beacon refuses is dropped, so
 -- the picker falls back to its default instead of the plan refusing a pick nobody re-made.
-local function drop_unfitting_modules(player, choices)
+-- Judged on the cell's whole choices, written to its own entry -- only the root holds a beacon
+-- module.
+local function drop_unfitting_modules(player, entry, cell)
+  local choices, target = choices_of(entry, cell), target_of(entry, cell)
   local r = plan.picks(player.force, choices)
   local machine = r.machine and prototypes.entity[r.machine]
   local recipe = r.recipe and prototypes.recipe[r.recipe]
-  if choices.module and machine and not proto.module_fits(choices.module, machine, recipe) then
-    choices.module = nil
+  if target.module and machine and not proto.module_fits(target.module, machine, recipe) then
+    target.module = nil
   end
   local beacon = r.beacon and prototypes.entity[r.beacon]
-  if choices.beacon_module and beacon and not proto.module_fits(choices.beacon_module, beacon) then
-    choices.beacon_module = nil
+  if target.beacon_module and beacon and not proto.module_fits(target.beacon_module, beacon) then
+    target.beacon_module = nil
   end
 end
 
 -- What a pick of a NEW prototype changes beyond its own key; a quality change alone changes
 -- nothing else.
 local AFTER_PICK = {
-  -- The amounts were sized against the old recipe, and the recipe list is the new item's.
-  item = function(player, choices)
-    clear_request_overrides(choices)
-    choices.recipe = nil
-    drop_unfitting_modules(player, choices)
+  -- The amounts were sized against the old recipe, the recipe list is the new item's, and a
+  -- new item starts a new chain.
+  item = function(player, entry)
+    clear_request_overrides(entry.choices)
+    entry.choices.recipe = nil
+    entry.cells = {}
+    drop_unfitting_modules(player, entry)
   end,
   machine = drop_unfitting_modules,
   beacon = drop_unfitting_modules,
@@ -734,7 +1072,11 @@ local AFTER_PICK = {
 -- same pick).
 dispatch.register("pick", function(event)
   local player = game.get_player(event.player_index)
-  local choices = state.of(event.player_index).choices
+  local entry = state.of(event.player_index)
+  local cell = event.element.tags.cell
+  -- The table this picker writes: an ingredient cell's own entry, or the root's choices.
+  local choices = target_of(entry, cell)
+  if not choices then return end
   local key = event.element.tags.key
   local spec = PICKERS[key]
   local value = event.element.elem_value
@@ -760,8 +1102,8 @@ dispatch.register("pick", function(event)
     if spec.flag then choices[spec.flag] = nil end
   end
 
-  if renamed and AFTER_PICK[key] then AFTER_PICK[key](player, choices) end
-  if spec.rebuild then gui.open(player) else gui.refresh(player) end
+  if renamed and AFTER_PICK[key] then AFTER_PICK[key](player, entry, cell) end
+  if spec.rebuild then gui.open(player, cell) else gui.refresh(player) end
 end)
 
 -- Drop-downs: the click that opens one is routed here too, carrying the old selection, so only
@@ -773,13 +1115,17 @@ local function on_selection(name, fn)
   end)
 end
 
-on_selection("recipe", function(player, choices, element)
+-- The root's recipe list, or an ingredient cell's; either drops that cell's own amounts only.
+on_selection("recipe", function(player, _, element)
+  local entry = state.of(player.index)
+  local cell = element.tags.cell
+  local target = target_of(entry, cell)
   local name = element.tags.recipes[element.selected_index]
-  if not name or name == plan.picks(player.force, choices).recipe then return end
-  choices.recipe = name
-  clear_request_overrides(choices)
-  drop_unfitting_modules(player, choices)
-  gui.open(player)
+  if not (target and name) or name == plan.picks(player.force, choices_of(entry, cell)).recipe then return end
+  target.recipe = name
+  clear_request_overrides(target)
+  drop_unfitting_modules(player, entry, cell)
+  gui.open(player, cell)
 end)
 
 -- The count drop-downs store a number only once picked; until then nil means "as many as fit".
@@ -800,14 +1146,52 @@ local function mode_handler(name, key, modes, current, on_change)
     local mode = modes[element.selected_index]
     if not mode or mode == current(choices) then return end
     choices[key] = mode
-    if on_change then on_change(choices) end
+    if on_change then on_change(state.of(player.index)) end
     gui.open(player)
   end)
 end
 
--- A new sizing rule replaces the amounts set by hand, which were sized by the old one.
-mode_handler("size-mode", "size_mode", plan.SIZE_MODES, plan.size_mode, clear_request_overrides)
+-- A new sizing rule replaces the amounts set by hand in every cell, which were sized by the old
+-- one.
+mode_handler("size-mode", "size_mode", plan.SIZE_MODES, plan.size_mode, clear_all_request_overrides)
 mode_handler("cap-mode", "cap_mode", plan.CAP_MODES, plan.cap_mode)
+
+-- A row's count: stored only above one, so an untouched row stays a single cell.
+on_selection("count", function(player, _, element)
+  local target = target_of(state.of(player.index), element.tags.cell)
+  local n = element.selected_index
+  if not target or n < 1 or chain.count_of(target.count) == n then return end
+  target.count = n > 1 and n or nil
+  gui.refresh(player)
+end)
+
+-- Every ingredient row set to its balanced count, the root's left as the player set it.
+dispatch.register("balance", function(event)
+  if event.name ~= defines.events.on_gui_click then return end
+  local player = game.get_player(event.player_index)
+  local p = plan_of(player)
+  if not p or balanced_total(p) > chain.MAX_TOTAL then return end
+  local entry = state.of(event.player_index)
+  for index = 2, #p.cells do
+    local c = p.cells[index]
+    local target = entry.cells[c.item]
+    if target then target.count = c.best > 1 and c.best or nil end
+  end
+  gui.refresh(player)
+end)
+
+-- An ingredient beside a machine: ticked into the chain or out of it. Unticking keeps the
+-- cell's entry, so ticking it again brings the cell back as it was.
+dispatch.register("chain", function(event)
+  if event.name ~= defines.events.on_gui_click then return end
+  local player = game.get_player(event.player_index)
+  local entry = state.of(event.player_index)
+  local tags = event.element.tags
+  local cell = entry.cells[tags.item] or {}
+  entry.cells[tags.item] = cell
+  cell.on = (not tags.on) or nil
+  gui.open(player, cell.on and tags.item or nil)
+end)
 
 -- Every number field -- the sizing number, the cap, each ingredient amount: every valid
 -- keystroke commits, Enter snaps the display back to what holds, Enter on an emptied field
@@ -817,8 +1201,11 @@ mode_handler("cap-mode", "cap_mode", plan.CAP_MODES, plan.cap_mode)
 -- replaces every per-ingredient amount.
 dispatch.register("number", function(event)
   local player = game.get_player(event.player_index)
-  local choices = state.of(event.player_index).choices
+  local entry = state.of(event.player_index)
   local tags = event.element.tags
+  -- An ingredient cell's amount lands in its own entry; every other number is the root's.
+  local choices = target_of(entry, tags.cell)
+  if not choices then return end
   local value = tonumber(event.element.text)
   local before = choices[tags.key]
   if event.name == defines.events.on_gui_confirmed then
@@ -837,7 +1224,7 @@ dispatch.register("number", function(event)
     return
   end
   if choices[tags.key] == before then return end
-  if tags.requests then clear_request_overrides(choices) end
+  if tags.requests then clear_all_request_overrides(entry) end
   gui.refresh(player)
 end)
 
@@ -859,7 +1246,7 @@ end)
 
 function gui.confirm(player)
   if not frame_of(player) then return end
-  local p = plan.build(player.force, player.surface, state.of(player.index).choices)
+  local p = plan_of(player)
   if not p then return end
   -- Left open on a refusal, so freeing a hand and pressing Place again is the whole recovery.
   local given, reason = blueprint.give(player, p)

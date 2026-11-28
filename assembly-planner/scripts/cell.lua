@@ -40,12 +40,13 @@ local function overlap(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1)
   return ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1
 end
 
--- Both positions relative to the machine's top-left tile.
+-- Both positions relative to the machine's top-left tile. row.lua asks it across cells too.
 local function reaches(beacon, bx, by, machine)
   local m, d, mm = beacon.margin, beacon.supply, machine.margin
   return overlap(bx + m - d, by + m - d, bx + beacon.w - m + d, by + beacon.h - m + d,
     mm, mm, machine.w - mm, machine.h - mm)
 end
+cell.reaches = reaches
 
 -- The side column's stack, top-aligned: as many beacons as fit beside the machine and its two
 -- rows, and only those that reach it. Offsets are rows below the machine's top. A beacon that
@@ -172,7 +173,9 @@ end
 -- p.pole_row     the height of an extra row along the top for poles, or nil -- the only
 --                ground a short-reach pole can power a full row of beacons above from.
 --
--- Returns { entities, width, height }.
+-- Returns { entities, width, height, machine, beacons, pipe_y }: the machine's rect
+-- { dx, dy, w, h, margin }, every beacon's { dx, dy }, and the pipe row's dy when there is one
+-- -- what row.lua needs to stand cells side by side without touching each other.
 function cell.build(p)
   local machine, beacon = p.machine, p.beacon
   local fluid = p.pipe ~= nil
@@ -199,18 +202,22 @@ function cell.build(p)
   local column = p.pole_column or 0
   local width, height = base + column, cy + 1
 
-  local entities = {}
+  local entities, beacons = {}, {}
   local function add(entity) entities[#entities + 1] = entity end
+  local function add_beacon(dx, dy)
+    add(beacon_entity(beacon, dx, dy))
+    beacons[#beacons + 1] = { dx = dx, dy = dy }
+  end
 
-  for _, x in ipairs(above_list) do add(beacon_entity(beacon, mx + x, oy)) end
+  for _, x in ipairs(above_list) do add_beacon(mx + x, oy) end
 
   if fluid then
     for x = 0, width - 1 do add({ name = p.pipe, dx = x, dy = oy + ah, w = 1, h = 1 }) end
   end
 
   for _, y in ipairs(side_list) do
-    add(beacon_entity(beacon, 0, my + y))
-    add(beacon_entity(beacon, mx + machine.w + gap_right, my + y))
+    add_beacon(0, my + y)
+    add_beacon(mx + machine.w + gap_right, my + y)
   end
 
   add({
@@ -246,7 +253,11 @@ function cell.build(p)
     add_slot(slot, mx + machine.w, y, mx + machine.w + 1, y, EAST, WEST)
   end
 
-  return { entities = entities, width = width, height = height }
+  return {
+    entities = entities, width = width, height = height,
+    machine = { dx = mx, dy = my, w = machine.w, h = machine.h, margin = machine.margin },
+    beacons = beacons, pipe_y = fluid and oy + ah or nil,
+  }
 end
 
 return cell

@@ -2,12 +2,13 @@
 -- powered entity in it -- machine, inserters, beacons -- has power. PURE: plain values in,
 -- pole entities out, so the same cell grows the same poles on every client.
 --
--- A greedy cover over the cell's free tiles, connected by construction: after the first pole,
+-- A greedy cover over the layout's free tiles, connected by construction: after the first pole,
 -- a candidate counts only when it is within wire reach of a pole already placed, and when no
 -- connected candidate covers anything new the next pole is a bridge toward the best one that
--- does. A cell has a few dozen free tiles and a dozen consumers at most, so plain scans are the
--- whole algorithm. Row-major scan order is load-bearing: every tie goes to the first candidate
--- found, which is what makes the result deterministic.
+-- does. A chain's row can hold dozens of cells, so the scans stay linear in the candidates:
+-- each consumer is filed by the columns it spans, and each candidate carries flags that every
+-- placement updates once. Row-major scan order is load-bearing: every tie goes to the first
+-- candidate found, which is what makes the result deterministic.
 
 local poles = {}
 
@@ -68,14 +69,32 @@ function poles.plan(built, pole, margins)
     end
   end
 
+  -- Each consumer filed under every column it spans, so a candidate tests only the consumers
+  -- its supply square can reach. The order of a candidate's cover list never matters: it is
+  -- only ever counted and marked.
+  local by_column = {}
+  for i, consumer in ipairs(consumers) do
+    for x = consumer.dx, consumer.dx + consumer.w - 1 do
+      by_column[x] = by_column[x] or {}
+      by_column[x][#by_column[x] + 1] = i
+    end
+  end
+
   local occ = occupied(built.entities)
   local candidates = {}
+  local d = pole.supply_distance
   for py = 0, built.height - pole.height do
     for px = 0, built.width - pole.width do
       if fits(occ, built.width, built.height, px, py, pole) then
         local c = { dx = px, dy = py, cx = px + pole.width / 2, cy = py + pole.height / 2, covers = {} }
-        for i, consumer in ipairs(consumers) do
-          if covers(pole, c.cx, c.cy, consumer) then c.covers[#c.covers + 1] = i end
+        local tested = {}
+        for x = math.floor(c.cx - d) - 1, math.ceil(c.cx + d) do
+          for _, i in ipairs(by_column[x] or {}) do
+            if not tested[i] then
+              tested[i] = true
+              if covers(pole, c.cx, c.cy, consumers[i]) then c.covers[#c.covers + 1] = i end
+            end
+          end
         end
         candidates[#candidates + 1] = c
       end
@@ -85,25 +104,14 @@ function poles.plan(built, pole, margins)
   local covered, remaining, placed = {}, #consumers, {}
   local reach_sq = pole.wire_distance * pole.wire_distance
 
-  -- The nearest placed pole within wire reach, or nil.
+  -- The nearest placed pole within wire reach, or nil; asked once per placement.
   local function wire_target(c)
     local best, best_d
     for i, p in ipairs(placed) do
-      local d = distance_sq(c, p)
-      if d <= reach_sq and (not best_d or d < best_d) then best, best_d = i, d end
+      local dist = distance_sq(c, p)
+      if dist <= reach_sq and (not best_d or dist < best_d) then best, best_d = i, dist end
     end
     return best
-  end
-
-  -- A candidate is free while no placed pole overlaps it -- a placed pole's own spot included.
-  local function free(c)
-    for _, p in ipairs(placed) do
-      if c.dx < p.dx + pole.width and p.dx < c.dx + pole.width
-        and c.dy < p.dy + pole.height and p.dy < c.dy + pole.height then
-        return false
-      end
-    end
-    return true
   end
 
   local function gain_of(c)
@@ -114,11 +122,12 @@ function poles.plan(built, pole, margins)
     return gain
   end
 
-  -- The free candidate with the highest score, first found on a tie; score returns nil to skip.
+  -- The open candidate with the highest score, first found on a tie; score returns nil to skip.
+  -- `blocked` marks one a placed pole overlaps, a placed pole's own spot included.
   local function best_candidate(score)
     local best, best_score
     for _, c in ipairs(candidates) do
-      if free(c) then
+      if not c.blocked then
         local s = score(c)
         if s and (not best_score or s > best_score) then best, best_score = c, s end
       end
@@ -126,6 +135,8 @@ function poles.plan(built, pole, margins)
     return best
   end
 
+  -- Places a pole and brings every candidate's flags up to date: `blocked` once this pole
+  -- overlaps it, `near` once this pole stands within its wire reach.
   local function place(c)
     for _, i in ipairs(c.covers) do
       if not covered[i] then
@@ -133,12 +144,20 @@ function poles.plan(built, pole, margins)
         remaining = remaining - 1
       end
     end
-    placed[#placed + 1] = { dx = c.dx, dy = c.dy, cx = c.cx, cy = c.cy, wire_to = wire_target(c) }
+    local p = { dx = c.dx, dy = c.dy, cx = c.cx, cy = c.cy, wire_to = wire_target(c) }
+    placed[#placed + 1] = p
+    for _, other in ipairs(candidates) do
+      if not other.blocked and other.dx < p.dx + pole.width and p.dx < other.dx + pole.width
+        and other.dy < p.dy + pole.height and p.dy < other.dy + pole.height then
+        other.blocked = true
+      end
+      if not other.near and distance_sq(other, p) <= reach_sq then other.near = true end
+    end
   end
 
   while remaining > 0 do
     local best = best_candidate(function(c)
-      if #placed > 0 and not wire_target(c) then return nil end
+      if #placed > 0 and not c.near then return nil end
       local gain = gain_of(c)
       return gain > 0 and gain or nil
     end)
@@ -152,13 +171,13 @@ function poles.plan(built, pole, margins)
       if not target then break end
       local current
       for _, p in ipairs(placed) do
-        local d = distance_sq(p, target)
-        if not current or d < current then current = d end
+        local dist = distance_sq(p, target)
+        if not current or dist < current then current = dist end
       end
       best = best_candidate(function(c)
-        local d = distance_sq(c, target)
-        if not wire_target(c) or d >= current then return nil end
-        return -d
+        local dist = distance_sq(c, target)
+        if not c.near or dist >= current then return nil end
+        return -dist
       end)
       if not best then break end
     end

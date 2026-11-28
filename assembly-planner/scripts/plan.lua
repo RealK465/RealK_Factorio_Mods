@@ -299,39 +299,80 @@ local function electric_margins(entities)
   return out
 end
 
--- Poles over the cell: free tiles first, and only when they leave something dark, more ground
+-- poles.plan is pure and the costly part of a plan, and a chain's row keeps its layout from
+-- keystroke to keystroke while only its numbers change -- so the last few solves are kept,
+-- keyed by everything the solve reads. Module-local on purpose: a client without the cache
+-- computes the same answer, so nothing can desync. Callers copy what they take from a result.
+local solved, SOLVED_KEEP = {}, 8
+
+local function solve(built, pole, margins)
+  local parts = { built.width, built.height, pole.name, pole.quality, pole.width, pole.height,
+    pole.supply_distance, pole.wire_distance }
+  for _, e in ipairs(built.entities) do
+    parts[#parts + 1] = e.name
+    parts[#parts + 1] = e.dx
+    parts[#parts + 1] = e.dy
+    parts[#parts + 1] = e.w
+    parts[#parts + 1] = e.h
+  end
+  local key = table.concat(parts, ",")
+  for _, hit in ipairs(solved) do
+    if hit.key == key then return hit.result end
+  end
+  local result = poles.plan(built, pole, margins)
+  table.insert(solved, 1, { key = key, result = result })
+  solved[SOLVED_KEEP + 1] = nil
+  return result
+end
+
+-- Poles over a layout: free tiles first, and only when they leave something dark, more ground
 -- -- a column on the right, a row along the top, then both -- each kept only if it powers
--- strictly more, so a tie stays with the smaller cell. The row is what a short-reach pole needs
--- for a full row of beacons above the machine, which no free tile below can reach. Appends the
--- poles to the cell's entities, rebasing each wire onto plan indices. Returns the cell and the
--- unpowered count.
+-- strictly more, so a tie stays with the smaller layout. The row is what a short-reach pole
+-- needs for a full row of beacons above the machine, which no free tile below can reach.
+-- `larger(extra)` rebuilds the layout with that ground: one cell's, or every cell of a chain's
+-- at once. Appends the poles to the entities, rebasing each wire onto plan indices. Returns the
+-- layout and the unpowered count.
 local EXTRA_GROUND = { { column = true }, { row = true }, { column = true, row = true } }
 
-local function power(params, built, pole)
+function plan.power(built, pole, larger)
   local margins = electric_margins(built.entities)
-  local result = poles.plan(built, pole, margins)
+  local result = solve(built, pole, margins)
   for _, extra in ipairs(EXTRA_GROUND) do
     if result.unpowered == 0 then break end
-    params.pole_column = extra.column and pole.width or nil
-    params.pole_row = extra.row and pole.height or nil
-    local larger = cell.build(params)
-    local attempt = poles.plan(larger, pole, margins)
-    if attempt.unpowered < result.unpowered then built, result = larger, attempt end
+    local attempt_built = larger(extra)
+    local attempt = solve(attempt_built, pole, margins)
+    if attempt.unpowered < result.unpowered then built, result = attempt_built, attempt end
   end
   local base = #built.entities
   for _, e in ipairs(result.entities) do
-    if e.wire_to then e.wire_to = base + e.wire_to end
-    built.entities[#built.entities + 1] = e
+    local placed = {}
+    for key, value in pairs(e) do placed[key] = value end
+    if e.wire_to then placed.wire_to = base + e.wire_to end
+    built.entities[#built.entities + 1] = placed
   end
   return built, result.unpowered
+end
+
+-- The cell's params with extra ground for poles: a column of the pole's width on the right, a
+-- row of its height along the top.
+function plan.with_ground(params, pole, extra)
+  local out = {}
+  for k, v in pairs(params) do out[k] = v end
+  out.pole_column = extra.column and pole.width or nil
+  out.pole_row = extra.row and pole.height or nil
+  return out
 end
 
 local function message(key, ...)
   return { "apl-message." .. key, ... }
 end
 
-function plan.build(force, surface, choices)
-  local r = plan.picks(force, choices)
+-- Everything a cell is but its power: the picks resolved, the refusals, the requests, the
+-- layout, and every warning but the unpowered one. A chain powers its cells all at once, so
+-- this stops short of the poles. `r` is the picks when the caller has them. Returns the cell,
+-- or nil plus a message, or nil, nil before an item is picked.
+function plan.cell(force, surface, choices, r)
+  r = r or plan.picks(force, choices)
   if not r.item then return nil, nil end
   if not r.recipe then return nil, proto.item_refusal(r.item) end
 
@@ -516,17 +557,18 @@ function plan.build(force, surface, choices)
   }
   local built = cell.build(params)
 
-  local unpowered = 0
+  local pole
   if r.pole then
     local entity = prototypes.entity[r.pole]
-    built, unpowered = power(params, built, {
+    pole = {
       name = r.pole, quality = r.pole_quality, width = entity.tile_width, height = entity.tile_height,
       supply_distance = entity.get_supply_area_distance(r.pole_quality),
       wire_distance = entity.get_max_wire_distance(r.pole_quality),
-    })
+    }
   end
 
-  -- Warnings: the plan still places, but the player should know. Spoilage first.
+  -- Warnings: the plan still places, but the player should know. Spoilage first. One that reads
+  -- the same for every cell of a chain belongs in chain.lua's ONCE too.
   local warnings = {}
   local function warn(...) warnings[#warnings + 1] = message(...) end
   for _, request in ipairs(requests) do
@@ -592,10 +634,22 @@ function plan.build(force, surface, choices)
   end
   if cap.mode == "network" then warn("network-cap") end
   if split and effects.quality <= 0 then warn("split-nothing-above", prototypes.quality[quality].localised_name) end
-  if unpowered > 0 then warn("consumers-unpowered", unpowered) end
 
+  -- The product at the recipe's quality a minute, for a chain weighing this cell against the
+  -- cells it feeds: the real rate, productivity included, less the share rolling better --
+  -- none at the top tier, where nothing can.
+  local per_craft = 0
+  for _, product in pairs(recipe.products) do
+    if product.type == "item" and product.name == r.item then
+      per_craft = per_craft + calc.expected_count(product, productivity)
+    end
+  end
+  local rolls_better = higher and math.min(1, effects.quality) or 0
+
+  -- plan.result picks the finished plan's own fields out of this; keep the two in step.
   return {
-    entities = built.entities, width = built.width, height = built.height,
+    built = built, params = params, pole = pole, fluid = fluid and fluids[1].name or nil,
+    made_per_minute = rate * 60 * per_craft * (1 - rolls_better),
     product = r.item, product_quality = quality,
     trash_unrequested = plan.trash(choices),
     split = split, split_auto = auto,
@@ -610,6 +664,34 @@ function plan.build(force, surface, choices)
       productivity = effects.productivity, beacons = beacon_count or 0,
     },
   }
+end
+
+-- A finished plan from a laid-out, powered cell or row: what the window shows and Place hands
+-- over. `built` replaces the cell's own layout.
+function plan.result(c, built)
+  return {
+    entities = built.entities, width = built.width, height = built.height,
+    product = c.product, product_quality = c.product_quality,
+    trash_unrequested = c.trash_unrequested,
+    split = c.split, split_auto = c.split_auto,
+    request_rows = c.request_rows,
+    warnings = c.warnings,
+    stats = c.stats,
+  }
+end
+
+-- One cell, powered: the plan, or nil plus a message, or nil, nil before an item is picked.
+function plan.build(force, surface, choices)
+  local c, refusal = plan.cell(force, surface, choices)
+  if not c then return nil, refusal end
+  local built, unpowered = c.built, 0
+  if c.pole then
+    built, unpowered = plan.power(built, c.pole, function(extra)
+      return cell.build(plan.with_ground(c.params, c.pole, extra))
+    end)
+  end
+  if unpowered > 0 then c.warnings[#c.warnings + 1] = message("consumers-unpowered", unpowered) end
+  return plan.result(c, built)
 end
 
 return plan

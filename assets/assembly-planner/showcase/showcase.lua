@@ -336,6 +336,14 @@ script.on_event(defines.events.on_tick, function(event)
       beacon = "beacon", beacon_module = "speed-module-3", beacons_side = 1, beacons_above = 3,
       pole = "medium-electric-pole",
     }) do choices[k] = v end
+    -- A production chain, balanced: the circuits made beside the inserters, and the cable beside
+    -- those, each at the count the planner works out for them (green in the window).
+    state.of(player.index).cells = {
+      ["electronic-circuit"] = { on = true, machine = "assembling-machine-3", module = "productivity-module-3",
+        count = 3 },
+      ["copper-cable"] = { on = true, machine = "assembling-machine-3", module = "productivity-module-3",
+        count = 4 },
+    }
     gui.open(player)
   elseif t == 960 then
     -- Low enough that the window hides the electronic circuit cell's one dark inserter, whose
